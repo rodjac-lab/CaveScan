@@ -207,6 +207,9 @@ export default function BottlePage() {
               placeholder="Vos impressions sur ce vin..."
               className="mt-2 w-full rounded-md border bg-input p-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               rows={4}
+              spellCheck={true}
+              lang="fr"
+              autoCapitalize="sentences"
             />
             <Button
               className="mt-3 w-full bg-wine-900 hover:bg-wine-800"
