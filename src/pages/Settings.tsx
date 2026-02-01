@@ -11,7 +11,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { supabase } from '@/lib/supabase'
 import { useZones } from '@/hooks/useZones'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
