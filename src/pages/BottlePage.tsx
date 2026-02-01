@@ -11,7 +11,7 @@ import { getWineColorLabel, type WineColor } from '@/lib/types'
 const COLOR_STYLES: Record<WineColor, string> = {
   rouge: 'bg-red-900/30 text-red-300',
   blanc: 'bg-amber-100/30 text-amber-200',
-  rosé: 'bg-pink-300/30 text-pink-300',
+  rose: 'bg-pink-300/30 text-pink-300',
   bulles: 'bg-yellow-200/30 text-yellow-200',
 }
 

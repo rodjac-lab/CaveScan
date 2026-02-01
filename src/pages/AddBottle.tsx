@@ -16,7 +16,7 @@ import { Autocomplete } from '@/components/Autocomplete'
 import { supabase } from '@/lib/supabase'
 import { useZones } from '@/hooks/useZones'
 import { useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
-import { WINE_COLORS, type WineColor, type WineExtraction } from '@/lib/types'
+import { WINE_COLORS, normalizeWineColor, type WineColor, type WineExtraction } from '@/lib/types'
 
 type Step = 'capture' | 'extracting' | 'confirm' | 'saving'
 
@@ -73,7 +73,7 @@ export default function AddBottle() {
       setDomaine(data.domaine || '')
       setAppellation(data.appellation || '')
       setMillesime(data.millesime?.toString() || '')
-      setCouleur(data.couleur || '')
+      setCouleur(normalizeWineColor(data.couleur) || '')
       setStep('confirm')
     } catch (err) {
       console.error('Extraction error:', err)
@@ -103,7 +103,7 @@ export default function AddBottle() {
           if (!domaine && data.domaine) setDomaine(data.domaine)
           if (!appellation && data.appellation) setAppellation(data.appellation)
           if (!millesime && data.millesime) setMillesime(data.millesime.toString())
-          if (!couleur && data.couleur) setCouleur(data.couleur)
+          if (!couleur && data.couleur) setCouleur(normalizeWineColor(data.couleur) || '')
         }
       } catch (err) {
         console.error('Back extraction error:', err)
@@ -345,7 +345,7 @@ export default function AddBottle() {
                 ref={fileInputBackRef}
                 type="file"
                 accept="image/*"
-                                onChange={handleBackPhotoSelect}
+                onChange={handleBackPhotoSelect}
                 className="hidden"
               />
               <Button

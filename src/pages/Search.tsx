@@ -10,7 +10,7 @@ import { getWineColorLabel, type WineColor, type BottleWithZone } from '@/lib/ty
 const COLOR_STYLES: Record<WineColor, string> = {
   rouge: 'bg-red-900/30 text-red-300',
   blanc: 'bg-amber-100/30 text-amber-200',
-  rosé: 'bg-pink-300/30 text-pink-300',
+  rose: 'bg-pink-300/30 text-pink-300',
   bulles: 'bg-yellow-200/30 text-yellow-200',
 }
 
@@ -52,7 +52,7 @@ export default function Search() {
 
       {/* Color filters */}
       <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-        {(['rouge', 'blanc', 'rosé', 'bulles'] as WineColor[]).map((color) => (
+        {(['rouge', 'blanc', 'rose', 'bulles'] as WineColor[]).map((color) => (
           <Button
             key={color}
             size="sm"

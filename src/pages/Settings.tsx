@@ -13,10 +13,13 @@ import {
 } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
 import { useZones } from '@/hooks/useZones'
+import { useAuth } from '@/hooks/useAuth'
+import { supabase } from '@/lib/supabase'
 import type { Zone } from '@/lib/types'
 
 export default function Settings() {
   const { zones, loading, error, refetch } = useZones()
+  const { session } = useAuth()
   const [editingZone, setEditingZone] = useState<Zone | null>(null)
   const [isAddingZone, setIsAddingZone] = useState(false)
   const [zoneName, setZoneName] = useState('')
@@ -173,6 +176,24 @@ export default function Settings() {
             </p>
             <p className="text-sm text-muted-foreground mt-1">
               Gestion de cave à vin avec reconnaissance d'étiquettes
+            </p>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Debug section */}
+      <section className="mt-4">
+        <Card>
+          <CardContent className="p-4">
+            <h2 className="font-semibold mb-2">Debug connexion</h2>
+            <p className="text-xs text-muted-foreground break-all">
+              URL: {import.meta.env.VITE_SUPABASE_URL || 'non défini'}
+            </p>
+            <p className="text-xs text-muted-foreground break-all mt-1">
+              User ID: {session?.user?.id || 'aucun'}
+            </p>
+            <p className="text-xs text-muted-foreground break-all mt-1">
+              Auth OK: {supabase.auth ? 'oui' : 'non'}
             </p>
           </CardContent>
         </Card>

@@ -8,7 +8,7 @@ const EXTRACTION_PROMPT = `Analyse cette photo d'étiquette de vin et extrais le
   "domaine": "nom du domaine/château/producteur",
   "appellation": "appellation d'origine (AOC/AOP/DOC/DOCG...)",
   "millesime": année (nombre entier ou null si non visible),
-  "couleur": "rouge" | "blanc" | "rosé" | "bulles",
+  "couleur": "rouge" | "blanc" | "rose" | "bulles",
   "region": "région viticole",
   "cepage": "cépage principal si mentionné",
   "confidence": 0.0-1.0

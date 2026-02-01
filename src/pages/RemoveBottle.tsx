@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
 import { useBottles } from '@/hooks/useBottles'
-import { type WineColor, type BottleWithZone, type WineExtraction } from '@/lib/types'
+import { normalizeWineColor, type WineColor, type BottleWithZone, type WineExtraction } from '@/lib/types'
 
 type Step = 'choose' | 'extracting' | 'matching' | 'select' | 'confirm' | 'not_found' | 'saving'
 
@@ -16,7 +16,7 @@ const IMAGE_QUALITY = 0.85
 const COLOR_STYLES: Record<WineColor, string> = {
   rouge: 'bg-red-900/30 text-red-300',
   blanc: 'bg-amber-100/30 text-amber-200',
-  rosé: 'bg-pink-300/30 text-pink-300',
+  rose: 'bg-pink-300/30 text-pink-300',
   bulles: 'bg-yellow-200/30 text-yellow-200',
 }
 
@@ -144,7 +144,7 @@ export default function RemoveBottle() {
           domaine: extraction.domaine || null,
           appellation: extraction.appellation || null,
           millesime: extraction.millesime || null,
-          couleur: extraction.couleur || null,
+          couleur: normalizeWineColor(extraction.couleur) || null,
           photo_url: photoUrl,
           raw_extraction: extraction,
           status: 'drunk',

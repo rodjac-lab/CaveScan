@@ -12,7 +12,7 @@ CREATE TABLE bottles (
   domaine TEXT,                    -- Producer/château name
   appellation TEXT,                -- AOC/AOP/DOC
   millesime INTEGER,               -- Vintage year
-  couleur TEXT CHECK (couleur IN ('rouge', 'blanc', 'rosé', 'bulles')),
+  couleur TEXT CHECK (couleur IN ('rouge', 'blanc', 'rose', 'bulles')),
   raw_extraction JSONB,            -- Raw Claude response for debugging
 
   -- Location
