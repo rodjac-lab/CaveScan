@@ -1,6 +1,6 @@
 ﻿import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Camera, Loader2, Check, X, Wine, Search, PenLine, ImageIcon, Plus, Clock, Calendar } from 'lucide-react'
+import { Camera, Loader2, Check, X, Wine, Search, PenLine, ImageIcon, Plus, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -361,12 +361,16 @@ export default function RemoveBottle() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="truncate font-medium">
-                        {bottle.cuvee || bottle.domaine || bottle.appellation || 'Vin'}
+                        {bottle.domaine || bottle.appellation || 'Vin'}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {bottle.millesime && `${bottle.millesime} - `}
-                        {bottle.zone?.name}
+                      <p className="truncate text-xs text-muted-foreground">
+                        {[bottle.appellation, bottle.millesime].filter(Boolean).join(' · ')}
                       </p>
+                      {bottle.cuvee && (
+                        <p className="truncate text-xs text-muted-foreground">
+                          {bottle.cuvee}
+                        </p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -413,22 +417,16 @@ export default function RemoveBottle() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="truncate font-medium">
-                              {bottle.cuvee || bottle.domaine || bottle.appellation || 'Vin'}
+                              {bottle.domaine || bottle.appellation || 'Vin'}
                             </p>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                              {bottle.millesime && (
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  {bottle.millesime}
-                                </span>
-                              )}
-                              {dateLabel && (
-                                <span className="flex items-center gap-1">
-                                  <Clock className="h-3 w-3" />
-                                  {dateLabel}
-                                </span>
-                              )}
-                            </div>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {[bottle.appellation, bottle.millesime, dateLabel].filter(Boolean).join(' · ')}
+                            </p>
+                            {bottle.cuvee && (
+                              <p className="truncate text-xs text-muted-foreground">
+                                {bottle.cuvee}
+                              </p>
+                            )}
                           </div>
                         </CardContent>
                       </Card>

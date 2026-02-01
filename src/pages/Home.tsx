@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Wine, MapPin, Calendar, Loader2 } from 'lucide-react'
+import { Wine, Loader2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useBottles } from '@/hooks/useBottles'
@@ -176,25 +176,16 @@ export default function Home() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <p className="truncate font-medium">
-                      {bottle.cuvee || bottle.domaine || bottle.appellation || 'Vin inconnu'}
+                      {bottle.domaine || bottle.appellation || 'Vin inconnu'}
                     </p>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      {bottle.appellation && bottle.domaine && (
-                        <span className="truncate">{bottle.appellation}</span>
-                      )}
-                      {bottle.millesime && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {bottle.millesime}
-                        </span>
-                      )}
-                      {bottle.zone && (
-                        <span className="flex items-center gap-1 truncate">
-                          <MapPin className="h-3 w-3" />
-                          {bottle.zone.name}
-                        </span>
-                      )}
-                    </div>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {[bottle.appellation, bottle.millesime].filter(Boolean).join(' · ')}
+                    </p>
+                    {bottle.cuvee && (
+                      <p className="truncate text-xs text-muted-foreground">
+                        {bottle.cuvee}
+                      </p>
+                    )}
                   </div>
 
                   {/* Color badge */}
