@@ -1,14 +1,14 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, Loader2, Check, X, Wine, Search } from 'lucide-react'
+import { Camera, Loader2, Check, X, Wine, Search, PenLine } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
 import { useBottles } from '@/hooks/useBottles'
-import { type WineColor, type BottleWithZone } from '@/lib/types'
+import { type WineColor, type BottleWithZone, type WineExtraction } from '@/lib/types'
 
-type Step = 'choose' | 'extracting' | 'matching' | 'select' | 'confirm' | 'saving'
+type Step = 'choose' | 'extracting' | 'matching' | 'select' | 'confirm' | 'not_found' | 'saving'
 
 const MAX_IMAGE_SIZE = 1200
 const IMAGE_QUALITY = 0.85
@@ -30,6 +30,8 @@ export default function RemoveBottle() {
   const [matches, setMatches] = useState<BottleWithZone[]>([])
   const [selectedBottle, setSelectedBottle] = useState<BottleWithZone | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [extraction, setExtraction] = useState<WineExtraction | null>(null)
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
 
   const filteredBottles = searchQuery.length >= 2
     ? bottles.filter(b => {
@@ -47,6 +49,7 @@ export default function RemoveBottle() {
     if (!file) return
 
     setError(null)
+    setPhotoFile(file)
     setStep('extracting')
 
     try {
@@ -60,12 +63,15 @@ export default function RemoveBottle() {
 
       if (extractError) throw extractError
 
+      // Store extraction for potential "not found" flow
+      setExtraction(data)
+
       // Find matching bottles in inventory
       const matched = findMatches(bottles, data)
 
       if (matched.length === 0) {
-        setError('Aucune bouteille correspondante trouvée dans votre cave.')
-        setStep('choose')
+        // No match - offer to log as tasting
+        setStep('not_found')
       } else if (matched.length === 1) {
         setSelectedBottle(matched[0])
         setStep('confirm')
@@ -102,7 +108,58 @@ export default function RemoveBottle() {
       setError('Échec de l\'enregistrement')
       setStep('confirm')
     } else {
-      navigate('/')
+      navigate(`/bottle/${selectedBottle.id}`)
+    }
+  }
+
+  const handleLogTasting = async () => {
+    if (!extraction) return
+
+    setStep('saving')
+
+    try {
+      let photoUrl: string | null = null
+
+      // Upload photo if exists
+      if (photoFile) {
+        const compressedBlob = await resizeImage(photoFile, MAX_IMAGE_SIZE, IMAGE_QUALITY)
+        const fileName = `${Date.now()}-front.jpg`
+        const { error: uploadError } = await supabase.storage
+          .from('wine-labels')
+          .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from('wine-labels')
+            .getPublicUrl(fileName)
+          photoUrl = urlData.publicUrl
+        }
+      }
+
+      // Create bottle directly as drunk
+      const { data, error } = await supabase
+        .from('bottles')
+        .insert({
+          domaine: extraction.domaine || null,
+          appellation: extraction.appellation || null,
+          millesime: extraction.millesime || null,
+          couleur: extraction.couleur || null,
+          photo_url: photoUrl,
+          raw_extraction: extraction,
+          status: 'drunk',
+          drunk_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Navigate to bottle page to add tasting note
+      navigate(`/bottle/${data.id}`)
+    } catch (err) {
+      console.error('Save error:', err)
+      setError('Échec de l\'enregistrement')
+      setStep('not_found')
     }
   }
 
@@ -112,6 +169,8 @@ export default function RemoveBottle() {
     setMatches([])
     setSelectedBottle(null)
     setError(null)
+    setExtraction(null)
+    setPhotoFile(null)
   }
 
   return (
@@ -259,6 +318,42 @@ export default function RemoveBottle() {
             <X className="mr-2 h-4 w-4" />
             Annuler
           </Button>
+        </div>
+      )}
+
+      {/* Step: Not found - offer to log tasting */}
+      {step === 'not_found' && extraction && (
+        <div className="mt-6 space-y-4">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <Wine className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+              <p className="font-medium text-lg">
+                {extraction.domaine || extraction.appellation || 'Vin'}
+              </p>
+              {extraction.millesime && (
+                <p className="text-muted-foreground">{extraction.millesime}</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <p className="text-center text-muted-foreground">
+            Ce vin n'est pas dans ta cave.<br />
+            Tu veux noter cette dégustation ?
+          </p>
+
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={handleReset}>
+              <X className="mr-2 h-4 w-4" />
+              Annuler
+            </Button>
+            <Button
+              className="flex-1 bg-wine-900 hover:bg-wine-800"
+              onClick={handleLogTasting}
+            >
+              <PenLine className="mr-2 h-4 w-4" />
+              Noter
+            </Button>
+          </div>
         </div>
       )}
 
