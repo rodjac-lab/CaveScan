@@ -45,6 +45,7 @@ export default function AddBottle() {
   const [couleur, setCouleur] = useState<WineColor | ''>('')
   const [zoneId, setZoneId] = useState('')
   const [shelf, setShelf] = useState('')
+  const [purchasePrice, setPurchasePrice] = useState('')
   const [quantity, setQuantity] = useState(1)
   const [rawExtraction, setRawExtraction] = useState<WineExtraction | null>(null)
 
@@ -166,6 +167,7 @@ export default function AddBottle() {
         couleur: couleur || null,
         zone_id: zoneId || null,
         shelf: shelf || null,
+        purchase_price: purchasePrice ? parseFloat(purchasePrice.replace(',', '.')) : null,
         photo_url: photoUrl,
         photo_url_back: photoUrlBack,
         raw_extraction: rawExtraction,
@@ -199,6 +201,7 @@ export default function AddBottle() {
     setCouleur('')
     setZoneId('')
     setShelf('')
+    setPurchasePrice('')
     setQuantity(1)
     setRawExtraction(null)
     setError(null)
@@ -445,6 +448,17 @@ export default function AddBottle() {
                 value={shelf}
                 onChange={(e) => setShelf(e.target.value)}
                 placeholder="Étagère 1, Haut, etc."
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="price">Prix d'achat (€)</Label>
+              <Input
+                id="price"
+                inputMode="decimal"
+                value={purchasePrice}
+                onChange={(e) => setPurchasePrice(e.target.value.replace(/[^0-9.,]/g, ''))}
+                placeholder="12.50"
               />
             </div>
           </div>

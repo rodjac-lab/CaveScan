@@ -29,7 +29,8 @@ export interface Bottle {
   drunk_at: string | null
   updated_at: string
   tasting_note: string | null
-  price: number | null
+  purchase_price: number | null
+  market_value: number | null
   drink_from: number | null
   drink_until: number | null
   notes: string | null

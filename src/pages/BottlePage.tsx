@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, Calendar, Wine, Loader2, Save, Share2 } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -225,6 +225,21 @@ export default function BottlePage() {
               <span>
                 {bottle.zone.name}
                 {bottle.shelf && ` - ${bottle.shelf}`}
+              </span>
+            </div>
+          )}
+
+          {(bottle.purchase_price || bottle.market_value) && (
+            <div className="flex items-center gap-2">
+              <Euro className="h-4 w-4 text-muted-foreground" />
+              <span>
+                {bottle.purchase_price && `${bottle.purchase_price.toFixed(2)} €`}
+                {bottle.purchase_price && bottle.market_value && ' · '}
+                {bottle.market_value && (
+                  <span className="text-muted-foreground">
+                    Valeur: {bottle.market_value.toFixed(2)} €
+                  </span>
+                )}
               </span>
             </div>
           )}
