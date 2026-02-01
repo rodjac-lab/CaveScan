@@ -88,12 +88,13 @@ export default function AddBottle() {
     try {
       let photoUrl: string | null = null
 
-      // Upload photo if exists
+      // Upload compressed photo if exists
       if (photoFile) {
-        const fileName = `${Date.now()}-${photoFile.name}`
+        const compressedBlob = await resizeImage(photoFile, MAX_IMAGE_SIZE, IMAGE_QUALITY)
+        const fileName = `${Date.now()}.jpg`
         const { error: uploadError } = await supabase.storage
           .from('wine-labels')
-          .upload(fileName, photoFile)
+          .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
 
         if (uploadError) throw uploadError
 
