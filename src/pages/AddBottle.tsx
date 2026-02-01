@@ -233,8 +233,7 @@ export default function AddBottle() {
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            capture="environment"
-            onChange={handleFileSelect}
+                        onChange={handleFileSelect}
             className="hidden"
           />
 
@@ -324,8 +323,7 @@ export default function AddBottle() {
                 ref={fileInputBackRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
-                onChange={handleBackPhotoSelect}
+                                onChange={handleBackPhotoSelect}
                 className="hidden"
               />
               <Button

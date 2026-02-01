@@ -194,8 +194,7 @@ export default function RemoveBottle() {
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            capture="environment"
-            onChange={handleFileSelect}
+                        onChange={handleFileSelect}
             className="hidden"
           />
 
