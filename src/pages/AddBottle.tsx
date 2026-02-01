@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, Loader2, Check, X, Wine, Plus } from 'lucide-react'
+import { Camera, Loader2, Check, X, Wine, Plus, Minus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -45,6 +45,7 @@ export default function AddBottle() {
   const [couleur, setCouleur] = useState<WineColor | ''>('')
   const [zoneId, setZoneId] = useState('')
   const [shelf, setShelf] = useState('')
+  const [quantity, setQuantity] = useState(1)
   const [rawExtraction, setRawExtraction] = useState<WineExtraction | null>(null)
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -157,8 +158,8 @@ export default function AddBottle() {
         photoUrlBack = urlData.publicUrl
       }
 
-      // Insert bottle
-      const { error: insertError } = await supabase.from('bottles').insert({
+      // Create bottle records (one per quantity)
+      const bottleData = {
         domaine: domaine || null,
         appellation: appellation || null,
         millesime: millesime ? parseInt(millesime) : null,
@@ -169,7 +170,11 @@ export default function AddBottle() {
         photo_url_back: photoUrlBack,
         raw_extraction: rawExtraction,
         status: 'in_stock',
-      })
+      }
+
+      // Insert multiple bottles if quantity > 1
+      const bottles = Array.from({ length: quantity }, () => ({ ...bottleData }))
+      const { error: insertError } = await supabase.from('bottles').insert(bottles)
 
       if (insertError) throw insertError
 
@@ -194,6 +199,7 @@ export default function AddBottle() {
     setCouleur('')
     setZoneId('')
     setShelf('')
+    setQuantity(1)
     setRawExtraction(null)
     setError(null)
   }
@@ -385,7 +391,38 @@ export default function AddBottle() {
               </div>
             </div>
 
+            {/* Quantity selector */}
             <div className="pt-2 border-t">
+              <Label>Quantité</Label>
+              <div className="flex items-center gap-3 mt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                  disabled={quantity <= 1}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <span className="text-xl font-semibold w-8 text-center">{quantity}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setQuantity(q => Math.min(12, q + 1))}
+                  disabled={quantity >= 12}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+                {quantity > 1 && (
+                  <span className="text-sm text-muted-foreground">
+                    bouteilles
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div>
               <Label htmlFor="zone">Zone de stockage</Label>
               <Select value={zoneId} onValueChange={setZoneId} disabled={zonesLoading}>
                 <SelectTrigger id="zone">
@@ -422,7 +459,7 @@ export default function AddBottle() {
               onClick={handleSave}
             >
               <Check className="mr-2 h-4 w-4" />
-              Enregistrer
+              {quantity > 1 ? `Ajouter ${quantity} bouteilles` : 'Enregistrer'}
             </Button>
           </div>
         </div>
