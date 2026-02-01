@@ -54,14 +54,14 @@ export function Autocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Update dropdown position when open or on scroll/resize
+  // Update dropdown position when open
   useEffect(() => {
     function updatePosition() {
       if (inputRef.current && isOpen) {
         const rect = inputRef.current.getBoundingClientRect()
         setDropdownPosition({
-          top: rect.bottom + window.scrollY,
-          left: rect.left + window.scrollX,
+          top: rect.bottom,
+          left: rect.left,
           width: rect.width,
         })
       }
@@ -69,11 +69,16 @@ export function Autocomplete({
 
     updatePosition()
 
+    // Close dropdown on scroll (standard mobile UX)
+    function handleScroll() {
+      setIsOpen(false)
+    }
+
     if (isOpen) {
-      window.addEventListener('scroll', updatePosition, true)
+      window.addEventListener('scroll', handleScroll, true)
       window.addEventListener('resize', updatePosition)
       return () => {
-        window.removeEventListener('scroll', updatePosition, true)
+        window.removeEventListener('scroll', handleScroll, true)
         window.removeEventListener('resize', updatePosition)
       }
     }
