@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -160,6 +160,11 @@ export default function BottlePage() {
           <span className={`rounded-full px-3 py-1 text-sm ${COLOR_STYLES[bottle.couleur]}`}>
             {getWineColorLabel(bottle.couleur)}
           </span>
+        )}
+        {!isDrunk && (
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/bottle/${bottle.id}/edit`)}>
+            <Pencil className="h-5 w-5" />
+          </Button>
         )}
       </div>
 
