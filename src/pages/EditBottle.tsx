@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Autocomplete } from '@/components/Autocomplete'
 import { supabase } from '@/lib/supabase'
 import { useZones } from '@/hooks/useZones'
@@ -29,6 +30,7 @@ export default function EditBottle() {
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [zoomImage, setZoomImage] = useState<{ src: string; label?: string } | null>(null)
 
   // Form state
   const [domaine, setDomaine] = useState('')
@@ -144,7 +146,8 @@ export default function EditBottle() {
                   <img
                     src={bottle.photo_url}
                     alt="Etiquette avant"
-                    className="max-h-24 w-full rounded object-contain bg-black/20"
+                    className="max-h-24 w-full rounded object-contain bg-black/20 cursor-zoom-in"
+                    onClick={() => setZoomImage({ src: bottle.photo_url, label: 'Avant' })}
                   />
                 </div>
               )}
@@ -153,7 +156,8 @@ export default function EditBottle() {
                   <img
                     src={bottle.photo_url_back}
                     alt="Etiquette arriere"
-                    className="max-h-24 w-full rounded object-contain bg-black/20"
+                    className="max-h-24 w-full rounded object-contain bg-black/20 cursor-zoom-in"
+                    onClick={() => setZoomImage({ src: bottle.photo_url_back, label: 'Arriere' })}
                   />
                 </div>
               )}
@@ -297,6 +301,24 @@ export default function EditBottle() {
           </Button>
         </div>
       </div>
+
+      <Dialog open={!!zoomImage} onOpenChange={(open) => !open && setZoomImage(null)}>
+        <DialogContent
+          className="max-w-[calc(100%-1rem)] p-2 sm:max-w-3xl"
+          showCloseButton={false}
+        >
+          <div className="flex flex-col gap-2">
+            <img
+              src={zoomImage?.src}
+              alt={zoomImage?.label ? `Photo ${zoomImage.label}` : 'Photo'}
+              className="max-h-[80vh] w-full object-contain rounded-md bg-black/80"
+            />
+            {zoomImage?.label && (
+              <p className="text-center text-xs text-muted-foreground">{zoomImage.label}</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

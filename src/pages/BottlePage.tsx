@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro, Pencil, Plus, Camera, ImageIcon, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
 import { useBottle } from '@/hooks/useBottles'
@@ -28,6 +29,7 @@ export default function BottlePage() {
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [zoomImage, setZoomImage] = useState<{ src: string; label?: string } | null>(null)
 
   // Tasting photo state
   const [showPhotoOptions, setShowPhotoOptions] = useState(false)
@@ -243,7 +245,8 @@ export default function BottlePage() {
                 <img
                   src={bottle.photo_url}
                   alt="Étiquette avant"
-                  className={`w-full object-contain bg-black/20 ${bottle.photo_url_back ? 'max-h-48 rounded' : 'max-h-64'}`}
+                  className={`w-full object-contain bg-black/20 cursor-zoom-in ${bottle.photo_url_back ? 'max-h-48 rounded' : 'max-h-64'}`}
+                  onClick={() => setZoomImage({ src: bottle.photo_url, label: 'Avant' })}
                 />
                 {bottle.photo_url_back && (
                   <p className="text-xs text-center text-muted-foreground mt-1">Avant</p>
@@ -255,7 +258,8 @@ export default function BottlePage() {
                 <img
                   src={bottle.photo_url_back}
                   alt="Étiquette arrière"
-                  className={`w-full object-contain bg-black/20 ${bottle.photo_url ? 'max-h-48 rounded' : 'max-h-64'}`}
+                  className={`w-full object-contain bg-black/20 cursor-zoom-in ${bottle.photo_url ? 'max-h-48 rounded' : 'max-h-64'}`}
+                  onClick={() => setZoomImage({ src: bottle.photo_url_back, label: 'Arriere' })}
                 />
                 {bottle.photo_url && (
                   <p className="text-xs text-center text-muted-foreground mt-1">Arrière</p>
@@ -297,7 +301,8 @@ export default function BottlePage() {
                     <img
                       src={photo.url}
                       alt={photo.label || 'Photo de dégustation'}
-                      className="h-20 w-20 rounded object-cover"
+                      className="h-20 w-20 rounded object-cover cursor-zoom-in"
+                      onClick={() => setZoomImage({ src: photo.url, label: photo.label })}
                     />
                     {photo.label && (
                       <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] text-center py-0.5 rounded-b">
@@ -524,6 +529,24 @@ export default function BottlePage() {
           Marquer comme bue
         </Button>
       )}
+
+      <Dialog open={!!zoomImage} onOpenChange={(open) => !open && setZoomImage(null)}>
+        <DialogContent
+          className="max-w-[calc(100%-1rem)] p-2 sm:max-w-3xl"
+          showCloseButton={false}
+        >
+          <div className="flex flex-col gap-2">
+            <img
+              src={zoomImage?.src}
+              alt={zoomImage?.label ? `Photo ${zoomImage.label}` : 'Photo'}
+              className="max-h-[80vh] w-full object-contain rounded-md bg-black/80"
+            />
+            {zoomImage?.label && (
+              <p className="text-center text-xs text-muted-foreground">{zoomImage.label}</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+﻿import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Camera, Loader2, Check, X, Wine, Plus, Minus, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Autocomplete } from '@/components/Autocomplete'
 import { supabase } from '@/lib/supabase'
 import { useZones } from '@/hooks/useZones'
@@ -37,6 +38,7 @@ export default function AddBottle() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoFileBack, setPhotoFileBack] = useState<File | null>(null)
   const [photoPreviewBack, setPhotoPreviewBack] = useState<string | null>(null)
+  const [zoomImage, setZoomImage] = useState<{ src: string; label?: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // Extracted/editable data
@@ -77,7 +79,7 @@ export default function AddBottle() {
       setStep('confirm')
     } catch (err) {
       console.error('Extraction error:', err)
-      setError('Échec de l\'extraction. Vous pouvez saisir manuellement.')
+      setError('Ã‰chec de l\'extraction. Vous pouvez saisir manuellement.')
       setStep('confirm')
     }
   }
@@ -185,7 +187,7 @@ export default function AddBottle() {
       navigate('/')
     } catch (err) {
       console.error('Save error:', err)
-      setError(err instanceof Error ? err.message : 'Échec de l\'enregistrement')
+      setError(err instanceof Error ? err.message : 'Ã‰chec de l\'enregistrement')
       setStep('confirm')
     }
   }
@@ -227,7 +229,7 @@ export default function AddBottle() {
       {step === 'capture' && (
         <div className="mt-6 space-y-4">
           <p className="text-muted-foreground">
-            Prenez une photo de l'étiquette ou saisissez manuellement
+            Prenez une photo de l'Ã©tiquette ou saisissez manuellement
           </p>
 
           {/* Camera input */}
@@ -294,13 +296,14 @@ export default function AddBottle() {
           {photoPreview && (
             <img
               src={photoPreview}
-              alt="Étiquette"
-              className="max-h-48 rounded-lg object-contain"
+              alt="Ã‰tiquette"
+              className="max-h-48 rounded-lg object-contain cursor-zoom-in"
+              onClick={() => setZoomImage({ src: photoPreview })}
             />
           )}
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Analyse de l'étiquette...</span>
+            <span>Analyse de l'Ã©tiquette...</span>
           </div>
         </div>
       )}
@@ -317,8 +320,9 @@ export default function AddBottle() {
                     <div className="flex-1">
                       <img
                         src={photoPreview}
-                        alt="Étiquette avant"
-                        className="max-h-28 w-full rounded object-contain"
+                        alt="Ã‰tiquette avant"
+                        className="max-h-28 w-full rounded object-contain cursor-zoom-in"
+                        onClick={() => setZoomImage({ src: photoPreview, label: 'Avant' })}
                       />
                       <p className="text-xs text-center text-muted-foreground mt-1">Avant</p>
                     </div>
@@ -327,10 +331,11 @@ export default function AddBottle() {
                     <div className="flex-1">
                       <img
                         src={photoPreviewBack}
-                        alt="Étiquette arrière"
-                        className="max-h-28 w-full rounded object-contain"
+                        alt="Ã‰tiquette arriÃ¨re"
+                        className="max-h-28 w-full rounded object-contain cursor-zoom-in"
+                        onClick={() => setZoomImage({ src: photoPreviewBack, label: 'Arriere' })}
                       />
-                      <p className="text-xs text-center text-muted-foreground mt-1">Arrière</p>
+                      <p className="text-xs text-center text-muted-foreground mt-1">ArriÃ¨re</p>
                     </div>
                   )}
                 </div>
@@ -355,7 +360,7 @@ export default function AddBottle() {
                 onClick={() => fileInputBackRef.current?.click()}
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Ajouter la contre-étiquette
+                Ajouter la contre-Ã©tiquette
               </Button>
             </>
           )}
@@ -368,7 +373,7 @@ export default function AddBottle() {
                 value={domaine}
                 onChange={setDomaine}
                 suggestions={domainesSuggestions}
-                placeholder="ex: Château Margaux"
+                placeholder="ex: ChÃ¢teau Margaux"
               />
             </div>
 
@@ -385,7 +390,7 @@ export default function AddBottle() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="millesime">Millésime</Label>
+                <Label htmlFor="millesime">MillÃ©sime</Label>
                 <Input
                   id="millesime"
                   inputMode="numeric"
@@ -416,7 +421,7 @@ export default function AddBottle() {
 
             {/* Quantity selector */}
             <div className="pt-2 border-t">
-              <Label>Quantité</Label>
+              <Label>QuantitÃ©</Label>
               <div className="flex items-center gap-3 mt-1">
                 <Button
                   type="button"
@@ -462,17 +467,17 @@ export default function AddBottle() {
             </div>
 
             <div>
-              <Label htmlFor="shelf">Étagère / Emplacement</Label>
+              <Label htmlFor="shelf">Ã‰tagÃ¨re / Emplacement</Label>
               <Input
                 id="shelf"
                 value={shelf}
                 onChange={(e) => setShelf(e.target.value)}
-                placeholder="ex: Étagère 1, Haut..."
+                placeholder="ex: Ã‰tagÃ¨re 1, Haut..."
               />
             </div>
 
             <div>
-              <Label htmlFor="price">Prix d'achat (€)</Label>
+              <Label htmlFor="price">Prix d'achat (â‚¬)</Label>
               <Input
                 id="price"
                 inputMode="decimal"
@@ -506,6 +511,24 @@ export default function AddBottle() {
           <span className="text-muted-foreground">Enregistrement...</span>
         </div>
       )}
+
+      <Dialog open={!!zoomImage} onOpenChange={(open) => !open && setZoomImage(null)}>
+        <DialogContent
+          className="max-w-[calc(100%-1rem)] p-2 sm:max-w-3xl"
+          showCloseButton={false}
+        >
+          <div className="flex flex-col gap-2">
+            <img
+              src={zoomImage?.src}
+              alt={zoomImage?.label ? `Photo ${zoomImage.label}` : 'Photo'}
+              className="max-h-[80vh] w-full object-contain rounded-md bg-black/80"
+            />
+            {zoomImage?.label && (
+              <p className="text-center text-xs text-muted-foreground">{zoomImage.label}</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -590,3 +613,4 @@ async function resizeImage(file: File, maxSize: number, quality: number): Promis
     img.src = objectUrl
   })
 }
+

@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react'
+﻿import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Camera, Loader2, Check, X, Wine, Search, PenLine, ImageIcon, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
 import { useBottles } from '@/hooks/useBottles'
 import { normalizeWineColor, type WineColor, type BottleWithZone, type WineExtraction, type TastingPhoto } from '@/lib/types'
@@ -33,6 +34,7 @@ export default function RemoveBottle() {
   const [error, setError] = useState<string | null>(null)
   const [extraction, setExtraction] = useState<WineExtraction | null>(null)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [zoomImage, setZoomImage] = useState<{ src: string; label?: string } | null>(null)
 
   // Tasting photos state
   const [tastingPhotos, setTastingPhotos] = useState<{ file: File; label?: string; preview: string }[]>([])
@@ -92,7 +94,7 @@ export default function RemoveBottle() {
       }
     } catch (err) {
       console.error('Extraction error:', err)
-      setError('Échec de la reconnaissance. Essayez la recherche manuelle.')
+      setError('Ã‰chec de la reconnaissance. Essayez la recherche manuelle.')
       setStep('choose')
     }
   }
@@ -145,7 +147,7 @@ export default function RemoveBottle() {
         .eq('id', selectedBottle.id)
 
       if (error) {
-        setError('Échec de l\'enregistrement')
+        setError('Ã‰chec de l\'enregistrement')
         setStep('confirm')
       } else {
         // Cleanup previews
@@ -154,7 +156,7 @@ export default function RemoveBottle() {
       }
     } catch (err) {
       console.error('Save error:', err)
-      setError('Échec de l\'enregistrement')
+      setError('Ã‰chec de l\'enregistrement')
       setStep('confirm')
     }
   }
@@ -205,7 +207,7 @@ export default function RemoveBottle() {
       navigate(`/bottle/${data.id}`)
     } catch (err) {
       console.error('Save error:', err)
-      setError('Échec de l\'enregistrement')
+      setError('Ã‰chec de l\'enregistrement')
       setStep('not_found')
     }
   }
@@ -258,7 +260,7 @@ export default function RemoveBottle() {
 
   return (
     <div className="flex-1 p-4">
-      <h1 className="text-2xl font-bold">Déguster</h1>
+      <h1 className="text-2xl font-bold">DÃ©guster</h1>
 
       {error && (
         <div className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
@@ -270,7 +272,7 @@ export default function RemoveBottle() {
       {step === 'choose' && (
         <div className="mt-6 space-y-4">
           <p className="text-muted-foreground">
-            Scannez l'étiquette du vin que vous dégustez
+            Scannez l'Ã©tiquette du vin que vous dÃ©gustez
           </p>
 
           {/* Camera input */}
@@ -364,7 +366,7 @@ export default function RemoveBottle() {
 
           {searchQuery.length >= 2 && filteredBottles.length === 0 && (
             <p className="text-center text-sm text-muted-foreground">
-              Aucun résultat pour "{searchQuery}"
+              Aucun rÃ©sultat pour "{searchQuery}"
             </p>
           )}
         </div>
@@ -375,7 +377,7 @@ export default function RemoveBottle() {
         <div className="mt-6 flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-wine-600" />
           <span className="text-muted-foreground">
-            {step === 'extracting' ? 'Analyse de l\'étiquette...' : 'Recherche dans la cave...'}
+            {step === 'extracting' ? 'Analyse de l\'Ã©tiquette...' : 'Recherche dans la cave...'}
           </span>
         </div>
       )}
@@ -441,7 +443,7 @@ export default function RemoveBottle() {
 
           <p className="text-center text-muted-foreground">
             Ce vin n'est pas dans ta cave.<br />
-            Tu veux noter cette dégustation ?
+            Tu veux noter cette dÃ©gustation ?
           </p>
 
           <div className="flex gap-3">
@@ -470,15 +472,17 @@ export default function RemoveBottle() {
                   {selectedBottle.photo_url && (
                     <img
                       src={selectedBottle.photo_url}
-                      alt="Étiquette avant"
-                      className={`rounded object-contain ${selectedBottle.photo_url_back ? 'flex-1 max-h-24' : 'w-full max-h-32'}`}
+                      alt="Ã‰tiquette avant"
+                      className={`rounded object-contain cursor-zoom-in ${selectedBottle.photo_url_back ? 'flex-1 max-h-24' : 'w-full max-h-32'}`}
+                      onClick={() => setZoomImage({ src: selectedBottle.photo_url as string, label: 'Avant' })}
                     />
                   )}
                   {selectedBottle.photo_url_back && (
                     <img
                       src={selectedBottle.photo_url_back}
-                      alt="Étiquette arrière"
-                      className={`rounded object-contain ${selectedBottle.photo_url ? 'flex-1 max-h-24' : 'w-full max-h-32'}`}
+                      alt="Ã‰tiquette arriÃ¨re"
+                      className={`rounded object-contain cursor-zoom-in ${selectedBottle.photo_url ? 'flex-1 max-h-24' : 'w-full max-h-32'}`}
+                      onClick={() => setZoomImage({ src: selectedBottle.photo_url_back as string, label: 'Arriere' })}
                     />
                   )}
                 </div>
@@ -536,8 +540,9 @@ export default function RemoveBottle() {
                   <div key={index} className="relative">
                     <img
                       src={photo.preview}
-                      alt={photo.label || 'Photo de dégustation'}
-                      className="h-16 w-16 rounded object-cover"
+                      alt={photo.label || 'Photo de dÃ©gustation'}
+                      className="h-16 w-16 rounded object-cover cursor-zoom-in"
+                      onClick={() => setZoomImage({ src: photo.preview, label: photo.label })}
                     />
                     {photo.label && (
                       <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] text-center py-0.5 rounded-b">
@@ -662,6 +667,24 @@ export default function RemoveBottle() {
           <span className="text-muted-foreground">Enregistrement...</span>
         </div>
       )}
+
+      <Dialog open={!!zoomImage} onOpenChange={(open) => !open && setZoomImage(null)}>
+        <DialogContent
+          className="max-w-[calc(100%-1rem)] p-2 sm:max-w-3xl"
+          showCloseButton={false}
+        >
+          <div className="flex flex-col gap-2">
+            <img
+              src={zoomImage?.src}
+              alt={zoomImage?.label ? `Photo ${zoomImage.label}` : 'Photo'}
+              className="max-h-[80vh] w-full object-contain rounded-md bg-black/80"
+            />
+            {zoomImage?.label && (
+              <p className="text-center text-xs text-muted-foreground">{zoomImage.label}</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -769,3 +792,4 @@ async function resizeImage(file: File, maxSize: number, quality: number): Promis
     img.src = objectUrl
   })
 }
+
