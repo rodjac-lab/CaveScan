@@ -4,6 +4,7 @@ import BottomNav from './components/BottomNav'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import Home from './pages/Home'
 import AddBottle from './pages/AddBottle'
+import EditBottle from './pages/EditBottle'
 import RemoveBottle from './pages/RemoveBottle'
 import BottlePage from './pages/BottlePage'
 import Search from './pages/Search'
@@ -34,6 +35,7 @@ function AppLayout() {
             <Route path="/add" element={<AddBottle />} />
             <Route path="/remove" element={<RemoveBottle />} />
             <Route path="/bottle/:id" element={<BottlePage />} />
+            <Route path="/bottle/:id/edit" element={<EditBottle />} />
             <Route path="/search" element={<Search />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
