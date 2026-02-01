@@ -1,12 +1,12 @@
 ﻿import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Camera, Loader2, Check, X, Wine, Search, PenLine, ImageIcon, Plus } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Camera, Loader2, Check, X, Wine, Search, PenLine, ImageIcon, Plus, Clock, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
-import { useBottles } from '@/hooks/useBottles'
+import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
 import { normalizeWineColor, type WineColor, type BottleWithZone, type WineExtraction, type TastingPhoto } from '@/lib/types'
 
 type Step = 'choose' | 'extracting' | 'matching' | 'select' | 'confirm' | 'not_found' | 'saving'
@@ -26,6 +26,7 @@ export default function RemoveBottle() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const fileInputGalleryRef = useRef<HTMLInputElement>(null)
   const { bottles } = useBottles()
+  const { bottles: recentlyDrunk, loading: drunkLoading } = useRecentlyDrunk()
 
   const [step, setStep] = useState<Step>('choose')
   const [searchQuery, setSearchQuery] = useState('')
@@ -45,6 +46,13 @@ export default function RemoveBottle() {
   const tastingPhotoGalleryRef = useRef<HTMLInputElement>(null)
 
   const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Autre']
+
+  const formatDrunkDate = (value?: string | null) => {
+    if (!value) return null
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return null
+    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+  }
 
   const filteredBottles = searchQuery.length >= 2
     ? bottles.filter(b => {
@@ -94,7 +102,7 @@ export default function RemoveBottle() {
       }
     } catch (err) {
       console.error('Extraction error:', err)
-      setError('Ã‰chec de la reconnaissance. Essayez la recherche manuelle.')
+      setError('Échec de la reconnaissance. Essayez la recherche manuelle.')
       setStep('choose')
     }
   }
@@ -147,7 +155,7 @@ export default function RemoveBottle() {
         .eq('id', selectedBottle.id)
 
       if (error) {
-        setError('Ã‰chec de l\'enregistrement')
+        setError('Échec de l\'enregistrement')
         setStep('confirm')
       } else {
         // Cleanup previews
@@ -156,7 +164,7 @@ export default function RemoveBottle() {
       }
     } catch (err) {
       console.error('Save error:', err)
-      setError('Ã‰chec de l\'enregistrement')
+      setError('Échec de l\'enregistrement')
       setStep('confirm')
     }
   }
@@ -207,7 +215,7 @@ export default function RemoveBottle() {
       navigate(`/bottle/${data.id}`)
     } catch (err) {
       console.error('Save error:', err)
-      setError('Ã‰chec de l\'enregistrement')
+      setError('Échec de l\'enregistrement')
       setStep('not_found')
     }
   }
@@ -260,7 +268,7 @@ export default function RemoveBottle() {
 
   return (
     <div className="flex-1 p-4">
-      <h1 className="text-2xl font-bold">DÃ©guster</h1>
+      <h1 className="text-2xl font-bold">Déguster</h1>
 
       {error && (
         <div className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
@@ -272,7 +280,7 @@ export default function RemoveBottle() {
       {step === 'choose' && (
         <div className="mt-6 space-y-4">
           <p className="text-muted-foreground">
-            Scannez l'Ã©tiquette du vin que vous dÃ©gustez
+            Scannez l'étiquette du vin que vous dégustez
           </p>
 
           {/* Camera input */}
@@ -366,9 +374,68 @@ export default function RemoveBottle() {
 
           {searchQuery.length >= 2 && filteredBottles.length === 0 && (
             <p className="text-center text-sm text-muted-foreground">
-              Aucun rÃ©sultat pour "{searchQuery}"
+              Aucun résultat pour "{searchQuery}"
             </p>
           )}
+
+          <div className="pt-4 space-y-3">
+            <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Sorties recentes
+            </h2>
+            {drunkLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Chargement des sorties...
+              </div>
+            ) : recentlyDrunk.length === 0 ? (
+              <Card>
+                <CardContent className="py-5 text-center text-sm text-muted-foreground">
+                  Aucune sortie recente.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {recentlyDrunk.slice(0, 6).map((bottle) => {
+                  const dateLabel = formatDrunkDate(bottle.drunk_at)
+                  return (
+                    <Link key={bottle.id} to={`/bottle/${bottle.id}`}>
+                      <Card className="transition-colors hover:bg-card/80">
+                        <CardContent className="flex items-center gap-3 p-3">
+                          <div
+                            className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                              bottle.couleur ? COLOR_STYLES[bottle.couleur] : 'bg-muted'
+                            }`}
+                          >
+                            <Wine className="h-5 w-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate font-medium">
+                              {bottle.domaine || bottle.appellation || 'Vin'}
+                            </p>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              {bottle.millesime && (
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  {bottle.millesime}
+                                </span>
+                              )}
+                              {dateLabel && (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {dateLabel}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -377,7 +444,7 @@ export default function RemoveBottle() {
         <div className="mt-6 flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-wine-600" />
           <span className="text-muted-foreground">
-            {step === 'extracting' ? 'Analyse de l\'Ã©tiquette...' : 'Recherche dans la cave...'}
+            {step === 'extracting' ? 'Analyse de l\'étiquette...' : 'Recherche dans la cave...'}
           </span>
         </div>
       )}
@@ -443,7 +510,7 @@ export default function RemoveBottle() {
 
           <p className="text-center text-muted-foreground">
             Ce vin n'est pas dans ta cave.<br />
-            Tu veux noter cette dÃ©gustation ?
+            Tu veux noter cette dégustation ?
           </p>
 
           <div className="flex gap-3">
@@ -472,7 +539,7 @@ export default function RemoveBottle() {
                   {selectedBottle.photo_url && (
                     <img
                       src={selectedBottle.photo_url}
-                      alt="Ã‰tiquette avant"
+                      alt="Étiquette avant"
                       className={`rounded object-contain cursor-zoom-in ${selectedBottle.photo_url_back ? 'flex-1 max-h-24' : 'w-full max-h-32'}`}
                       onClick={() => setZoomImage({ src: selectedBottle.photo_url as string, label: 'Avant' })}
                     />
@@ -480,7 +547,7 @@ export default function RemoveBottle() {
                   {selectedBottle.photo_url_back && (
                     <img
                       src={selectedBottle.photo_url_back}
-                      alt="Ã‰tiquette arriÃ¨re"
+                      alt="Étiquette arrière"
                       className={`rounded object-contain cursor-zoom-in ${selectedBottle.photo_url ? 'flex-1 max-h-24' : 'w-full max-h-32'}`}
                       onClick={() => setZoomImage({ src: selectedBottle.photo_url_back as string, label: 'Arriere' })}
                     />
@@ -540,7 +607,7 @@ export default function RemoveBottle() {
                   <div key={index} className="relative">
                     <img
                       src={photo.preview}
-                      alt={photo.label || 'Photo de dÃ©gustation'}
+                      alt={photo.label || 'Photo de dégustation'}
                       className="h-16 w-16 rounded object-cover cursor-zoom-in"
                       onClick={() => setZoomImage({ src: photo.preview, label: photo.label })}
                     />

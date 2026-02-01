@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { Home, PlusCircle, Wine, Settings } from 'lucide-react'
 
 const navItems = [
-  { to: '/', icon: Home, label: 'Cave' },
+  { to: '/cave', icon: Home, label: 'Cave' },
   { to: '/add', icon: PlusCircle, label: 'Ajouter' },
   { to: '/remove', icon: Wine, label: 'Déguster' },
   { to: '/settings', icon: Settings, label: 'Réglages' },

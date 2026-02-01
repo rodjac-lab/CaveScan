@@ -79,7 +79,7 @@ export default function AddBottle() {
       setStep('confirm')
     } catch (err) {
       console.error('Extraction error:', err)
-      setError('Ã‰chec de l\'extraction. Vous pouvez saisir manuellement.')
+      setError('Échec de l\'extraction. Vous pouvez saisir manuellement.')
       setStep('confirm')
     }
   }
@@ -187,7 +187,7 @@ export default function AddBottle() {
       navigate('/')
     } catch (err) {
       console.error('Save error:', err)
-      setError(err instanceof Error ? err.message : 'Ã‰chec de l\'enregistrement')
+      setError(err instanceof Error ? err.message : 'Échec de l\'enregistrement')
       setStep('confirm')
     }
   }
@@ -229,7 +229,7 @@ export default function AddBottle() {
       {step === 'capture' && (
         <div className="mt-6 space-y-4">
           <p className="text-muted-foreground">
-            Prenez une photo de l'Ã©tiquette ou saisissez manuellement
+            Prenez une photo de l'étiquette ou saisissez manuellement
           </p>
 
           {/* Camera input */}
@@ -296,14 +296,14 @@ export default function AddBottle() {
           {photoPreview && (
             <img
               src={photoPreview}
-              alt="Ã‰tiquette"
+              alt="Étiquette"
               className="max-h-48 rounded-lg object-contain cursor-zoom-in"
               onClick={() => setZoomImage({ src: photoPreview })}
             />
           )}
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Analyse de l'Ã©tiquette...</span>
+            <span>Analyse de l'étiquette...</span>
           </div>
         </div>
       )}
@@ -320,7 +320,7 @@ export default function AddBottle() {
                     <div className="flex-1">
                       <img
                         src={photoPreview}
-                        alt="Ã‰tiquette avant"
+                        alt="Étiquette avant"
                         className="max-h-28 w-full rounded object-contain cursor-zoom-in"
                         onClick={() => setZoomImage({ src: photoPreview, label: 'Avant' })}
                       />
@@ -331,11 +331,11 @@ export default function AddBottle() {
                     <div className="flex-1">
                       <img
                         src={photoPreviewBack}
-                        alt="Ã‰tiquette arriÃ¨re"
+                        alt="Étiquette arrière"
                         className="max-h-28 w-full rounded object-contain cursor-zoom-in"
                         onClick={() => setZoomImage({ src: photoPreviewBack, label: 'Arriere' })}
                       />
-                      <p className="text-xs text-center text-muted-foreground mt-1">ArriÃ¨re</p>
+                      <p className="text-xs text-center text-muted-foreground mt-1">Arrière</p>
                     </div>
                   )}
                 </div>
@@ -360,7 +360,7 @@ export default function AddBottle() {
                 onClick={() => fileInputBackRef.current?.click()}
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Ajouter la contre-Ã©tiquette
+                Ajouter la contre-étiquette
               </Button>
             </>
           )}
@@ -373,7 +373,7 @@ export default function AddBottle() {
                 value={domaine}
                 onChange={setDomaine}
                 suggestions={domainesSuggestions}
-                placeholder="ex: ChÃ¢teau Margaux"
+                placeholder="ex: Château Margaux"
               />
             </div>
 
@@ -390,7 +390,7 @@ export default function AddBottle() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="millesime">MillÃ©sime</Label>
+                <Label htmlFor="millesime">Millésime</Label>
                 <Input
                   id="millesime"
                   inputMode="numeric"
@@ -421,7 +421,7 @@ export default function AddBottle() {
 
             {/* Quantity selector */}
             <div className="pt-2 border-t">
-              <Label>QuantitÃ©</Label>
+              <Label>Quantité</Label>
               <div className="flex items-center gap-3 mt-1">
                 <Button
                   type="button"
@@ -467,12 +467,12 @@ export default function AddBottle() {
             </div>
 
             <div>
-              <Label htmlFor="shelf">Ã‰tagÃ¨re / Emplacement</Label>
+              <Label htmlFor="shelf">Étagère / Emplacement</Label>
               <Input
                 id="shelf"
                 value={shelf}
                 onChange={(e) => setShelf(e.target.value)}
-                placeholder="ex: Ã‰tagÃ¨re 1, Haut..."
+                placeholder="ex: Étagère 1, Haut..."
               />
             </div>
 

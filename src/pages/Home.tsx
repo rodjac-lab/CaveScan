@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Wine, MapPin, Calendar, Loader2, Clock } from 'lucide-react'
+import { Wine, MapPin, Calendar, Loader2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
+import { useBottles } from '@/hooks/useBottles'
 import { getWineColorLabel, type WineColor, type BottleWithZone } from '@/lib/types'
 
 const COLOR_STYLES: Record<WineColor, string> = {
@@ -51,7 +51,6 @@ function countByColor(bottles: BottleWithZone[], color: WineColor): number {
 
 export default function Home() {
   const { bottles, loading, error } = useBottles()
-  const { bottles: recentlyDrunk, loading: drunkLoading } = useRecentlyDrunk()
   const [filter, setFilter] = useState<FilterType>('all')
 
   const filteredBottles = filter === 'all'
@@ -86,40 +85,10 @@ export default function Home() {
 
   return (
     <div className="flex-1 p-4">
-      {/* Recently drunk section */}
-      {!drunkLoading && recentlyDrunk.length > 0 && (
-        <div className="mb-6">
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            Sorties récentes
-          </h2>
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {recentlyDrunk.slice(0, 5).map((bottle) => (
-              <Link
-                key={bottle.id}
-                to={`/bottle/${bottle.id}`}
-                className="flex-shrink-0"
-              >
-                <Card className="w-32 bg-card/50">
-                  <CardContent className="p-2 text-center">
-                    <p className="truncate text-xs font-medium">
-                      {bottle.domaine || bottle.appellation || 'Vin'}
-                    </p>
-                    {bottle.millesime && (
-                      <p className="text-xs text-muted-foreground">{bottle.millesime}</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Stats */}
       <div className="mb-4">
         <h1 className="text-2xl font-bold">
-          Ma Cave
+          Inventaire
           <span className="ml-2 text-lg font-normal text-muted-foreground">
             {stats.total} bouteille{stats.total > 1 ? 's' : ''}
           </span>

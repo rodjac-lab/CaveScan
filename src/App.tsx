@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom'
 import Header from './components/Header'
 import BottomNav from './components/BottomNav'
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -31,7 +31,8 @@ function AppLayout() {
         <Header />
         <main className="flex-1 pb-20">
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<Navigate to="/remove" replace />} />
+            <Route path="/cave" element={<Home />} />
             <Route path="/add" element={<AddBottle />} />
             <Route path="/remove" element={<RemoveBottle />} />
             <Route path="/bottle/:id" element={<BottlePage />} />
