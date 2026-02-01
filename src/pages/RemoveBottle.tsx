@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, Loader2, Check, X, Wine, Search, PenLine } from 'lucide-react'
+import { Camera, Loader2, Check, X, Wine, Search, PenLine, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -23,6 +23,7 @@ const COLOR_STYLES: Record<WineColor, string> = {
 export default function RemoveBottle() {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const fileInputGalleryRef = useRef<HTMLInputElement>(null)
   const { bottles } = useBottles()
 
   const [step, setStep] = useState<Step>('choose')
@@ -190,21 +191,42 @@ export default function RemoveBottle() {
             Scannez l'étiquette du vin que vous dégustez
           </p>
 
+          {/* Camera input */}
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
-                        onChange={handleFileSelect}
+            capture="environment"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          {/* Gallery input */}
+          <input
+            ref={fileInputGalleryRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
             className="hidden"
           />
 
           <Button
             size="lg"
-            className="w-full h-24 flex-col gap-2 bg-wine-900 hover:bg-wine-800"
+            className="w-full h-20 flex-col gap-2 bg-wine-900 hover:bg-wine-800"
             onClick={() => fileInputRef.current?.click()}
           >
-            <Camera className="h-8 w-8" />
-            <span>Scanner l'étiquette</span>
+            <Camera className="h-7 w-7" />
+            <span>Photographier</span>
+          </Button>
+
+          <Button
+            size="lg"
+            variant="outline"
+            className="w-full h-14 flex-col gap-1"
+            onClick={() => fileInputGalleryRef.current?.click()}
+          >
+            <ImageIcon className="h-5 w-5" />
+            <span>Choisir une photo</span>
           </Button>
 
           <div className="relative">

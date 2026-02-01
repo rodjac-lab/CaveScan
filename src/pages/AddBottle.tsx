@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, Loader2, Check, X, Wine, Plus, Minus } from 'lucide-react'
+import { Camera, Loader2, Check, X, Wine, Plus, Minus, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,6 +26,7 @@ const IMAGE_QUALITY = 0.85
 export default function AddBottle() {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const fileInputGalleryRef = useRef<HTMLInputElement>(null)
   const fileInputBackRef = useRef<HTMLInputElement>(null)
   const { zones, loading: zonesLoading } = useZones()
   const domainesSuggestions = useDomainesSuggestions()
@@ -229,21 +230,42 @@ export default function AddBottle() {
             Prenez une photo de l'étiquette ou saisissez manuellement
           </p>
 
+          {/* Camera input */}
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
-                        onChange={handleFileSelect}
+            capture="environment"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          {/* Gallery input */}
+          <input
+            ref={fileInputGalleryRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
             className="hidden"
           />
 
           <Button
             size="lg"
-            className="w-full h-32 flex-col gap-2 bg-wine-900 hover:bg-wine-800"
+            className="w-full h-24 flex-col gap-2 bg-wine-900 hover:bg-wine-800"
             onClick={() => fileInputRef.current?.click()}
           >
             <Camera className="h-8 w-8" />
-            <span>Photographier l'étiquette</span>
+            <span>Photographier</span>
+          </Button>
+
+          <Button
+            size="lg"
+            variant="outline"
+            className="w-full h-16 flex-col gap-1"
+            onClick={() => fileInputGalleryRef.current?.click()}
+          >
+            <ImageIcon className="h-6 w-6" />
+            <span>Choisir une photo</span>
           </Button>
 
           <div className="relative">
@@ -256,7 +278,7 @@ export default function AddBottle() {
           </div>
 
           <Button
-            variant="outline"
+            variant="ghost"
             className="w-full"
             onClick={() => setStep('confirm')}
           >
