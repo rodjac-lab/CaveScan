@@ -348,7 +348,7 @@ export default function AddBottle() {
                 value={domaine}
                 onChange={setDomaine}
                 suggestions={domainesSuggestions}
-                placeholder="Château Margaux"
+                placeholder="ex: Château Margaux"
               />
             </div>
 
@@ -359,7 +359,7 @@ export default function AddBottle() {
                 value={appellation}
                 onChange={setAppellation}
                 suggestions={appellationsSuggestions}
-                placeholder="Margaux"
+                placeholder="ex: Margaux"
               />
             </div>
 
@@ -372,7 +372,7 @@ export default function AddBottle() {
                   pattern="[0-9]*"
                   value={millesime}
                   onChange={handleMillesimeChange}
-                  placeholder="2020"
+                  placeholder="ex: 2020"
                   maxLength={4}
                 />
               </div>
@@ -447,7 +447,7 @@ export default function AddBottle() {
                 id="shelf"
                 value={shelf}
                 onChange={(e) => setShelf(e.target.value)}
-                placeholder="Étagère 1, Haut, etc."
+                placeholder="ex: Étagère 1, Haut..."
               />
             </div>
 
@@ -458,7 +458,7 @@ export default function AddBottle() {
                 inputMode="decimal"
                 value={purchasePrice}
                 onChange={(e) => setPurchasePrice(e.target.value.replace(/[^0-9.,]/g, ''))}
-                placeholder="12.50"
+                placeholder="ex: 12.50"
               />
             </div>
           </div>

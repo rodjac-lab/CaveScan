@@ -194,7 +194,7 @@ export default function Settings() {
                 id="zone-name"
                 value={zoneName}
                 onChange={(e) => setZoneName(e.target.value)}
-                placeholder="Cave principale"
+                placeholder="ex: Cave principale"
               />
             </div>
             <div>
@@ -203,7 +203,7 @@ export default function Settings() {
                 id="zone-desc"
                 value={zoneDescription}
                 onChange={(e) => setZoneDescription(e.target.value)}
-                placeholder="Rouges de garde"
+                placeholder="ex: Rouges de garde"
               />
             </div>
           </div>

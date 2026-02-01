@@ -151,6 +151,11 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Italic placeholders for clearer UX */
+  input::placeholder,
+  textarea::placeholder {
+    font-style: italic;
+  }
   body {
     @apply bg-background text-foreground;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
