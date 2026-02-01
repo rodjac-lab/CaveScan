@@ -1,12 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro, Pencil } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro, Pencil, Plus, Camera, ImageIcon, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
 import { useBottle } from '@/hooks/useBottles'
-import { getWineColorLabel, type WineColor } from '@/lib/types'
+import { getWineColorLabel, type WineColor, type TastingPhoto } from '@/lib/types'
+
+const MAX_IMAGE_SIZE = 1200
+const IMAGE_QUALITY = 0.85
+const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Autre']
 
 const COLOR_STYLES: Record<WineColor, string> = {
   rouge: 'bg-red-900/30 text-red-300',
@@ -24,6 +28,14 @@ export default function BottlePage() {
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState(false)
   const [sharing, setSharing] = useState(false)
+
+  // Tasting photo state
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false)
+  const [showLabelPicker, setShowLabelPicker] = useState(false)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const tastingPhotoInputRef = useRef<HTMLInputElement>(null)
+  const tastingPhotoGalleryRef = useRef<HTMLInputElement>(null)
 
   // Sync tasting note with bottle data
   useEffect(() => {
@@ -122,6 +134,60 @@ export default function BottlePage() {
 
   const canShare = typeof navigator !== 'undefined' && !!navigator.share
 
+  const handleTastingPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setPendingFile(file)
+    setShowPhotoOptions(false)
+    setShowLabelPicker(true)
+    e.target.value = ''
+  }
+
+  const handleLabelSelect = async (label?: string) => {
+    if (!pendingFile || !bottle) return
+
+    setShowLabelPicker(false)
+    setUploadingPhoto(true)
+
+    try {
+      const compressedBlob = await resizeImage(pendingFile, MAX_IMAGE_SIZE, IMAGE_QUALITY)
+      const fileName = `${Date.now()}-tasting.jpg`
+      const { error: uploadError } = await supabase.storage
+        .from('wine-labels')
+        .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
+
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage
+        .from('wine-labels')
+        .getPublicUrl(fileName)
+
+      const newPhoto: TastingPhoto = {
+        url: urlData.publicUrl,
+        label,
+        taken_at: new Date().toISOString()
+      }
+
+      const existingPhotos = (bottle.tasting_photos as TastingPhoto[]) || []
+      const updatedPhotos = [...existingPhotos, newPhoto]
+
+      const { error } = await supabase
+        .from('bottles')
+        .update({ tasting_photos: updatedPhotos })
+        .eq('id', bottle.id)
+
+      if (!error) {
+        await refetch()
+      }
+    } catch (err) {
+      console.error('Upload error:', err)
+    }
+
+    setPendingFile(null)
+    setUploadingPhoto(false)
+  }
+
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -197,6 +263,127 @@ export default function BottlePage() {
               </div>
             )}
           </div>
+        </Card>
+      )}
+
+      {/* Tasting Photos */}
+      {isDrunk && (
+        <Card className="mb-4">
+          <CardContent className="p-4">
+            <Label className="text-muted-foreground mb-3 block">Photos de dégustation</Label>
+
+            {/* Tasting photo inputs */}
+            <input
+              ref={tastingPhotoInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleTastingPhotoSelect}
+              className="hidden"
+            />
+            <input
+              ref={tastingPhotoGalleryRef}
+              type="file"
+              accept="image/*"
+              onChange={handleTastingPhotoSelect}
+              className="hidden"
+            />
+
+            {/* Existing tasting photos */}
+            {bottle.tasting_photos && (bottle.tasting_photos as TastingPhoto[]).length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {(bottle.tasting_photos as TastingPhoto[]).map((photo, index) => (
+                  <div key={index} className="relative">
+                    <img
+                      src={photo.url}
+                      alt={photo.label || 'Photo de dégustation'}
+                      className="h-20 w-20 rounded object-cover"
+                    />
+                    {photo.label && (
+                      <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] text-center py-0.5 rounded-b">
+                        {photo.label}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add photo button / options */}
+            {uploadingPhoto ? (
+              <div className="flex items-center justify-center py-2">
+                <Loader2 className="h-5 w-5 animate-spin text-wine-600" />
+                <span className="ml-2 text-sm text-muted-foreground">Upload en cours...</span>
+              </div>
+            ) : showLabelPicker ? (
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Type de photo :</p>
+                <div className="flex flex-wrap gap-2">
+                  {TASTING_LABELS.map((label) => (
+                    <Button
+                      key={label}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleLabelSelect(label)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleLabelSelect(undefined)}
+                  >
+                    Passer
+                  </Button>
+                </div>
+              </div>
+            ) : showPhotoOptions ? (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowPhotoOptions(false)
+                    tastingPhotoInputRef.current?.click()
+                  }}
+                >
+                  <Camera className="mr-2 h-4 w-4" />
+                  Photographier
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowPhotoOptions(false)
+                    tastingPhotoGalleryRef.current?.click()
+                  }}
+                >
+                  <ImageIcon className="mr-2 h-4 w-4" />
+                  Galerie
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowPhotoOptions(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setShowPhotoOptions(true)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Ajouter une photo
+              </Button>
+            )}
+          </CardContent>
         </Card>
       )}
 
@@ -339,4 +526,64 @@ export default function BottlePage() {
       )}
     </div>
   )
+}
+
+function calculateResizedDimensions(
+  width: number,
+  height: number,
+  maxSize: number
+): { width: number; height: number } {
+  if (width <= maxSize && height <= maxSize) {
+    return { width, height }
+  }
+
+  if (width > height) {
+    return { width: maxSize, height: (height / width) * maxSize }
+  }
+
+  return { width: (width / height) * maxSize, height: maxSize }
+}
+
+async function resizeImage(file: File, maxSize: number, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const objectUrl = URL.createObjectURL(file)
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+
+      const { width, height } = calculateResizedDimensions(img.width, img.height, maxSize)
+
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'))
+        return
+      }
+
+      ctx.drawImage(img, 0, 0, width, height)
+
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(blob)
+          } else {
+            reject(new Error('Could not create blob'))
+          }
+        },
+        'image/jpeg',
+        quality
+      )
+    }
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error('Failed to load image'))
+    }
+
+    img.src = objectUrl
+  })
 }

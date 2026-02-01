@@ -2,6 +2,12 @@ export type WineColor = 'rouge' | 'blanc' | 'rose' | 'bulles'
 
 export type BottleStatus = 'in_stock' | 'drunk'
 
+export interface TastingPhoto {
+  url: string
+  label?: string
+  taken_at: string
+}
+
 export interface Zone {
   id: string
   name: string
@@ -34,6 +40,7 @@ export interface Bottle {
   drink_from: number | null
   drink_until: number | null
   notes: string | null
+  tasting_photos: TastingPhoto[] | null
 }
 
 export interface BottleWithZone extends Bottle {

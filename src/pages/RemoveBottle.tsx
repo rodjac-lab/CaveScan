@@ -1,12 +1,12 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, Loader2, Check, X, Wine, Search, PenLine, ImageIcon } from 'lucide-react'
+import { Camera, Loader2, Check, X, Wine, Search, PenLine, ImageIcon, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
 import { useBottles } from '@/hooks/useBottles'
-import { normalizeWineColor, type WineColor, type BottleWithZone, type WineExtraction } from '@/lib/types'
+import { normalizeWineColor, type WineColor, type BottleWithZone, type WineExtraction, type TastingPhoto } from '@/lib/types'
 
 type Step = 'choose' | 'extracting' | 'matching' | 'select' | 'confirm' | 'not_found' | 'saving'
 
@@ -33,6 +33,16 @@ export default function RemoveBottle() {
   const [error, setError] = useState<string | null>(null)
   const [extraction, setExtraction] = useState<WineExtraction | null>(null)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
+
+  // Tasting photos state
+  const [tastingPhotos, setTastingPhotos] = useState<{ file: File; label?: string; preview: string }[]>([])
+  const [showTastingPhotoOptions, setShowTastingPhotoOptions] = useState(false)
+  const [showLabelPicker, setShowLabelPicker] = useState(false)
+  const [pendingTastingFile, setPendingTastingFile] = useState<File | null>(null)
+  const tastingPhotoInputRef = useRef<HTMLInputElement>(null)
+  const tastingPhotoGalleryRef = useRef<HTMLInputElement>(null)
+
+  const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Autre']
 
   const filteredBottles = searchQuery.length >= 2
     ? bottles.filter(b => {
@@ -97,19 +107,55 @@ export default function RemoveBottle() {
 
     setStep('saving')
 
-    const { error } = await supabase
-      .from('bottles')
-      .update({
-        status: 'drunk',
-        drunk_at: new Date().toISOString()
-      })
-      .eq('id', selectedBottle.id)
+    try {
+      // Upload tasting photos if any
+      const uploadedPhotos: TastingPhoto[] = []
 
-    if (error) {
+      for (const photo of tastingPhotos) {
+        const compressedBlob = await resizeImage(photo.file, MAX_IMAGE_SIZE, IMAGE_QUALITY)
+        const fileName = `${Date.now()}-tasting-${uploadedPhotos.length}.jpg`
+        const { error: uploadError } = await supabase.storage
+          .from('wine-labels')
+          .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from('wine-labels')
+            .getPublicUrl(fileName)
+
+          uploadedPhotos.push({
+            url: urlData.publicUrl,
+            label: photo.label,
+            taken_at: new Date().toISOString()
+          })
+        }
+      }
+
+      // Merge with existing tasting photos
+      const existingPhotos = (selectedBottle.tasting_photos as TastingPhoto[]) || []
+      const allPhotos = [...existingPhotos, ...uploadedPhotos]
+
+      const { error } = await supabase
+        .from('bottles')
+        .update({
+          status: 'drunk',
+          drunk_at: new Date().toISOString(),
+          tasting_photos: allPhotos
+        })
+        .eq('id', selectedBottle.id)
+
+      if (error) {
+        setError('Échec de l\'enregistrement')
+        setStep('confirm')
+      } else {
+        // Cleanup previews
+        tastingPhotos.forEach(p => URL.revokeObjectURL(p.preview))
+        navigate(`/bottle/${selectedBottle.id}`)
+      }
+    } catch (err) {
+      console.error('Save error:', err)
       setError('Échec de l\'enregistrement')
       setStep('confirm')
-    } else {
-      navigate(`/bottle/${selectedBottle.id}`)
     }
   }
 
@@ -164,6 +210,36 @@ export default function RemoveBottle() {
     }
   }
 
+  const handleTastingPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setPendingTastingFile(file)
+    setShowTastingPhotoOptions(false)
+    setShowLabelPicker(true)
+
+    // Reset input so same file can be selected again
+    e.target.value = ''
+  }
+
+  const handleLabelSelect = async (label?: string) => {
+    if (!pendingTastingFile) return
+
+    const preview = URL.createObjectURL(pendingTastingFile)
+    setTastingPhotos(prev => [...prev, { file: pendingTastingFile, label, preview }])
+    setPendingTastingFile(null)
+    setShowLabelPicker(false)
+  }
+
+  const handleRemoveTastingPhoto = (index: number) => {
+    setTastingPhotos(prev => {
+      const newPhotos = [...prev]
+      URL.revokeObjectURL(newPhotos[index].preview)
+      newPhotos.splice(index, 1)
+      return newPhotos
+    })
+  }
+
   const handleReset = () => {
     setStep('choose')
     setSearchQuery('')
@@ -172,6 +248,12 @@ export default function RemoveBottle() {
     setError(null)
     setExtraction(null)
     setPhotoFile(null)
+    // Cleanup tasting photos
+    tastingPhotos.forEach(p => URL.revokeObjectURL(p.preview))
+    setTastingPhotos([])
+    setShowTastingPhotoOptions(false)
+    setShowLabelPicker(false)
+    setPendingTastingFile(null)
   }
 
   return (
@@ -427,6 +509,131 @@ export default function RemoveBottle() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Tasting photos section */}
+          <div className="space-y-3">
+            {/* Tasting photo inputs */}
+            <input
+              ref={tastingPhotoInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleTastingPhotoSelect}
+              className="hidden"
+            />
+            <input
+              ref={tastingPhotoGalleryRef}
+              type="file"
+              accept="image/*"
+              onChange={handleTastingPhotoSelect}
+              className="hidden"
+            />
+
+            {/* Tasting photos preview */}
+            {tastingPhotos.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {tastingPhotos.map((photo, index) => (
+                  <div key={index} className="relative">
+                    <img
+                      src={photo.preview}
+                      alt={photo.label || 'Photo de dégustation'}
+                      className="h-16 w-16 rounded object-cover"
+                    />
+                    {photo.label && (
+                      <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] text-center py-0.5 rounded-b">
+                        {photo.label}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTastingPhoto(index)}
+                      className="absolute -right-1 -top-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add tasting photo button */}
+            {!showTastingPhotoOptions && !showLabelPicker && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setShowTastingPhotoOptions(true)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Ajouter une photo
+              </Button>
+            )}
+
+            {/* Photo source options */}
+            {showTastingPhotoOptions && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowTastingPhotoOptions(false)
+                    tastingPhotoInputRef.current?.click()
+                  }}
+                >
+                  <Camera className="mr-2 h-4 w-4" />
+                  Photographier
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowTastingPhotoOptions(false)
+                    tastingPhotoGalleryRef.current?.click()
+                  }}
+                >
+                  <ImageIcon className="mr-2 h-4 w-4" />
+                  Galerie
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowTastingPhotoOptions(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+
+            {/* Label picker */}
+            {showLabelPicker && (
+              <Card>
+                <CardContent className="p-3">
+                  <p className="text-sm text-muted-foreground mb-2">Type de photo :</p>
+                  <div className="flex flex-wrap gap-2">
+                    {TASTING_LABELS.map((label) => (
+                      <Button
+                        key={label}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleLabelSelect(label)}
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleLabelSelect(undefined)}
+                    >
+                      Passer
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
           <p className="text-center text-muted-foreground">
             Confirmer la sortie de cette bouteille ?
