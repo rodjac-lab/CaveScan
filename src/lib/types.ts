@@ -61,7 +61,7 @@ export const WINE_COLORS: WineColorOption[] = [
 
 export function getWineColorLabel(color: WineColor | null): string {
   if (!color) return 'Inconnu'
-  return WINE_COLORS.find(c => c.value === color)?.label ? 'Inconnu'
+  return WINE_COLORS.find(c => c.value === color)?.label ?? 'Inconnu'
 }
 
 export function normalizeWineColor(color: string | null | undefined): WineColor | null {

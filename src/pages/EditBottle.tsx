@@ -147,7 +147,7 @@ export default function EditBottle() {
                     src={bottle.photo_url}
                     alt="Etiquette avant"
                     className="max-h-24 w-full rounded object-contain bg-black/20 cursor-zoom-in"
-                    onClick={() => setZoomImage({ src: bottle.photo_url, label: 'Avant' })}
+                    onClick={() => setZoomImage({ src: bottle.photo_url!, label: 'Avant' })}
                   />
                 </div>
               )}
@@ -157,7 +157,7 @@ export default function EditBottle() {
                     src={bottle.photo_url_back}
                     alt="Etiquette arriere"
                     className="max-h-24 w-full rounded object-contain bg-black/20 cursor-zoom-in"
-                    onClick={() => setZoomImage({ src: bottle.photo_url_back, label: 'Arriere' })}
+                    onClick={() => setZoomImage({ src: bottle.photo_url_back!, label: 'Arriere' })}
                   />
                 </div>
               )}

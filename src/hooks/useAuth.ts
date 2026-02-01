@@ -13,7 +13,7 @@ export function useAuth(): {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const isAnonymous = session?.user?.is_anonymous ? false
+  const isAnonymous = session?.user?.is_anonymous ?? false
 
   useEffect(() => {
     let isMounted = true

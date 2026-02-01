@@ -246,7 +246,7 @@ export default function BottlePage() {
                   src={bottle.photo_url}
                   alt="Étiquette avant"
                   className={`w-full object-contain bg-black/20 cursor-zoom-in ${bottle.photo_url_back ? 'max-h-48 rounded' : 'max-h-64'}`}
-                  onClick={() => setZoomImage({ src: bottle.photo_url, label: 'Avant' })}
+                  onClick={() => setZoomImage({ src: bottle.photo_url!, label: 'Avant' })}
                 />
                 {bottle.photo_url_back && (
                   <p className="text-xs text-center text-muted-foreground mt-1">Avant</p>
@@ -259,7 +259,7 @@ export default function BottlePage() {
                   src={bottle.photo_url_back}
                   alt="Étiquette arrière"
                   className={`w-full object-contain bg-black/20 cursor-zoom-in ${bottle.photo_url ? 'max-h-48 rounded' : 'max-h-64'}`}
-                  onClick={() => setZoomImage({ src: bottle.photo_url_back, label: 'Arriere' })}
+                  onClick={() => setZoomImage({ src: bottle.photo_url_back!, label: 'Arriere' })}
                 />
                 {bottle.photo_url && (
                   <p className="text-xs text-center text-muted-foreground mt-1">Arrière</p>
