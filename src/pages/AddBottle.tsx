@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, Loader2, Check, X, Wine } from 'lucide-react'
+import { Camera, Loader2, Check, X, Wine, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,6 +26,7 @@ const IMAGE_QUALITY = 0.85
 export default function AddBottle() {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const fileInputBackRef = useRef<HTMLInputElement>(null)
   const { zones, loading: zonesLoading } = useZones()
   const domainesSuggestions = useDomainesSuggestions()
   const appellationsSuggestions = useAppellationsSuggestions()
@@ -33,6 +34,8 @@ export default function AddBottle() {
   const [step, setStep] = useState<Step>('capture')
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [photoFileBack, setPhotoFileBack] = useState<File | null>(null)
+  const [photoPreviewBack, setPhotoPreviewBack] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // Extracted/editable data
@@ -76,6 +79,36 @@ export default function AddBottle() {
     }
   }
 
+  const handleBackPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setPhotoFileBack(file)
+    setPhotoPreviewBack(URL.createObjectURL(file))
+
+    // If we have incomplete data, try to extract from back label too
+    if (!domaine || !appellation || !millesime) {
+      setStep('extracting')
+      try {
+        const base64 = await fileToBase64(file)
+        const { data, error } = await supabase.functions.invoke('extract-wine', {
+          body: { image_base64: base64 },
+        })
+
+        if (!error && data) {
+          // Only fill in missing fields
+          if (!domaine && data.domaine) setDomaine(data.domaine)
+          if (!appellation && data.appellation) setAppellation(data.appellation)
+          if (!millesime && data.millesime) setMillesime(data.millesime.toString())
+          if (!couleur && data.couleur) setCouleur(data.couleur)
+        }
+      } catch (err) {
+        console.error('Back extraction error:', err)
+      }
+      setStep('confirm')
+    }
+  }
+
   const handleSave = async () => {
     if (!domaine && !appellation) {
       setError('Veuillez renseigner au moins le domaine ou l\'appellation')
@@ -87,11 +120,13 @@ export default function AddBottle() {
 
     try {
       let photoUrl: string | null = null
+      let photoUrlBack: string | null = null
+      const timestamp = Date.now()
 
-      // Upload compressed photo if exists
+      // Upload compressed front photo if exists
       if (photoFile) {
         const compressedBlob = await resizeImage(photoFile, MAX_IMAGE_SIZE, IMAGE_QUALITY)
-        const fileName = `${Date.now()}.jpg`
+        const fileName = `${timestamp}-front.jpg`
         const { error: uploadError } = await supabase.storage
           .from('wine-labels')
           .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
@@ -105,6 +140,23 @@ export default function AddBottle() {
         photoUrl = urlData.publicUrl
       }
 
+      // Upload compressed back photo if exists
+      if (photoFileBack) {
+        const compressedBlob = await resizeImage(photoFileBack, MAX_IMAGE_SIZE, IMAGE_QUALITY)
+        const fileName = `${timestamp}-back.jpg`
+        const { error: uploadError } = await supabase.storage
+          .from('wine-labels')
+          .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
+
+        if (uploadError) throw uploadError
+
+        const { data: urlData } = supabase.storage
+          .from('wine-labels')
+          .getPublicUrl(fileName)
+
+        photoUrlBack = urlData.publicUrl
+      }
+
       // Insert bottle
       const { error: insertError } = await supabase.from('bottles').insert({
         domaine: domaine || null,
@@ -114,6 +166,7 @@ export default function AddBottle() {
         zone_id: zoneId || null,
         shelf: shelf || null,
         photo_url: photoUrl,
+        photo_url_back: photoUrlBack,
         raw_extraction: rawExtraction,
         status: 'in_stock',
       })
@@ -133,6 +186,8 @@ export default function AddBottle() {
     setStep('capture')
     setPhotoFile(null)
     setPhotoPreview(null)
+    setPhotoFileBack(null)
+    setPhotoPreviewBack(null)
     setDomaine('')
     setAppellation('')
     setMillesime('')
@@ -223,16 +278,57 @@ export default function AddBottle() {
       {/* Step: Confirm */}
       {step === 'confirm' && (
         <div className="mt-6 space-y-4">
-          {photoPreview && (
+          {/* Photo previews */}
+          {(photoPreview || photoPreviewBack) && (
             <Card>
               <CardContent className="p-2">
-                <img
-                  src={photoPreview}
-                  alt="Étiquette"
-                  className="max-h-32 w-full rounded object-contain"
-                />
+                <div className="flex gap-2">
+                  {photoPreview && (
+                    <div className="flex-1">
+                      <img
+                        src={photoPreview}
+                        alt="Étiquette avant"
+                        className="max-h-28 w-full rounded object-contain"
+                      />
+                      <p className="text-xs text-center text-muted-foreground mt-1">Avant</p>
+                    </div>
+                  )}
+                  {photoPreviewBack && (
+                    <div className="flex-1">
+                      <img
+                        src={photoPreviewBack}
+                        alt="Étiquette arrière"
+                        className="max-h-28 w-full rounded object-contain"
+                      />
+                      <p className="text-xs text-center text-muted-foreground mt-1">Arrière</p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Add back photo button */}
+          {photoPreview && !photoPreviewBack && (
+            <>
+              <input
+                ref={fileInputBackRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleBackPhotoSelect}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => fileInputBackRef.current?.click()}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Ajouter la contre-étiquette
+              </Button>
+            </>
           )}
 
           <div className="space-y-3">

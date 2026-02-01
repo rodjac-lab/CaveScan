@@ -105,14 +105,35 @@ export default function BottlePage() {
         )}
       </div>
 
-      {/* Photo */}
-      {bottle.photo_url && (
+      {/* Photos */}
+      {(bottle.photo_url || bottle.photo_url_back) && (
         <Card className="mb-4 overflow-hidden">
-          <img
-            src={bottle.photo_url}
-            alt="Étiquette"
-            className="w-full max-h-64 object-contain bg-black/20"
-          />
+          <div className={`flex ${bottle.photo_url && bottle.photo_url_back ? 'gap-2 p-2' : ''}`}>
+            {bottle.photo_url && (
+              <div className={bottle.photo_url_back ? 'flex-1' : 'w-full'}>
+                <img
+                  src={bottle.photo_url}
+                  alt="Étiquette avant"
+                  className={`w-full object-contain bg-black/20 ${bottle.photo_url_back ? 'max-h-48 rounded' : 'max-h-64'}`}
+                />
+                {bottle.photo_url_back && (
+                  <p className="text-xs text-center text-muted-foreground mt-1">Avant</p>
+                )}
+              </div>
+            )}
+            {bottle.photo_url_back && (
+              <div className={bottle.photo_url ? 'flex-1' : 'w-full'}>
+                <img
+                  src={bottle.photo_url_back}
+                  alt="Étiquette arrière"
+                  className={`w-full object-contain bg-black/20 ${bottle.photo_url ? 'max-h-48 rounded' : 'max-h-64'}`}
+                />
+                {bottle.photo_url && (
+                  <p className="text-xs text-center text-muted-foreground mt-1">Arrière</p>
+                )}
+              </div>
+            )}
+          </div>
         </Card>
       )}
 

@@ -23,6 +23,7 @@ export interface Bottle {
   zone_id: string | null
   shelf: string | null
   photo_url: string | null
+  photo_url_back: string | null
   status: BottleStatus
   added_at: string
   drunk_at: string | null

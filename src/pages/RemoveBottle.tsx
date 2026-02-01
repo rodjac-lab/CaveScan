@@ -267,12 +267,23 @@ export default function RemoveBottle() {
         <div className="mt-6 space-y-4">
           <Card>
             <CardContent className="p-4">
-              {selectedBottle.photo_url && (
-                <img
-                  src={selectedBottle.photo_url}
-                  alt="Étiquette"
-                  className="mb-4 w-full max-h-32 rounded object-contain"
-                />
+              {(selectedBottle.photo_url || selectedBottle.photo_url_back) && (
+                <div className={`mb-4 flex ${selectedBottle.photo_url && selectedBottle.photo_url_back ? 'gap-2' : ''}`}>
+                  {selectedBottle.photo_url && (
+                    <img
+                      src={selectedBottle.photo_url}
+                      alt="Étiquette avant"
+                      className={`rounded object-contain ${selectedBottle.photo_url_back ? 'flex-1 max-h-24' : 'w-full max-h-32'}`}
+                    />
+                  )}
+                  {selectedBottle.photo_url_back && (
+                    <img
+                      src={selectedBottle.photo_url_back}
+                      alt="Étiquette arrière"
+                      className={`rounded object-contain ${selectedBottle.photo_url ? 'flex-1 max-h-24' : 'w-full max-h-32'}`}
+                    />
+                  )}
+                </div>
               )}
               <div className="flex items-center gap-3">
                 <div
