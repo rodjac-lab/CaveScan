@@ -6,10 +6,14 @@ export function useAuth(): {
   session: Session | null
   loading: boolean
   error: string | null
+  isAnonymous: boolean
+  signOut: () => Promise<void>
 } {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const isAnonymous = session?.user?.is_anonymous ?? false
 
   useEffect(() => {
     let isMounted = true
@@ -20,12 +24,6 @@ export function useAuth(): {
         if (sessionError) throw sessionError
 
         if (isMounted) setSession(data.session)
-
-        if (!data.session) {
-          const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously()
-          if (anonError) throw anonError
-          if (isMounted) setSession(anonData.session)
-        }
       } catch (err) {
         if (isMounted) {
           setError(err instanceof Error ? err.message : 'Auth error')
@@ -47,5 +45,9 @@ export function useAuth(): {
     }
   }, [])
 
-  return { session, loading, error }
+  async function signOut(): Promise<void> {
+    await supabase.auth.signOut()
+  }
+
+  return { session, loading, error, isAnonymous, signOut }
 }

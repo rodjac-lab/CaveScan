@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Plus, Edit2, Trash2, Loader2, MapPin } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Plus, Edit2, Trash2, Loader2, MapPin, LogOut, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,8 +18,16 @@ import { supabase } from '@/lib/supabase'
 import type { Zone } from '@/lib/types'
 
 export default function Settings() {
+  const navigate = useNavigate()
   const { zones, loading, error, refetch } = useZones()
-  const { session } = useAuth()
+  const { session, isAnonymous, signOut } = useAuth()
+  const [loggingOut, setLoggingOut] = useState(false)
+
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    await signOut()
+    navigate('/login')
+  }
   const [editingZone, setEditingZone] = useState<Zone | null>(null)
   const [isAddingZone, setIsAddingZone] = useState(false)
   const [zoneName, setZoneName] = useState('')
@@ -99,7 +108,38 @@ export default function Settings() {
 
   return (
     <div className="flex-1 p-4">
-      <h1 className="text-2xl font-bold mb-6">Paramètres</h1>
+      <h1 className="text-2xl font-bold mb-6">Parametres</h1>
+
+      {/* Account section */}
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+          <User className="h-5 w-5" />
+          Compte
+        </h2>
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Connecte en tant que</p>
+              <p className="font-medium">
+                {isAnonymous ? 'Utilisateur anonyme' : session?.user?.email || 'Non connecte'}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleLogout}
+              disabled={loggingOut}
+            >
+              {loggingOut ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <LogOut className="mr-2 h-4 w-4" />
+              )}
+              Se deconnecter
+            </Button>
+          </CardContent>
+        </Card>
+      </section>
 
       {/* Zones section */}
       <section className="mb-8">
