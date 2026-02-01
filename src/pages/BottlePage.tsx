@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, Calendar, Wine, Loader2, Save } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Wine, Loader2, Save, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -23,6 +23,7 @@ export default function BottlePage() {
   const [tastingNote, setTastingNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState(false)
+  const [sharing, setSharing] = useState(false)
 
   // Sync tasting note with bottle data
   useEffect(() => {
@@ -63,6 +64,63 @@ export default function BottlePage() {
     }
     setRemoving(false)
   }
+
+  const handleShare = async () => {
+    if (!bottle) return
+
+    setSharing(true)
+
+    try {
+      // Build the share text
+      const title = bottle.domaine || bottle.appellation || 'Vin'
+      const lines: string[] = []
+
+      lines.push(`🍷 ${title}${bottle.millesime ? ` ${bottle.millesime}` : ''}`)
+      if (bottle.appellation && bottle.domaine) {
+        lines.push(bottle.appellation)
+      }
+      lines.push('')
+      if (tastingNote) {
+        lines.push(tastingNote)
+        lines.push('')
+      }
+
+      const text = lines.join('\n')
+
+      // Try to share with image if available
+      if (bottle.photo_url && navigator.canShare) {
+        try {
+          const response = await fetch(bottle.photo_url)
+          const blob = await response.blob()
+          const fileName = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`
+          const file = new File([blob], fileName, { type: 'image/jpeg' })
+
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              text,
+              files: [file],
+            })
+            setSharing(false)
+            return
+          }
+        } catch {
+          // Fall back to text-only share
+        }
+      }
+
+      // Fallback: text-only share
+      if (navigator.share) {
+        await navigator.share({ text })
+      }
+    } catch (err) {
+      // User cancelled or share failed - ignore
+      console.log('Share cancelled or failed:', err)
+    }
+
+    setSharing(false)
+  }
+
+  const canShare = typeof navigator !== 'undefined' && !!navigator.share
 
   if (loading) {
     return (
@@ -211,18 +269,33 @@ export default function BottlePage() {
               lang="fr"
               autoCapitalize="sentences"
             />
-            <Button
-              className="mt-3 w-full bg-wine-900 hover:bg-wine-800"
-              onClick={handleSaveTastingNote}
-              disabled={saving}
-            >
-              {saving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
+            <div className="flex gap-2 mt-3">
+              <Button
+                className="flex-1 bg-wine-900 hover:bg-wine-800"
+                onClick={handleSaveTastingNote}
+                disabled={saving}
+              >
+                {saving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Enregistrer
+              </Button>
+              {canShare && (
+                <Button
+                  variant="outline"
+                  onClick={handleShare}
+                  disabled={sharing}
+                >
+                  {sharing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Share2 className="h-4 w-4" />
+                  )}
+                </Button>
               )}
-              Enregistrer
-            </Button>
+            </div>
           </CardContent>
         </Card>
       )}
