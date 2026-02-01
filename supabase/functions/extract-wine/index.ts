@@ -6,6 +6,7 @@ const EXTRACTION_PROMPT = `Analyse cette photo d'étiquette de vin et extrais le
 
 {
   "domaine": "nom du domaine/château/producteur",
+  "cuvee": "nom de la cuvée si mentionné (ex: Orizeaux, Les Caillerets, Clos des Mouches...)",
   "appellation": "appellation d'origine (AOC/AOP/DOC/DOCG...)",
   "millesime": année (nombre entier ou null si non visible),
   "couleur": "rouge" | "blanc" | "rose" | "bulles",
@@ -15,6 +16,7 @@ const EXTRACTION_PROMPT = `Analyse cette photo d'étiquette de vin et extrais le
 }
 
 Si une information n'est pas visible sur l'étiquette, utilise null.
+La cuvée est le nom spécifique du vin, distinct du domaine et de l'appellation. Par exemple pour "Chartogne Taillet Orizeaux Champagne", le domaine est "Chartogne Taillet", la cuvée est "Orizeaux", et l'appellation est "Champagne".
 Pour la couleur, déduis-la de l'appellation si elle n'est pas explicite.
 Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
 

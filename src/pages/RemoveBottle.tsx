@@ -59,6 +59,7 @@ export default function RemoveBottle() {
         const query = searchQuery.toLowerCase()
         return (
           b.domaine?.toLowerCase().includes(query) ||
+          b.cuvee?.toLowerCase().includes(query) ||
           b.appellation?.toLowerCase().includes(query) ||
           b.millesime?.toString().includes(query)
         )
@@ -198,6 +199,7 @@ export default function RemoveBottle() {
         .from('bottles')
         .insert({
           domaine: extraction.domaine || null,
+          cuvee: extraction.cuvee || null,
           appellation: extraction.appellation || null,
           millesime: extraction.millesime || null,
           couleur: normalizeWineColor(extraction.couleur) || null,
@@ -359,7 +361,7 @@ export default function RemoveBottle() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="truncate font-medium">
-                        {bottle.domaine || bottle.appellation || 'Vin'}
+                        {bottle.cuvee || bottle.domaine || bottle.appellation || 'Vin'}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {bottle.millesime && `${bottle.millesime} - `}
@@ -411,7 +413,7 @@ export default function RemoveBottle() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="truncate font-medium">
-                              {bottle.domaine || bottle.appellation || 'Vin'}
+                              {bottle.cuvee || bottle.domaine || bottle.appellation || 'Vin'}
                             </p>
                             <div className="flex items-center gap-3 text-xs text-muted-foreground">
                               {bottle.millesime && (
@@ -473,7 +475,7 @@ export default function RemoveBottle() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="truncate font-medium">
-                      {bottle.domaine || bottle.appellation || 'Vin'}
+                      {bottle.cuvee || bottle.domaine || bottle.appellation || 'Vin'}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {bottle.millesime && `${bottle.millesime} - `}
@@ -500,7 +502,7 @@ export default function RemoveBottle() {
             <CardContent className="p-4 text-center">
               <Wine className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
               <p className="font-medium text-lg">
-                {extraction.domaine || extraction.appellation || 'Vin'}
+                {extraction.cuvee || extraction.domaine || extraction.appellation || 'Vin'}
               </p>
               {extraction.millesime && (
                 <p className="text-muted-foreground">{extraction.millesime}</p>
@@ -758,7 +760,7 @@ export default function RemoveBottle() {
 
 function findMatches(
   bottles: BottleWithZone[],
-  extraction: { domaine?: string; appellation?: string; millesime?: number }
+  extraction: { domaine?: string; cuvee?: string; appellation?: string; millesime?: number }
 ): BottleWithZone[] {
   return bottles.filter(bottle => {
     let score = 0
@@ -766,6 +768,13 @@ function findMatches(
     if (extraction.domaine && bottle.domaine) {
       if (bottle.domaine.toLowerCase().includes(extraction.domaine.toLowerCase()) ||
           extraction.domaine.toLowerCase().includes(bottle.domaine.toLowerCase())) {
+        score += 3
+      }
+    }
+
+    if (extraction.cuvee && bottle.cuvee) {
+      if (bottle.cuvee.toLowerCase().includes(extraction.cuvee.toLowerCase()) ||
+          extraction.cuvee.toLowerCase().includes(bottle.cuvee.toLowerCase())) {
         score += 3
       }
     }

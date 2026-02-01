@@ -34,6 +34,7 @@ export default function EditBottle() {
 
   // Form state
   const [domaine, setDomaine] = useState('')
+  const [cuvee, setCuvee] = useState('')
   const [appellation, setAppellation] = useState('')
   const [millesime, setMillesime] = useState('')
   const [couleur, setCouleur] = useState<WineColor | ''>('')
@@ -47,6 +48,7 @@ export default function EditBottle() {
   useEffect(() => {
     if (bottle) {
       setDomaine(bottle.domaine || '')
+      setCuvee(bottle.cuvee || '')
       setAppellation(bottle.appellation || '')
       setMillesime(bottle.millesime?.toString() || '')
       setCouleur(bottle.couleur || '')
@@ -78,6 +80,7 @@ export default function EditBottle() {
       .from('bottles')
       .update({
         domaine: domaine || null,
+        cuvee: cuvee || null,
         appellation: appellation || null,
         millesime: millesime ? parseInt(millesime) : null,
         couleur: couleur || null,
@@ -175,7 +178,17 @@ export default function EditBottle() {
             value={domaine}
             onChange={setDomaine}
             suggestions={domainesSuggestions}
-            placeholder="ex: Chateau Margaux"
+            placeholder="ex: Chartogne Taillet"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="cuvee">Cuvée</Label>
+          <Input
+            id="cuvee"
+            value={cuvee}
+            onChange={(e) => setCuvee(e.target.value)}
+            placeholder="ex: Orizeaux"
           />
         </div>
 

@@ -22,6 +22,7 @@ export interface Zone {
 export interface Bottle {
   id: string
   domaine: string | null
+  cuvee: string | null
   appellation: string | null
   millesime: number | null
   couleur: WineColor | null
@@ -79,6 +80,7 @@ export function normalizeWineColor(color: string | null | undefined): WineColor 
 
 export interface WineExtraction {
   domaine: string | null
+  cuvee: string | null
   appellation: string | null
   millesime: number | null
   couleur: WineColor | null

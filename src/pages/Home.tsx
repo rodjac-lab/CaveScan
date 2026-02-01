@@ -176,7 +176,7 @@ export default function Home() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <p className="truncate font-medium">
-                      {bottle.domaine || bottle.appellation || 'Vin inconnu'}
+                      {bottle.cuvee || bottle.domaine || bottle.appellation || 'Vin inconnu'}
                     </p>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       {bottle.appellation && bottle.domaine && (

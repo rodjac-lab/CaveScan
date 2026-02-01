@@ -36,7 +36,7 @@ export default function Search() {
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Domaine, appellation, millésime..."
+          placeholder="Domaine, cuvée, appellation, millésime..."
           className="pl-10 pr-10"
           autoFocus
         />
@@ -98,7 +98,7 @@ export default function Search() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="truncate font-medium">
-                      {bottle.domaine || bottle.appellation || 'Vin inconnu'}
+                      {bottle.cuvee || bottle.domaine || bottle.appellation || 'Vin inconnu'}
                     </p>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       {bottle.appellation && bottle.domaine && (
@@ -153,6 +153,7 @@ function searchBottles(
     results = results.filter(b => {
       return (
         b.domaine?.toLowerCase().includes(q) ||
+        b.cuvee?.toLowerCase().includes(q) ||
         b.appellation?.toLowerCase().includes(q) ||
         b.millesime?.toString().includes(q) ||
         b.zone?.name.toLowerCase().includes(q) ||

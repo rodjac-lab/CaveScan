@@ -222,7 +222,7 @@ export default function BottlePage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="flex-1 text-xl font-bold truncate">
-          {bottle.domaine || bottle.appellation || 'Vin'}
+          {bottle.cuvee || bottle.domaine || bottle.appellation || 'Vin'}
         </h1>
         {bottle.couleur && (
           <span className={`rounded-full px-3 py-1 text-sm ${COLOR_STYLES[bottle.couleur]}`}>
@@ -399,6 +399,13 @@ export default function BottlePage() {
             <div>
               <Label className="text-muted-foreground">Domaine</Label>
               <p className="font-medium">{bottle.domaine}</p>
+            </div>
+          )}
+
+          {bottle.cuvee && (
+            <div>
+              <Label className="text-muted-foreground">Cuvée</Label>
+              <p className="font-medium">{bottle.cuvee}</p>
             </div>
           )}
 

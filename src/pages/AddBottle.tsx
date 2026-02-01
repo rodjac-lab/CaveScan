@@ -43,6 +43,7 @@ export default function AddBottle() {
 
   // Extracted/editable data
   const [domaine, setDomaine] = useState('')
+  const [cuvee, setCuvee] = useState('')
   const [appellation, setAppellation] = useState('')
   const [millesime, setMillesime] = useState('')
   const [couleur, setCouleur] = useState<WineColor | ''>('')
@@ -73,6 +74,7 @@ export default function AddBottle() {
       // Pre-fill form with extracted data
       setRawExtraction(data)
       setDomaine(data.domaine || '')
+      setCuvee(data.cuvee || '')
       setAppellation(data.appellation || '')
       setMillesime(data.millesime?.toString() || '')
       setCouleur(normalizeWineColor(data.couleur) || '')
@@ -103,6 +105,7 @@ export default function AddBottle() {
         if (!error && data) {
           // Only fill in missing fields
           if (!domaine && data.domaine) setDomaine(data.domaine)
+          if (!cuvee && data.cuvee) setCuvee(data.cuvee)
           if (!appellation && data.appellation) setAppellation(data.appellation)
           if (!millesime && data.millesime) setMillesime(data.millesime.toString())
           if (!couleur && data.couleur) setCouleur(normalizeWineColor(data.couleur) || '')
@@ -165,6 +168,7 @@ export default function AddBottle() {
       // Create bottle records (one per quantity)
       const bottleData = {
         domaine: domaine || null,
+        cuvee: cuvee || null,
         appellation: appellation || null,
         millesime: millesime ? parseInt(millesime) : null,
         couleur: couleur || null,
@@ -199,6 +203,7 @@ export default function AddBottle() {
     setPhotoFileBack(null)
     setPhotoPreviewBack(null)
     setDomaine('')
+    setCuvee('')
     setAppellation('')
     setMillesime('')
     setCouleur('')
@@ -373,7 +378,17 @@ export default function AddBottle() {
                 value={domaine}
                 onChange={setDomaine}
                 suggestions={domainesSuggestions}
-                placeholder="ex: Château Margaux"
+                placeholder="ex: Chartogne Taillet"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="cuvee">Cuvée</Label>
+              <Input
+                id="cuvee"
+                value={cuvee}
+                onChange={(e) => setCuvee(e.target.value)}
+                placeholder="ex: Orizeaux"
               />
             </div>
 
