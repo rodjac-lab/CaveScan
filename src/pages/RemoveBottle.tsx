@@ -175,7 +175,7 @@ export default function RemoveBottle() {
 
   return (
     <div className="flex-1 p-4">
-      <h1 className="text-2xl font-bold">Sortir une bouteille</h1>
+      <h1 className="text-2xl font-bold">Déguster</h1>
 
       {error && (
         <div className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
@@ -187,7 +187,7 @@ export default function RemoveBottle() {
       {step === 'choose' && (
         <div className="mt-6 space-y-4">
           <p className="text-muted-foreground">
-            Scannez l'étiquette ou recherchez dans votre cave
+            Scannez l'étiquette du vin que vous dégustez
           </p>
 
           <input

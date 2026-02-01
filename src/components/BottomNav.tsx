@@ -1,10 +1,10 @@
 import { NavLink } from 'react-router-dom'
-import { Home, PlusCircle, MinusCircle, Settings } from 'lucide-react'
+import { Home, PlusCircle, Wine, Settings } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: Home, label: 'Cave' },
   { to: '/add', icon: PlusCircle, label: 'Ajouter' },
-  { to: '/remove', icon: MinusCircle, label: 'Sortir' },
+  { to: '/remove', icon: Wine, label: 'Déguster' },
   { to: '/settings', icon: Settings, label: 'Réglages' },
 ]
 
