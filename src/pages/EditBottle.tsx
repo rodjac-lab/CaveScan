@@ -35,7 +35,7 @@ export default function EditBottle() {
   const [appellation, setAppellation] = useState('')
   const [millesime, setMillesime] = useState('')
   const [couleur, setCouleur] = useState<WineColor | ''>('')
-  const [zoneId, setZoneId] = useState('')
+  const [zoneId, setZoneId] = useState('none')
   const [shelf, setShelf] = useState('')
   const [purchasePrice, setPurchasePrice] = useState('')
   const [marketValue, setMarketValue] = useState('')
@@ -48,7 +48,7 @@ export default function EditBottle() {
       setAppellation(bottle.appellation || '')
       setMillesime(bottle.millesime?.toString() || '')
       setCouleur(bottle.couleur || '')
-      setZoneId(bottle.zone_id || '')
+      setZoneId(bottle.zone_id || 'none')
       setShelf(bottle.shelf || '')
       setPurchasePrice(bottle.purchase_price?.toString() || '')
       setMarketValue(bottle.market_value?.toString() || '')
@@ -79,7 +79,7 @@ export default function EditBottle() {
         appellation: appellation || null,
         millesime: millesime ? parseInt(millesime) : null,
         couleur: couleur || null,
-        zone_id: zoneId || null,
+        zone_id: zoneId === 'none' ? null : zoneId,
         shelf: shelf || null,
         purchase_price: purchasePrice ? parseFloat(purchasePrice.replace(',', '.')) : null,
         market_value: marketValue ? parseFloat(marketValue.replace(',', '.')) : null,
@@ -224,7 +224,7 @@ export default function EditBottle() {
               <SelectValue placeholder="Choisir une zone" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Aucune zone</SelectItem>
+              <SelectItem value="none">Aucune zone</SelectItem>
               {zones.map((z) => (
                 <SelectItem key={z.id} value={z.id}>
                   {z.name}
