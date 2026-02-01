@@ -1,33 +1,228 @@
+import { useState } from 'react'
+import { Plus, Edit2, Trash2, Loader2, MapPin } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { supabase } from '@/lib/supabase'
+import { useZones } from '@/hooks/useZones'
+import type { Zone } from '@/lib/types'
+
 export default function Settings() {
+  const { zones, loading, error, refetch } = useZones()
+  const [editingZone, setEditingZone] = useState<Zone | null>(null)
+  const [isAddingZone, setIsAddingZone] = useState(false)
+  const [zoneName, setZoneName] = useState('')
+  const [zoneDescription, setZoneDescription] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
+
+  const handleOpenAdd = () => {
+    setZoneName('')
+    setZoneDescription('')
+    setIsAddingZone(true)
+  }
+
+  const handleOpenEdit = (zone: Zone) => {
+    setEditingZone(zone)
+    setZoneName(zone.name)
+    setZoneDescription(zone.description || '')
+  }
+
+  const handleClose = () => {
+    setIsAddingZone(false)
+    setEditingZone(null)
+    setZoneName('')
+    setZoneDescription('')
+  }
+
+  const handleSave = async () => {
+    if (!zoneName.trim()) return
+
+    setSaving(true)
+
+    if (editingZone) {
+      // Update existing zone
+      const { error } = await supabase
+        .from('zones')
+        .update({
+          name: zoneName.trim(),
+          description: zoneDescription.trim() || null,
+        })
+        .eq('id', editingZone.id)
+
+      if (!error) {
+        await refetch()
+        handleClose()
+      }
+    } else {
+      // Create new zone
+      const { error } = await supabase.from('zones').insert({
+        name: zoneName.trim(),
+        description: zoneDescription.trim() || null,
+        position: zones.length,
+      })
+
+      if (!error) {
+        await refetch()
+        handleClose()
+      }
+    }
+
+    setSaving(false)
+  }
+
+  const handleDelete = async (zoneId: string) => {
+    if (!confirm('Supprimer cette zone ? Les bouteilles associées ne seront pas supprimées.')) {
+      return
+    }
+
+    setDeleting(zoneId)
+
+    const { error } = await supabase.from('zones').delete().eq('id', zoneId)
+
+    if (!error) {
+      await refetch()
+    }
+
+    setDeleting(null)
+  }
+
   return (
     <div className="flex-1 p-4">
-      <h1 className="text-2xl font-bold">Paramètres</h1>
-      <p className="mt-2 text-muted-foreground">
-        Configurez votre application
-      </p>
+      <h1 className="text-2xl font-bold mb-6">Paramètres</h1>
 
-      <div className="mt-6 space-y-4">
-        <div className="rounded-lg border bg-card p-4">
-          <h2 className="font-semibold text-card-foreground">Zones de stockage</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Gérez les zones de votre cave
-          </p>
+      {/* Zones section */}
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            Zones de stockage
+          </h2>
+          <Button size="sm" onClick={handleOpenAdd}>
+            <Plus className="h-4 w-4 mr-1" />
+            Ajouter
+          </Button>
         </div>
 
-        <div className="rounded-lg border bg-card p-4">
-          <h2 className="font-semibold text-card-foreground">Synchronisation</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            État de la connexion Supabase
-          </p>
-        </div>
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : error ? (
+          <p className="text-destructive">{error}</p>
+        ) : zones.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              Aucune zone configurée
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {zones.map((zone) => (
+              <Card key={zone.id}>
+                <CardContent className="flex items-center justify-between p-3">
+                  <div>
+                    <p className="font-medium">{zone.name}</p>
+                    {zone.description && (
+                      <p className="text-sm text-muted-foreground">{zone.description}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleOpenEdit(zone)}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleDelete(zone.id)}
+                      disabled={deleting === zone.id}
+                    >
+                      {deleting === zone.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
 
-        <div className="rounded-lg border bg-card p-4">
-          <h2 className="font-semibold text-card-foreground">À propos</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            CaveScan v1.0.0
-          </p>
-        </div>
-      </div>
+      {/* About section */}
+      <section>
+        <Card>
+          <CardContent className="p-4">
+            <h2 className="font-semibold mb-2">À propos</h2>
+            <p className="text-sm text-muted-foreground">
+              CaveScan v1.0.0
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Gestion de cave à vin avec reconnaissance d'étiquettes
+            </p>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Add/Edit Zone Dialog */}
+      <Dialog open={isAddingZone || !!editingZone} onOpenChange={handleClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingZone ? 'Modifier la zone' : 'Nouvelle zone'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="zone-name">Nom</Label>
+              <Input
+                id="zone-name"
+                value={zoneName}
+                onChange={(e) => setZoneName(e.target.value)}
+                placeholder="Cave principale"
+              />
+            </div>
+            <div>
+              <Label htmlFor="zone-desc">Description (optionnel)</Label>
+              <Input
+                id="zone-desc"
+                value={zoneDescription}
+                onChange={(e) => setZoneDescription(e.target.value)}
+                placeholder="Rouges de garde"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={handleClose}>
+              Annuler
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={!zoneName.trim() || saving}
+              className="bg-wine-900 hover:bg-wine-800"
+            >
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editingZone ? 'Enregistrer' : 'Créer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
