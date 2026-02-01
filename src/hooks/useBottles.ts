@@ -85,6 +85,45 @@ export function useDomainesSuggestions(): string[] {
   return domaines
 }
 
+export function useBottle(id: string | undefined): {
+  bottle: BottleWithZone | null
+  loading: boolean
+  error: string | null
+  refetch: () => Promise<void>
+} {
+  const [bottle, setBottle] = useState<BottleWithZone | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchBottle = useCallback(async () => {
+    if (!id) {
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    const { data, error: fetchError } = await supabase
+      .from('bottles')
+      .select(BOTTLES_SELECT_QUERY)
+      .eq('id', id)
+      .single()
+
+    if (fetchError) {
+      setError(fetchError.message)
+    } else {
+      setBottle(data)
+      setError(null)
+    }
+    setLoading(false)
+  }, [id])
+
+  useEffect(() => {
+    fetchBottle()
+  }, [fetchBottle])
+
+  return { bottle, loading, error, refetch: fetchBottle }
+}
+
 export function useAppellationsSuggestions(): string[] {
   const [appellations, setAppellations] = useState<string[]>([])
 
