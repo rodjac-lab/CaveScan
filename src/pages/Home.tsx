@@ -9,25 +9,19 @@ import { type WineColor, type BottleWithZone } from '@/lib/types'
 
 type FilterType = WineColor | null
 
-const COLOR_BAR_STYLES: Record<WineColor, string> = {
+const COLOR_STYLES: Record<WineColor, string> = {
   rouge: 'bg-[var(--red-wine)]',
   blanc: 'bg-[var(--white-wine)]',
   rose: 'bg-[var(--rose-wine)]',
   bulles: 'bg-[var(--champagne)]',
 }
 
-const COLOR_DOT_STYLES: Record<WineColor, string> = {
-  rouge: 'bg-[var(--red-wine)]',
-  blanc: 'bg-[var(--white-wine)]',
-  rose: 'bg-[var(--rose-wine)]',
-  bulles: 'text-[var(--champagne)]',
-}
+const BULLES_TEXT_STYLE = 'text-[var(--champagne)]'
 
 function countByColor(bottles: BottleWithZone[], color: WineColor): number {
   return bottles.filter(b => b.couleur === color).length
 }
 
-// Sparkle/star SVG for Bulles
 function SparkleIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -40,7 +34,6 @@ function SparkleIcon({ className }: { className?: string }) {
   )
 }
 
-// Search icon SVG
 function SearchIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -68,9 +61,9 @@ function StatCell({ count, label, color, isActive, onClick, isSparkle }: StatCel
       }`}
     >
       {isSparkle ? (
-        <SparkleIcon className={`h-2.5 w-2.5 ${COLOR_DOT_STYLES[color]}`} />
+        <SparkleIcon className={`h-2.5 w-2.5 ${BULLES_TEXT_STYLE}`} />
       ) : (
-        <div className={`h-1.5 w-1.5 rounded-full ${COLOR_DOT_STYLES[color]}`} />
+        <div className={`h-1.5 w-1.5 rounded-full ${COLOR_STYLES[color]}`} />
       )}
       <span className="mt-1.5 font-serif text-2xl font-bold text-[var(--text-primary)]">{count}</span>
       <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">{label}</span>
@@ -319,7 +312,7 @@ export default function Home() {
                     {/* Color Bar */}
                     <div
                       className={`h-8 w-[3px] flex-shrink-0 rounded-sm ${
-                        group.couleur ? COLOR_BAR_STYLES[group.couleur] : 'bg-[var(--text-muted)]'
+                        group.couleur ? COLOR_STYLES[group.couleur] : 'bg-[var(--text-muted)]'
                       }`}
                     />
 

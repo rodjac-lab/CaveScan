@@ -1,17 +1,15 @@
 import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Camera, Loader2, Check, X, Wine, PenLine, ImageIcon, Plus } from 'lucide-react'
+import { Loader2, Check, X, Wine, PenLine, ImageIcon, Plus, Camera } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
 import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
 import { normalizeWineColor, type WineColor, type BottleWithZone, type WineExtraction, type TastingPhoto } from '@/lib/types'
+import { fileToBase64, resizeImage } from '@/lib/image'
 
 type Step = 'choose' | 'extracting' | 'matching' | 'select' | 'confirm' | 'not_found' | 'saving'
-
-const MAX_IMAGE_SIZE = 1200
-const IMAGE_QUALITY = 0.85
 
 const COLOR_BAR_STYLES: Record<WineColor, string> = {
   rouge: 'bg-[var(--red-wine)]',
@@ -27,7 +25,6 @@ const COLOR_STYLES: Record<WineColor, string> = {
   bulles: 'bg-[var(--champagne)]/20 text-[var(--champagne)]',
 }
 
-// Camera icon SVG
 function CameraIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -37,7 +34,6 @@ function CameraIcon({ className }: { className?: string }) {
   )
 }
 
-// Gallery icon SVG
 function GalleryIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -140,7 +136,7 @@ export default function RemoveBottle() {
       const uploadedPhotos: TastingPhoto[] = []
 
       for (const photo of tastingPhotos) {
-        const compressedBlob = await resizeImage(photo.file, MAX_IMAGE_SIZE, IMAGE_QUALITY)
+        const compressedBlob = await resizeImage(photo.file)
         const fileName = `${Date.now()}-tasting-${uploadedPhotos.length}.jpg`
         const { error: uploadError } = await supabase.storage
           .from('wine-labels')
@@ -197,7 +193,7 @@ export default function RemoveBottle() {
 
       // Upload photo if exists
       if (photoFile) {
-        const compressedBlob = await resizeImage(photoFile, MAX_IMAGE_SIZE, IMAGE_QUALITY)
+        const compressedBlob = await resizeImage(photoFile)
         const fileName = `${Date.now()}-front.jpg`
         const { error: uploadError } = await supabase.storage
           .from('wine-labels')
@@ -326,7 +322,6 @@ export default function RemoveBottle() {
             <div className="space-y-1.5">
               {recentlyDrunk.map((bottle) => {
                 const { day, month } = formatDrunkDate(bottle.drunk_at)
-                const hasZone = !!bottle.zone_id
 
                 return (
                   <Link key={bottle.id} to={`/bottle/${bottle.id}`}>
@@ -357,7 +352,7 @@ export default function RemoveBottle() {
                       </div>
 
                       {/* Context */}
-                      {hasZone && (
+                      {bottle.zone_id && (
                         <span className="flex-shrink-0 text-[10px] text-[var(--text-muted)]">
                           Ma cave
                         </span>
@@ -789,77 +784,3 @@ function findMatches(
   })
 }
 
-async function fileToBase64(file: File): Promise<string> {
-  const resizedBlob = await resizeImage(file, MAX_IMAGE_SIZE, IMAGE_QUALITY)
-
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = reader.result as string
-      const base64 = result.split(',')[1]
-      resolve(base64)
-    }
-    reader.onerror = reject
-    reader.readAsDataURL(resizedBlob)
-  })
-}
-
-function calculateResizedDimensions(
-  width: number,
-  height: number,
-  maxSize: number
-): { width: number; height: number } {
-  if (width <= maxSize && height <= maxSize) {
-    return { width, height }
-  }
-
-  if (width > height) {
-    return { width: maxSize, height: (height / width) * maxSize }
-  }
-
-  return { width: (width / height) * maxSize, height: maxSize }
-}
-
-async function resizeImage(file: File, maxSize: number, quality: number): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    const objectUrl = URL.createObjectURL(file)
-
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl)
-
-      const { width, height } = calculateResizedDimensions(img.width, img.height, maxSize)
-
-      const canvas = document.createElement('canvas')
-      canvas.width = width
-      canvas.height = height
-
-      const ctx = canvas.getContext('2d')
-      if (!ctx) {
-        reject(new Error('Could not get canvas context'))
-        return
-      }
-
-      ctx.drawImage(img, 0, 0, width, height)
-
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            resolve(blob)
-          } else {
-            reject(new Error('Could not create blob'))
-          }
-        },
-        'image/jpeg',
-        quality
-      )
-    }
-
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl)
-      reject(new Error('Failed to load image'))
-    }
-
-    img.src = objectUrl
-  })
-}
