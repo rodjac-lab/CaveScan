@@ -1,4 +1,4 @@
-﻿import { useState, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { Camera, Loader2, Check, X, Wine, Plus, Minus, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,17 +13,22 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Autocomplete } from '@/components/Autocomplete'
+import { BatchProgress, type BatchProgressItem } from '@/components/BatchProgress'
+import { BatchItemForm, type BatchItemData } from '@/components/BatchItemForm'
 import { supabase } from '@/lib/supabase'
 import { useZones } from '@/hooks/useZones'
 import { useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
 import { WINE_COLORS, normalizeWineColor, type WineColor, type WineExtraction } from '@/lib/types'
 import { fileToBase64, resizeImage } from '@/lib/image'
 
-type Step = 'capture' | 'extracting' | 'confirm' | 'saving'
+type Step = 'capture' | 'extracting' | 'confirm' | 'saving' | 'batch-extracting' | 'batch-confirm'
+
+const MAX_BATCH_SIZE = 12
 
 export default function AddBottle() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const fileInputGalleryRef = useRef<HTMLInputElement>(null)
+  const fileInputBatchRef = useRef<HTMLInputElement>(null)
   const fileInputBackRef = useRef<HTMLInputElement>(null)
   const { zones, loading: zonesLoading } = useZones()
   const domainesSuggestions = useDomainesSuggestions()
@@ -37,7 +42,7 @@ export default function AddBottle() {
   const [zoomImage, setZoomImage] = useState<{ src: string; label?: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Extracted/editable data
+  // Single bottle mode state
   const [domaine, setDomaine] = useState('')
   const [cuvee, setCuvee] = useState('')
   const [appellation, setAppellation] = useState('')
@@ -48,6 +53,11 @@ export default function AddBottle() {
   const [purchasePrice, setPurchasePrice] = useState('')
   const [quantity, setQuantity] = useState(1)
   const [rawExtraction, setRawExtraction] = useState<WineExtraction | null>(null)
+
+  // Batch mode state
+  const [batchItems, setBatchItems] = useState<BatchItemData[]>([])
+  const [currentBatchIndex, setCurrentBatchIndex] = useState(0)
+  const [batchExtractionIndex, setBatchExtractionIndex] = useState(0)
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -82,6 +92,116 @@ export default function AddBottle() {
     }
   }
 
+  const handleBatchFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    // If only 1 photo selected, use single mode
+    if (files.length === 1) {
+      const file = files[0]
+      setPhotoFile(file)
+      setPhotoPreview(URL.createObjectURL(file))
+      setError(null)
+      setStep('extracting')
+
+      try {
+        const base64 = await fileToBase64(file)
+        const { data, error } = await supabase.functions.invoke('extract-wine', {
+          body: { image_base64: base64 },
+        })
+
+        if (error) throw error
+
+        setRawExtraction(data)
+        setDomaine(data.domaine || '')
+        setCuvee(data.cuvee || '')
+        setAppellation(data.appellation || '')
+        setMillesime(data.millesime?.toString() || '')
+        setCouleur(normalizeWineColor(data.couleur) || '')
+        setStep('confirm')
+      } catch (err) {
+        console.error('Extraction error:', err)
+        setError('Échec de l\'extraction. Vous pouvez saisir manuellement.')
+        setStep('confirm')
+      }
+      return
+    }
+
+    // Multiple photos - batch mode
+    const selectedFiles = Array.from(files).slice(0, MAX_BATCH_SIZE)
+
+    const items: BatchItemData[] = selectedFiles.map((file, index) => ({
+      id: `batch-${Date.now()}-${index}`,
+      photoFile: file,
+      photoPreview: URL.createObjectURL(file),
+      photoFileBack: null,
+      photoPreviewBack: null,
+      extractionStatus: 'pending' as const,
+      domaine: '',
+      cuvee: '',
+      appellation: '',
+      millesime: '',
+      couleur: '' as const,
+      zoneId: '',
+      shelf: '',
+      purchasePrice: '',
+      rawExtraction: null,
+    }))
+
+    setBatchItems(items)
+    setCurrentBatchIndex(0)
+    setBatchExtractionIndex(0)
+    setError(null)
+    setStep('batch-extracting')
+
+    // Start sequential extraction
+    await extractBatchSequentially(items)
+  }
+
+  const extractBatchSequentially = async (items: BatchItemData[]) => {
+    const updatedItems = [...items]
+
+    for (let i = 0; i < updatedItems.length; i++) {
+      setBatchExtractionIndex(i)
+
+      // Update status to extracting
+      updatedItems[i] = { ...updatedItems[i], extractionStatus: 'extracting' }
+      setBatchItems([...updatedItems])
+
+      try {
+        const base64 = await fileToBase64(updatedItems[i].photoFile)
+        const { data, error } = await supabase.functions.invoke('extract-wine', {
+          body: { image_base64: base64 },
+        })
+
+        if (error) throw error
+
+        updatedItems[i] = {
+          ...updatedItems[i],
+          extractionStatus: 'extracted',
+          domaine: data.domaine || '',
+          cuvee: data.cuvee || '',
+          appellation: data.appellation || '',
+          millesime: data.millesime?.toString() || '',
+          couleur: normalizeWineColor(data.couleur) || '',
+          rawExtraction: data,
+        }
+      } catch (err) {
+        console.error(`Extraction error for item ${i}:`, err)
+        updatedItems[i] = {
+          ...updatedItems[i],
+          extractionStatus: 'error',
+          extractionError: 'Échec de l\'extraction. Saisissez manuellement.',
+        }
+      }
+
+      setBatchItems([...updatedItems])
+    }
+
+    // All extractions done, move to batch confirm
+    setStep('batch-confirm')
+  }
+
   const handleBackPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -111,6 +231,58 @@ export default function AddBottle() {
       }
       setStep('confirm')
     }
+  }
+
+  const handleBatchBackPhotoSelect = async (file: File) => {
+    const currentItem = batchItems[currentBatchIndex]
+    const preview = URL.createObjectURL(file)
+
+    // Update current item with back photo
+    const updatedItems = [...batchItems]
+    updatedItems[currentBatchIndex] = {
+      ...currentItem,
+      photoFileBack: file,
+      photoPreviewBack: preview,
+    }
+    setBatchItems(updatedItems)
+
+    // If missing data, try extraction from back label
+    if (!currentItem.domaine || !currentItem.appellation || !currentItem.millesime) {
+      try {
+        const base64 = await fileToBase64(file)
+        const { data, error } = await supabase.functions.invoke('extract-wine', {
+          body: { image_base64: base64 },
+        })
+
+        if (!error && data) {
+          const updates: Partial<BatchItemData> = {}
+          if (!currentItem.domaine && data.domaine) updates.domaine = data.domaine
+          if (!currentItem.cuvee && data.cuvee) updates.cuvee = data.cuvee
+          if (!currentItem.appellation && data.appellation) updates.appellation = data.appellation
+          if (!currentItem.millesime && data.millesime) updates.millesime = data.millesime.toString()
+          if (!currentItem.couleur && data.couleur) updates.couleur = normalizeWineColor(data.couleur) || ''
+
+          if (Object.keys(updates).length > 0) {
+            updatedItems[currentBatchIndex] = {
+              ...updatedItems[currentBatchIndex],
+              ...updates,
+            }
+            setBatchItems([...updatedItems])
+          }
+        }
+      } catch (err) {
+        console.error('Back extraction error:', err)
+      }
+    }
+  }
+
+  const handleBatchItemUpdate = (updates: Partial<BatchItemData>) => {
+    const updatedItems = [...batchItems]
+    updatedItems[currentBatchIndex] = {
+      ...updatedItems[currentBatchIndex],
+      ...updates,
+    }
+    setBatchItems(updatedItems)
   }
 
   const handleSave = async () => {
@@ -192,6 +364,98 @@ export default function AddBottle() {
     }
   }
 
+  const handleBatchSaveCurrentItem = async () => {
+    const item = batchItems[currentBatchIndex]
+
+    if (!item.domaine && !item.appellation) {
+      setError('Veuillez renseigner au moins le domaine ou l\'appellation')
+      return
+    }
+
+    setStep('saving')
+    setError(null)
+
+    try {
+      let photoUrl: string | null = null
+      let photoUrlBack: string | null = null
+      const timestamp = Date.now()
+
+      // Upload compressed front photo
+      const compressedBlob = await resizeImage(item.photoFile)
+      const fileName = `${timestamp}-${item.id}-front.jpg`
+      const { error: uploadError } = await supabase.storage
+        .from('wine-labels')
+        .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
+
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage
+        .from('wine-labels')
+        .getPublicUrl(fileName)
+
+      photoUrl = urlData.publicUrl
+
+      // Upload compressed back photo if exists
+      if (item.photoFileBack) {
+        const compressedBlobBack = await resizeImage(item.photoFileBack)
+        const fileNameBack = `${timestamp}-${item.id}-back.jpg`
+        const { error: uploadErrorBack } = await supabase.storage
+          .from('wine-labels')
+          .upload(fileNameBack, compressedBlobBack, { contentType: 'image/jpeg' })
+
+        if (uploadErrorBack) throw uploadErrorBack
+
+        const { data: urlDataBack } = supabase.storage
+          .from('wine-labels')
+          .getPublicUrl(fileNameBack)
+
+        photoUrlBack = urlDataBack.publicUrl
+      }
+
+      // Create bottle record
+      const bottleData = {
+        domaine: item.domaine || null,
+        cuvee: item.cuvee || null,
+        appellation: item.appellation || null,
+        millesime: item.millesime ? parseInt(item.millesime) : null,
+        couleur: item.couleur || null,
+        zone_id: item.zoneId || null,
+        shelf: item.shelf || null,
+        purchase_price: item.purchasePrice ? parseFloat(item.purchasePrice.replace(',', '.')) : null,
+        photo_url: photoUrl,
+        photo_url_back: photoUrlBack,
+        raw_extraction: item.rawExtraction,
+        status: 'in_stock',
+      }
+
+      const { error: insertError } = await supabase.from('bottles').insert([bottleData])
+
+      if (insertError) throw insertError
+
+      // Move to next item or finish
+      if (currentBatchIndex < batchItems.length - 1) {
+        setCurrentBatchIndex(currentBatchIndex + 1)
+        setStep('batch-confirm')
+      } else {
+        // All items saved, reset
+        handleReset()
+      }
+    } catch (err) {
+      console.error('Save error:', err)
+      setError(err instanceof Error ? err.message : 'Échec de l\'enregistrement')
+      setStep('batch-confirm')
+    }
+  }
+
+  const handleBatchSkipCurrentItem = () => {
+    if (currentBatchIndex < batchItems.length - 1) {
+      setCurrentBatchIndex(currentBatchIndex + 1)
+    } else {
+      // Last item, reset
+      handleReset()
+    }
+  }
+
   const handleReset = () => {
     setStep('capture')
     setPhotoFile(null)
@@ -209,12 +473,24 @@ export default function AddBottle() {
     setQuantity(1)
     setRawExtraction(null)
     setError(null)
+    // Reset batch state
+    setBatchItems([])
+    setCurrentBatchIndex(0)
+    setBatchExtractionIndex(0)
   }
 
   function handleMillesimeChange(e: React.ChangeEvent<HTMLInputElement>): void {
     const val = e.target.value.replace(/\D/g, '').slice(0, 4)
     setMillesime(val)
   }
+
+  // Build batch progress items for display
+  const batchProgressItems: BatchProgressItem[] = batchItems.map((item) => ({
+    id: item.id,
+    photoPreview: item.photoPreview,
+    status: item.extractionStatus,
+    error: item.extractionError,
+  }))
 
   return (
     <div className="flex-1 p-6">
@@ -250,12 +526,22 @@ export default function AddBottle() {
             className="hidden"
           />
 
-          {/* Gallery input */}
+          {/* Gallery input (single) */}
           <input
             ref={fileInputGalleryRef}
             type="file"
             accept="image/*"
             onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          {/* Batch input (multiple) */}
+          <input
+            ref={fileInputBatchRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleBatchFileSelect}
             className="hidden"
           />
 
@@ -272,10 +558,10 @@ export default function AddBottle() {
             size="lg"
             variant="outline"
             className="w-full h-16 flex-col gap-1"
-            onClick={() => fileInputGalleryRef.current?.click()}
+            onClick={() => fileInputBatchRef.current?.click()}
           >
             <ImageIcon className="h-6 w-6" />
-            <span>Choisir une photo</span>
+            <span>Choisir des photos</span>
           </Button>
 
           <div className="relative">
@@ -298,7 +584,7 @@ export default function AddBottle() {
         </div>
       )}
 
-      {/* Step: Extracting */}
+      {/* Step: Extracting (single mode) */}
       {step === 'extracting' && (
         <div className="mt-6 flex flex-col items-center gap-4">
           {photoPreview && (
@@ -316,7 +602,14 @@ export default function AddBottle() {
         </div>
       )}
 
-      {/* Step: Confirm */}
+      {/* Step: Batch Extracting */}
+      {step === 'batch-extracting' && (
+        <div className="mt-6">
+          <BatchProgress items={batchProgressItems} currentIndex={batchExtractionIndex} />
+        </div>
+      )}
+
+      {/* Step: Confirm (single mode) */}
       {step === 'confirm' && (
         <div className="mt-6 space-y-4">
           {/* Photo previews */}
@@ -495,7 +788,7 @@ export default function AddBottle() {
             </div>
 
             <div>
-              <Label htmlFor="price">Prix d'achat (â‚¬)</Label>
+              <Label htmlFor="price">Prix d'achat (€)</Label>
               <Input
                 id="price"
                 inputMode="decimal"
@@ -517,6 +810,44 @@ export default function AddBottle() {
             >
               <Check className="mr-2 h-4 w-4" />
               {quantity > 1 ? `Ajouter ${quantity} bouteilles` : 'Enregistrer'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Batch Confirm */}
+      {step === 'batch-confirm' && batchItems[currentBatchIndex] && (
+        <div className="mt-6 space-y-4">
+          <div className="text-center mb-4">
+            <p className="text-lg font-semibold text-[var(--text-primary)]">
+              {batchItems.length} bouteilles à valider
+            </p>
+          </div>
+
+          <BatchItemForm
+            item={batchItems[currentBatchIndex]}
+            currentIndex={currentBatchIndex}
+            totalItems={batchItems.length}
+            zones={zones}
+            zonesLoading={zonesLoading}
+            domainesSuggestions={domainesSuggestions}
+            appellationsSuggestions={appellationsSuggestions}
+            onUpdate={handleBatchItemUpdate}
+            onBackPhotoSelect={handleBatchBackPhotoSelect}
+            onZoomImage={(src, label) => setZoomImage({ src, label })}
+          />
+
+          <div className="flex gap-3 pt-4">
+            <Button variant="outline" className="flex-1" onClick={handleBatchSkipCurrentItem}>
+              <X className="mr-2 h-4 w-4" />
+              {currentBatchIndex < batchItems.length - 1 ? 'Passer' : 'Annuler'}
+            </Button>
+            <Button
+              className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-light)]"
+              onClick={handleBatchSaveCurrentItem}
+            >
+              <Check className="mr-2 h-4 w-4" />
+              {currentBatchIndex < batchItems.length - 1 ? 'Enregistrer →' : 'Enregistrer'}
             </Button>
           </div>
         </div>
@@ -550,5 +881,3 @@ export default function AddBottle() {
     </div>
   )
 }
-
-
