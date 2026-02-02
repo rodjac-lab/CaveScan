@@ -41,8 +41,8 @@ function SettingsIcon({ className }: { className?: string }) {
 
 const navItems = [
   { to: '/cave', icon: HomeIcon, label: 'Cave' },
-  { to: '/add', icon: PlusSquareIcon, label: 'Entrée' },
-  { to: '/remove', icon: SmileyIcon, label: 'Ouvrir' },
+  { to: '/add', icon: PlusSquareIcon, label: 'Encaver' },
+  { to: '/remove', icon: SmileyIcon, label: 'Partager' },
   { to: '/settings', icon: SettingsIcon, label: 'Réglages' },
 ]
 

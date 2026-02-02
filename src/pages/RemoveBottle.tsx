@@ -287,7 +287,7 @@ export default function RemoveBottle() {
         {/* Page Header */}
         <div className="px-6 pt-4 pb-3">
           <p className="brand-text">CaveScan</p>
-          <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Ouvrir</h1>
+          <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Partager</h1>
           <p className="text-[13px] font-light text-[var(--text-secondary)]">
             On ouvre une bonne bouteille ?
           </p>
@@ -422,7 +422,7 @@ export default function RemoveBottle() {
       {/* Page Header for other steps */}
       <div className="mb-4">
         <p className="brand-text">CaveScan</p>
-        <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Ouvrir</h1>
+        <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Partager</h1>
       </div>
 
       {error && (

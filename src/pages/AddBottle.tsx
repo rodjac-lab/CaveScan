@@ -497,7 +497,7 @@ export default function AddBottle() {
       {/* Page Header */}
       <div className="mb-4">
         <p className="brand-text">CaveScan</p>
-        <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Entrée</h1>
+        <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Encaver</h1>
         <p className="text-[13px] font-light text-[var(--text-secondary)]">
           Ajouter des bouteilles à votre cave
         </p>
