@@ -76,17 +76,22 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('Starting extraction...')
+
     if (!ANTHROPIC_API_KEY) {
       throw new Error('ANTHROPIC_API_KEY not configured')
     }
+    console.log('API key found')
 
     const { image_url, image_base64 } = await req.json()
+    console.log('Request parsed, has image_base64:', !!image_base64, 'has image_url:', !!image_url)
 
     if (!image_url && !image_base64) {
       throw new Error('Either image_url or image_base64 is required')
     }
 
     const imageContent = buildImageContent(image_base64, image_url)
+    console.log('Image content built, calling Claude API...')
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -110,12 +115,16 @@ Deno.serve(async (req) => {
       }),
     })
 
+    console.log('Claude API responded, status:', response.status)
+
     if (!response.ok) {
       const errorText = await response.text()
+      console.error('Claude API error response:', errorText)
       throw new Error(`Claude API error: ${errorText}`)
     }
 
     const result = await response.json()
+    console.log('Response parsed, content blocks:', result.content?.length)
     const textContent = result.content.find((c: ClaudeContentBlock) => c.type === 'text')
 
     if (!textContent?.text) {
