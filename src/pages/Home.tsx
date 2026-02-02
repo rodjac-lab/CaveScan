@@ -222,7 +222,7 @@ export default function Home() {
       </div>
 
       {/* Stats Row */}
-      <div className="mx-6 mb-4 grid grid-cols-4 divide-x divide-[var(--border-color)] rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] card-shadow">
+      <div className="mx-6 mb-4 grid grid-cols-4 divide-x divide-[var(--border-color)]">
         <StatCell
           count={stats.rouge}
           label="Rouges"
