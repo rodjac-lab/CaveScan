@@ -1,5 +1,4 @@
 ﻿import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Camera, Loader2, Check, X, Wine, Plus, Minus, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,7 +24,6 @@ const MAX_IMAGE_SIZE = 1200
 const IMAGE_QUALITY = 0.85
 
 export default function AddBottle() {
-  const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const fileInputGalleryRef = useRef<HTMLInputElement>(null)
   const fileInputBackRef = useRef<HTMLInputElement>(null)
@@ -187,8 +185,8 @@ export default function AddBottle() {
 
       if (insertError) throw insertError
 
-      // Success - go home
-      navigate('/')
+      // Success - reset form to add more bottles
+      handleReset()
     } catch (err) {
       console.error('Save error:', err)
       setError(err instanceof Error ? err.message : 'Échec de l\'enregistrement')
