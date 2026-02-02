@@ -14,7 +14,8 @@ Liste d'idees et de travaux a collecter au fil de l'eau.
 - [ ] Permettre de supprimer des entrees et des sorties (actuellement indisponible)
 
 ## Idees a ajouter
-- [ ] 
+- [ ] **Section "Suggestions" dans Partager** : Afficher des bouteilles selectionnees au hasard dans la cave pour les proposer a l'utilisateur. Imaginer un algo de selection fun (anciennete, maturite, diversite couleurs, saison...). Casse le cote "longue liste" du menu.
+- [ ] **Reflexion UX : recherche pour sortie de cave** : Actuellement, on ne peut pas chercher une bouteille dans Partager pour la declarer sortie. C'est possible via Cave. A reflechir : quel menu est le plus naturel pour cette action ? 
 
 ## Deja dans PRD (roadmap)
 
