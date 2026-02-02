@@ -229,11 +229,9 @@ export default function BottlePage() {
             {getWineColorLabel(bottle.couleur)}
           </span>
         )}
-        {!isDrunk && (
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/bottle/${bottle.id}/edit`)}>
-            <Pencil className="h-5 w-5" />
-          </Button>
-        )}
+        <Button variant="ghost" size="icon" onClick={() => navigate(`/bottle/${bottle.id}/edit`)}>
+          <Pencil className="h-5 w-5" />
+        </Button>
       </div>
 
       {/* Photos */}
