@@ -1,8 +1,7 @@
-﻿import { useState, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Camera, Loader2, Check, X, Wine, Search, PenLine, ImageIcon, Plus, Clock } from 'lucide-react'
+import { Camera, Loader2, Check, X, Wine, PenLine, ImageIcon, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
@@ -14,11 +13,39 @@ type Step = 'choose' | 'extracting' | 'matching' | 'select' | 'confirm' | 'not_f
 const MAX_IMAGE_SIZE = 1200
 const IMAGE_QUALITY = 0.85
 
+const COLOR_BAR_STYLES: Record<WineColor, string> = {
+  rouge: 'bg-[var(--red-wine)]',
+  blanc: 'bg-[var(--white-wine)]',
+  rose: 'bg-[var(--rose-wine)]',
+  bulles: 'bg-[var(--champagne)]',
+}
+
 const COLOR_STYLES: Record<WineColor, string> = {
-  rouge: 'bg-red-900/30 text-red-300',
-  blanc: 'bg-amber-100/30 text-amber-200',
-  rose: 'bg-pink-300/30 text-pink-300',
-  bulles: 'bg-yellow-200/30 text-yellow-200',
+  rouge: 'bg-[var(--red-wine)]/20 text-[var(--red-wine)]',
+  blanc: 'bg-[var(--white-wine)]/20 text-[var(--white-wine)]',
+  rose: 'bg-[var(--rose-wine)]/20 text-[var(--rose-wine)]',
+  bulles: 'bg-[var(--champagne)]/20 text-[var(--champagne)]',
+}
+
+// Camera icon SVG
+function CameraIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+      <circle cx="12" cy="13" r="4"/>
+    </svg>
+  )
+}
+
+// Gallery icon SVG
+function GalleryIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="3" y="3" width="18" height="18" rx="2"/>
+      <circle cx="8.5" cy="8.5" r="1.5"/>
+      <path d="M21 15l-5-5L5 21"/>
+    </svg>
+  )
 }
 
 export default function RemoveBottle() {
@@ -29,7 +56,6 @@ export default function RemoveBottle() {
   const { bottles: recentlyDrunk, loading: drunkLoading } = useRecentlyDrunk()
 
   const [step, setStep] = useState<Step>('choose')
-  const [searchQuery, setSearchQuery] = useState('')
   const [matches, setMatches] = useState<BottleWithZone[]>([])
   const [selectedBottle, setSelectedBottle] = useState<BottleWithZone | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -48,23 +74,14 @@ export default function RemoveBottle() {
   const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Autre']
 
   const formatDrunkDate = (value?: string | null) => {
-    if (!value) return null
+    if (!value) return { day: '', month: '' }
     const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return null
-    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+    if (Number.isNaN(date.getTime())) return { day: '', month: '' }
+    return {
+      day: date.getDate().toString().padStart(2, '0'),
+      month: date.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', ''),
+    }
   }
-
-  const filteredBottles = searchQuery.length >= 2
-    ? bottles.filter(b => {
-        const query = searchQuery.toLowerCase()
-        return (
-          b.domaine?.toLowerCase().includes(query) ||
-          b.cuvee?.toLowerCase().includes(query) ||
-          b.appellation?.toLowerCase().includes(query) ||
-          b.millesime?.toString().includes(query)
-        )
-      })
-    : []
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -103,7 +120,7 @@ export default function RemoveBottle() {
       }
     } catch (err) {
       console.error('Extraction error:', err)
-      setError('Échec de la reconnaissance. Essayez la recherche manuelle.')
+      setError('Échec de la reconnaissance. Réessayez.')
       setStep('choose')
     }
   }
@@ -254,7 +271,6 @@ export default function RemoveBottle() {
 
   const handleReset = () => {
     setStep('choose')
-    setSearchQuery('')
     setMatches([])
     setSelectedBottle(null)
     setError(null)
@@ -268,24 +284,95 @@ export default function RemoveBottle() {
     setPendingTastingFile(null)
   }
 
-  return (
-    <div className="flex-1 p-4">
-      <h1 className="text-2xl font-bold">Déguster</h1>
-
-      {error && (
-        <div className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
-      {/* Step: Choose method */}
-      {step === 'choose' && (
-        <div className="mt-6 space-y-4">
-          <p className="text-muted-foreground">
-            Scannez l'étiquette du vin que vous dégustez
+  // Render the main "choose" step with new layout
+  if (step === 'choose') {
+    return (
+      <div className="flex flex-1 flex-col">
+        {/* Page Header */}
+        <div className="px-6 pt-4 pb-3">
+          <p className="brand-text">CaveScan</p>
+          <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Ouvrir</h1>
+          <p className="text-[13px] font-light text-[var(--text-secondary)]">
+            On ouvre une bonne bouteille ?
           </p>
+        </div>
 
-          {/* Camera input */}
+        {error && (
+          <div className="mx-6 rounded-[var(--radius-sm)] bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+
+        {/* Section Header - Divider with label */}
+        <div className="mx-6 mt-4 mb-2 flex items-center gap-3">
+          <div className="h-px flex-1 bg-[var(--border-color)]" />
+          <span className="text-[10px] font-medium uppercase tracking-[2px] text-[var(--text-muted)]">
+            Ouvertures récentes
+          </span>
+          <div className="h-px flex-1 bg-[var(--border-color)]" />
+        </div>
+
+        {/* Recently Drunk List */}
+        <div className="flex-1 overflow-y-auto px-6 py-2 scrollbar-hide">
+          {drunkLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-[var(--accent)]" />
+            </div>
+          ) : recentlyDrunk.length === 0 ? (
+            <div className="mt-2 rounded-[var(--radius-sm)] bg-[var(--bg-card)] py-6 text-center text-sm text-[var(--text-secondary)] card-shadow">
+              Aucune ouverture récente.
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {recentlyDrunk.map((bottle) => {
+                const { day, month } = formatDrunkDate(bottle.drunk_at)
+                const hasZone = !!bottle.zone_id
+
+                return (
+                  <Link key={bottle.id} to={`/bottle/${bottle.id}`}>
+                    <div className="flex items-center gap-3 rounded-[var(--radius-sm)] bg-[var(--bg-card)] p-2.5 pr-3 card-shadow transition-all duration-200 hover:bg-[var(--accent-bg)]">
+                      {/* Date */}
+                      <div className="w-9 flex-shrink-0 text-center">
+                        <p className="font-serif text-[17px] font-bold leading-tight text-[var(--text-primary)]">{day}</p>
+                        <p className="text-[9px] font-medium uppercase text-[var(--text-muted)]">{month}</p>
+                      </div>
+
+                      {/* Color Bar */}
+                      <div
+                        className={`h-8 w-[3px] flex-shrink-0 rounded-sm ${
+                          bottle.couleur ? COLOR_BAR_STYLES[bottle.couleur] : 'bg-[var(--text-muted)]'
+                        }`}
+                      />
+
+                      {/* Info */}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-medium text-[var(--text-primary)]">
+                          {bottle.domaine || bottle.appellation || 'Vin'}
+                        </p>
+                        <p className="truncate text-[11px] font-light text-[var(--text-secondary)]">
+                          {[bottle.appellation !== bottle.domaine ? bottle.appellation : null, bottle.millesime]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
+                      </div>
+
+                      {/* Context */}
+                      {hasZone && (
+                        <span className="flex-shrink-0 text-[10px] text-[var(--text-muted)]">
+                          Ma cave
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Scan Zone - Bottom */}
+        <div className="mx-4 mb-20 rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3 scan-shadow">
+          {/* Hidden inputs */}
           <input
             ref={fileInputRef}
             type="file"
@@ -294,8 +381,6 @@ export default function RemoveBottle() {
             onChange={handleFileSelect}
             className="hidden"
           />
-
-          {/* Gallery input */}
           <input
             ref={fileInputGalleryRef}
             type="file"
@@ -304,145 +389,57 @@ export default function RemoveBottle() {
             className="hidden"
           />
 
-          <Button
-            size="lg"
-            className="w-full h-20 flex-col gap-2 bg-wine-900 hover:bg-wine-800"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Camera className="h-7 w-7" />
-            <span>Photographier</span>
-          </Button>
+          <div className="flex items-center gap-3">
+            {/* Gallery Button */}
+            <button
+              onClick={() => fileInputGalleryRef.current?.click()}
+              className="flex h-[42px] w-[42px] items-center justify-center rounded-full border border-[rgba(184,134,11,0.12)] bg-[var(--accent-bg)] text-[var(--accent)] transition-all duration-200 hover:bg-[var(--accent-bg)]/80"
+            >
+              <GalleryIcon className="h-5 w-5" />
+            </button>
 
-          <Button
-            size="lg"
-            variant="outline"
-            className="w-full h-14 flex-col gap-1"
-            onClick={() => fileInputGalleryRef.current?.click()}
-          >
-            <ImageIcon className="h-5 w-5" />
-            <span>Choisir une photo</span>
-          </Button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
+            {/* Center Text */}
+            <div className="flex-1 text-center">
+              <p className="font-serif text-base font-semibold text-[var(--text-primary)]">Scanner un vin</p>
+              <p className="text-xs text-[var(--text-muted)]">Photo ou galerie</p>
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">ou rechercher</span>
-            </div>
+
+            {/* Camera Button - Primary with gradient */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex h-[42px] w-[42px] items-center justify-center rounded-full text-white transition-all duration-200"
+              style={{
+                background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)',
+                boxShadow: '0 3px 12px rgba(184,134,11,0.25)'
+              }}
+            >
+              <CameraIcon className="h-5 w-5" />
+            </button>
           </div>
+        </div>
+      </div>
+    )
+  }
 
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Rechercher un vin..."
-              className="pl-10"
-            />
-          </div>
+  // Other steps
+  return (
+    <div className="flex-1 p-6">
+      {/* Page Header for other steps */}
+      <div className="mb-4">
+        <p className="brand-text">CaveScan</p>
+        <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Ouvrir</h1>
+      </div>
 
-          {/* Search results */}
-          {filteredBottles.length > 0 && (
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {filteredBottles.map((bottle) => (
-                <Card
-                  key={bottle.id}
-                  className="cursor-pointer transition-colors hover:bg-card/80"
-                  onClick={() => handleSelectBottle(bottle)}
-                >
-                  <CardContent className="flex items-center gap-3 p-3">
-                    <div
-                      className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                        bottle.couleur ? COLOR_STYLES[bottle.couleur] : 'bg-muted'
-                      }`}
-                    >
-                      <Wine className="h-5 w-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="truncate font-medium">
-                        {bottle.domaine || bottle.appellation || 'Vin'}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {[bottle.appellation, bottle.millesime].filter(Boolean).join(' · ')}
-                      </p>
-                      {bottle.cuvee && (
-                        <p className="truncate text-xs text-muted-foreground">
-                          {bottle.cuvee}
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {searchQuery.length >= 2 && filteredBottles.length === 0 && (
-            <p className="text-center text-sm text-muted-foreground">
-              Aucun résultat pour "{searchQuery}"
-            </p>
-          )}
-
-          <div className="pt-4 space-y-3">
-            <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Sorties recentes
-            </h2>
-            {drunkLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Chargement des sorties...
-              </div>
-            ) : recentlyDrunk.length === 0 ? (
-              <Card>
-                <CardContent className="py-5 text-center text-sm text-muted-foreground">
-                  Aucune sortie recente.
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-2">
-                {recentlyDrunk.slice(0, 6).map((bottle) => {
-                  const dateLabel = formatDrunkDate(bottle.drunk_at)
-                  return (
-                    <Link key={bottle.id} to={`/bottle/${bottle.id}`}>
-                      <Card className="transition-colors hover:bg-card/80">
-                        <CardContent className="flex items-center gap-3 p-3">
-                          <div
-                            className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                              bottle.couleur ? COLOR_STYLES[bottle.couleur] : 'bg-muted'
-                            }`}
-                          >
-                            <Wine className="h-5 w-5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="truncate font-medium">
-                              {bottle.domaine || bottle.appellation || 'Vin'}
-                            </p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              {[bottle.appellation, bottle.millesime, dateLabel].filter(Boolean).join(' · ')}
-                            </p>
-                            {bottle.cuvee && (
-                              <p className="truncate text-xs text-muted-foreground">
-                                {bottle.cuvee}
-                              </p>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+      {error && (
+        <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
         </div>
       )}
 
       {/* Step: Extracting */}
       {(step === 'extracting' || step === 'matching') && (
         <div className="mt-6 flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-wine-600" />
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--accent)]" />
           <span className="text-muted-foreground">
             {step === 'extracting' ? 'Analyse de l\'étiquette...' : 'Recherche dans la cave...'}
           </span>
@@ -519,7 +516,7 @@ export default function RemoveBottle() {
               Annuler
             </Button>
             <Button
-              className="flex-1 bg-wine-900 hover:bg-wine-800"
+              className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-light)]"
               onClick={handleLogTasting}
             >
               <PenLine className="mr-2 h-4 w-4" />
@@ -717,7 +714,7 @@ export default function RemoveBottle() {
               Annuler
             </Button>
             <Button
-              className="flex-1 bg-wine-900 hover:bg-wine-800"
+              className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-light)]"
               onClick={handleConfirmRemove}
             >
               <Check className="mr-2 h-4 w-4" />
@@ -730,7 +727,7 @@ export default function RemoveBottle() {
       {/* Step: Saving */}
       {step === 'saving' && (
         <div className="mt-6 flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-wine-600" />
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--accent)]" />
           <span className="text-muted-foreground">Enregistrement...</span>
         </div>
       )}
@@ -866,4 +863,3 @@ async function resizeImage(file: File, maxSize: number, quality: number): Promis
     img.src = objectUrl
   })
 }
-

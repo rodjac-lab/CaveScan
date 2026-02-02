@@ -52,7 +52,7 @@ export function useRecentlyDrunk(): {
         .select(BOTTLES_SELECT_QUERY)
         .eq('status', 'drunk')
         .order('drunk_at', { ascending: false })
-        .limit(10)
+        .limit(30)
 
       setBottles(data || [])
       setLoading(false)

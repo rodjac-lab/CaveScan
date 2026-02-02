@@ -107,8 +107,12 @@ export default function Settings() {
   }
 
   return (
-    <div className="flex-1 p-4">
-      <h1 className="text-2xl font-bold mb-6">Parametres</h1>
+    <div className="flex-1 p-6">
+      {/* Page Header */}
+      <div className="mb-6">
+        <p className="brand-text">CaveScan</p>
+        <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Réglages</h1>
+      </div>
 
       {/* Account section */}
       <section className="mb-8">
@@ -220,23 +224,6 @@ export default function Settings() {
         </Card>
       </section>
 
-      {/* Debug section */}
-      <section className="mt-4">
-        <Card>
-          <CardContent className="p-4">
-            <h2 className="font-semibold mb-2">Debug connexion</h2>
-            <p className="text-xs text-muted-foreground break-all">
-              URL: {import.meta.env.VITE_SUPABASE_URL || 'non défini'}
-            </p>
-            <p className="text-xs text-muted-foreground break-all mt-1">
-              User ID: {session?.user?.id || 'aucun'}
-            </p>
-            <p className="text-xs text-muted-foreground break-all mt-1">
-              Auth OK: {supabase.auth ? 'oui' : 'non'}
-            </p>
-          </CardContent>
-        </Card>
-      </section>
 
       {/* Add/Edit Zone Dialog */}
       <Dialog open={isAddingZone || !!editingZone} onOpenChange={handleClose}>
@@ -275,7 +262,7 @@ export default function Settings() {
             <Button
               onClick={handleSave}
               disabled={!zoneName.trim() || saving}
-              className="bg-wine-900 hover:bg-wine-800"
+              className="bg-[var(--accent)] hover:bg-[var(--accent-light)]"
             >
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editingZone ? 'Enregistrer' : 'Créer'}

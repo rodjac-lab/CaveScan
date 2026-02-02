@@ -4,41 +4,21 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  /* Wine/Bordeaux palette - available as wine-50 through wine-950 */
-  --color-wine-50: #fdf2f4;
-  --color-wine-100: #fce7ea;
-  --color-wine-200: #f9d0d8;
-  --color-wine-300: #f4a9b8;
-  --color-wine-400: #ec7892;
-  --color-wine-500: #e04d70;
-  --color-wine-600: #cc2d5a;
-  --color-wine-700: #ab2049;
-  --color-wine-800: #8e1d42;
+  /* Wine colors from design system */
+  --color-wine-600: #B8860B;
+  --color-wine-800: #8B6914;
   --color-wine-900: #722F37;
-  --color-wine-950: #4a0d1d;
 
-  /* Cave/Dark tones - available as cave-50 through cave-950 */
-  --color-cave-50: #f7f7f8;
-  --color-cave-100: #eeeef0;
-  --color-cave-200: #d9d9de;
-  --color-cave-300: #b8b8c1;
-  --color-cave-400: #91919f;
-  --color-cave-500: #747484;
-  --color-cave-600: #5e5e6c;
-  --color-cave-700: #4d4d58;
-  --color-cave-800: #42424a;
-  --color-cave-900: #1a1a1f;
-  --color-cave-950: #0f0f12;
+  /* Design system accent colors */
+  --color-accent: #B8860B;
+  --color-accent-light: #D4A843;
 }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -57,118 +37,174 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* Dark theme by default - Wine/Cave theme */
+/* CaveScan Design System - Light theme (premium/elegant) */
 :root {
-  --radius: 0.625rem;
-  /* Dark cave backgrounds */
-  --background: #0f0f12;
-  --foreground: #fafafa;
-  --card: #1a1a1f;
-  --card-foreground: #fafafa;
-  --popover: #1a1a1f;
-  --popover-foreground: #fafafa;
-  /* Wine accents */
-  --primary: #722F37;
-  --primary-foreground: #fafafa;
-  --secondary: #42424a;
-  --secondary-foreground: #fafafa;
-  --muted: #42424a;
-  --muted-foreground: #91919f;
-  --accent: #ab2049;
-  --accent-foreground: #fafafa;
-  --destructive: #dc2626;
-  --border: #4d4d58;
-  --input: #42424a;
-  --ring: #cc2d5a;
-  /* Chart colors with wine tones */
-  --chart-1: #722F37;
-  --chart-2: #ab2049;
-  --chart-3: #cc2d5a;
-  --chart-4: #e04d70;
-  --chart-5: #ec7892;
-  /* Sidebar */
-  --sidebar: #1a1a1f;
-  --sidebar-foreground: #fafafa;
-  --sidebar-primary: #722F37;
-  --sidebar-primary-foreground: #fafafa;
-  --sidebar-accent: #42424a;
-  --sidebar-accent-foreground: #fafafa;
-  --sidebar-border: #4d4d58;
-  --sidebar-ring: #cc2d5a;
-}
+  /* Base radius */
+  --radius: 14px;
 
-/* Light theme (optional, for future use) */
-.light {
-  --background: #fafafa;
-  --foreground: #0f0f12;
-  --card: #ffffff;
-  --card-foreground: #0f0f12;
-  --popover: #ffffff;
-  --popover-foreground: #0f0f12;
-  --primary: #722F37;
-  --primary-foreground: #fafafa;
-  --secondary: #f7f7f8;
-  --secondary-foreground: #0f0f12;
-  --muted: #f7f7f8;
-  --muted-foreground: #5e5e6c;
-  --accent: #fce7ea;
-  --accent-foreground: #722F37;
+  /* === DESIGN SYSTEM COLORS === */
+
+  /* Backgrounds */
+  --bg: #F7F4EF;
+  --bg-card: #FFFFFF;
+  --accent-bg: #FAF6ED;
+
+  /* Text */
+  --text-primary: #1A1A1A;
+  --text-secondary: #6B6560;
+  --text-muted: #A09A93;
+
+  /* Accent (Gold/Amber) */
+  --accent: #B8860B;
+  --accent-light: #D4A843;
+
+  /* Border */
+  --border-color: #E8E3DA;
+
+  /* Wine colors */
+  --red-wine: #722F37;
+  --white-wine: #C8B560;
+  --rose-wine: #D4917A;
+  --champagne: #DAC17C;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+
+  /* === TAILWIND/SHADCN MAPPINGS === */
+
+  /* Light backgrounds */
+  --background: #F7F4EF;
+  --foreground: #1A1A1A;
+  --card: #FFFFFF;
+  --card-foreground: #1A1A1A;
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1A1A;
+
+  /* Accent mapped to gold */
+  --primary: #B8860B;
+  --primary-foreground: #FFFFFF;
+  --secondary: #FAF6ED;
+  --secondary-foreground: #1A1A1A;
+  --muted: #FAF6ED;
+  --muted-foreground: #A09A93;
+  --accent-tw: #FAF6ED;
+  --accent-foreground: #B8860B;
+
+  /* Destructive */
   --destructive: #dc2626;
-  --border: #d9d9de;
-  --input: #d9d9de;
-  --ring: #722F37;
-  --chart-1: #722F37;
-  --chart-2: #8e1d42;
-  --chart-3: #ab2049;
-  --chart-4: #cc2d5a;
-  --chart-5: #e04d70;
-  --sidebar: #f7f7f8;
-  --sidebar-foreground: #0f0f12;
-  --sidebar-primary: #722F37;
-  --sidebar-primary-foreground: #fafafa;
-  --sidebar-accent: #fce7ea;
-  --sidebar-accent-foreground: #722F37;
-  --sidebar-border: #d9d9de;
-  --sidebar-ring: #722F37;
+
+  /* Borders/Inputs */
+  --border: #E8E3DA;
+  --input: #E8E3DA;
+  --ring: #B8860B;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   /* Italic placeholders for clearer UX */
   input::placeholder,
   textarea::placeholder {
     font-style: italic;
+    color: var(--text-muted);
   }
+
   body {
-    @apply bg-background text-foreground;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
     margin: 0;
     min-height: 100vh;
     min-height: 100dvh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
   #root {
     min-height: 100vh;
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
   }
+
+  /* Scrollbar hide for lists */
+  .scrollbar-hide {
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Typography utilities */
+.font-serif {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.font-sans {
+  font-family: 'DM Sans', system-ui, sans-serif;
+}
+
+/* Brand header style */
+.brand-text {
+  font-family: 'Playfair Display', serif;
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* Label uppercase style */
+.label-uppercase {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Wine color bar utilities */
+.wine-bar-rouge { background-color: var(--red-wine); }
+.wine-bar-blanc { background-color: var(--white-wine); }
+.wine-bar-rose { background-color: var(--rose-wine); }
+.wine-bar-bulles { background-color: var(--champagne); }
+
+/* Card shadow */
+.card-shadow {
+  box-shadow: var(--shadow-sm);
+}
+
+/* Scan zone shadow */
+.scan-shadow {
+  box-shadow: var(--shadow-md);
+}
+
+/* Nav bar backdrop */
+.nav-backdrop {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Button active state */
+button:active {
+  transform: scale(0.97);
+  transition: transform 0.15s;
+}
+
+/* Focus states */
+input:focus,
+textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* Transition defaults */
+.transition-default {
+  transition: all 0.2s ease;
 }

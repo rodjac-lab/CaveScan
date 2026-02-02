@@ -221,8 +221,15 @@ export default function AddBottle() {
   }
 
   return (
-    <div className="flex-1 p-4">
-      <h1 className="text-2xl font-bold">Ajouter une bouteille</h1>
+    <div className="flex-1 p-6">
+      {/* Page Header */}
+      <div className="mb-4">
+        <p className="brand-text">CaveScan</p>
+        <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Entrée</h1>
+        <p className="text-[13px] font-light text-[var(--text-secondary)]">
+          Ajouter des bouteilles à votre cave
+        </p>
+      </div>
 
       {error && (
         <div className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
@@ -258,7 +265,7 @@ export default function AddBottle() {
 
           <Button
             size="lg"
-            className="w-full h-24 flex-col gap-2 bg-wine-900 hover:bg-wine-800"
+            className="w-full h-24 flex-col gap-2 bg-[var(--accent)] hover:bg-[var(--accent-light)]"
             onClick={() => fileInputRef.current?.click()}
           >
             <Camera className="h-8 w-8" />
@@ -509,7 +516,7 @@ export default function AddBottle() {
               Annuler
             </Button>
             <Button
-              className="flex-1 bg-wine-900 hover:bg-wine-800"
+              className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-light)]"
               onClick={handleSave}
             >
               <Check className="mr-2 h-4 w-4" />
@@ -522,7 +529,7 @@ export default function AddBottle() {
       {/* Step: Saving */}
       {step === 'saving' && (
         <div className="mt-6 flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-wine-600" />
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--accent)]" />
           <span className="text-muted-foreground">Enregistrement...</span>
         </div>
       )}
