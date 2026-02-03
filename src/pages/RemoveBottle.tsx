@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
 import { normalizeWineColor, type WineColor, type BottleWithZone, type WineExtraction, type TastingPhoto } from '@/lib/types'
 import { fileToBase64, resizeImage } from '@/lib/image'
+import { stringSimilarity } from '@/lib/utils'
 
 type Step = 'choose' | 'extracting' | 'matching' | 'select' | 'confirm' | 'not_found' | 'saving' | 'batch-extracting' | 'batch-confirm'
 
@@ -1306,6 +1307,11 @@ export default function RemoveBottle() {
   )
 }
 
+// Similarity thresholds
+const SIMILARITY_THRESHOLD_PRIMARY = 0.75   // 75% for domaine/cuvée
+const SIMILARITY_THRESHOLD_SECONDARY = 0.80 // 80% for appellation
+const MATCH_SCORE_THRESHOLD = 3             // Minimum score to consider a match
+
 function findMatches(
   bottles: BottleWithZone[],
   extraction: { domaine?: string; cuvee?: string; appellation?: string; millesime?: number }
@@ -1314,35 +1320,36 @@ function findMatches(
     let score = 0
 
     // Primary identifiers: domaine and cuvée (high weight)
+    // Use Levenshtein similarity with threshold
     if (extraction.domaine && bottle.domaine) {
-      if (bottle.domaine.toLowerCase().includes(extraction.domaine.toLowerCase()) ||
-          extraction.domaine.toLowerCase().includes(bottle.domaine.toLowerCase())) {
-        score += 3
+      const similarity = stringSimilarity(extraction.domaine, bottle.domaine)
+      if (similarity >= SIMILARITY_THRESHOLD_PRIMARY) {
+        // Proportional score: higher similarity = higher score (max 4)
+        score += similarity * 4
       }
     }
 
     if (extraction.cuvee && bottle.cuvee) {
-      if (bottle.cuvee.toLowerCase().includes(extraction.cuvee.toLowerCase()) ||
-          extraction.cuvee.toLowerCase().includes(bottle.cuvee.toLowerCase())) {
-        score += 3
+      const similarity = stringSimilarity(extraction.cuvee, bottle.cuvee)
+      if (similarity >= SIMILARITY_THRESHOLD_PRIMARY) {
+        score += similarity * 4
       }
     }
 
     // Secondary identifiers: appellation and millésime (low weight)
-    // These alone should NOT be enough to match
     if (extraction.appellation && bottle.appellation) {
-      if (bottle.appellation.toLowerCase().includes(extraction.appellation.toLowerCase()) ||
-          extraction.appellation.toLowerCase().includes(bottle.appellation.toLowerCase())) {
-        score += 1
+      const similarity = stringSimilarity(extraction.appellation, bottle.appellation)
+      if (similarity >= SIMILARITY_THRESHOLD_SECONDARY) {
+        score += similarity * 1.5
       }
     }
 
+    // Millésime: exact match only
     if (extraction.millesime && bottle.millesime === extraction.millesime) {
       score += 1
     }
 
-    // Require at least domaine OR cuvée match (score >= 3)
-    return score >= 3
+    return score >= MATCH_SCORE_THRESHOLD
   })
 }
 
