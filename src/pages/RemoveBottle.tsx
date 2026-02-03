@@ -1,21 +1,20 @@
 import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Loader2, Check, X, Wine, PenLine, ImageIcon, Plus } from 'lucide-react'
+import { Loader2, Check, X, Wine, PenLine, ImageIcon, Plus, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { BatchDrinkProgress } from '@/components/BatchDrinkProgress'
 import { supabase } from '@/lib/supabase'
 import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
 import { normalizeWineColor, type WineColor, type BottleWithZone, type WineExtraction, type TastingPhoto } from '@/lib/types'
 import { fileToBase64, resizeImage } from '@/lib/image'
 import { stringSimilarity } from '@/lib/utils'
 
-type Step = 'choose' | 'extracting' | 'matching' | 'select' | 'confirm' | 'not_found' | 'saving' | 'batch-extracting' | 'batch-confirm'
+type Step = 'choose' | 'extracting' | 'matching' | 'select' | 'confirm' | 'not_found' | 'saving' | 'batch-extracting' | 'batch-saving'
 
 const MAX_BATCH_SIZE = 12
 
-type BatchMatchStatus = 'pending' | 'extracting' | 'matching' | 'matched' | 'multiple' | 'not_found' | 'error'
+type BatchMatchStatus = 'pending' | 'extracting' | 'matching' | 'matched' | 'not_found' | 'error'
 
 interface BatchDrinkItem {
   id: string
@@ -77,7 +76,6 @@ export default function RemoveBottle() {
   const [zoomImage, setZoomImage] = useState<{ src: string; label?: string } | null>(null)
 
   const [batchItems, setBatchItems] = useState<BatchDrinkItem[]>([])
-  const [currentBatchIndex, setCurrentBatchIndex] = useState(0)
   const [batchExtractionIndex, setBatchExtractionIndex] = useState(0)
 
   const [tastingPhotos, setTastingPhotos] = useState<{ file: File; label?: string; preview: string }[]>([])
@@ -156,7 +154,6 @@ export default function RemoveBottle() {
     }))
 
     setBatchItems(items)
-    setCurrentBatchIndex(0)
     setBatchExtractionIndex(0)
     setError(null)
     setStep('batch-extracting')
@@ -167,6 +164,7 @@ export default function RemoveBottle() {
   const extractAndMatchBatchSequentially = async (items: BatchDrinkItem[]) => {
     const updatedItems = [...items]
 
+    // Phase 1: Extract and match all items
     for (let i = 0; i < updatedItems.length; i++) {
       setBatchExtractionIndex(i)
       updatedItems[i] = { ...updatedItems[i], status: 'extracting' }
@@ -201,11 +199,13 @@ export default function RemoveBottle() {
             selectedBottle: matched[0],
           }
         } else {
+          // Multiple matches: auto-select the first one
           updatedItems[i] = {
             ...updatedItems[i],
-            status: 'multiple',
+            status: 'matched',
             extraction: data,
             matches: matched,
+            selectedBottle: matched[0],
           }
         }
       } catch (err) {
@@ -220,7 +220,69 @@ export default function RemoveBottle() {
       setBatchItems([...updatedItems])
     }
 
-    setStep('batch-confirm')
+    // Phase 2: Mark all wines as drunk and collect IDs
+    setStep('batch-saving')
+    const processedIds: string[] = []
+
+    for (const item of updatedItems) {
+      if (item.status === 'error') continue
+
+      try {
+        if (item.selectedBottle) {
+          // Wine found in cellar -> mark as drunk
+          await supabase.from('bottles')
+            .update({ status: 'drunk', drunk_at: new Date().toISOString() })
+            .eq('id', item.selectedBottle.id)
+          processedIds.push(item.selectedBottle.id)
+        } else if (item.extraction) {
+          // Wine not found -> create new entry as drunk
+          let photoUrl: string | null = null
+          const compressedBlob = await resizeImage(item.photoFile)
+          const fileName = `${Date.now()}-front-${processedIds.length}.jpg`
+          const { error: uploadError } = await supabase.storage
+            .from('wine-labels')
+            .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
+
+          if (!uploadError) {
+            const { data: urlData } = supabase.storage
+              .from('wine-labels')
+              .getPublicUrl(fileName)
+            photoUrl = urlData.publicUrl
+          }
+
+          const { data } = await supabase.from('bottles')
+            .insert({
+              domaine: item.extraction.domaine || null,
+              cuvee: item.extraction.cuvee || null,
+              appellation: item.extraction.appellation || null,
+              millesime: item.extraction.millesime || null,
+              couleur: normalizeWineColor(item.extraction.couleur) || null,
+              photo_url: photoUrl,
+              raw_extraction: item.extraction,
+              status: 'drunk',
+              drunk_at: new Date().toISOString()
+            })
+            .select()
+            .single()
+
+          if (data) processedIds.push(data.id)
+        }
+      } catch (err) {
+        console.error('Error saving batch item:', err)
+      }
+    }
+
+    // Phase 3: Navigate to the first wine with batch state
+    batchItems.forEach(p => URL.revokeObjectURL(p.photoPreview))
+
+    if (processedIds.length > 0) {
+      navigate(`/bottle/${processedIds[0]}`, {
+        state: { batchIds: processedIds, batchIndex: 0 }
+      })
+    } else {
+      // No items processed successfully, go back to home
+      navigate('/')
+    }
   }
 
   const handleSelectBottle = (bottle: BottleWithZone) => {
@@ -228,15 +290,6 @@ export default function RemoveBottle() {
     setStep('confirm')
   }
 
-  const handleBatchSelectBottle = (bottle: BottleWithZone) => {
-    const updatedItems = [...batchItems]
-    updatedItems[currentBatchIndex] = {
-      ...updatedItems[currentBatchIndex],
-      selectedBottle: bottle,
-      status: 'matched',
-    }
-    setBatchItems(updatedItems)
-  }
 
   const handleConfirmRemove = async () => {
     if (!selectedBottle) return
@@ -341,97 +394,6 @@ export default function RemoveBottle() {
     }
   }
 
-  const handleBatchConfirmCurrent = async () => {
-    const item = batchItems[currentBatchIndex]
-
-    if (!item.selectedBottle) {
-      handleBatchSkipCurrent()
-      return
-    }
-
-    setStep('saving')
-
-    try {
-      const { error } = await supabase
-        .from('bottles')
-        .update({
-          status: 'drunk',
-          drunk_at: new Date().toISOString(),
-        })
-        .eq('id', item.selectedBottle.id)
-
-      if (error) throw error
-
-      if (currentBatchIndex < batchItems.length - 1) {
-        setCurrentBatchIndex(currentBatchIndex + 1)
-        setStep('batch-confirm')
-      } else {
-        batchItems.forEach(p => URL.revokeObjectURL(p.photoPreview))
-        navigate('/')
-      }
-    } catch (err) {
-      console.error('Save error:', err)
-      setError('Échec de l\'enregistrement')
-      setStep('batch-confirm')
-    }
-  }
-
-  const handleBatchSkipCurrent = () => {
-    if (currentBatchIndex < batchItems.length - 1) {
-      setCurrentBatchIndex(currentBatchIndex + 1)
-    } else {
-      batchItems.forEach(p => URL.revokeObjectURL(p.photoPreview))
-      navigate('/')
-    }
-  }
-
-  const handleBatchLogTasting = async () => {
-    const item = batchItems[currentBatchIndex]
-    if (!item.extraction) return
-
-    setStep('saving')
-
-    try {
-      let photoUrl: string | null = null
-      const compressedBlob = await resizeImage(item.photoFile)
-      const fileName = `${Date.now()}-front.jpg`
-      const { error: uploadError } = await supabase.storage
-        .from('wine-labels')
-        .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
-
-      if (!uploadError) {
-        const { data: urlData } = supabase.storage
-          .from('wine-labels')
-          .getPublicUrl(fileName)
-        photoUrl = urlData.publicUrl
-      }
-
-      const { data, error } = await supabase
-        .from('bottles')
-        .insert({
-          domaine: item.extraction.domaine || null,
-          cuvee: item.extraction.cuvee || null,
-          appellation: item.extraction.appellation || null,
-          millesime: item.extraction.millesime || null,
-          couleur: normalizeWineColor(item.extraction.couleur) || null,
-          photo_url: photoUrl,
-          raw_extraction: item.extraction,
-          status: 'drunk',
-          drunk_at: new Date().toISOString()
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      batchItems.forEach(p => URL.revokeObjectURL(p.photoPreview))
-      navigate(`/bottle/${data.id}`)
-    } catch (err) {
-      console.error('Save error:', err)
-      setError('Échec de l\'enregistrement')
-      setStep('batch-confirm')
-    }
-  }
 
   const handleTastingPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -475,7 +437,6 @@ export default function RemoveBottle() {
     setPendingTastingFile(null)
     batchItems.forEach(p => URL.revokeObjectURL(p.photoPreview))
     setBatchItems([])
-    setCurrentBatchIndex(0)
     setBatchExtractionIndex(0)
   }
 
@@ -934,7 +895,7 @@ export default function RemoveBottle() {
               Recherche des bouteilles...
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Progression: {batchItems.filter(item => ['matched', 'multiple', 'not_found', 'error'].includes(item.status)).length}/{batchItems.length}
+              Progression: {batchItems.filter(item => ['matched', 'not_found', 'error'].includes(item.status)).length}/{batchItems.length}
             </p>
           </div>
 
@@ -942,13 +903,12 @@ export default function RemoveBottle() {
             {batchItems.map((item, index) => {
               const isCurrent = index === batchExtractionIndex
               const statusConfig = {
-                pending: { icon: <Loader2 className="h-4 w-4 text-muted-foreground" />, label: 'En attente' },
-                extracting: { icon: <Loader2 className="h-4 w-4 animate-spin text-[var(--accent)]" />, label: 'Analyse...' },
-                matching: { icon: <Loader2 className="h-4 w-4 animate-spin text-[var(--accent)]" />, label: 'Recherche...' },
-                matched: { icon: <Check className="h-4 w-4 text-green-600" />, label: 'Trouvée' },
-                multiple: { icon: <Check className="h-4 w-4 text-amber-500" />, label: 'Plusieurs' },
-                not_found: { icon: <X className="h-4 w-4 text-muted-foreground" />, label: 'Non trouvée' },
-                error: { icon: <X className="h-4 w-4 text-destructive" />, label: 'Erreur' },
+                pending: { icon: <Loader2 className="h-4 w-4 text-muted-foreground" />, label: 'En attente', color: '' },
+                extracting: { icon: <Loader2 className="h-4 w-4 animate-spin text-[var(--accent)]" />, label: 'Analyse...', color: '' },
+                matching: { icon: <Loader2 className="h-4 w-4 animate-spin text-[var(--accent)]" />, label: 'Recherche...', color: '' },
+                matched: { icon: <Check className="h-4 w-4 text-green-600" />, label: 'En cave', color: 'text-green-600' },
+                not_found: { icon: <Plus className="h-4 w-4 text-blue-500" />, label: 'Nouveau', color: 'text-blue-500' },
+                error: { icon: <AlertCircle className="h-4 w-4 text-destructive" />, label: 'Erreur', color: 'text-destructive' },
               }
               const config = statusConfig[item.status]
 
@@ -968,10 +928,15 @@ export default function RemoveBottle() {
                     <p className="text-sm font-medium truncate">
                       {item.selectedBottle?.domaine || item.extraction?.domaine || `Photo ${index + 1}`}
                     </p>
+                    {item.extraction && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {[item.extraction.appellation, item.extraction.millesime].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5">
                     {config.icon}
-                    <span className="text-xs text-muted-foreground">{config.label}</span>
+                    <span className={`text-xs ${config.color || 'text-muted-foreground'}`}>{config.label}</span>
                   </div>
                 </div>
               )
@@ -980,237 +945,14 @@ export default function RemoveBottle() {
         </div>
       )}
 
-      {/* Step: Batch Confirm */}
-      {step === 'batch-confirm' && batchItems[currentBatchIndex] && (
-        <div className="mt-6 space-y-4">
-          {/* Progress header */}
-          <BatchDrinkProgress
-            currentIndex={currentBatchIndex}
-            totalItems={batchItems.length}
-          />
-
-          {(() => {
-            const item = batchItems[currentBatchIndex]
-
-            // Case: error
-            if (item.status === 'error') {
-              return (
-                <Card>
-                  <CardContent className="p-4 space-y-4">
-                    {/* Photo */}
-                    <div className="flex justify-center">
-                      <img
-                        src={item.photoPreview}
-                        alt="Photo scannée"
-                        className="h-28 rounded object-contain"
-                      />
-                    </div>
-
-                    {/* Error message */}
-                    <div className="text-center">
-                      <p className="text-destructive font-medium">
-                        {item.error || 'Erreur lors de l\'analyse'}
-                      </p>
-                    </div>
-
-                    {/* Action */}
-                    <Button variant="outline" className="w-full" onClick={handleBatchSkipCurrent}>
-                      Passer
-                    </Button>
-                  </CardContent>
-                </Card>
-              )
-            }
-
-            // Case: not found
-            if (item.status === 'not_found') {
-              return (
-                <Card>
-                  <CardContent className="p-4 space-y-4">
-                    {/* Photo */}
-                    <div className="flex justify-center">
-                      <img
-                        src={item.photoPreview}
-                        alt="Photo scannée"
-                        className="h-28 rounded object-contain"
-                      />
-                    </div>
-
-                    {/* Wine info */}
-                    <div className="text-center">
-                      <p className="font-serif text-lg font-semibold text-[var(--text-primary)]">
-                        {item.extraction?.domaine || item.extraction?.appellation || 'Vin non identifié'}
-                      </p>
-                      {(item.extraction?.appellation || item.extraction?.millesime) && (
-                        <p className="text-sm text-muted-foreground">
-                          {[
-                            item.extraction?.appellation !== item.extraction?.domaine ? item.extraction?.appellation : null,
-                            item.extraction?.millesime,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </p>
-                      )}
-                      <p className="text-sm text-muted-foreground mt-3">
-                        Ce vin n'est pas dans ta cave.
-                      </p>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-3">
-                      <Button variant="outline" className="flex-1" onClick={handleBatchSkipCurrent}>
-                        <X className="mr-2 h-4 w-4" />
-                        Passer
-                      </Button>
-                      <Button
-                        className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-light)]"
-                        onClick={handleBatchLogTasting}
-                      >
-                        <PenLine className="mr-2 h-4 w-4" />
-                        Noter
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            }
-
-            // Case: multiple matches - need to select
-            if (item.status === 'multiple' && !item.selectedBottle) {
-              return (
-                <Card>
-                  <CardContent className="p-4 space-y-4">
-                    {/* Photo */}
-                    <div className="flex justify-center">
-                      <img
-                        src={item.photoPreview}
-                        alt="Photo scannée"
-                        className="h-28 rounded object-contain"
-                      />
-                    </div>
-
-                    {/* Message */}
-                    <p className="text-center text-muted-foreground">
-                      {item.matches.length} bouteilles correspondent. Laquelle ?
-                    </p>
-
-                    {/* Selection list */}
-                    <div className="space-y-2">
-                      {item.matches.map((bottle) => (
-                        <div
-                          key={bottle.id}
-                          className="flex items-center gap-3 p-3 rounded-lg border border-[var(--border-color)] cursor-pointer transition-colors hover:bg-[var(--accent-bg)]"
-                          onClick={() => handleBatchSelectBottle(bottle)}
-                        >
-                          <div
-                            className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                              bottle.couleur ? COLOR_STYLES[bottle.couleur] : 'bg-muted'
-                            }`}
-                          >
-                            <Wine className="h-5 w-5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="truncate font-medium">
-                              {bottle.cuvee || bottle.domaine || bottle.appellation || 'Vin'}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {bottle.millesime && `${bottle.millesime} - `}
-                              {bottle.zone?.name}
-                              {bottle.shelf && ` - ${bottle.shelf}`}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Action */}
-                    <Button variant="outline" className="w-full" onClick={handleBatchSkipCurrent}>
-                      Passer
-                    </Button>
-                  </CardContent>
-                </Card>
-              )
-            }
-
-            // Case: matched (single or selected)
-            if (item.selectedBottle) {
-              const bottle = item.selectedBottle
-              return (
-                <Card>
-                  <CardContent className="p-4 space-y-4">
-                    {/* Photos side by side */}
-                    <div className="flex gap-3">
-                      <div className="flex-1">
-                        <img
-                          src={item.photoPreview}
-                          alt="Photo scannée"
-                          className="h-28 w-full rounded object-contain bg-black/5"
-                        />
-                        <p className="text-xs text-center text-muted-foreground mt-1">Scannée</p>
-                      </div>
-                      {bottle.photo_url && (
-                        <div className="flex-1">
-                          <img
-                            src={bottle.photo_url}
-                            alt="Photo en cave"
-                            className="h-28 w-full rounded object-contain bg-black/5"
-                          />
-                          <p className="text-xs text-center text-muted-foreground mt-1">En cave</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Wine info */}
-                    <div className="text-center">
-                      <p className="font-serif text-lg font-semibold text-[var(--text-primary)]">
-                        {bottle.domaine || bottle.appellation || 'Vin'}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {[
-                          bottle.appellation && bottle.domaine && bottle.appellation !== bottle.domaine
-                            ? bottle.appellation
-                            : null,
-                          bottle.millesime,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </p>
-                      {bottle.zone && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {bottle.zone.name}
-                          {bottle.shelf && ` - ${bottle.shelf}`}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Confirmation question */}
-                    <p className="text-center text-muted-foreground">
-                      Marquer comme bue ?
-                    </p>
-
-                    {/* Actions */}
-                    <div className="flex gap-3">
-                      <Button variant="outline" className="flex-1" onClick={handleBatchSkipCurrent}>
-                        <X className="mr-2 h-4 w-4" />
-                        Passer
-                      </Button>
-                      <Button
-                        className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-light)]"
-                        onClick={handleBatchConfirmCurrent}
-                      >
-                        <Check className="mr-2 h-4 w-4" />
-                        Confirmer
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            }
-
-            return null
-          })()}
+      {/* Step: Batch Saving */}
+      {step === 'batch-saving' && (
+        <div className="mt-6 flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--accent)]" />
+          <span className="text-muted-foreground">Enregistrement des bouteilles...</span>
         </div>
       )}
+
 
       <Dialog open={!!zoomImage} onOpenChange={(open) => !open && setZoomImage(null)}>
         <DialogContent

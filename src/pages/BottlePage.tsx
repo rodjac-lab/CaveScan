@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro, Pencil, Plus, Camera, ImageIcon, X } from 'lucide-react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro, Pencil, Plus, Camera, ImageIcon, X, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -12,10 +12,22 @@ import { resizeImage } from '@/lib/image'
 
 const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Autre']
 
+interface BatchState {
+  batchIds?: string[]
+  batchIndex?: number
+}
+
 export default function BottlePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { bottle, loading, error, refetch } = useBottle(id)
+
+  // Batch mode state
+  const batchState = location.state as BatchState | null
+  const isBatchMode = batchState?.batchIds && batchState.batchIds.length > 1
+  const batchIndex = batchState?.batchIndex ?? 0
+  const totalBatch = batchState?.batchIds?.length ?? 0
 
   const [tastingNote, setTastingNote] = useState('')
   const [saving, setSaving] = useState(false)
@@ -182,6 +194,36 @@ export default function BottlePage() {
     setUploadingPhoto(false)
   }
 
+  const handleSaveAndNext = async () => {
+    if (!bottle) return
+    setSaving(true)
+
+    // Save tasting note if modified
+    if (tastingNote !== (bottle.tasting_note || '')) {
+      await supabase
+        .from('bottles')
+        .update({ tasting_note: tastingNote || null })
+        .eq('id', bottle.id)
+    }
+
+    setSaving(false)
+
+    if (batchState && batchIndex < totalBatch - 1) {
+      // Go to next wine
+      const nextId = batchState.batchIds![batchIndex + 1]
+      navigate(`/bottle/${nextId}`, {
+        state: {
+          batchIds: batchState.batchIds,
+          batchIndex: batchIndex + 1
+        },
+        replace: true
+      })
+    } else {
+      // Last wine -> go back to Déguster
+      navigate('/deguster')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -210,7 +252,21 @@ export default function BottlePage() {
     <div className="flex-1 p-4">
       {/* Header */}
       <div className="mb-4 flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            if (isBatchMode && batchIndex > 0) {
+              // Go back to previous wine
+              navigate(`/bottle/${batchState!.batchIds![batchIndex - 1]}`, {
+                state: { batchIds: batchState!.batchIds, batchIndex: batchIndex - 1 },
+                replace: true
+              })
+            } else {
+              navigate(-1)
+            }
+          }}
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="flex-1 text-xl font-bold truncate">
@@ -232,6 +288,13 @@ export default function BottlePage() {
           <Pencil className="h-5 w-5" />
         </Button>
       </div>
+
+      {/* Batch progress indicator */}
+      {isBatchMode && (
+        <div className="mb-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <span>Vin {batchIndex + 1} sur {totalBatch}</span>
+        </div>
+      )}
 
       {/* Photos */}
       {(bottle.photo_url || bottle.photo_url_back) && (
@@ -487,18 +550,36 @@ export default function BottlePage() {
               autoCapitalize="sentences"
             />
             <div className="flex gap-2 mt-3">
-              <Button
-                className="flex-1 bg-wine-900 hover:bg-wine-800"
-                onClick={handleSaveTastingNote}
-                disabled={saving}
-              >
-                {saving ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-4 w-4" />
-                )}
-                Enregistrer
-              </Button>
+              {isBatchMode ? (
+                // Batch mode: "Suivant" button that saves and navigates
+                <Button
+                  className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-light)]"
+                  onClick={handleSaveAndNext}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : batchIndex < totalBatch - 1 ? (
+                    <>Suivant <ArrowRight className="ml-2 h-4 w-4" /></>
+                  ) : (
+                    <>Terminer <Check className="ml-2 h-4 w-4" /></>
+                  )}
+                </Button>
+              ) : (
+                // Normal mode: regular save button
+                <Button
+                  className="flex-1 bg-wine-900 hover:bg-wine-800"
+                  onClick={handleSaveTastingNote}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  Enregistrer
+                </Button>
+              )}
               {canShare && (
                 <Button
                   variant="outline"
