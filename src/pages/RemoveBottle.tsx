@@ -481,7 +481,7 @@ export default function RemoveBottle() {
 
   if (step === 'choose') {
     return (
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col min-h-0">
         {/* Page Header */}
         <div className="px-6 pt-4 pb-3">
           <p className="brand-text">CaveScan</p>
@@ -507,7 +507,7 @@ export default function RemoveBottle() {
         </div>
 
         {/* Recently Drunk List */}
-        <div className="flex-1 overflow-y-auto px-6 py-2 scrollbar-hide">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-2 scrollbar-hide">
           {drunkLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-[var(--accent)]" />
@@ -564,7 +564,7 @@ export default function RemoveBottle() {
         </div>
 
         {/* Scan Zone - Bottom */}
-        <div className="mx-4 mb-20 rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3 scan-shadow">
+        <div className="flex-shrink-0 mx-4 mb-20 rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3 scan-shadow">
           {/* Hidden inputs */}
           <input
             ref={fileInputRef}
