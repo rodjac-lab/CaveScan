@@ -43,12 +43,10 @@ export default function BottlePage() {
   const tastingPhotoInputRef = useRef<HTMLInputElement>(null)
   const tastingPhotoGalleryRef = useRef<HTMLInputElement>(null)
 
-  // Sync tasting note with bottle data
+  // Sync tasting note with bottle data (reset when bottle changes)
   useEffect(() => {
-    if (bottle?.tasting_note) {
-      setTastingNote(bottle.tasting_note)
-    }
-  }, [bottle?.tasting_note])
+    setTastingNote(bottle?.tasting_note || '')
+  }, [bottle?.id])
 
   const handleSaveTastingNote = async () => {
     if (!bottle) return
