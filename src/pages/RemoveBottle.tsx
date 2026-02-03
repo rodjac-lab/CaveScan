@@ -9,7 +9,22 @@ import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
 import { normalizeWineColor, type WineColor, type BottleWithZone, type WineExtraction, type TastingPhoto } from '@/lib/types'
 import { fileToBase64, resizeImage } from '@/lib/image'
 
-type Step = 'choose' | 'extracting' | 'matching' | 'select' | 'confirm' | 'not_found' | 'saving'
+type Step = 'choose' | 'extracting' | 'matching' | 'select' | 'confirm' | 'not_found' | 'saving' | 'batch-extracting' | 'batch-confirm'
+
+const MAX_BATCH_SIZE = 12
+
+type BatchMatchStatus = 'pending' | 'extracting' | 'matching' | 'matched' | 'multiple' | 'not_found' | 'error'
+
+interface BatchDrinkItem {
+  id: string
+  photoFile: File
+  photoPreview: string
+  status: BatchMatchStatus
+  extraction?: WineExtraction
+  matches: BottleWithZone[]
+  selectedBottle?: BottleWithZone
+  error?: string
+}
 
 const COLOR_BAR_STYLES: Record<WineColor, string> = {
   rouge: 'bg-[var(--red-wine)]',
@@ -48,6 +63,7 @@ export default function RemoveBottle() {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const fileInputGalleryRef = useRef<HTMLInputElement>(null)
+  const fileInputBatchRef = useRef<HTMLInputElement>(null)
   const { bottles } = useBottles()
   const { bottles: recentlyDrunk, loading: drunkLoading } = useRecentlyDrunk()
 
@@ -58,6 +74,11 @@ export default function RemoveBottle() {
   const [extraction, setExtraction] = useState<WineExtraction | null>(null)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [zoomImage, setZoomImage] = useState<{ src: string; label?: string } | null>(null)
+
+  // Batch mode state
+  const [batchItems, setBatchItems] = useState<BatchDrinkItem[]>([])
+  const [currentBatchIndex, setCurrentBatchIndex] = useState(0)
+  const [batchExtractionIndex, setBatchExtractionIndex] = useState(0)
 
   // Tasting photos state
   const [tastingPhotos, setTastingPhotos] = useState<{ file: File; label?: string; preview: string }[]>([])
@@ -121,9 +142,145 @@ export default function RemoveBottle() {
     }
   }
 
+  const handleBatchFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    // If only 1 photo selected, use single mode
+    if (files.length === 1) {
+      const file = files[0]
+      setError(null)
+      setPhotoFile(file)
+      setStep('extracting')
+
+      try {
+        const base64 = await fileToBase64(file)
+        setStep('matching')
+
+        const { data, error: extractError } = await supabase.functions.invoke('extract-wine', {
+          body: { image_base64: base64 },
+        })
+
+        if (extractError) throw extractError
+
+        setExtraction(data)
+        const matched = findMatches(bottles, data)
+
+        if (matched.length === 0) {
+          setStep('not_found')
+        } else if (matched.length === 1) {
+          setSelectedBottle(matched[0])
+          setStep('confirm')
+        } else {
+          setMatches(matched)
+          setStep('select')
+        }
+      } catch (err) {
+        console.error('Extraction error:', err)
+        setError('Échec de la reconnaissance. Réessayez.')
+        setStep('choose')
+      }
+      return
+    }
+
+    // Multiple photos - batch mode
+    const selectedFiles = Array.from(files).slice(0, MAX_BATCH_SIZE)
+
+    const items: BatchDrinkItem[] = selectedFiles.map((file, index) => ({
+      id: `batch-${Date.now()}-${index}`,
+      photoFile: file,
+      photoPreview: URL.createObjectURL(file),
+      status: 'pending' as const,
+      matches: [],
+    }))
+
+    setBatchItems(items)
+    setCurrentBatchIndex(0)
+    setBatchExtractionIndex(0)
+    setError(null)
+    setStep('batch-extracting')
+
+    // Start sequential extraction and matching
+    await extractAndMatchBatchSequentially(items)
+  }
+
+  const extractAndMatchBatchSequentially = async (items: BatchDrinkItem[]) => {
+    const updatedItems = [...items]
+
+    for (let i = 0; i < updatedItems.length; i++) {
+      setBatchExtractionIndex(i)
+
+      // Update status to extracting
+      updatedItems[i] = { ...updatedItems[i], status: 'extracting' }
+      setBatchItems([...updatedItems])
+
+      try {
+        const base64 = await fileToBase64(updatedItems[i].photoFile)
+
+        // Update status to matching
+        updatedItems[i] = { ...updatedItems[i], status: 'matching' }
+        setBatchItems([...updatedItems])
+
+        const { data, error } = await supabase.functions.invoke('extract-wine', {
+          body: { image_base64: base64 },
+        })
+
+        if (error) throw error
+
+        const matched = findMatches(bottles, data)
+
+        if (matched.length === 0) {
+          updatedItems[i] = {
+            ...updatedItems[i],
+            status: 'not_found',
+            extraction: data,
+            matches: [],
+          }
+        } else if (matched.length === 1) {
+          updatedItems[i] = {
+            ...updatedItems[i],
+            status: 'matched',
+            extraction: data,
+            matches: matched,
+            selectedBottle: matched[0],
+          }
+        } else {
+          updatedItems[i] = {
+            ...updatedItems[i],
+            status: 'multiple',
+            extraction: data,
+            matches: matched,
+          }
+        }
+      } catch (err) {
+        console.error(`Extraction error for item ${i}:`, err)
+        updatedItems[i] = {
+          ...updatedItems[i],
+          status: 'error',
+          error: 'Échec de l\'extraction',
+        }
+      }
+
+      setBatchItems([...updatedItems])
+    }
+
+    // All extractions done, move to batch confirm
+    setStep('batch-confirm')
+  }
+
   const handleSelectBottle = (bottle: BottleWithZone) => {
     setSelectedBottle(bottle)
     setStep('confirm')
+  }
+
+  const handleBatchSelectBottle = (bottle: BottleWithZone) => {
+    const updatedItems = [...batchItems]
+    updatedItems[currentBatchIndex] = {
+      ...updatedItems[currentBatchIndex],
+      selectedBottle: bottle,
+      status: 'matched',
+    }
+    setBatchItems(updatedItems)
   }
 
   const handleConfirmRemove = async () => {
@@ -235,6 +392,109 @@ export default function RemoveBottle() {
     }
   }
 
+  const handleBatchConfirmCurrent = async () => {
+    const item = batchItems[currentBatchIndex]
+
+    if (!item.selectedBottle) {
+      // Skip if not found or not selected
+      handleBatchSkipCurrent()
+      return
+    }
+
+    setStep('saving')
+
+    try {
+      const { error } = await supabase
+        .from('bottles')
+        .update({
+          status: 'drunk',
+          drunk_at: new Date().toISOString(),
+        })
+        .eq('id', item.selectedBottle.id)
+
+      if (error) throw error
+
+      // Move to next item or finish
+      if (currentBatchIndex < batchItems.length - 1) {
+        setCurrentBatchIndex(currentBatchIndex + 1)
+        setStep('batch-confirm')
+      } else {
+        // All items processed, cleanup and go home
+        batchItems.forEach(p => URL.revokeObjectURL(p.photoPreview))
+        navigate('/')
+      }
+    } catch (err) {
+      console.error('Save error:', err)
+      setError('Échec de l\'enregistrement')
+      setStep('batch-confirm')
+    }
+  }
+
+  const handleBatchSkipCurrent = () => {
+    if (currentBatchIndex < batchItems.length - 1) {
+      setCurrentBatchIndex(currentBatchIndex + 1)
+    } else {
+      // Last item, cleanup and go home
+      batchItems.forEach(p => URL.revokeObjectURL(p.photoPreview))
+      navigate('/')
+    }
+  }
+
+  const handleBatchLogTasting = async () => {
+    const item = batchItems[currentBatchIndex]
+    if (!item.extraction) return
+
+    setStep('saving')
+
+    try {
+      let photoUrl: string | null = null
+
+      // Upload photo
+      const compressedBlob = await resizeImage(item.photoFile)
+      const fileName = `${Date.now()}-front.jpg`
+      const { error: uploadError } = await supabase.storage
+        .from('wine-labels')
+        .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
+
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage
+          .from('wine-labels')
+          .getPublicUrl(fileName)
+        photoUrl = urlData.publicUrl
+      }
+
+      // Create bottle directly as drunk
+      const { error } = await supabase
+        .from('bottles')
+        .insert({
+          domaine: item.extraction.domaine || null,
+          cuvee: item.extraction.cuvee || null,
+          appellation: item.extraction.appellation || null,
+          millesime: item.extraction.millesime || null,
+          couleur: normalizeWineColor(item.extraction.couleur) || null,
+          photo_url: photoUrl,
+          raw_extraction: item.extraction,
+          status: 'drunk',
+          drunk_at: new Date().toISOString()
+        })
+
+      if (error) throw error
+
+      // Move to next item or finish
+      if (currentBatchIndex < batchItems.length - 1) {
+        setCurrentBatchIndex(currentBatchIndex + 1)
+        setStep('batch-confirm')
+      } else {
+        batchItems.forEach(p => URL.revokeObjectURL(p.photoPreview))
+        navigate('/')
+      }
+    } catch (err) {
+      console.error('Save error:', err)
+      setError('Échec de l\'enregistrement')
+      setStep('batch-confirm')
+    }
+  }
+
   const handleTastingPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -278,6 +538,11 @@ export default function RemoveBottle() {
     setShowTastingPhotoOptions(false)
     setShowLabelPicker(false)
     setPendingTastingFile(null)
+    // Cleanup batch state
+    batchItems.forEach(p => URL.revokeObjectURL(p.photoPreview))
+    setBatchItems([])
+    setCurrentBatchIndex(0)
+    setBatchExtractionIndex(0)
   }
 
   // Render the main "choose" step with new layout
@@ -380,7 +645,16 @@ export default function RemoveBottle() {
             ref={fileInputGalleryRef}
             type="file"
             accept="image/*"
-            onChange={handleFileSelect}
+            onChange={handleBatchFileSelect}
+            multiple
+            className="hidden"
+          />
+          <input
+            ref={fileInputBatchRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleBatchFileSelect}
             className="hidden"
           />
 
@@ -724,6 +998,257 @@ export default function RemoveBottle() {
         <div className="mt-6 flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-[var(--accent)]" />
           <span className="text-muted-foreground">Enregistrement...</span>
+        </div>
+      )}
+
+      {/* Step: Batch Extracting */}
+      {step === 'batch-extracting' && (
+        <div className="mt-6 space-y-4">
+          <div className="text-center">
+            <h2 className="font-serif text-lg font-semibold text-[var(--text-primary)]">
+              Recherche des bouteilles...
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Progression: {batchItems.filter(item => ['matched', 'multiple', 'not_found', 'error'].includes(item.status)).length}/{batchItems.length}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            {batchItems.map((item, index) => {
+              const isCurrent = index === batchExtractionIndex
+              const statusConfig = {
+                pending: { icon: <Loader2 className="h-4 w-4 text-muted-foreground" />, label: 'En attente' },
+                extracting: { icon: <Loader2 className="h-4 w-4 animate-spin text-[var(--accent)]" />, label: 'Analyse...' },
+                matching: { icon: <Loader2 className="h-4 w-4 animate-spin text-[var(--accent)]" />, label: 'Recherche...' },
+                matched: { icon: <Check className="h-4 w-4 text-green-600" />, label: 'Trouvée' },
+                multiple: { icon: <Check className="h-4 w-4 text-amber-500" />, label: 'Plusieurs' },
+                not_found: { icon: <X className="h-4 w-4 text-muted-foreground" />, label: 'Non trouvée' },
+                error: { icon: <X className="h-4 w-4 text-destructive" />, label: 'Erreur' },
+              }
+              const config = statusConfig[item.status]
+
+              return (
+                <div
+                  key={item.id}
+                  className={`flex items-center gap-3 p-2 rounded-lg transition-colors ${
+                    isCurrent ? 'bg-[var(--accent)]/10' : ''
+                  }`}
+                >
+                  <img
+                    src={item.photoPreview}
+                    alt={`Photo ${index + 1}`}
+                    className="h-12 w-12 rounded object-cover"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {item.selectedBottle?.domaine || item.extraction?.domaine || `Photo ${index + 1}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {config.icon}
+                    <span className="text-xs text-muted-foreground">{config.label}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Step: Batch Confirm */}
+      {step === 'batch-confirm' && batchItems[currentBatchIndex] && (
+        <div className="mt-6 space-y-4">
+          <div className="text-center mb-2">
+            <p className="text-sm text-muted-foreground">
+              Bouteille {currentBatchIndex + 1} / {batchItems.length}
+            </p>
+          </div>
+
+          {(() => {
+            const item = batchItems[currentBatchIndex]
+
+            // Case: error
+            if (item.status === 'error') {
+              return (
+                <div className="space-y-4">
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <img
+                        src={item.photoPreview}
+                        alt="Photo"
+                        className="h-32 mx-auto rounded object-contain mb-3"
+                      />
+                      <p className="text-destructive">{item.error || 'Erreur lors de l\'analyse'}</p>
+                    </CardContent>
+                  </Card>
+                  <Button variant="outline" className="w-full" onClick={handleBatchSkipCurrent}>
+                    Passer
+                  </Button>
+                </div>
+              )
+            }
+
+            // Case: not found
+            if (item.status === 'not_found') {
+              return (
+                <div className="space-y-4">
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <img
+                        src={item.photoPreview}
+                        alt="Photo"
+                        className="h-32 mx-auto rounded object-contain mb-3"
+                      />
+                      <Wine className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="font-medium">
+                        {item.extraction?.domaine || item.extraction?.appellation || 'Vin non identifié'}
+                      </p>
+                      {item.extraction?.millesime && (
+                        <p className="text-sm text-muted-foreground">{item.extraction.millesime}</p>
+                      )}
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Ce vin n'est pas dans ta cave.
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <div className="flex gap-3">
+                    <Button variant="outline" className="flex-1" onClick={handleBatchSkipCurrent}>
+                      <X className="mr-2 h-4 w-4" />
+                      Passer
+                    </Button>
+                    <Button
+                      className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-light)]"
+                      onClick={handleBatchLogTasting}
+                    >
+                      <PenLine className="mr-2 h-4 w-4" />
+                      Noter quand même
+                    </Button>
+                  </div>
+                </div>
+              )
+            }
+
+            // Case: multiple matches - need to select
+            if (item.status === 'multiple' && !item.selectedBottle) {
+              return (
+                <div className="space-y-4">
+                  <Card>
+                    <CardContent className="p-2">
+                      <img
+                        src={item.photoPreview}
+                        alt="Photo"
+                        className="h-24 mx-auto rounded object-contain"
+                      />
+                    </CardContent>
+                  </Card>
+                  <p className="text-muted-foreground text-center">
+                    {item.matches.length} bouteilles correspondent. Laquelle ?
+                  </p>
+                  <div className="space-y-2">
+                    {item.matches.map((bottle) => (
+                      <Card
+                        key={bottle.id}
+                        className="cursor-pointer transition-colors hover:bg-card/80"
+                        onClick={() => handleBatchSelectBottle(bottle)}
+                      >
+                        <CardContent className="flex items-center gap-3 p-3">
+                          <div
+                            className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                              bottle.couleur ? COLOR_STYLES[bottle.couleur] : 'bg-muted'
+                            }`}
+                          >
+                            <Wine className="h-5 w-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate font-medium">
+                              {bottle.cuvee || bottle.domaine || bottle.appellation || 'Vin'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {bottle.millesime && `${bottle.millesime} - `}
+                              {bottle.zone?.name}
+                              {bottle.shelf && ` - ${bottle.shelf}`}
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                  <Button variant="outline" className="w-full" onClick={handleBatchSkipCurrent}>
+                    Passer
+                  </Button>
+                </div>
+              )
+            }
+
+            // Case: matched (single or selected)
+            if (item.selectedBottle) {
+              const bottle = item.selectedBottle
+              return (
+                <div className="space-y-4">
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex gap-3 mb-3">
+                        <img
+                          src={item.photoPreview}
+                          alt="Photo scannée"
+                          className="h-20 w-20 rounded object-cover"
+                        />
+                        {bottle.photo_url && (
+                          <img
+                            src={bottle.photo_url}
+                            alt="Photo en cave"
+                            className="h-20 flex-1 rounded object-contain bg-black/10"
+                          />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                            bottle.couleur ? COLOR_STYLES[bottle.couleur] : 'bg-muted'
+                          }`}
+                        >
+                          <Wine className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-medium">
+                            {bottle.domaine || bottle.appellation || 'Vin'}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {bottle.appellation && bottle.domaine && `${bottle.appellation} - `}
+                            {bottle.millesime}
+                          </p>
+                          {bottle.zone && (
+                            <p className="text-xs text-muted-foreground">
+                              {bottle.zone.name}
+                              {bottle.shelf && ` - ${bottle.shelf}`}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <p className="text-center text-muted-foreground">
+                    Marquer cette bouteille comme bue ?
+                  </p>
+                  <div className="flex gap-3">
+                    <Button variant="outline" className="flex-1" onClick={handleBatchSkipCurrent}>
+                      <X className="mr-2 h-4 w-4" />
+                      Passer
+                    </Button>
+                    <Button
+                      className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-light)]"
+                      onClick={handleBatchConfirmCurrent}
+                    >
+                      <Check className="mr-2 h-4 w-4" />
+                      Confirmer
+                    </Button>
+                  </div>
+                </div>
+              )
+            }
+
+            return null
+          })()}
         </div>
       )}
 
