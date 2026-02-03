@@ -7,17 +7,10 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
 import { useBottle } from '@/hooks/useBottles'
-import { getWineColorLabel, type WineColor, type TastingPhoto } from '@/lib/types'
+import { getWineColorLabel, type TastingPhoto } from '@/lib/types'
 import { resizeImage } from '@/lib/image'
 
 const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Autre']
-
-const COLOR_STYLES: Record<WineColor, string> = {
-  rouge: 'bg-red-900/30 text-red-300',
-  blanc: 'bg-amber-100/30 text-amber-200',
-  rose: 'bg-pink-300/30 text-pink-300',
-  bulles: 'bg-yellow-200/30 text-yellow-200',
-}
 
 export default function BottlePage() {
   const { id } = useParams<{ id: string }>()
@@ -224,9 +217,16 @@ export default function BottlePage() {
           {bottle.cuvee || bottle.domaine || bottle.appellation || 'Vin'}
         </h1>
         {bottle.couleur && (
-          <span className={`rounded-full px-3 py-1 text-sm ${COLOR_STYLES[bottle.couleur]}`}>
-            {getWineColorLabel(bottle.couleur)}
-          </span>
+          <div
+            className="w-[3px] h-6 rounded-full"
+            style={{ backgroundColor: `var(--${
+              bottle.couleur === 'rouge' ? 'red-wine' :
+              bottle.couleur === 'blanc' ? 'white-wine' :
+              bottle.couleur === 'rose' ? 'rose-wine' :
+              'champagne'
+            })` }}
+            title={getWineColorLabel(bottle.couleur)}
+          />
         )}
         <Button variant="ghost" size="icon" onClick={() => navigate(`/bottle/${bottle.id}/edit`)}>
           <Pencil className="h-5 w-5" />
