@@ -447,8 +447,8 @@ export default function RemoveBottle() {
   if (step === 'choose') {
     return (
       <div className="flex flex-1 flex-col min-h-0">
-        {/* Page Header */}
-        <div className="px-6 pt-4 pb-3">
+        {/* Page Header - Fixed */}
+        <div className="flex-shrink-0 px-6 pt-4 pb-3">
           <p className="brand-text">CaveScan</p>
           <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Partager</h1>
           <p className="text-[13px] font-light text-[var(--text-secondary)]">
@@ -457,13 +457,13 @@ export default function RemoveBottle() {
         </div>
 
         {error && (
-          <div className="mx-6 rounded-[var(--radius-sm)] bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="flex-shrink-0 mx-6 rounded-[var(--radius-sm)] bg-destructive/10 p-3 text-sm text-destructive">
             {error}
           </div>
         )}
 
         {/* Section Header - Divider with label */}
-        <div className="mx-6 mt-4 mb-2 flex items-center gap-3">
+        <div className="flex-shrink-0 mx-6 mt-4 mb-2 flex items-center gap-3">
           <div className="h-px flex-1 bg-[var(--border-color)]" />
           <span className="text-[10px] font-medium uppercase tracking-[2px] text-[var(--text-muted)]">
             Ouvertures récentes
@@ -528,8 +528,8 @@ export default function RemoveBottle() {
           )}
         </div>
 
-        {/* Scan Zone - Bottom */}
-        <div className="flex-shrink-0 mx-4 mb-20 rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3 scan-shadow">
+        {/* Scan Zone - Fixed above nav */}
+        <div className="flex-shrink-0 mx-4 mb-4 rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3 scan-shadow">
           {/* Hidden inputs */}
           <input
             ref={fileInputRef}
