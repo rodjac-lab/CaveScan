@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Loader2, Check, X, Wine, PenLine, ImageIcon, Plus, AlertCircle } from 'lucide-react'
+import { Loader2, Check, X, Wine, PenLine, ImageIcon, Plus, AlertCircle, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -10,7 +10,7 @@ import { normalizeWineColor, type WineColor, type BottleWithZone, type WineExtra
 import { fileToBase64, resizeImage } from '@/lib/image'
 import { stringSimilarity } from '@/lib/utils'
 
-type Step = 'choose' | 'extracting' | 'matching' | 'select' | 'confirm' | 'not_found' | 'saving' | 'batch-extracting' | 'batch-saving'
+type Step = 'choose' | 'extracting' | 'matching' | 'select' | 'confirm' | 'not_found' | 'saving' | 'batch-extracting' | 'batch-ready' | 'batch-saving'
 
 const MAX_BATCH_SIZE = 12
 
@@ -220,11 +220,15 @@ export default function RemoveBottle() {
       setBatchItems([...updatedItems])
     }
 
-    // Phase 2: Mark all wines as drunk and collect IDs
+    // Extraction complete - show results and wait for user confirmation
+    setStep('batch-ready')
+  }
+
+  const handleBatchConfirmAll = async () => {
     setStep('batch-saving')
     const processedIds: string[] = []
 
-    for (const item of updatedItems) {
+    for (const item of batchItems) {
       if (item.status === 'error') continue
 
       try {
@@ -272,7 +276,7 @@ export default function RemoveBottle() {
       }
     }
 
-    // Phase 3: Navigate to the first wine with batch state
+    // Navigate to the first wine with batch state
     batchItems.forEach(p => URL.revokeObjectURL(p.photoPreview))
 
     if (processedIds.length > 0) {
@@ -945,6 +949,75 @@ export default function RemoveBottle() {
         </div>
       )}
 
+      {/* Step: Batch Ready - Show results and wait for confirmation */}
+      {step === 'batch-ready' && (
+        <div className="mt-6 space-y-4">
+          <div className="text-center">
+            <h2 className="font-serif text-lg font-semibold text-[var(--text-primary)]">
+              Extraction terminée
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {batchItems.filter(item => item.status === 'matched').length} en cave · {batchItems.filter(item => item.status === 'not_found').length} nouveau{batchItems.filter(item => item.status === 'not_found').length > 1 ? 'x' : ''} · {batchItems.filter(item => item.status === 'error').length} erreur{batchItems.filter(item => item.status === 'error').length > 1 ? 's' : ''}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            {batchItems.map((item, index) => {
+              const statusConfig = {
+                pending: { icon: <Loader2 className="h-4 w-4 text-muted-foreground" />, label: 'En attente', color: '' },
+                extracting: { icon: <Loader2 className="h-4 w-4 animate-spin text-[var(--accent)]" />, label: 'Analyse...', color: '' },
+                matching: { icon: <Loader2 className="h-4 w-4 animate-spin text-[var(--accent)]" />, label: 'Recherche...', color: '' },
+                matched: { icon: <Check className="h-4 w-4 text-green-600" />, label: 'En cave', color: 'text-green-600' },
+                not_found: { icon: <Plus className="h-4 w-4 text-blue-500" />, label: 'Nouveau', color: 'text-blue-500' },
+                error: { icon: <AlertCircle className="h-4 w-4 text-destructive" />, label: 'Erreur', color: 'text-destructive' },
+              }
+              const config = statusConfig[item.status]
+
+              return (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 p-2 rounded-lg"
+                >
+                  <img
+                    src={item.photoPreview}
+                    alt={`Photo ${index + 1}`}
+                    className="h-12 w-12 rounded object-cover"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {item.selectedBottle?.domaine || item.extraction?.domaine || `Photo ${index + 1}`}
+                    </p>
+                    {item.extraction && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {[item.extraction.appellation, item.extraction.millesime].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {config.icon}
+                    <span className={`text-xs ${config.color || 'text-muted-foreground'}`}>{config.label}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" className="flex-1" onClick={handleReset}>
+              <X className="mr-2 h-4 w-4" />
+              Annuler
+            </Button>
+            <Button
+              className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-light)]"
+              onClick={handleBatchConfirmAll}
+            >
+              Continuer
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Step: Batch Saving */}
       {step === 'batch-saving' && (
         <div className="mt-6 flex flex-col items-center gap-4">
@@ -952,7 +1025,6 @@ export default function RemoveBottle() {
           <span className="text-muted-foreground">Enregistrement des bouteilles...</span>
         </div>
       )}
-
 
       <Dialog open={!!zoomImage} onOpenChange={(open) => !open && setZoomImage(null)}>
         <DialogContent
