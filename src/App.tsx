@@ -26,7 +26,7 @@ function AppLayout() {
   return (
     <ProtectedRoute>
       <div className="flex h-screen flex-col overflow-hidden">
-        <main className="flex-1 pb-20">
+        <main className="flex flex-1 flex-col min-h-0 pb-20">
           <Routes>
             <Route path="/" element={<Navigate to="/remove" replace />} />
             <Route path="/cave" element={<Home />} />
