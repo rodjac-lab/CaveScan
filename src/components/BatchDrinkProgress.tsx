@@ -1,5 +1,11 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
+function getProgressDotColor(index: number, currentIndex: number): string {
+  if (index === currentIndex) return 'bg-[var(--accent)]'
+  if (index < currentIndex) return 'bg-green-500'
+  return 'bg-muted'
+}
+
 interface BatchDrinkProgressProps {
   currentIndex: number
   totalItems: number
@@ -19,13 +25,7 @@ export function BatchDrinkProgress({ currentIndex, totalItems }: BatchDrinkProgr
         {Array.from({ length: totalItems }).map((_, i) => (
           <div
             key={i}
-            className={`h-1.5 w-6 rounded-full transition-colors ${
-              i === currentIndex
-                ? 'bg-[var(--accent)]'
-                : i < currentIndex
-                  ? 'bg-green-500'
-                  : 'bg-muted'
-            }`}
+            className={`h-1.5 w-6 rounded-full transition-colors ${getProgressDotColor(i, currentIndex)}`}
           />
         ))}
       </div>

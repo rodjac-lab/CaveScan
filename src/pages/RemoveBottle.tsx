@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Loader2, Check, X, Wine, PenLine, ImageIcon, Plus, Camera } from 'lucide-react'
+import { Loader2, Check, X, Wine, PenLine, ImageIcon, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -65,7 +65,6 @@ export default function RemoveBottle() {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const fileInputGalleryRef = useRef<HTMLInputElement>(null)
-  const fileInputBatchRef = useRef<HTMLInputElement>(null)
   const { bottles } = useBottles()
   const { bottles: recentlyDrunk, loading: drunkLoading } = useRecentlyDrunk()
 
@@ -77,12 +76,10 @@ export default function RemoveBottle() {
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [zoomImage, setZoomImage] = useState<{ src: string; label?: string } | null>(null)
 
-  // Batch mode state
   const [batchItems, setBatchItems] = useState<BatchDrinkItem[]>([])
   const [currentBatchIndex, setCurrentBatchIndex] = useState(0)
   const [batchExtractionIndex, setBatchExtractionIndex] = useState(0)
 
-  // Tasting photos state
   const [tastingPhotos, setTastingPhotos] = useState<{ file: File; label?: string; preview: string }[]>([])
   const [showTastingPhotoOptions, setShowTastingPhotoOptions] = useState(false)
   const [showLabelPicker, setShowLabelPicker] = useState(false)
@@ -121,14 +118,10 @@ export default function RemoveBottle() {
 
       if (extractError) throw extractError
 
-      // Store extraction for potential "not found" flow
       setExtraction(data)
-
-      // Find matching bottles in inventory
       const matched = findMatches(bottles, data)
 
       if (matched.length === 0) {
-        // No match - offer to log as tasting
         setStep('not_found')
       } else if (matched.length === 1) {
         setSelectedBottle(matched[0])
@@ -148,44 +141,10 @@ export default function RemoveBottle() {
     const files = e.target.files
     if (!files || files.length === 0) return
 
-    // If only 1 photo selected, use single mode
     if (files.length === 1) {
-      const file = files[0]
-      setError(null)
-      setPhotoFile(file)
-      setStep('extracting')
-
-      try {
-        const base64 = await fileToBase64(file)
-        setStep('matching')
-
-        const { data, error: extractError } = await supabase.functions.invoke('extract-wine', {
-          body: { image_base64: base64 },
-        })
-
-        if (extractError) throw extractError
-
-        setExtraction(data)
-        const matched = findMatches(bottles, data)
-
-        if (matched.length === 0) {
-          setStep('not_found')
-        } else if (matched.length === 1) {
-          setSelectedBottle(matched[0])
-          setStep('confirm')
-        } else {
-          setMatches(matched)
-          setStep('select')
-        }
-      } catch (err) {
-        console.error('Extraction error:', err)
-        setError('Échec de la reconnaissance. Réessayez.')
-        setStep('choose')
-      }
-      return
+      return handleFileSelect(e)
     }
 
-    // Multiple photos - batch mode
     const selectedFiles = Array.from(files).slice(0, MAX_BATCH_SIZE)
 
     const items: BatchDrinkItem[] = selectedFiles.map((file, index) => ({
@@ -202,7 +161,6 @@ export default function RemoveBottle() {
     setError(null)
     setStep('batch-extracting')
 
-    // Start sequential extraction and matching
     await extractAndMatchBatchSequentially(items)
   }
 
@@ -211,15 +169,11 @@ export default function RemoveBottle() {
 
     for (let i = 0; i < updatedItems.length; i++) {
       setBatchExtractionIndex(i)
-
-      // Update status to extracting
       updatedItems[i] = { ...updatedItems[i], status: 'extracting' }
       setBatchItems([...updatedItems])
 
       try {
         const base64 = await fileToBase64(updatedItems[i].photoFile)
-
-        // Update status to matching
         updatedItems[i] = { ...updatedItems[i], status: 'matching' }
         setBatchItems([...updatedItems])
 
@@ -266,7 +220,6 @@ export default function RemoveBottle() {
       setBatchItems([...updatedItems])
     }
 
-    // All extractions done, move to batch confirm
     setStep('batch-confirm')
   }
 
@@ -291,7 +244,6 @@ export default function RemoveBottle() {
     setStep('saving')
 
     try {
-      // Upload tasting photos if any
       const uploadedPhotos: TastingPhoto[] = []
 
       for (const photo of tastingPhotos) {
@@ -314,7 +266,6 @@ export default function RemoveBottle() {
         }
       }
 
-      // Merge with existing tasting photos
       const existingPhotos = (selectedBottle.tasting_photos as TastingPhoto[]) || []
       const allPhotos = [...existingPhotos, ...uploadedPhotos]
 
@@ -331,7 +282,6 @@ export default function RemoveBottle() {
         setError('Échec de l\'enregistrement')
         setStep('confirm')
       } else {
-        // Cleanup previews
         tastingPhotos.forEach(p => URL.revokeObjectURL(p.preview))
         navigate(`/bottle/${selectedBottle.id}`)
       }
@@ -350,7 +300,6 @@ export default function RemoveBottle() {
     try {
       let photoUrl: string | null = null
 
-      // Upload photo if exists
       if (photoFile) {
         const compressedBlob = await resizeImage(photoFile)
         const fileName = `${Date.now()}-front.jpg`
@@ -366,7 +315,6 @@ export default function RemoveBottle() {
         }
       }
 
-      // Create bottle directly as drunk
       const { data, error } = await supabase
         .from('bottles')
         .insert({
@@ -385,7 +333,6 @@ export default function RemoveBottle() {
 
       if (error) throw error
 
-      // Navigate to bottle page to add tasting note
       navigate(`/bottle/${data.id}`)
     } catch (err) {
       console.error('Save error:', err)
@@ -398,7 +345,6 @@ export default function RemoveBottle() {
     const item = batchItems[currentBatchIndex]
 
     if (!item.selectedBottle) {
-      // Skip if not found or not selected
       handleBatchSkipCurrent()
       return
     }
@@ -416,12 +362,10 @@ export default function RemoveBottle() {
 
       if (error) throw error
 
-      // Move to next item or finish
       if (currentBatchIndex < batchItems.length - 1) {
         setCurrentBatchIndex(currentBatchIndex + 1)
         setStep('batch-confirm')
       } else {
-        // All items processed, cleanup and go home
         batchItems.forEach(p => URL.revokeObjectURL(p.photoPreview))
         navigate('/')
       }
@@ -436,7 +380,6 @@ export default function RemoveBottle() {
     if (currentBatchIndex < batchItems.length - 1) {
       setCurrentBatchIndex(currentBatchIndex + 1)
     } else {
-      // Last item, cleanup and go home
       batchItems.forEach(p => URL.revokeObjectURL(p.photoPreview))
       navigate('/')
     }
@@ -450,8 +393,6 @@ export default function RemoveBottle() {
 
     try {
       let photoUrl: string | null = null
-
-      // Upload photo
       const compressedBlob = await resizeImage(item.photoFile)
       const fileName = `${Date.now()}-front.jpg`
       const { error: uploadError } = await supabase.storage
@@ -465,7 +406,6 @@ export default function RemoveBottle() {
         photoUrl = urlData.publicUrl
       }
 
-      // Create bottle directly as drunk
       const { data, error } = await supabase
         .from('bottles')
         .insert({
@@ -484,7 +424,6 @@ export default function RemoveBottle() {
 
       if (error) throw error
 
-      // Cleanup batch previews and navigate to bottle page to add tasting note
       batchItems.forEach(p => URL.revokeObjectURL(p.photoPreview))
       navigate(`/bottle/${data.id}`)
     } catch (err) {
@@ -501,8 +440,6 @@ export default function RemoveBottle() {
     setPendingTastingFile(file)
     setShowTastingPhotoOptions(false)
     setShowLabelPicker(true)
-
-    // Reset input so same file can be selected again
     e.target.value = ''
   }
 
@@ -531,20 +468,17 @@ export default function RemoveBottle() {
     setError(null)
     setExtraction(null)
     setPhotoFile(null)
-    // Cleanup tasting photos
     tastingPhotos.forEach(p => URL.revokeObjectURL(p.preview))
     setTastingPhotos([])
     setShowTastingPhotoOptions(false)
     setShowLabelPicker(false)
     setPendingTastingFile(null)
-    // Cleanup batch state
     batchItems.forEach(p => URL.revokeObjectURL(p.photoPreview))
     setBatchItems([])
     setCurrentBatchIndex(0)
     setBatchExtractionIndex(0)
   }
 
-  // Render the main "choose" step with new layout
   if (step === 'choose') {
     return (
       <div className="flex flex-1 flex-col">
@@ -646,14 +580,6 @@ export default function RemoveBottle() {
             accept="image/*"
             onChange={handleBatchFileSelect}
             multiple
-            className="hidden"
-          />
-          <input
-            ref={fileInputBatchRef}
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleBatchFileSelect}
             className="hidden"
           />
 
@@ -918,7 +844,7 @@ export default function RemoveBottle() {
                     tastingPhotoInputRef.current?.click()
                   }}
                 >
-                  <Camera className="mr-2 h-4 w-4" />
+                  <CameraIcon className="mr-2 h-4 w-4" />
                   Photographier
                 </Button>
                 <Button
@@ -1307,10 +1233,9 @@ export default function RemoveBottle() {
   )
 }
 
-// Similarity thresholds
-const SIMILARITY_THRESHOLD_PRIMARY = 0.75   // 75% for domaine/cuvée
-const SIMILARITY_THRESHOLD_SECONDARY = 0.80 // 80% for appellation
-const MATCH_SCORE_THRESHOLD = 3             // Minimum score to consider a match
+const SIMILARITY_THRESHOLD_PRIMARY = 0.75
+const SIMILARITY_THRESHOLD_SECONDARY = 0.80
+const MATCH_SCORE_THRESHOLD = 3
 
 function findMatches(
   bottles: BottleWithZone[],
@@ -1319,12 +1244,9 @@ function findMatches(
   return bottles.filter(bottle => {
     let score = 0
 
-    // Primary identifiers: domaine and cuvée (high weight)
-    // Use Levenshtein similarity with threshold
     if (extraction.domaine && bottle.domaine) {
       const similarity = stringSimilarity(extraction.domaine, bottle.domaine)
       if (similarity >= SIMILARITY_THRESHOLD_PRIMARY) {
-        // Proportional score: higher similarity = higher score (max 4)
         score += similarity * 4
       }
     }
@@ -1336,7 +1258,6 @@ function findMatches(
       }
     }
 
-    // Secondary identifiers: appellation and millésime (low weight)
     if (extraction.appellation && bottle.appellation) {
       const similarity = stringSimilarity(extraction.appellation, bottle.appellation)
       if (similarity >= SIMILARITY_THRESHOLD_SECONDARY) {
@@ -1344,7 +1265,6 @@ function findMatches(
       }
     }
 
-    // Millésime: exact match only
     if (extraction.millesime && bottle.millesime === extraction.millesime) {
       score += 1
     }
