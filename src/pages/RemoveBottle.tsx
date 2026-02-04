@@ -446,15 +446,16 @@ export default function RemoveBottle() {
 
   if (step === 'choose') {
     return (
-      <div className="flex flex-1 flex-col min-h-0">
-        {/* Page Header - Fixed */}
-        <div className="flex-shrink-0 px-6 pt-4 pb-3">
+      <div className="flex flex-col h-full">
+        {/* === TOP APP BAR === */}
+        {/* Fixed height, never scrolls, always visible */}
+        <header className="flex-shrink-0 px-6 pt-4 pb-3">
           <p className="brand-text">CaveScan</p>
           <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Partager</h1>
           <p className="text-[13px] font-light text-[var(--text-secondary)]">
             On ouvre une bonne bouteille ?
           </p>
-        </div>
+        </header>
 
         {error && (
           <div className="flex-shrink-0 mx-6 rounded-[var(--radius-sm)] bg-destructive/10 p-3 text-sm text-destructive">
@@ -462,118 +463,127 @@ export default function RemoveBottle() {
           </div>
         )}
 
-        {/* Section Header - Divider with label */}
-        <div className="flex-shrink-0 mx-6 mt-4 mb-2 flex items-center gap-3">
-          <div className="h-px flex-1 bg-[var(--border-color)]" />
-          <span className="text-[10px] font-medium uppercase tracking-[2px] text-[var(--text-muted)]">
-            Ouvertures récentes
-          </span>
-          <div className="h-px flex-1 bg-[var(--border-color)]" />
+        {/* === SCROLLABLE LIST === */}
+        {/* Only scrollable container. Fills space between Top App Bar and Bottom Action Bar. */}
+        {/* Bottom padding = Bottom Action Bar height (~84px) to prevent content from scrolling underneath */}
+        <div className="flex-1 min-h-0 overflow-y-auto pb-[84px] scrollbar-hide">
+          {/* Section Header - Divider with label (inside scrollable area) */}
+          <div className="mx-6 mt-4 mb-2 flex items-center gap-3">
+            <div className="h-px flex-1 bg-[var(--border-color)]" />
+            <span className="text-[10px] font-medium uppercase tracking-[2px] text-[var(--text-muted)]">
+              Ouvertures récentes
+            </span>
+            <div className="h-px flex-1 bg-[var(--border-color)]" />
+          </div>
+
+          {/* List Items */}
+          <div className="px-6 py-2">
+            {drunkLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-[var(--accent)]" />
+              </div>
+            ) : recentlyDrunk.length === 0 ? (
+              <div className="mt-2 rounded-[var(--radius-sm)] bg-[var(--bg-card)] py-6 text-center text-sm text-[var(--text-secondary)] card-shadow">
+                Aucune ouverture récente.
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {recentlyDrunk.map((bottle) => {
+                  const { day, month } = formatDrunkDate(bottle.drunk_at)
+
+                  return (
+                    <Link key={bottle.id} to={`/bottle/${bottle.id}`}>
+                      <div className="flex items-center gap-3 rounded-[var(--radius-sm)] bg-[var(--bg-card)] p-2.5 pr-3 card-shadow transition-all duration-200 hover:bg-[var(--accent-bg)]">
+                        {/* Date */}
+                        <div className="w-9 flex-shrink-0 text-center">
+                          <p className="font-serif text-[17px] font-bold leading-tight text-[var(--text-primary)]">{day}</p>
+                          <p className="text-[9px] font-medium uppercase text-[var(--text-muted)]">{month}</p>
+                        </div>
+
+                        {/* Color Bar */}
+                        <div
+                          className={`h-8 w-[3px] flex-shrink-0 rounded-sm ${
+                            bottle.couleur ? COLOR_BAR_STYLES[bottle.couleur] : 'bg-[var(--text-muted)]'
+                          }`}
+                        />
+
+                        {/* Info */}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-medium text-[var(--text-primary)]">
+                            {bottle.domaine || bottle.appellation || 'Vin'}
+                          </p>
+                          <p className="truncate text-[11px] font-light text-[var(--text-secondary)]">
+                            {[bottle.appellation !== bottle.domaine ? bottle.appellation : null, bottle.millesime]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </p>
+                        </div>
+
+                        {/* Context */}
+                        {bottle.zone_id && (
+                          <span className="flex-shrink-0 text-[10px] text-[var(--text-muted)]">
+                            Ma cave
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Recently Drunk List */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-2 scrollbar-hide">
-          {drunkLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-[var(--accent)]" />
+        {/* === BOTTOM ACTION BAR === */}
+        {/* Fixed position, fixed height, always visible, never scrolls */}
+        {/* Positioned directly above Bottom Navigation Bar (no margins) */}
+        <div className="flex-shrink-0 px-4 py-2 bg-[var(--bg)]">
+          <div className="rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3 scan-shadow">
+            {/* Hidden inputs */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <input
+              ref={fileInputGalleryRef}
+              type="file"
+              accept="image/*"
+              onChange={handleBatchFileSelect}
+              multiple
+              className="hidden"
+            />
+
+            <div className="flex items-center gap-3">
+              {/* Gallery Button */}
+              <button
+                onClick={() => fileInputGalleryRef.current?.click()}
+                className="flex h-[42px] w-[42px] items-center justify-center rounded-full border border-[rgba(184,134,11,0.12)] bg-[var(--accent-bg)] text-[var(--accent)] transition-all duration-200 hover:bg-[var(--accent-bg)]/80"
+              >
+                <GalleryIcon className="h-5 w-5" />
+              </button>
+
+              {/* Center Text */}
+              <div className="flex-1 text-center">
+                <p className="font-serif text-base font-semibold text-[var(--text-primary)]">Scanner un vin</p>
+                <p className="text-xs text-[var(--text-muted)]">Photo ou galerie</p>
+              </div>
+
+              {/* Camera Button - Primary with gradient */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-[42px] w-[42px] items-center justify-center rounded-full text-white transition-all duration-200"
+                style={{
+                  background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)',
+                  boxShadow: '0 3px 12px rgba(184,134,11,0.25)'
+                }}
+              >
+                <CameraIcon className="h-5 w-5" />
+              </button>
             </div>
-          ) : recentlyDrunk.length === 0 ? (
-            <div className="mt-2 rounded-[var(--radius-sm)] bg-[var(--bg-card)] py-6 text-center text-sm text-[var(--text-secondary)] card-shadow">
-              Aucune ouverture récente.
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {recentlyDrunk.map((bottle) => {
-                const { day, month } = formatDrunkDate(bottle.drunk_at)
-
-                return (
-                  <Link key={bottle.id} to={`/bottle/${bottle.id}`}>
-                    <div className="flex items-center gap-3 rounded-[var(--radius-sm)] bg-[var(--bg-card)] p-2.5 pr-3 card-shadow transition-all duration-200 hover:bg-[var(--accent-bg)]">
-                      {/* Date */}
-                      <div className="w-9 flex-shrink-0 text-center">
-                        <p className="font-serif text-[17px] font-bold leading-tight text-[var(--text-primary)]">{day}</p>
-                        <p className="text-[9px] font-medium uppercase text-[var(--text-muted)]">{month}</p>
-                      </div>
-
-                      {/* Color Bar */}
-                      <div
-                        className={`h-8 w-[3px] flex-shrink-0 rounded-sm ${
-                          bottle.couleur ? COLOR_BAR_STYLES[bottle.couleur] : 'bg-[var(--text-muted)]'
-                        }`}
-                      />
-
-                      {/* Info */}
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[13px] font-medium text-[var(--text-primary)]">
-                          {bottle.domaine || bottle.appellation || 'Vin'}
-                        </p>
-                        <p className="truncate text-[11px] font-light text-[var(--text-secondary)]">
-                          {[bottle.appellation !== bottle.domaine ? bottle.appellation : null, bottle.millesime]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </p>
-                      </div>
-
-                      {/* Context */}
-                      {bottle.zone_id && (
-                        <span className="flex-shrink-0 text-[10px] text-[var(--text-muted)]">
-                          Ma cave
-                        </span>
-                      )}
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Scan Zone - Fixed above nav */}
-        <div className="flex-shrink-0 mx-4 mb-4 rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3 scan-shadow">
-          {/* Hidden inputs */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-          <input
-            ref={fileInputGalleryRef}
-            type="file"
-            accept="image/*"
-            onChange={handleBatchFileSelect}
-            multiple
-            className="hidden"
-          />
-
-          <div className="flex items-center gap-3">
-            {/* Gallery Button */}
-            <button
-              onClick={() => fileInputGalleryRef.current?.click()}
-              className="flex h-[42px] w-[42px] items-center justify-center rounded-full border border-[rgba(184,134,11,0.12)] bg-[var(--accent-bg)] text-[var(--accent)] transition-all duration-200 hover:bg-[var(--accent-bg)]/80"
-            >
-              <GalleryIcon className="h-5 w-5" />
-            </button>
-
-            {/* Center Text */}
-            <div className="flex-1 text-center">
-              <p className="font-serif text-base font-semibold text-[var(--text-primary)]">Scanner un vin</p>
-              <p className="text-xs text-[var(--text-muted)]">Photo ou galerie</p>
-            </div>
-
-            {/* Camera Button - Primary with gradient */}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex h-[42px] w-[42px] items-center justify-center rounded-full text-white transition-all duration-200"
-              style={{
-                background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)',
-                boxShadow: '0 3px 12px rgba(184,134,11,0.25)'
-              }}
-            >
-              <CameraIcon className="h-5 w-5" />
-            </button>
           </div>
         </div>
       </div>
