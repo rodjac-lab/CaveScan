@@ -107,7 +107,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="flex-1 p-6">
+    <div className="flex-1 overflow-y-auto p-6">
       {/* Page Header */}
       <div className="mb-6">
         <p className="brand-text">CaveScan</p>
