@@ -107,15 +107,16 @@ export default function Settings() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-6">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* Page Header */}
-      <div className="mb-6">
+      <div className="flex-shrink-0 px-6 pt-6 pb-4">
         <p className="brand-text">CaveScan</p>
         <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Réglages</h1>
       </div>
 
-      {/* Account section */}
-      <section className="mb-8">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-6 scrollbar-hide">
+        {/* Account section */}
+        <section className="mb-8">
         <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
           <User className="h-5 w-5" />
           Compte
@@ -143,10 +144,10 @@ export default function Settings() {
             </Button>
           </CardContent>
         </Card>
-      </section>
+        </section>
 
-      {/* Zones section */}
-      <section className="mb-8">
+        {/* Zones section */}
+        <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <MapPin className="h-5 w-5" />
@@ -207,10 +208,10 @@ export default function Settings() {
             ))}
           </div>
         )}
-      </section>
+        </section>
 
-      {/* About section */}
-      <section>
+        {/* About section */}
+        <section>
         <Card>
           <CardContent className="p-4">
             <h2 className="font-semibold mb-2">À propos</h2>
@@ -222,8 +223,10 @@ export default function Settings() {
             </p>
           </CardContent>
         </Card>
-      </section>
+        </section>
 
+
+      </div>
 
       {/* Add/Edit Zone Dialog */}
       <Dialog open={isAddingZone || !!editingZone} onOpenChange={handleClose}>
