@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
+const ANTHROPIC_MODEL = Deno.env.get('ANTHROPIC_MODEL')?.trim()
 
 const EXTRACTION_PROMPT = `Analyse cette photo d'étiquette de vin et extrais les informations suivantes au format JSON :
 
@@ -41,6 +42,23 @@ interface ClaudeContentBlock {
   text?: string
 }
 
+interface ClaudeResponse {
+  content: ClaudeContentBlock[]
+}
+
+interface AnthropicErrorPayload {
+  error?: {
+    type?: string
+    message?: string
+  }
+}
+
+type AnthropicAttempt = {
+  model: string
+  status: number
+  message: string
+}
+
 function buildImageContent(imageBase64: string | undefined, imageUrl: string | undefined): ImageContent {
   if (imageBase64) {
     const mediaType = imageBase64.startsWith('/9j/') ? 'image/jpeg' : 'image/png'
@@ -70,6 +88,86 @@ function stripMarkdownCodeBlock(text: string): string {
   return result
 }
 
+function buildModelFallbackList(): string[] {
+  const models = [
+    ANTHROPIC_MODEL || '',
+    'claude-sonnet-4-20250514',
+    'claude-3-5-sonnet-20241022',
+    'claude-3-5-sonnet-20240620',
+    'claude-3-haiku-20240307',
+  ]
+
+  return [...new Set(models.filter(Boolean))]
+}
+
+function parseAnthropicError(rawText: string): string {
+  try {
+    const parsed = JSON.parse(rawText) as AnthropicErrorPayload
+    return parsed.error?.message || rawText
+  } catch {
+    return rawText
+  }
+}
+
+function shouldStopFallback(status: number, message: string): boolean {
+  if (status === 401 || status === 403) return true
+  if (status === 429) return true
+
+  const lower = message.toLowerCase()
+  return (
+    lower.includes('api key') ||
+    lower.includes('authentication') ||
+    lower.includes('permission') ||
+    lower.includes('quota')
+  )
+}
+
+async function callAnthropicWithFallback(imageContent: ImageContent): Promise<{ model: string; result: ClaudeResponse }> {
+  const models = buildModelFallbackList()
+  const attempts: AnthropicAttempt[] = []
+
+  for (const model of models) {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY || '',
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1024,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              imageContent,
+              { type: 'text', text: EXTRACTION_PROMPT },
+            ],
+          },
+        ],
+      }),
+    })
+
+    if (response.ok) {
+      const result = await response.json() as ClaudeResponse
+      return { model, result }
+    }
+
+    const errorText = await response.text()
+    const message = parseAnthropicError(errorText)
+    attempts.push({ model, status: response.status, message })
+    console.error(`Anthropic error with model ${model}:`, response.status, message)
+
+    if (shouldStopFallback(response.status, message)) {
+      break
+    }
+  }
+
+  const summary = attempts.map((attempt) => `${attempt.model} (${attempt.status}): ${attempt.message}`).join(' | ')
+  throw new Error(`Anthropic extraction failed after ${attempts.length} attempt(s). ${summary}`)
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS })
@@ -91,40 +189,10 @@ Deno.serve(async (req) => {
     }
 
     const imageContent = buildImageContent(image_base64, image_url)
-    console.log('Image content built, calling Claude API...')
+    console.log('Image content built, calling Anthropic with model fallback...')
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              imageContent,
-              { type: 'text', text: EXTRACTION_PROMPT },
-            ],
-          },
-        ],
-      }),
-    })
-
-    console.log('Claude API responded, status:', response.status)
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Claude API error response:', errorText)
-      throw new Error(`Claude API error: ${errorText}`)
-    }
-
-    const result = await response.json()
-    console.log('Response parsed, content blocks:', result.content?.length)
+    const { model, result } = await callAnthropicWithFallback(imageContent)
+    console.log('Anthropic response parsed with model:', model, 'content blocks:', result.content?.length)
     const textContent = result.content.find((c: ClaudeContentBlock) => c.type === 'text')
 
     if (!textContent?.text) {
