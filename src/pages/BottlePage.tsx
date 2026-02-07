@@ -328,128 +328,6 @@ export default function BottlePage() {
         </Card>
       )}
 
-      {/* Tasting Photos */}
-      {isDrunk && (
-        <Card className="mb-4">
-          <CardContent className="p-4">
-            <Label className="text-muted-foreground mb-3 block">Photos de dégustation</Label>
-
-            {/* Tasting photo inputs */}
-            <input
-              ref={tastingPhotoInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleTastingPhotoSelect}
-              className="hidden"
-            />
-            <input
-              ref={tastingPhotoGalleryRef}
-              type="file"
-              accept="image/*"
-              onChange={handleTastingPhotoSelect}
-              className="hidden"
-            />
-
-            {/* Existing tasting photos */}
-            {bottle.tasting_photos && (bottle.tasting_photos as TastingPhoto[]).length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                {(bottle.tasting_photos as TastingPhoto[]).map((photo, index) => (
-                  <div key={index} className="relative">
-                    <img
-                      src={photo.url}
-                      alt={photo.label || 'Photo de dégustation'}
-                      className="h-20 w-20 rounded object-cover cursor-zoom-in"
-                      onClick={() => setZoomImage({ src: photo.url, label: photo.label })}
-                    />
-                    {photo.label && (
-                      <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] text-center py-0.5 rounded-b">
-                        {photo.label}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Add photo button / options */}
-            {uploadingPhoto ? (
-              <div className="flex items-center justify-center py-2">
-                <Loader2 className="h-5 w-5 animate-spin text-wine-600" />
-                <span className="ml-2 text-sm text-muted-foreground">Upload en cours...</span>
-              </div>
-            ) : showLabelPicker ? (
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">Type de photo :</p>
-                <div className="flex flex-wrap gap-2">
-                  {TASTING_LABELS.map((label) => (
-                    <Button
-                      key={label}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleLabelSelect(label)}
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleLabelSelect(undefined)}
-                  >
-                    Passer
-                  </Button>
-                </div>
-              </div>
-            ) : showPhotoOptions ? (
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => {
-                    setShowPhotoOptions(false)
-                    tastingPhotoInputRef.current?.click()
-                  }}
-                >
-                  <Camera className="mr-2 h-4 w-4" />
-                  Photographier
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => {
-                    setShowPhotoOptions(false)
-                    tastingPhotoGalleryRef.current?.click()
-                  }}
-                >
-                  <ImageIcon className="mr-2 h-4 w-4" />
-                  Galerie
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowPhotoOptions(false)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => setShowPhotoOptions(true)}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Ajouter une photo
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
       {/* Details */}
       <Card className="mb-4">
         <CardContent className="space-y-3 p-4">
@@ -532,6 +410,85 @@ export default function BottlePage() {
       {isDrunk && (
         <Card className="mb-4">
           <CardContent className="p-4">
+            {/* Hidden tasting photo inputs */}
+            <input
+              ref={tastingPhotoInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleTastingPhotoSelect}
+              className="hidden"
+            />
+            <input
+              ref={tastingPhotoGalleryRef}
+              type="file"
+              accept="image/*"
+              onChange={handleTastingPhotoSelect}
+              className="hidden"
+            />
+
+            {/* Tasting photos row + add button */}
+            {uploadingPhoto ? (
+              <div className="flex items-center gap-2 mb-3">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Upload...</span>
+              </div>
+            ) : showLabelPicker ? (
+              <div className="mb-3">
+                <p className="text-xs text-muted-foreground mb-1.5">Type de photo :</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {TASTING_LABELS.map((label) => (
+                    <Button key={label} variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleLabelSelect(label)}>
+                      {label}
+                    </Button>
+                  ))}
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleLabelSelect(undefined)}>
+                    Passer
+                  </Button>
+                </div>
+              </div>
+            ) : showPhotoOptions ? (
+              <div className="flex gap-1.5 mb-3">
+                <Button variant="outline" size="sm" className="flex-1 h-7 text-xs" onClick={() => { setShowPhotoOptions(false); tastingPhotoInputRef.current?.click() }}>
+                  <Camera className="mr-1 h-3 w-3" />
+                  Photo
+                </Button>
+                <Button variant="outline" size="sm" className="flex-1 h-7 text-xs" onClick={() => { setShowPhotoOptions(false); tastingPhotoGalleryRef.current?.click() }}>
+                  <ImageIcon className="mr-1 h-3 w-3" />
+                  Galerie
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setShowPhotoOptions(false)}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                {bottle.tasting_photos && (bottle.tasting_photos as TastingPhoto[]).length > 0 && (
+                  (bottle.tasting_photos as TastingPhoto[]).map((photo, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={photo.url}
+                        alt={photo.label || 'Photo'}
+                        className="h-14 w-14 rounded object-cover cursor-zoom-in"
+                        onClick={() => setZoomImage({ src: photo.url, label: photo.label })}
+                      />
+                      {photo.label && (
+                        <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] text-center py-0.5 rounded-b">
+                          {photo.label}
+                        </span>
+                      )}
+                    </div>
+                  ))
+                )}
+                <button
+                  onClick={() => setShowPhotoOptions(true)}
+                  className="flex h-14 w-14 items-center justify-center rounded border border-dashed border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              </div>
+            )}
+
             <Label htmlFor="tasting" className="text-muted-foreground">
               Note de dégustation
             </Label>
