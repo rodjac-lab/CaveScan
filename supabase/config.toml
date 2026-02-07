@@ -1,0 +1,2 @@
+[functions.extract-wine]
+verify_jwt = false
