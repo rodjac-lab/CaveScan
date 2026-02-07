@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react'
+import { useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Camera, Loader2, Check, X, Wine, Plus, Minus, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,7 +26,12 @@ type Step = 'capture' | 'extracting' | 'confirm' | 'saving' | 'batch-extracting'
 
 const MAX_BATCH_SIZE = 12
 
+interface AddBottleLocationState {
+  prefillExtraction?: Partial<WineExtraction> | null
+}
+
 export default function AddBottle() {
+  const location = useLocation()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const fileInputGalleryRef = useRef<HTMLInputElement>(null)
   const fileInputBatchRef = useRef<HTMLInputElement>(null)
@@ -34,7 +40,16 @@ export default function AddBottle() {
   const domainesSuggestions = useDomainesSuggestions()
   const appellationsSuggestions = useAppellationsSuggestions()
 
-  const [step, setStep] = useState<Step>('capture')
+  const prefillExtraction = (location.state as AddBottleLocationState | null)?.prefillExtraction ?? null
+  const hasPrefill = !!(
+    prefillExtraction?.domaine ||
+    prefillExtraction?.cuvee ||
+    prefillExtraction?.appellation ||
+    prefillExtraction?.millesime ||
+    prefillExtraction?.couleur
+  )
+
+  const [step, setStep] = useState<Step>(hasPrefill ? 'confirm' : 'capture')
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoFileBack, setPhotoFileBack] = useState<File | null>(null)
@@ -43,16 +58,29 @@ export default function AddBottle() {
   const [error, setError] = useState<string | null>(null)
 
   // Single bottle mode state
-  const [domaine, setDomaine] = useState('')
-  const [cuvee, setCuvee] = useState('')
-  const [appellation, setAppellation] = useState('')
-  const [millesime, setMillesime] = useState('')
-  const [couleur, setCouleur] = useState<WineColor | ''>('')
+  const [domaine, setDomaine] = useState(prefillExtraction?.domaine || '')
+  const [cuvee, setCuvee] = useState(prefillExtraction?.cuvee || '')
+  const [appellation, setAppellation] = useState(prefillExtraction?.appellation || '')
+  const [millesime, setMillesime] = useState(prefillExtraction?.millesime ? String(prefillExtraction.millesime) : '')
+  const [couleur, setCouleur] = useState<WineColor | ''>(normalizeWineColor(prefillExtraction?.couleur || null) || '')
   const [zoneId, setZoneId] = useState('')
   const [shelf, setShelf] = useState('')
   const [purchasePrice, setPurchasePrice] = useState('')
   const [quantity, setQuantity] = useState(1)
-  const [rawExtraction, setRawExtraction] = useState<WineExtraction | null>(null)
+  const [rawExtraction, setRawExtraction] = useState<WineExtraction | null>(
+    prefillExtraction
+      ? {
+          domaine: prefillExtraction.domaine || null,
+          cuvee: prefillExtraction.cuvee || null,
+          appellation: prefillExtraction.appellation || null,
+          millesime: prefillExtraction.millesime || null,
+          couleur: normalizeWineColor(prefillExtraction.couleur || null),
+          region: null,
+          cepage: null,
+          confidence: 0,
+        }
+      : null,
+  )
 
   // Batch mode state
   const [batchItems, setBatchItems] = useState<BatchItemData[]>([])
