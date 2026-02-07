@@ -162,8 +162,12 @@ export default function RemoveBottle() {
       setStep('result')
     } catch (err) {
       console.error('Extraction error:', err)
-      setError('Echec de la reconnaissance. Reessayez.')
-      setStep('choose')
+      navigate('/add', {
+        state: {
+          prefillPhotoFile: file,
+          prefillExtraction: null,
+        },
+      })
     }
   }
 
@@ -649,6 +653,7 @@ export default function RemoveBottle() {
                     navigate('/add', {
                       state: {
                         prefillExtraction: scanResult.extraction,
+                        prefillPhotoFile: scanResult.photoFile,
                       },
                     })
                   }
@@ -727,6 +732,7 @@ export default function RemoveBottle() {
                         navigate('/add', {
                           state: {
                             prefillExtraction: item.extraction,
+                            prefillPhotoFile: item.photoFile,
                           },
                         })
                       }

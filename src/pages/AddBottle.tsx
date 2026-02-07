@@ -28,6 +28,7 @@ const MAX_BATCH_SIZE = 12
 
 interface AddBottleLocationState {
   prefillExtraction?: Partial<WineExtraction> | null
+  prefillPhotoFile?: File | null
 }
 
 export default function AddBottle() {
@@ -41,6 +42,7 @@ export default function AddBottle() {
   const appellationsSuggestions = useAppellationsSuggestions()
 
   const prefillExtraction = (location.state as AddBottleLocationState | null)?.prefillExtraction ?? null
+  const prefillPhotoFile = (location.state as AddBottleLocationState | null)?.prefillPhotoFile ?? null
   const hasPrefill = !!(
     prefillExtraction?.domaine ||
     prefillExtraction?.cuvee ||
@@ -49,9 +51,9 @@ export default function AddBottle() {
     prefillExtraction?.couleur
   )
 
-  const [step, setStep] = useState<Step>(hasPrefill ? 'confirm' : 'capture')
-  const [photoFile, setPhotoFile] = useState<File | null>(null)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [step, setStep] = useState<Step>(hasPrefill || !!prefillPhotoFile ? 'confirm' : 'capture')
+  const [photoFile, setPhotoFile] = useState<File | null>(prefillPhotoFile)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(() => (prefillPhotoFile ? URL.createObjectURL(prefillPhotoFile) : null))
   const [photoFileBack, setPhotoFileBack] = useState<File | null>(null)
   const [photoPreviewBack, setPhotoPreviewBack] = useState<string | null>(null)
   const [zoomImage, setZoomImage] = useState<{ src: string; label?: string } | null>(null)
@@ -485,6 +487,13 @@ export default function AddBottle() {
   }
 
   const handleReset = () => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview)
+    if (photoPreviewBack) URL.revokeObjectURL(photoPreviewBack)
+    batchItems.forEach((item) => {
+      if (item.photoPreview) URL.revokeObjectURL(item.photoPreview)
+      if (item.photoPreviewBack) URL.revokeObjectURL(item.photoPreviewBack)
+    })
+
     setStep('capture')
     setPhotoFile(null)
     setPhotoPreview(null)
