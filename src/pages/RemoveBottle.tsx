@@ -10,7 +10,7 @@ import { normalizeWineColor, type WineColor, type BottleWithZone, type WineExtra
 import { fileToBase64, resizeImage } from '@/lib/image'
 import { stringSimilarity } from '@/lib/utils'
 
-type Step = 'choose' | 'extracting' | 'matching' | 'select' | 'confirm' | 'not_found' | 'saving' | 'batch-extracting' | 'batch-ready' | 'batch-saving'
+type Step = 'choose' | 'extracting' | 'matching' | 'select' | 'confirm' | 'not_found' | 'correct' | 'saving' | 'batch-extracting' | 'batch-ready' | 'batch-saving'
 
 const MAX_BATCH_SIZE = 12
 
@@ -427,6 +427,51 @@ export default function RemoveBottle() {
     })
   }
 
+  // Editable extraction fields for the 'correct' step
+  const [editDomaine, setEditDomaine] = useState('')
+  const [editCuvee, setEditCuvee] = useState('')
+  const [editAppellation, setEditAppellation] = useState('')
+  const [editMillesime, setEditMillesime] = useState('')
+
+  const handleWrongMatch = () => {
+    if (extraction) {
+      setEditDomaine(extraction.domaine || '')
+      setEditCuvee(extraction.cuvee || '')
+      setEditAppellation(extraction.appellation || '')
+      setEditMillesime(extraction.millesime?.toString() || '')
+    }
+    setSelectedBottle(null)
+    setStep('correct')
+  }
+
+  const handleCorrectedSearch = () => {
+    // Update extraction so not_found uses corrected data
+    setExtraction(prev => prev ? {
+      ...prev,
+      domaine: editDomaine || null,
+      cuvee: editCuvee || null,
+      appellation: editAppellation || null,
+      millesime: editMillesime ? parseInt(editMillesime) : null,
+    } : null)
+
+    const matched = findMatches(bottles, {
+      domaine: editDomaine || undefined,
+      cuvee: editCuvee || undefined,
+      appellation: editAppellation || undefined,
+      millesime: editMillesime ? parseInt(editMillesime) : undefined,
+    })
+
+    if (matched.length === 0) {
+      setStep('not_found')
+    } else if (matched.length === 1) {
+      setSelectedBottle(matched[0])
+      setStep('confirm')
+    } else {
+      setMatches(matched)
+      setStep('select')
+    }
+  }
+
   const handleReset = () => {
     setStep('choose')
     setMatches([])
@@ -695,6 +740,69 @@ export default function RemoveBottle() {
         </div>
       )}
 
+      {/* Step: Correct extraction data */}
+      {step === 'correct' && (
+        <div className="mt-6 space-y-4">
+          <p className="text-muted-foreground">
+            Corrigez les informations puis relancez la recherche.
+          </p>
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm text-muted-foreground">Domaine</label>
+              <input
+                value={editDomaine}
+                onChange={(e) => setEditDomaine(e.target.value)}
+                placeholder="ex: Château des Tours"
+                className="mt-1 w-full rounded-md border bg-input p-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Cuvée</label>
+              <input
+                value={editCuvee}
+                onChange={(e) => setEditCuvee(e.target.value)}
+                placeholder="ex: Réserve"
+                className="mt-1 w-full rounded-md border bg-input p-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Appellation</label>
+              <input
+                value={editAppellation}
+                onChange={(e) => setEditAppellation(e.target.value)}
+                placeholder="ex: Vacqueyras"
+                className="mt-1 w-full rounded-md border bg-input p-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Millésime</label>
+              <input
+                value={editMillesime}
+                onChange={(e) => setEditMillesime(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                inputMode="numeric"
+                placeholder="ex: 2020"
+                maxLength={4}
+                className="mt-1 w-full rounded-md border bg-input p-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={handleReset}>
+              <X className="mr-2 h-4 w-4" />
+              Annuler
+            </Button>
+            <Button
+              className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-light)]"
+              onClick={handleCorrectedSearch}
+            >
+              Rechercher
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Step: Confirm */}
       {step === 'confirm' && selectedBottle && (
         <div className="mt-6 space-y-4">
@@ -876,6 +984,13 @@ export default function RemoveBottle() {
           <p className="text-center text-muted-foreground">
             Confirmer la sortie de cette bouteille ?
           </p>
+
+          <button
+            onClick={handleWrongMatch}
+            className="w-full text-center text-sm text-[var(--accent)] py-1"
+          >
+            Ce n'est pas cette bouteille →
+          </button>
 
           <div className="flex gap-3">
             <Button variant="outline" className="flex-1" onClick={handleReset}>
@@ -1061,11 +1176,19 @@ const SIMILARITY_THRESHOLD_PRIMARY = 0.75
 const SIMILARITY_THRESHOLD_SECONDARY = 0.80
 const MATCH_SCORE_THRESHOLD = 3
 
+// Penalty when both extraction and bottle have an appellation but they don't match
+const APPELLATION_MISMATCH_PENALTY = -2.0
+
 function findMatches(
   bottles: BottleWithZone[],
   extraction: { domaine?: string; cuvee?: string; appellation?: string; millesime?: number }
 ): BottleWithZone[] {
   return bottles.filter(bottle => {
+    // Hard reject: different millesimes = different wines
+    if (extraction.millesime && bottle.millesime && bottle.millesime !== extraction.millesime) {
+      return false
+    }
+
     let score = 0
 
     if (extraction.domaine && bottle.domaine) {
@@ -1086,6 +1209,9 @@ function findMatches(
       const similarity = stringSimilarity(extraction.appellation, bottle.appellation)
       if (similarity >= SIMILARITY_THRESHOLD_SECONDARY) {
         score += similarity * 1.5
+      } else {
+        // Both have an appellation but they're different → penalty
+        score += APPELLATION_MISMATCH_PENALTY
       }
     }
 
