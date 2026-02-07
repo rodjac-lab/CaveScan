@@ -12,6 +12,7 @@ Liste d'idees et de travaux a collecter au fil de l'eau.
 
 ### Donnees / Ops
 - [ ] Permettre de supprimer des entrees et des sorties (actuellement indisponible)
+- [ ] **Securite Edge Function extract-wine : retour JWT ON** : garder temporairement `verify_jwt = false` pour stabilisation, puis repasser a `verify_jwt = true` avec envoi explicite du bearer token depuis le front, test camera/galerie/batch, et rollback plan documente si erreur 401.
 
 ## Idees a ajouter
 - [ ] **Section "Suggestions" dans Partager** : Afficher des bouteilles selectionnees au hasard dans la cave pour les proposer a l'utilisateur. Imaginer un algo de selection fun (anciennete, maturite, diversite couleurs, saison...). Casse le cote "longue liste" du menu.
