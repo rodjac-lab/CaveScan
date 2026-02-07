@@ -132,7 +132,14 @@ Deno.serve(async (req) => {
     }
 
     const jsonText = stripMarkdownCodeBlock(textContent.text)
-    const extraction = JSON.parse(jsonText)
+
+    let extraction
+    try {
+      extraction = JSON.parse(jsonText)
+    } catch {
+      console.error('Claude responded with text instead of JSON:', textContent.text.slice(0, 200))
+      throw new Error('Impossible de lire l\'étiquette sur cette photo.')
+    }
 
     return new Response(JSON.stringify(extraction), {
       headers: {
