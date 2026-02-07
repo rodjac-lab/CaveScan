@@ -204,7 +204,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
       {/* Page Header */}
       <div className="px-6 pt-4 pb-3">
         <p className="brand-text">CaveScan</p>
@@ -273,7 +273,7 @@ export default function Home() {
       </div>
 
       {/* Bottle List */}
-      <div className="flex-1 overflow-y-auto px-6 pb-20 scrollbar-hide">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-20 scrollbar-hide">
         {bottles.length === 0 ? (
           <div className="mt-4 flex flex-col items-center gap-4 rounded-[var(--radius)] bg-[var(--bg-card)] py-8 card-shadow">
             <Wine className="h-12 w-12 text-[var(--text-muted)]" />

@@ -408,7 +408,7 @@ export default function RemoveBottle() {
 
   if (step === 'choose') {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <header className="flex-shrink-0 px-6 pt-4 pb-3">
           <p className="brand-text">CaveScan</p>
           <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Partager</h1>
@@ -421,7 +421,7 @@ export default function RemoveBottle() {
           </div>
         )}
 
-        <div className="flex-1 min-h-0 overflow-y-auto pb-[84px] scrollbar-hide">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[84px] scrollbar-hide">
           {activeBatchSession && batchSummary && (
             <button
               type="button"
