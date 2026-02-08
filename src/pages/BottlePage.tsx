@@ -2,9 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro, Pencil, Plus, Camera, ImageIcon, X, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
 import { useBottle } from '@/hooks/useBottles'
 import { getWineColorLabel, type TastingPhoto } from '@/lib/types'
@@ -246,16 +244,43 @@ export default function BottlePage() {
 
   const isDrunk = bottle.status === 'drunk'
 
+  const formatDateShort = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('fr-FR', {
+      day: 'numeric', month: 'short', year: 'numeric'
+    })
+  }
+
+  const displayDate = isDrunk && bottle.drunk_at
+    ? formatDateShort(bottle.drunk_at)
+    : bottle.added_at
+      ? formatDateShort(bottle.added_at)
+      : '—'
+
   return (
-    <div className="flex-1 overflow-y-auto p-4">
-      {/* Header */}
-      <div className="mb-4 flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
+    <div className="flex-1 overflow-y-auto">
+      {/* Hidden tasting photo inputs — always rendered */}
+      <input
+        ref={tastingPhotoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleTastingPhotoSelect}
+        className="hidden"
+      />
+      <input
+        ref={tastingPhotoGalleryRef}
+        type="file"
+        accept="image/*"
+        onChange={handleTastingPhotoSelect}
+        className="hidden"
+      />
+
+      {/* ===== PAGE HEADER ===== */}
+      <div className="flex items-center gap-2 px-4 pt-[14px]">
+        <button
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-transparent text-[var(--text-primary)] hover:bg-[var(--accent-bg)] transition-colors"
           onClick={() => {
             if (isBatchMode && batchIndex > 0) {
-              // Go back to previous wine
               navigate(`/bottle/${batchState!.batchIds![batchIndex - 1]}`, {
                 state: { batchIds: batchState!.batchIds, batchIndex: batchIndex - 1 },
                 replace: true
@@ -266,13 +291,11 @@ export default function BottlePage() {
           }}
         >
           <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="flex-1 text-xl font-bold truncate">
-          {bottle.cuvee || bottle.domaine || bottle.appellation || 'Vin'}
-        </h1>
+        </button>
+        <div className="flex-1" />
         {bottle.couleur && (
           <div
-            className="w-[3px] h-6 rounded-full"
+            className="w-[3px] h-6 rounded-full shrink-0"
             style={{ backgroundColor: `var(--${
               bottle.couleur === 'rouge' ? 'red-wine' :
               bottle.couleur === 'blanc' ? 'white-wine' :
@@ -282,294 +305,256 @@ export default function BottlePage() {
             title={getWineColorLabel(bottle.couleur)}
           />
         )}
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/bottle/${bottle.id}/edit`)}>
-          <Pencil className="h-5 w-5" />
-        </Button>
+        <button
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-transparent text-[var(--text-muted)] hover:bg-[var(--accent-bg)] transition-colors"
+          onClick={() => navigate(`/bottle/${bottle.id}/edit`)}
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
       </div>
 
-      {/* Batch progress indicator */}
+      {/* ===== BATCH PROGRESS ===== */}
       {isBatchMode && (
-        <div className="mb-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-2 text-sm text-[var(--text-muted)]">
           <span>Vin {batchIndex + 1} sur {totalBatch}</span>
         </div>
       )}
 
-      {/* Photos */}
-      {(bottle.photo_url || bottle.photo_url_back) && (
-        <Card className="mb-4 overflow-hidden">
-          <div className={`flex ${bottle.photo_url && bottle.photo_url_back ? 'gap-2 p-2' : ''}`}>
-            {bottle.photo_url && (
-              <div className={bottle.photo_url_back ? 'flex-1' : 'w-full'}>
-                <img
-                  src={bottle.photo_url}
-                  alt="Étiquette avant"
-                  className={`w-full object-contain bg-black/20 cursor-zoom-in ${bottle.photo_url_back ? 'max-h-48 rounded' : 'max-h-64'}`}
-                  onClick={() => setZoomImage({ src: bottle.photo_url!, label: 'Avant' })}
-                />
-                {bottle.photo_url_back && (
-                  <p className="text-xs text-center text-muted-foreground mt-1">Avant</p>
-                )}
+      {/* ===== IDENTITY CARD ===== */}
+      <div className="identity-card-anim mx-4 mt-3 rounded-[var(--radius)] bg-[var(--bg-card)] shadow-[var(--shadow-md)] overflow-hidden">
+        {/* Identity Top: photo + info */}
+        <div className="flex gap-[14px] p-[14px]">
+          {/* Photo thumbnail */}
+          {bottle.photo_url ? (
+            <img
+              src={bottle.photo_url}
+              alt="Étiquette"
+              className="w-[90px] h-[120px] rounded-lg object-cover shrink-0 cursor-pointer bg-[#e8e3da] hover:scale-[1.02] transition-transform"
+              onClick={() => setZoomImage({ src: bottle.photo_url!, label: 'Avant' })}
+            />
+          ) : (
+            <div className="w-[90px] h-[120px] rounded-lg shrink-0 bg-[#e8e3da] flex items-center justify-center">
+              <Wine className="h-6 w-6 text-[var(--text-muted)]" />
+            </div>
+          )}
+
+          {/* Info zone */}
+          <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+            <div className="font-serif text-[20px] font-bold leading-tight text-[var(--text-primary)]">
+              {bottle.domaine || bottle.cuvee || bottle.appellation || 'Vin'}
+            </div>
+            {bottle.appellation && (
+              <div className="text-[13px] text-[var(--text-secondary)] mt-px">
+                {bottle.appellation}
               </div>
             )}
-            {bottle.photo_url_back && (
-              <div className={bottle.photo_url ? 'flex-1' : 'w-full'}>
-                <img
-                  src={bottle.photo_url_back}
-                  alt="Étiquette arrière"
-                  className={`w-full object-contain bg-black/20 cursor-zoom-in ${bottle.photo_url ? 'max-h-48 rounded' : 'max-h-64'}`}
-                  onClick={() => setZoomImage({ src: bottle.photo_url_back!, label: 'Arriere' })}
-                />
-                {bottle.photo_url && (
-                  <p className="text-xs text-center text-muted-foreground mt-1">Arrière</p>
-                )}
+            {bottle.cuvee && bottle.domaine && (
+              <div className="text-[13px] text-[var(--text-secondary)]">
+                {bottle.cuvee}
               </div>
             )}
+            {/* Tags: millesime + couleur */}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {bottle.millesime && (
+                <span className="font-serif text-xs font-semibold text-[var(--text-primary)] bg-[var(--accent-bg)] border border-[rgba(184,134,11,0.06)] rounded-full px-2.5 py-0.5">
+                  {bottle.millesime}
+                </span>
+              )}
+              {bottle.couleur && (
+                <span className="text-[11px] font-medium text-[var(--text-secondary)] bg-[var(--accent-bg)] border border-[rgba(184,134,11,0.06)] rounded-full px-2.5 py-0.5">
+                  {getWineColorLabel(bottle.couleur)}
+                </span>
+              )}
+            </div>
           </div>
-        </Card>
-      )}
+        </div>
 
-      {/* Details */}
-      <Card className="mb-4">
-        <CardContent className="space-y-3 p-4">
-          {bottle.domaine && (
-            <div>
-              <Label className="text-muted-foreground">Domaine</Label>
-              <p className="font-medium">{bottle.domaine}</p>
-            </div>
-          )}
+        {/* Identity Details bar */}
+        <div className="flex items-center border-t border-[var(--border-color)]">
+          {/* Date */}
+          <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 border-r border-[var(--border-color)]">
+            <Calendar className="h-3.5 w-3.5 text-[var(--text-muted)] shrink-0" />
+            <span className="text-[11px] font-medium text-[var(--text-secondary)] truncate">
+              {displayDate}
+            </span>
+          </div>
+          {/* Prix */}
+          <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 border-r border-[var(--border-color)]">
+            <Euro className="h-3.5 w-3.5 text-[var(--text-muted)] shrink-0" />
+            <span className="text-[11px] font-medium text-[var(--text-secondary)] truncate">
+              {bottle.purchase_price ? `${bottle.purchase_price.toFixed(2)} €` : '—'}
+            </span>
+          </div>
+          {/* Lieu */}
+          <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2">
+            <MapPin className="h-3.5 w-3.5 text-[var(--text-muted)] shrink-0" />
+            <span className="text-[11px] font-medium text-[var(--text-secondary)] truncate">
+              {bottle.zone?.name || 'Cave'}
+            </span>
+          </div>
+        </div>
+      </div>
 
-          {bottle.cuvee && (
-            <div>
-              <Label className="text-muted-foreground">Cuvée</Label>
-              <p className="font-medium">{bottle.cuvee}</p>
-            </div>
-          )}
-
-          {bottle.appellation && (
-            <div>
-              <Label className="text-muted-foreground">Appellation</Label>
-              <p className="font-medium">{bottle.appellation}</p>
-            </div>
-          )}
-
-          {bottle.millesime && (
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">{bottle.millesime}</span>
-            </div>
-          )}
-
-          {bottle.zone && (
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-              <span>
-                {bottle.zone.name}
-                {bottle.shelf && ` - ${bottle.shelf}`}
-              </span>
-            </div>
-          )}
-
-          {(bottle.purchase_price || bottle.market_value) && (
-            <div className="flex items-center gap-2">
-              <Euro className="h-4 w-4 text-muted-foreground" />
-              <span>
-                {bottle.purchase_price && `${bottle.purchase_price.toFixed(2)} €`}
-                {bottle.purchase_price && bottle.market_value && ' · '}
-                {bottle.market_value && (
-                  <span className="text-muted-foreground">
-                    Valeur: {bottle.market_value.toFixed(2)} €
-                  </span>
-                )}
-              </span>
-            </div>
-          )}
-
-          {bottle.notes && (
-            <div>
-              <Label className="text-muted-foreground">Notes</Label>
-              <p className="text-sm">{bottle.notes}</p>
-            </div>
-          )}
-
-          {isDrunk && bottle.drunk_at && (
-            <div className="pt-2 border-t">
-              <Label className="text-muted-foreground">Bue le</Label>
-              <p className="font-medium">
-                {new Date(bottle.drunk_at).toLocaleDateString('fr-FR', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric'
-                })}
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Tasting note (for drunk bottles) */}
+      {/* ===== TASTING SECTION (drunk bottles) ===== */}
       {isDrunk && (
-        <Card className="mb-4">
-          <CardContent className="p-4">
-            {/* Hidden tasting photo inputs */}
-            <input
-              ref={tastingPhotoInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleTastingPhotoSelect}
-              className="hidden"
-            />
-            <input
-              ref={tastingPhotoGalleryRef}
-              type="file"
-              accept="image/*"
-              onChange={handleTastingPhotoSelect}
-              className="hidden"
-            />
+        <div className="tasting-section-anim mx-4 mt-[14px]">
+          {/* Section divider */}
+          <div className="flex items-center gap-2.5 mb-2.5">
+            <div className="flex-1 h-px bg-[var(--border-color)]" />
+            <span className="section-divider-label">Dégustation</span>
+            <div className="flex-1 h-px bg-[var(--border-color)]" />
+          </div>
 
-            {/* Tasting photos row + add button */}
-            {uploadingPhoto ? (
-              <div className="flex items-center gap-2 mb-3">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Upload...</span>
-              </div>
-            ) : showLabelPicker ? (
-              <div className="mb-3">
-                <p className="text-xs text-muted-foreground mb-1.5">Type de photo :</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {TASTING_LABELS.map((label) => (
-                    <Button key={label} variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleLabelSelect(label)}>
-                      {label}
-                    </Button>
-                  ))}
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleLabelSelect(undefined)}>
-                    Passer
+          {/* Tasting photos row */}
+          {uploadingPhoto ? (
+            <div className="flex items-center gap-2 mb-2.5">
+              <Loader2 className="h-4 w-4 animate-spin text-[var(--text-muted)]" />
+              <span className="text-xs text-[var(--text-muted)]">Upload...</span>
+            </div>
+          ) : showLabelPicker ? (
+            <div className="mb-2.5">
+              <p className="text-xs text-[var(--text-muted)] mb-1.5">Type de photo :</p>
+              <div className="flex flex-wrap gap-1.5">
+                {TASTING_LABELS.map((label) => (
+                  <Button key={label} variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleLabelSelect(label)}>
+                    {label}
                   </Button>
-                </div>
-              </div>
-            ) : showPhotoOptions ? (
-              <div className="flex gap-1.5 mb-3">
-                <Button variant="outline" size="sm" className="flex-1 h-7 text-xs" onClick={() => { setShowPhotoOptions(false); tastingPhotoInputRef.current?.click() }}>
-                  <Camera className="mr-1 h-3 w-3" />
-                  Photo
-                </Button>
-                <Button variant="outline" size="sm" className="flex-1 h-7 text-xs" onClick={() => { setShowPhotoOptions(false); tastingPhotoGalleryRef.current?.click() }}>
-                  <ImageIcon className="mr-1 h-3 w-3" />
-                  Galerie
-                </Button>
-                <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setShowPhotoOptions(false)}>
-                  <X className="h-3 w-3" />
+                ))}
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleLabelSelect(undefined)}>
+                  Passer
                 </Button>
               </div>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                {bottle.tasting_photos && (bottle.tasting_photos as TastingPhoto[]).length > 0 && (
-                  (bottle.tasting_photos as TastingPhoto[]).map((photo, index) => (
-                    <div key={index} className="relative">
-                      <img
-                        src={photo.url}
-                        alt={photo.label || 'Photo'}
-                        className="h-14 w-14 rounded object-cover cursor-zoom-in"
-                        onClick={() => setZoomImage({ src: photo.url, label: photo.label })}
-                      />
-                      {photo.label && (
-                        <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] text-center py-0.5 rounded-b">
-                          {photo.label}
-                        </span>
-                      )}
-                    </div>
-                  ))
-                )}
-                <button
-                  onClick={() => setShowPhotoOptions(true)}
-                  className="flex h-14 w-14 items-center justify-center rounded border border-dashed border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
-                >
-                  <Plus className="h-5 w-5" />
-                </button>
-              </div>
-            )}
+            </div>
+          ) : showPhotoOptions ? (
+            <div className="flex gap-1.5 mb-2.5">
+              <Button variant="outline" size="sm" className="flex-1 h-7 text-xs" onClick={() => { setShowPhotoOptions(false); tastingPhotoInputRef.current?.click() }}>
+                <Camera className="mr-1 h-3 w-3" />
+                Photo
+              </Button>
+              <Button variant="outline" size="sm" className="flex-1 h-7 text-xs" onClick={() => { setShowPhotoOptions(false); tastingPhotoGalleryRef.current?.click() }}>
+                <ImageIcon className="mr-1 h-3 w-3" />
+                Galerie
+              </Button>
+              <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setShowPhotoOptions(false)}>
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2 mb-2.5">
+              {bottle.tasting_photos && (bottle.tasting_photos as TastingPhoto[]).length > 0 && (
+                (bottle.tasting_photos as TastingPhoto[]).map((photo, index) => (
+                  <div key={index} className="relative">
+                    <img
+                      src={photo.url}
+                      alt={photo.label || 'Photo'}
+                      className="h-[52px] w-[52px] rounded-lg object-cover cursor-zoom-in"
+                      onClick={() => setZoomImage({ src: photo.url, label: photo.label })}
+                    />
+                    {photo.label && (
+                      <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] text-center py-0.5 rounded-b-lg">
+                        {photo.label}
+                      </span>
+                    )}
+                  </div>
+                ))
+              )}
+              <button
+                onClick={() => setShowPhotoOptions(true)}
+                className="flex h-[52px] w-[52px] items-center justify-center rounded-lg border-[1.5px] border-dashed border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors bg-transparent"
+              >
+                <Plus className="h-[18px] w-[18px]" />
+              </button>
+            </div>
+          )}
 
-            <Label htmlFor="tasting" className="text-muted-foreground">
-              Note de dégustation
-            </Label>
+          {/* Tasting card */}
+          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-[var(--radius)] shadow-[var(--shadow-sm)] overflow-hidden">
             <textarea
               id="tasting"
               value={tastingNote}
               onChange={(e) => setTastingNote(e.target.value)}
               placeholder="Vos impressions sur ce vin..."
-              className="mt-2 w-full rounded-md border bg-input p-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              rows={4}
+              className="w-full min-h-[162px] py-[14px] px-4 border-none bg-transparent text-sm leading-relaxed text-[var(--text-primary)] placeholder:text-[var(--text-muted)] placeholder:italic focus:outline-none resize-none"
               spellCheck={true}
               autoCorrect="on"
               lang="fr"
               autoCapitalize="sentences"
             />
-            <div className="flex gap-2 mt-3">
+            <div className="flex gap-2 border-t border-[var(--border-color)] py-2.5 px-[14px]">
               {isBatchMode ? (
-                // Batch mode: "Suivant" button that saves and navigates
-                <Button
-                  className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-light)]"
+                <button
+                  className="flex-1 h-11 flex items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-[var(--accent)] text-white text-sm font-semibold hover:bg-[var(--accent-light)] transition-colors disabled:opacity-50"
                   onClick={handleSaveAndNext}
                   disabled={saving}
                 >
                   {saving ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : batchIndex < totalBatch - 1 ? (
-                    <>Suivant <ArrowRight className="ml-2 h-4 w-4" /></>
+                    <>Suivant <ArrowRight className="h-4 w-4" /></>
                   ) : (
-                    <>Terminer <Check className="ml-2 h-4 w-4" /></>
+                    <>Terminer <Check className="h-4 w-4" /></>
                   )}
-                </Button>
+                </button>
               ) : (
-                // Normal mode: regular save button
-                <Button
-                  className="flex-1 bg-wine-900 hover:bg-wine-800"
+                <button
+                  className="flex-1 h-11 flex items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-[var(--red-wine)] text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
                   onClick={handleSaveTastingNote}
                   disabled={saving}
                 >
                   {saving ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Save className="mr-2 h-4 w-4" />
+                    <Save className="h-4 w-4" />
                   )}
                   Enregistrer
-                </Button>
+                </button>
               )}
               {canShare && (
-                <Button
-                  variant="outline"
+                <button
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-50"
                   onClick={handleShare}
                   disabled={sharing}
                 >
                   {sharing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-[18px] w-[18px] animate-spin" />
                   ) : (
-                    <Share2 className="h-4 w-4" />
+                    <Share2 className="h-[18px] w-[18px]" />
                   )}
-                </Button>
+                </button>
               )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
-      {/* Actions */}
+      {/* ===== MARK AS DRUNK (in_stock bottles) ===== */}
       {!isDrunk && (
-        <Button
-          variant="destructive"
-          className="w-full"
-          onClick={handleMarkAsDrunk}
-          disabled={removing}
-        >
-          {removing ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Wine className="mr-2 h-4 w-4" />
-          )}
-          Marquer comme bue
-        </Button>
+        <div className="tasting-section-anim mx-4 mt-[14px]">
+          <div className="flex items-center gap-2.5 mb-2.5">
+            <div className="flex-1 h-px bg-[var(--border-color)]" />
+            <span className="section-divider-label">Dégustation</span>
+            <div className="flex-1 h-px bg-[var(--border-color)]" />
+          </div>
+          <Button
+            variant="destructive"
+            className="w-full"
+            onClick={handleMarkAsDrunk}
+            disabled={removing}
+          >
+            {removing ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Wine className="mr-2 h-4 w-4" />
+            )}
+            Marquer comme bue
+          </Button>
+        </div>
       )}
 
+      {/* Bottom spacer for nav bar */}
+      <div className="h-[90px]" />
+
+      {/* ===== ZOOM DIALOG ===== */}
       <Dialog open={!!zoomImage} onOpenChange={(open) => !open && setZoomImage(null)}>
         <DialogContent
           className="max-w-[calc(100%-1rem)] p-2 sm:max-w-3xl"
