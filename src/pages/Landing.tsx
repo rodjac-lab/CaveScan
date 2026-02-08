@@ -38,8 +38,33 @@ function AndroidInstall({ deferredPrompt }: { deferredPrompt: BeforeInstallPromp
     )
   }
 
-  // Fallback: show iOS-style instructions
-  return <IOSInstall />
+  // Fallback: show Chrome-specific instructions
+  return <AndroidManualInstall />
+}
+
+function AndroidManualInstall() {
+  return (
+    <div className="flex flex-col items-center gap-5">
+      <div className="w-full max-w-xs rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start gap-3">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#B8860B] text-sm font-bold text-white">1</span>
+            <div>
+              <p className="font-semibold text-white">Menu Chrome</p>
+              <p className="mt-0.5 text-sm text-white/60">Appuyez sur <MoreVertIcon /> en haut à droite</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#B8860B] text-sm font-bold text-white">2</span>
+            <div>
+              <p className="font-semibold text-white">Installer l'application</p>
+              <p className="mt-0.5 text-sm text-white/60">Sélectionnez "Installer l'application" ou "Ajouter à l'écran d'accueil"</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function IOSInstall() {
@@ -71,6 +96,16 @@ function IOSInstall() {
         </svg>
       </div>
     </div>
+  )
+}
+
+function MoreVertIcon() {
+  return (
+    <svg className="inline-block h-4 w-4 align-text-bottom" viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="12" cy="5" r="2" />
+      <circle cx="12" cy="12" r="2" />
+      <circle cx="12" cy="19" r="2" />
+    </svg>
   )
 }
 
@@ -276,15 +311,17 @@ export default function Landing() {
           <div className="flex flex-col items-center gap-6">
             {device === 'android' && <AndroidInstall deferredPrompt={deferredPrompt} />}
             {device === 'ios' && <IOSInstall />}
-            {device === 'desktop' && <DesktopInstall />}
-
-            {/* CTA Créer mon compte */}
-            <Link
-              to="/signup"
-              className="w-full max-w-xs rounded-2xl border-2 border-[#B8860B] px-8 py-4 text-center text-lg font-semibold text-[#B8860B] transition-all active:scale-95 hover:bg-[#B8860B] hover:text-white"
-            >
-              Créer mon compte
-            </Link>
+            {device === 'desktop' && (
+              <>
+                <DesktopInstall />
+                <Link
+                  to="/signup"
+                  className="w-full max-w-xs rounded-2xl border-2 border-[#B8860B] px-8 py-4 text-center text-lg font-semibold text-[#B8860B] transition-all active:scale-95 hover:bg-[#B8860B] hover:text-white"
+                >
+                  Créer mon compte
+                </Link>
+              </>
+            )}
 
             {/* Reassurance line */}
             <p className="text-center text-xs text-white/40">
