@@ -235,7 +235,7 @@ export default function Landing() {
       <div className="mx-auto flex max-w-md flex-col items-center px-6 pb-24">
 
         {/* A. Header Brand */}
-        <header className="anim-fade-1 pt-12 pb-8 text-center" style={{ paddingTop: 'max(3rem, env(safe-area-inset-top))' }}>
+        <header className="anim-fade-1 pt-12 pb-6 text-center" style={{ paddingTop: 'max(3rem, env(safe-area-inset-top))' }}>
           <h1
             className="text-xs font-semibold tracking-[3px] text-[#B8860B]"
             style={{ fontFamily: "'Playfair Display', serif" }}
@@ -244,8 +244,21 @@ export default function Landing() {
           </h1>
         </header>
 
-        {/* B. Hero with screenshot */}
-        <section className="anim-fade-2 relative mb-10 w-full">
+        {/* B. Value proposition */}
+        <section className="anim-fade-2 mb-10 text-center">
+          <h2
+            className="mb-3 text-2xl font-bold text-white"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            Scannez, encavez, <em className="text-[#B8860B]">partagez.</em>
+          </h2>
+          <p className="text-base leading-relaxed text-white/60" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+            Vos entrées et sorties de cave en un geste.
+          </p>
+        </section>
+
+        {/* C. Hero with screenshot */}
+        <section className="anim-fade-3 relative mb-12 w-full">
           {/* Decorative circles */}
           <div className="anim-float absolute -left-6 top-8 h-24 w-24 rounded-full bg-red-800/15" />
           <div className="anim-float-slow absolute -right-4 top-20 h-16 w-16 rounded-full bg-amber-200/15" />
@@ -264,19 +277,6 @@ export default function Landing() {
               />
             </div>
           </div>
-        </section>
-
-        {/* C. Value proposition */}
-        <section className="anim-fade-3 mb-12 text-center">
-          <h2
-            className="mb-3 text-2xl font-bold text-white"
-            style={{ fontFamily: "'Playfair Display', serif" }}
-          >
-            Scannez, encavez, <em className="text-[#B8860B]">partagez.</em>
-          </h2>
-          <p className="text-base leading-relaxed text-white/60" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-            Vos entrées et sorties de cave en un geste.
-          </p>
         </section>
 
         {/* D. How it works */}
