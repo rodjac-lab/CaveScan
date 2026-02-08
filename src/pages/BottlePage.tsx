@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro, Pencil, Plus, Camera, ImageIcon, X, Check } from 'lucide-react'
+import { ArrowLeft, ArrowRight, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro, Pencil, Plus, Camera, ImageIcon, X, Check, Tag, Grid2x2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
 import { useBottle } from '@/hooks/useBottles'
-import { getWineColorLabel, type TastingPhoto } from '@/lib/types'
+import { getWineColorLabel, type TastingPhoto, type BottleWithZone } from '@/lib/types'
 import { resizeImage } from '@/lib/image'
 
 const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Autre']
@@ -33,6 +33,10 @@ export default function BottlePage() {
   const [sharing, setSharing] = useState(false)
   const [zoomImage, setZoomImage] = useState<{ src: string; label?: string } | null>(null)
 
+  // Cave mode state
+  const [sameWineCount, setSameWineCount] = useState<number>(1)
+  const [pastTastings, setPastTastings] = useState<BottleWithZone[]>([])
+
   // Tasting photo state
   const [showPhotoOptions, setShowPhotoOptions] = useState(false)
   const [showLabelPicker, setShowLabelPicker] = useState(false)
@@ -45,6 +49,50 @@ export default function BottlePage() {
   useEffect(() => {
     setTastingNote(bottle?.tasting_note || '')
   }, [bottle?.id])
+
+  // Fetch cave data (same wine count + past tastings) for in_stock bottles
+  useEffect(() => {
+    if (!bottle || bottle.status === 'drunk') return
+
+    async function fetchCaveData() {
+      // Count in_stock bottles with same domaine + appellation + millesime
+      const countQuery = supabase
+        .from('bottles')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'in_stock')
+
+      if (bottle!.domaine) countQuery.eq('domaine', bottle!.domaine)
+      else countQuery.is('domaine', null)
+      if (bottle!.appellation) countQuery.eq('appellation', bottle!.appellation)
+      else countQuery.is('appellation', null)
+      if (bottle!.millesime) countQuery.eq('millesime', bottle!.millesime)
+      else countQuery.is('millesime', null)
+
+      const { count } = await countQuery
+      setSameWineCount(count ?? 1)
+
+      // Fetch drunk bottles with same wine identity
+      const tastingsQuery = supabase
+        .from('bottles')
+        .select('*, zone:zones(*)')
+        .eq('status', 'drunk')
+
+      if (bottle!.domaine) tastingsQuery.eq('domaine', bottle!.domaine)
+      else tastingsQuery.is('domaine', null)
+      if (bottle!.appellation) tastingsQuery.eq('appellation', bottle!.appellation)
+      else tastingsQuery.is('appellation', null)
+      if (bottle!.millesime) tastingsQuery.eq('millesime', bottle!.millesime)
+      else tastingsQuery.is('millesime', null)
+
+      const { data: tastings } = await tastingsQuery
+        .order('drunk_at', { ascending: false })
+        .limit(20)
+
+      setPastTastings(tastings ?? [])
+    }
+
+    fetchCaveData()
+  }, [bottle?.id, bottle?.status])
 
   const handleSaveTastingNote = async () => {
     if (!bottle) return
@@ -74,7 +122,7 @@ export default function BottlePage() {
       .eq('id', bottle.id)
 
     if (!error) {
-      navigate('/')
+      await refetch()
     }
     setRemoving(false)
   }
@@ -527,28 +575,139 @@ export default function BottlePage() {
         </div>
       )}
 
-      {/* ===== MARK AS DRUNK (in_stock bottles) ===== */}
+      {/* ===== CAVE SECTIONS (in_stock bottles) ===== */}
       {!isDrunk && (
-        <div className="tasting-section-anim mx-4 mt-[14px]">
-          <div className="flex items-center gap-2.5 mb-2.5">
-            <div className="flex-1 h-px bg-[var(--border-color)]" />
-            <span className="section-divider-label">Dégustation</span>
-            <div className="flex-1 h-px bg-[var(--border-color)]" />
+        <>
+          {/* --- Section "Ma cave" --- */}
+          <div className="cave-section-anim mx-4 mt-[14px]">
+            <div className="flex items-center gap-2.5 mb-2.5">
+              <div className="flex-1 h-px bg-[var(--border-color)]" />
+              <span className="section-divider-label">Ma cave</span>
+              <div className="flex-1 h-px bg-[var(--border-color)]" />
+            </div>
+
+            <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-[var(--radius)] shadow-[var(--shadow-sm)] overflow-hidden">
+              {/* Quantité */}
+              <div className="flex items-center px-4 py-3 border-b border-[var(--border-color)]">
+                <Tag className="h-4 w-4 text-[var(--text-muted)] shrink-0 mr-3" />
+                <span className="text-xs text-[var(--text-muted)] flex-1">Quantité</span>
+                <span className="text-right">
+                  <span className="font-serif text-[17px] font-bold text-[var(--text-primary)]">{sameWineCount}</span>
+                  <span className="text-[11px] text-[var(--text-muted)] ml-1">btl</span>
+                </span>
+              </div>
+              {/* Emplacement */}
+              <div className="flex items-center px-4 py-3 border-b border-[var(--border-color)]">
+                <Grid2x2 className="h-4 w-4 text-[var(--text-muted)] shrink-0 mr-3" />
+                <span className="text-xs text-[var(--text-muted)] flex-1">Emplacement</span>
+                <span className="text-[13px] font-medium text-[var(--text-primary)] text-right">
+                  {bottle.zone?.name
+                    ? `${bottle.zone.name}${bottle.shelf ? ` · ${bottle.shelf}` : ''}`
+                    : '—'}
+                </span>
+              </div>
+              {/* Entrée en cave */}
+              <div className="flex items-center px-4 py-3 border-b border-[var(--border-color)]">
+                <Calendar className="h-4 w-4 text-[var(--text-muted)] shrink-0 mr-3" />
+                <span className="text-xs text-[var(--text-muted)] flex-1">Entrée en cave</span>
+                <span className="text-[13px] font-medium text-[var(--text-primary)] text-right">
+                  {bottle.added_at
+                    ? new Date(bottle.added_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+                    : '—'}
+                </span>
+              </div>
+              {/* Prix d'achat */}
+              <div className="flex items-center px-4 py-3">
+                <Euro className="h-4 w-4 text-[var(--text-muted)] shrink-0 mr-3" />
+                <span className="text-xs text-[var(--text-muted)] flex-1">Prix d'achat</span>
+                <span className="text-[13px] font-medium text-[var(--text-primary)] text-right">
+                  {bottle.purchase_price ? `${bottle.purchase_price.toFixed(2)} €` : '—'}
+                </span>
+              </div>
+            </div>
           </div>
-          <Button
-            variant="destructive"
-            className="w-full"
-            onClick={handleMarkAsDrunk}
-            disabled={removing}
-          >
-            {removing ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+
+          {/* --- Section "Dégustations passées" --- */}
+          <div className="history-section-anim mx-4 mt-[14px]">
+            <div className="flex items-center gap-2.5 mb-2.5">
+              <div className="flex-1 h-px bg-[var(--border-color)]" />
+              <span className="section-divider-label">Dégustations passées</span>
+              <div className="flex-1 h-px bg-[var(--border-color)]" />
+            </div>
+
+            {pastTastings.length === 0 ? (
+              <p className="text-center text-[13px] text-[var(--text-muted)] italic py-5">
+                Aucune dégustation enregistrée pour ce vin.
+              </p>
             ) : (
-              <Wine className="mr-2 h-4 w-4" />
+              <div className="flex flex-col gap-1.5">
+                {pastTastings.map((item) => {
+                  const drunkDate = item.drunk_at ? new Date(item.drunk_at) : null
+                  return (
+                    <button
+                      key={item.id}
+                      className="flex gap-3 bg-[var(--bg-card)] p-3 px-3.5 rounded-[var(--radius-sm)] shadow-[var(--shadow-sm)] text-left transition-shadow hover:shadow-[var(--shadow-md)]"
+                      onClick={() => navigate(`/bottle/${item.id}`)}
+                    >
+                      {/* Date block */}
+                      <div className="shrink-0 w-9 text-center">
+                        <div className="font-serif text-[17px] font-bold leading-none text-[var(--text-primary)]">
+                          {drunkDate ? drunkDate.getDate().toString().padStart(2, '0') : '—'}
+                        </div>
+                        <div className="text-[9px] uppercase tracking-wide text-[var(--text-muted)] font-medium mt-0.5">
+                          {drunkDate ? drunkDate.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '') : ''}
+                        </div>
+                      </div>
+                      {/* Color bar */}
+                      {item.couleur && (
+                        <div
+                          className="w-[3px] h-8 rounded-full shrink-0 self-center"
+                          style={{ backgroundColor: `var(--${
+                            item.couleur === 'rouge' ? 'red-wine' :
+                            item.couleur === 'blanc' ? 'white-wine' :
+                            item.couleur === 'rose' ? 'rose-wine' :
+                            'champagne'
+                          })` }}
+                        />
+                      )}
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        {item.tasting_note ? (
+                          <p className="text-[13px] text-[var(--text-secondary)] leading-snug line-clamp-2">
+                            {item.tasting_note}
+                          </p>
+                        ) : (
+                          <p className="text-[13px] text-[var(--text-muted)] italic">
+                            Pas de note
+                          </p>
+                        )}
+                        <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                          Enregistrée
+                        </p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
             )}
-            Marquer comme bue
-          </Button>
-        </div>
+          </div>
+
+          {/* --- CTA "Ouvrir cette bouteille" --- */}
+          <div className="cta-section-anim mx-4 mt-4">
+            <button
+              className="w-full h-12 flex items-center justify-center gap-2.5 rounded-[var(--radius-sm)] bg-[var(--red-wine)] text-white text-[15px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+              onClick={handleMarkAsDrunk}
+              disabled={removing}
+            >
+              {removing ? (
+                <Loader2 className="h-[18px] w-[18px] animate-spin" />
+              ) : (
+                <Wine className="h-[18px] w-[18px]" />
+              )}
+              Ouvrir cette bouteille
+            </button>
+          </div>
+        </>
       )}
 
       {/* Bottom spacer for nav bar */}
