@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { Loader2 } from 'lucide-react'
 
@@ -277,6 +277,14 @@ export default function Landing() {
             {device === 'android' && <AndroidInstall deferredPrompt={deferredPrompt} />}
             {device === 'ios' && <IOSInstall />}
             {device === 'desktop' && <DesktopInstall />}
+
+            {/* CTA Créer mon compte */}
+            <Link
+              to="/signup"
+              className="w-full max-w-xs rounded-2xl border-2 border-[#B8860B] px-8 py-4 text-center text-lg font-semibold text-[#B8860B] transition-all active:scale-95 hover:bg-[#B8860B] hover:text-white"
+            >
+              Créer mon compte
+            </Link>
 
             {/* Reassurance line */}
             <p className="text-center text-xs text-white/40">

@@ -18,8 +18,12 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!session) {
-    return <Navigate to="/login" replace />
+    const hasAccount = localStorage.getItem('cavescan_has_account')
+    return <Navigate to={hasAccount ? '/login' : '/signup'} replace />
   }
+
+  // Remember that this user has an account for future visits
+  localStorage.setItem('cavescan_has_account', 'true')
 
   return <>{children}</>
 }
