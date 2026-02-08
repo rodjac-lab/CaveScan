@@ -30,6 +30,7 @@ export function Autocomplete({
   const [dropdownPosition, setDropdownPosition] = useState<DropdownPosition>({ top: 0, left: 0, width: 0 })
   const wrapperRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const isFocused = useRef(false)
 
   useEffect(() => {
     if (value.length >= 2) {
@@ -37,7 +38,7 @@ export function Autocomplete({
         s.toLowerCase().includes(value.toLowerCase())
       )
       setFilteredSuggestions(filtered.slice(0, 5))
-      setIsOpen(filtered.length > 0)
+      setIsOpen(filtered.length > 0 && isFocused.current)
     } else {
       setFilteredSuggestions([])
       setIsOpen(false)
@@ -118,7 +119,11 @@ export function Autocomplete({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => {
+          isFocused.current = true
           if (filteredSuggestions.length > 0) setIsOpen(true)
+        }}
+        onBlur={() => {
+          isFocused.current = false
         }}
         placeholder={placeholder}
         className={className}
