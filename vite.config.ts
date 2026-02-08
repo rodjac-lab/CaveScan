@@ -19,6 +19,7 @@ export default defineConfig({
         background_color: '#1a1a1a',
         display: 'standalone',
         orientation: 'portrait',
+        start_url: '/cave',
         icons: [
           {
             src: 'pwa-192x192.png',
