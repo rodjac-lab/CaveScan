@@ -265,7 +265,7 @@ export default function BottlePage() {
         replace: true
       })
     } else {
-      // Last wine -> go back to Partager
+      // Last wine -> go back to Cheers
       navigate('/remove')
     }
   }
