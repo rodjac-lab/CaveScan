@@ -147,6 +147,8 @@ export default function BottlePage() {
         lines.push('')
       }
 
+      lines.push('—\nPartagé avec CaveScan')
+
       const text = lines.join('\n')
 
       // Try to share with image if available

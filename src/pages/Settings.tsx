@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Edit2, Trash2, Loader2, MapPin, LogOut, User } from 'lucide-react'
+import { Plus, Edit2, Trash2, Loader2, MapPin, LogOut, Send, Share } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -34,6 +33,7 @@ export default function Settings() {
   const [zoneDescription, setZoneDescription] = useState('')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [showCopiedToast, setShowCopiedToast] = useState(false)
 
   const handleOpenAdd = () => {
     setZoneName('')
@@ -106,6 +106,27 @@ export default function Settings() {
     setDeleting(null)
   }
 
+  const handleInvite = async () => {
+    const shareData = {
+      title: 'CaveScan',
+      text: '🍷 Je gère ma cave avec CaveScan !\n\n📸 Photo de l\'étiquette → le vin est identifié\n📦 Entrées et sorties en un geste\n⭐ Notes de dégustation à partager\n\nEssaie, c\'est gratuit 👇\nhttps://cavescan.vercel.app',
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData)
+      } catch {
+        // User cancelled — ignore
+      }
+    } else {
+      // Fallback: copy to clipboard
+      const fallbackText = shareData.text
+      await navigator.clipboard.writeText(fallbackText)
+      setShowCopiedToast(true)
+      setTimeout(() => setShowCopiedToast(false), 2000)
+    }
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* Page Header */}
@@ -115,118 +136,129 @@ export default function Settings() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-6 scrollbar-hide">
-        {/* Account section */}
+
+        {/* 1. Invite section */}
         <section className="mb-8">
-        <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
-          <User className="h-5 w-5" />
-          Compte
-        </h2>
-        <Card>
-          <CardContent className="p-4 space-y-4">
-            <div>
-              <p className="text-sm text-muted-foreground">Connecte en tant que</p>
-              <p className="font-medium">
-                {isAnonymous ? 'Utilisateur anonyme' : session?.user?.email || 'Non connecte'}
+          <div className="rounded-[14px] border border-[var(--border-color)] bg-[var(--bg-card)] p-5 shadow-sm">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full shadow-md"
+                   style={{ background: 'linear-gradient(135deg, #B8860B 0%, #D4A843 100%)' }}>
+                <Send className="h-[22px] w-[22px] text-white" />
+              </div>
+              <p className="font-serif text-[17px] font-bold text-[var(--text-primary)]">
+                Invitez vos amis
               </p>
+              <p className="text-[13px] font-light text-[var(--text-secondary)]">
+                Partagez CaveScan avec les amateurs de vin autour de vous
+              </p>
+              <button
+                onClick={handleInvite}
+                className="flex w-full items-center justify-center gap-2 rounded-[10px] bg-[#B8860B] px-5 py-3 text-[14px] font-semibold text-white active:scale-95 transition-transform"
+              >
+                <Share className="h-[18px] w-[18px]" />
+                Envoyer une invitation
+              </button>
             </div>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleLogout}
-              disabled={loggingOut}
-            >
-              {loggingOut ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <LogOut className="mr-2 h-4 w-4" />
-              )}
-              Se deconnecter
-            </Button>
-          </CardContent>
-        </Card>
+          </div>
         </section>
 
-        {/* Zones section */}
+        {/* 2. Zones section (unchanged logic) */}
         <section className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
-            Zones de stockage
-          </h2>
-          <Button size="sm" onClick={handleOpenAdd}>
-            <Plus className="h-4 w-4 mr-1" />
-            Ajouter
-          </Button>
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <div className="flex items-center gap-2 mb-3">
+            <MapPin className="h-[18px] w-[18px] text-[var(--text-secondary)]" />
+            <h2 className="text-[14px] font-semibold text-[var(--text-primary)]">Zones de stockage</h2>
           </div>
-        ) : error ? (
-          <p className="text-destructive">{error}</p>
-        ) : zones.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
+
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : error ? (
+            <p className="text-destructive">{error}</p>
+          ) : zones.length === 0 ? (
+            <div className="rounded-[14px] border border-[var(--border-color)] bg-[var(--bg-card)] py-8 text-center text-[13px] text-[var(--text-muted)] shadow-sm">
               Aucune zone configurée
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-2">
-            {zones.map((zone) => (
-              <Card key={zone.id}>
-                <CardContent className="flex items-center justify-between p-3">
-                  <div>
-                    <p className="font-medium">{zone.name}</p>
+            </div>
+          ) : (
+            <div className="rounded-[14px] border border-[var(--border-color)] bg-[var(--bg-card)] shadow-sm overflow-hidden">
+              {zones.map((zone, i) => (
+                <div key={zone.id} className={`flex items-center px-4 py-3 ${i < zones.length - 1 ? 'border-b border-[var(--border-color)]' : ''}`}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium text-[var(--text-primary)]">{zone.name}</p>
                     {zone.description && (
-                      <p className="text-sm text-muted-foreground">{zone.description}</p>
+                      <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{zone.description}</p>
                     )}
                   </div>
                   <div className="flex gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
+                    <button
                       onClick={() => handleOpenEdit(zone)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)]"
                     >
                       <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
+                    </button>
+                    <button
                       onClick={() => handleDelete(zone.id)}
                       disabled={deleting === zone.id}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg"
                     >
                       {deleting === zone.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin text-[var(--text-muted)]" />
                       ) : (
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <Trash2 className="h-4 w-4 text-red-600" />
                       )}
-                    </Button>
+                    </button>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button
+            onClick={handleOpenAdd}
+            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-[10px] border-[1.5px] border-dashed border-[var(--border-color)] bg-transparent px-3 py-2.5 text-[12px] font-medium text-[var(--text-muted)]"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Ajouter une zone
+          </button>
         </section>
 
-        {/* About section */}
-        <section>
-        <Card>
-          <CardContent className="p-4">
-            <h2 className="font-semibold mb-2">À propos</h2>
-            <p className="text-sm text-muted-foreground">
-              CaveScan v1.0.0
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Gestion de cave à vin avec reconnaissance d'étiquettes
-            </p>
-          </CardContent>
-        </Card>
-        </section>
+        {/* 3. About compact */}
+        <div className="flex justify-center gap-1 mb-1">
+          <span className="h-[3px] w-[3px] rounded-full bg-[var(--border-color)]" />
+          <span className="h-[3px] w-[3px] rounded-full bg-[var(--border-color)]" />
+          <span className="h-[3px] w-[3px] rounded-full bg-[var(--border-color)]" />
+        </div>
+        <p className="mb-8 text-center text-[11px] text-[var(--text-muted)]">
+          CaveScan v1.0.0 · Reconnaissance d'étiquettes
+        </p>
 
+        {/* 4. Logout at bottom */}
+        <section className="mb-4">
+          <p className="mb-2 text-center text-[11px] text-[var(--text-muted)]">
+            {isAnonymous ? 'Utilisateur anonyme' : session?.user?.email || 'Non connecté'}
+          </p>
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-[var(--border-color)] bg-transparent px-4 py-3 text-[13px] font-medium text-[var(--text-secondary)]"
+          >
+            {loggingOut ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <LogOut className="h-4 w-4" />
+            )}
+            Se déconnecter
+          </button>
+        </section>
 
       </div>
+
+      {/* Copied toast */}
+      {showCopiedToast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 rounded-xl bg-[var(--text-primary)] px-4 py-2 text-sm text-white shadow-lg">
+          Lien copié !
+        </div>
+      )}
 
       {/* Add/Edit Zone Dialog */}
       <Dialog open={isAddingZone || !!editingZone} onOpenChange={handleClose}>

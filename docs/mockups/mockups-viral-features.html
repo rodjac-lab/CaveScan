@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CaveScan — Mockups Viralité Final</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F4EF;
+    --bg-card: #FFFFFF;
+    --accent-bg: #FAF6ED;
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B6560;
+    --text-muted: #A09A93;
+    --accent: #B8860B;
+    --accent-light: #D4A843;
+    --border-color: #E8E3DA;
+    --red-wine: #722F37;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+    --radius: 14px;
+    --radius-sm: 10px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: #E8E3DA;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    padding: 32px 16px;
+  }
+
+  .mockup-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 48px;
+    justify-content: center;
+    align-items: flex-start;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .mockup-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .mockup-label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .mockup-sublabel {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: center;
+    max-width: 320px;
+    line-height: 1.5;
+    margin-top: -4px;
+  }
+
+  /* ====== PHONE FRAME ====== */
+  .phone-frame {
+    width: 375px;
+    background: var(--bg);
+    border-radius: 40px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04);
+    overflow: hidden;
+  }
+
+  /* ====== WHATSAPP FRAME ====== */
+  .whatsapp-frame {
+    width: 375px;
+    background: #0b141a;
+    border-radius: 40px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+
+  /* ====== SETTINGS ====== */
+  .brand-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .page-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--text-primary);
+  }
+
+  .settings-content {
+    padding: 0 24px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+  .section-title svg { width: 18px; height: 18px; color: var(--text-secondary); }
+
+  .settings-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+
+  .invite-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+
+  .invite-card-inner {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .invite-icon-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 12px rgba(184,134,11,0.2);
+  }
+  .invite-icon-circle svg { width: 22px; height: 22px; color: white; }
+
+  .invite-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .invite-desc {
+    font-size: 13px;
+    font-weight: 300;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .invite-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px 20px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--accent);
+    color: white;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .invite-btn svg { width: 18px; height: 18px; }
+
+  .zone-row {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .zone-row:last-child { border-bottom: none; }
+  .zone-row-info { flex: 1; min-width: 0; }
+  .zone-row-name { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .zone-row-desc { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+  .zone-actions { display: flex; gap: 4px; }
+
+  .icon-btn {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; background: transparent; border-radius: 8px;
+    cursor: pointer; color: var(--text-muted);
+  }
+  .icon-btn svg { width: 16px; height: 16px; }
+
+  .add-zone-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    width: 100%; padding: 10px;
+    border: 1.5px dashed var(--border-color); border-radius: var(--radius-sm);
+    background: transparent; color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+    cursor: pointer;
+  }
+  .add-zone-btn svg { width: 14px; height: 14px; }
+
+  .about-compact {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px; font-size: 11px; color: var(--text-muted);
+  }
+  .about-compact .dot { opacity: 0.5; }
+
+  .deco-dots { display: flex; gap: 4px; justify-content: center; margin: 4px 0; }
+  .deco-dots span { width: 3px; height: 3px; border-radius: 50%; background: var(--border-color); }
+
+  .user-email { text-align: center; font-size: 11px; color: var(--text-muted); margin-bottom: -8px; }
+
+  .logout-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 12px;
+    border: 1px solid var(--border-color); border-radius: var(--radius-sm);
+    background: transparent; color: var(--text-secondary);
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+    cursor: pointer;
+  }
+  .logout-btn svg { width: 16px; height: 16px; }
+
+  /* Nav */
+  .nav-bar {
+    position: sticky; bottom: 0;
+    background: rgba(255,255,255,0.92); backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border-color);
+    display: flex; justify-content: space-around; align-items: center;
+    padding: 10px 24px 28px;
+  }
+  .nav-item {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    opacity: 0.4; color: var(--text-primary); text-decoration: none;
+  }
+  .nav-item.active { opacity: 1; color: var(--accent); }
+  .nav-item svg { width: 22px; height: 22px; }
+  .nav-item span { font-size: 10px; font-weight: 500; }
+
+  /* ====== WHATSAPP ====== */
+  .wa-header {
+    background: #1f2c34;
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .wa-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #2a3942; display: flex; align-items: center; justify-content: center;
+    color: #8696a0; font-size: 14px; font-weight: 600;
+  }
+  .wa-contact-name { color: #e9edef; font-size: 15px; font-weight: 500; }
+  .wa-contact-status { color: #8696a0; font-size: 11px; }
+
+  .wa-chat-bg {
+    background: #0b141a;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.015'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    padding: 20px 12px;
+    min-height: 440px;
+    display: flex; flex-direction: column; justify-content: flex-end; gap: 8px;
+  }
+
+  .wa-bubble-incoming {
+    max-width: 78%;
+    background: #1f2c34;
+    border-radius: 8px 8px 8px 0;
+    padding: 8px 10px 4px;
+    align-self: flex-start;
+  }
+
+  .wa-bubble {
+    max-width: 88%;
+    background: #005c4b;
+    border-radius: 8px 8px 0 8px;
+    padding: 8px 10px 4px;
+    align-self: flex-end;
+  }
+
+  .wa-bubble-text {
+    color: #e9edef;
+    font-size: 14px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .wa-signature {
+    display: block;
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    color: rgba(134,150,160,0.7);
+    font-size: 12px;
+    font-style: italic;
+  }
+
+  .wa-bubble-time {
+    display: flex; justify-content: flex-end; align-items: center; gap: 4px;
+    margin-top: 2px;
+  }
+  .wa-bubble-time span { font-size: 11px; color: rgba(233,237,239,0.45); }
+  .wa-bubble-time svg { width: 16px; height: 12px; color: #53bdeb; }
+
+  .wa-input-bar {
+    background: #1f2c34;
+    padding: 8px 12px 28px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .wa-input-field {
+    flex: 1; background: #2a3942; border-radius: 20px;
+    padding: 10px 16px; color: #8696a0; font-size: 14px;
+  }
+  .wa-send-btn {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: #00a884; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .wa-send-btn svg { width: 20px; height: 20px; color: white; }
+
+  /* Reply bubble */
+  .wa-reply-bubble {
+    max-width: 78%;
+    background: #1f2c34;
+    border-radius: 8px 8px 8px 0;
+    padding: 8px 10px 4px;
+    align-self: flex-start;
+  }
+
+  /* Code annotation */
+  .code-hint {
+    margin-top: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 14px 16px;
+    max-width: 375px;
+    width: 100%;
+  }
+
+  .code-hint-title {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+
+  .code-hint pre {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-all;
+    background: var(--accent-bg);
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+  }
+
+  .code-hint pre .str { color: #2e7d32; }
+  .code-hint pre .comment { color: var(--text-muted); font-style: italic; }
+</style>
+</head>
+<body>
+
+<div class="mockup-container">
+
+  <!-- ==================== SETTINGS ==================== -->
+  <div class="mockup-group">
+    <div class="mockup-label">Écran Réglages</div>
+    <div class="mockup-sublabel">Invitation · Zones · À propos compact · Déconnexion en bas</div>
+
+    <div class="phone-frame">
+      <div style="padding: 48px 24px 12px;">
+        <div class="brand-text">CaveScan</div>
+        <h1 class="page-title">Réglages</h1>
+      </div>
+
+      <div class="settings-content">
+        <!-- INVITE -->
+        <div>
+          <div class="invite-card">
+            <div class="invite-card-inner">
+              <div class="invite-icon-circle">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"/>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </div>
+              <div class="invite-title">Invitez vos amis</div>
+              <div class="invite-desc">Partagez CaveScan avec les amateurs de vin autour de vous</div>
+              <button class="invite-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                Envoyer une invitation
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ZONES -->
+        <div>
+          <div class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Zones de stockage
+          </div>
+          <div class="settings-card">
+            <div class="zone-row">
+              <div class="zone-row-info">
+                <div class="zone-row-name">Cave principale</div>
+                <div class="zone-row-desc">Rouges de garde</div>
+              </div>
+              <div class="zone-actions">
+                <button class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                <button class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+              </div>
+            </div>
+            <div class="zone-row">
+              <div class="zone-row-info">
+                <div class="zone-row-name">Casier cuisine</div>
+                <div class="zone-row-desc">Vins du quotidien</div>
+              </div>
+              <div class="zone-actions">
+                <button class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                <button class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top: 8px;">
+            <button class="add-zone-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Ajouter une zone
+            </button>
+          </div>
+        </div>
+
+        <!-- ABOUT compact -->
+        <div class="deco-dots"><span></span><span></span><span></span></div>
+        <div class="about-compact">
+          CaveScan v1.0.0 <span class="dot">·</span> Reconnaissance d'étiquettes
+        </div>
+
+        <!-- LOGOUT -->
+        <div>
+          <div class="user-email">rodolphe@email.com</div>
+          <div style="height: 8px;"></div>
+          <button class="logout-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Se déconnecter
+          </button>
+        </div>
+      </div>
+
+      <div class="nav-bar">
+        <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span>Cave</span></a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 5v14M5 12h14"/></svg><span>Encaver</span></a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg><span>Partager</span></a>
+        <a class="nav-item active" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Réglages</span></a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== WHATSAPP ==================== -->
+  <div class="mockup-group">
+    <div class="mockup-label">Message WhatsApp</div>
+    <div class="mockup-sublabel">Signature discrète · Pas de lien · Pas d'aperçu</div>
+
+    <div class="whatsapp-frame">
+      <div class="wa-header">
+        <div style="color: #aebac1;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></div>
+        <div class="wa-avatar">ML</div>
+        <div style="flex:1;"><div class="wa-contact-name">Marc L.</div><div class="wa-contact-status">en ligne</div></div>
+        <div style="color: #aebac1; display: flex; gap: 20px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+        </div>
+      </div>
+
+      <div class="wa-chat-bg">
+        <!-- Incoming -->
+        <div class="wa-bubble-incoming">
+          <div class="wa-bubble-text">On a ouvert quoi hier soir au final ? 🤔</div>
+          <div class="wa-bubble-time" style="justify-content: flex-start;"><span>21:12</span></div>
+        </div>
+
+        <!-- Outgoing — the share message -->
+        <div class="wa-bubble">
+          <div class="wa-bubble-text">🍷 Chartogne Taillet 2019
+Champagne
+
+Bulles très fines, nez de brioche et agrumes. Bouche tendue, belle minéralité. On a adoré !
+
+<span class="wa-signature">— Partagé avec CaveScan</span></div>
+          <div class="wa-bubble-time">
+            <span>21:14</span>
+            <svg viewBox="0 0 16 11" fill="none"><path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.011-2.175a.46.46 0 00-.355-.153.544.544 0 00-.355.153.44.44 0 00-.152.333c0 .14.05.254.152.34l2.46 2.667c.093.102.203.153.33.153a.5.5 0 00.381-.178l6.577-8.128a.402.402 0 00.102-.279.392.392 0 00-.254-.445z" fill="currentColor"/><path d="M14.757.653a.457.457 0 00-.305-.102.493.493 0 00-.38.178L7.882 8.365l-.636-.695-.127.178-1.27 1.559 1.778 1.926c.093.102.204.153.33.153a.5.5 0 00.382-.178l6.57-8.128a.402.402 0 00.102-.279.392.392 0 00-.254-.445v.001z" fill="currentColor"/></svg>
+          </div>
+        </div>
+
+        <!-- Friend reply -->
+        <div class="wa-reply-bubble">
+          <div class="wa-bubble-text">Excellent choix 👌 C'est quoi CaveScan ?</div>
+          <div class="wa-bubble-time" style="justify-content: flex-start;"><span>21:15</span></div>
+        </div>
+      </div>
+
+      <div class="wa-input-bar">
+        <div style="color: #8696a0;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+        </div>
+        <div class="wa-input-field">Message</div>
+        <div class="wa-send-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
+      </div>
+    </div>
+
+    <!-- Code hint -->
+    <div class="code-hint">
+      <div class="code-hint-title">Implémentation — BottlePage.tsx</div>
+      <pre><span class="comment">// Dans handleShare, ajouter à la fin du texte :</span>
+
+lines.push(<span class="str">'— Partagé avec CaveScan'</span>)</pre>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
