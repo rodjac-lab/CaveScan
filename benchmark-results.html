@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Benchmark OCR — Claude Haiku 4.5 vs Gemini 2.0 Flash</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F4EF; --bg-card: #FFFFFF; --text-primary: #1A1A1A;
+    --text-secondary: #6B6560; --text-muted: #A09A93; --accent: #B8860B;
+    --border-color: #E8E3DA; --claude-color: #D97706; --gemini-color: #2563EB;
+    --radius: 14px; --differ-bg: #FEF2F2; --agree-bg: #F0FDF4;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', system-ui, sans-serif; background: var(--bg); color: var(--text-primary); padding: 32px 16px; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  h1 { font-family: 'Playfair Display', serif; font-size: 28px; text-align: center; margin-bottom: 4px; }
+  .subtitle { text-align: center; color: var(--text-secondary); font-size: 14px; margin-bottom: 32px; }
+  .brand { font-family: 'Playfair Display', serif; font-size: 11px; letter-spacing: 3px; color: var(--accent); text-align: center; margin-bottom: 8px; }
+
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .summary-card {
+    background: var(--bg-card); border: 1px solid var(--border-color);
+    border-radius: var(--radius); padding: 20px; text-align: center;
+  }
+  .summary-card .label { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+  .summary-card .value { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; }
+  .summary-card .detail { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+  .claude-accent { color: var(--claude-color); }
+  .gemini-accent { color: var(--gemini-color); }
+  .green-accent { color: #16a34a; }
+  .red-accent { color: #dc2626; }
+  .winner { background: linear-gradient(135deg, rgba(37,99,235,0.05), rgba(37,99,235,0.02)); border-color: var(--gemini-color); }
+  .winner-claude { background: linear-gradient(135deg, rgba(217,119,6,0.05), rgba(217,119,6,0.02)); border-color: var(--claude-color); }
+
+  .result-row {
+    background: var(--bg-card); border: 1px solid var(--border-color);
+    border-radius: var(--radius); margin-bottom: 16px; overflow: hidden;
+  }
+  .result-header {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    padding: 14px 20px; border-bottom: 1px solid var(--border-color);
+    background: rgba(0,0,0,0.01);
+  }
+  .result-filename { font-weight: 600; font-size: 13px; }
+  .result-badges { display: flex; gap: 8px; font-size: 12px; align-items: center; }
+  .time-badge { padding: 3px 10px; border-radius: 20px; font-weight: 500; }
+  .time-claude { background: rgba(217,119,6,0.1); color: var(--claude-color); }
+  .time-gemini { background: rgba(37,99,235,0.1); color: var(--gemini-color); }
+  .diff-badge { padding: 3px 10px; border-radius: 20px; font-weight: 600; font-size: 11px; }
+  .diff-badge-ok { background: #dcfce7; color: #16a34a; }
+  .diff-badge-warn { background: #fef9c3; color: #a16207; }
+  .diff-badge-bad { background: #fee2e2; color: #dc2626; }
+
+  /* Comparison table */
+  .compare-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .compare-table th {
+    padding: 10px 16px; text-align: left; font-size: 10px; font-weight: 600;
+    letter-spacing: 1.5px; text-transform: uppercase; border-bottom: 1px solid var(--border-color);
+  }
+  .compare-table th:nth-child(1) { color: var(--text-muted); width: 120px; }
+  .compare-table th:nth-child(2) { color: var(--claude-color); }
+  .compare-table th:nth-child(3) { color: var(--gemini-color); }
+  .compare-table td { padding: 6px 16px; border-bottom: 1px solid rgba(0,0,0,0.03); }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .field-label-cell { font-weight: 500; color: var(--text-secondary); }
+  .field-agree { background: var(--agree-bg); }
+  .field-differ { background: var(--differ-bg); }
+  .field-differ td { font-weight: 600; }
+  .null { color: var(--text-muted); font-style: italic; }
+  .error { color: #dc2626; }
+  .multi-note { margin-top: 6px; font-size: 11px; color: var(--accent); font-style: italic; }
+
+  /* Fallback columns for when only one succeeded */
+  .result-body-fallback { display: grid; grid-template-columns: 1fr 1fr; }
+  .result-col { padding: 16px 20px; font-size: 12px; line-height: 1.8; }
+  .result-col:first-child { border-right: 1px solid var(--border-color); }
+  .col-header { font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; }
+  .col-claude .col-header { color: var(--claude-color); }
+  .col-gemini .col-header { color: var(--gemini-color); }
+  .field-label { font-weight: 500; color: var(--text-secondary); }
+
+  .legend { display: flex; gap: 20px; justify-content: center; margin-bottom: 24px; font-size: 12px; color: var(--text-secondary); }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border-color); }
+
+  @media (max-width: 640px) {
+    .result-body-fallback { grid-template-columns: 1fr; }
+    .result-col:first-child { border-right: none; border-bottom: 1px solid var(--border-color); }
+    .summary { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <p class="brand">CAVESCAN</p>
+  <h1>Benchmark OCR</h1>
+  <p class="subtitle">Claude Haiku 4.5 vs Gemini 2.0 Flash — 20 photos d'étiquettes</p>
+
+  <div class="summary">
+    <div class="summary-card winner-claude">
+      <div class="label">Temps moyen</div>
+      <div class="value claude-accent">2801ms</div>
+      <div class="detail">Claude Haiku 4.5</div>
+    </div>
+    <div class="summary-card ">
+      <div class="label">Temps moyen</div>
+      <div class="value gemini-accent">3645ms</div>
+      <div class="detail">Gemini 2.0 Flash</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Taux de succès</div>
+      <div class="value"><span class="claude-accent">19</span> / <span class="gemini-accent">18</span></div>
+      <div class="detail">Claude / Gemini sur 20</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Accord</div>
+      <div class="value red-accent">78%</div>
+      <div class="detail">85 accords · 24 différences</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Coût estimé / scan</div>
+      <div class="value" style="font-size:18px"><span class="claude-accent">$0.0021</span> · <span class="gemini-accent">$0.0002</span></div>
+      <div class="detail">Claude · Gemini</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--agree-bg)"></div> Accord</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--differ-bg)"></div> Différence — à vérifier</div>
+  </div>
+
+  
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">1. PXL_20251113_193048806.MP.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">❌</span>
+        <span class="time-badge time-gemini">❌</span>
+        
+      </div>
+    </div>
+    
+    <div class="result-body-fallback">
+      <div class="result-col col-claude">
+        <div class="col-header">Claude Haiku 4.5</div>
+        <em class="error">Impossible de lire l'étiquette sur cette photo.</em>
+      </div>
+      <div class="result-col col-gemini">
+        <div class="col-header">Gemini 2.0 Flash</div>
+        <em class="error">Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.</em>
+      </div>
+    </div>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">2. PXL_20251113_210926341.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">1623ms</span>
+        <span class="time-badge time-gemini">7397ms</span>
+        <span class="diff-badge diff-badge-warn">1 diff</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-agree">
+    <td class="field-label-cell">Domaine</td>
+    <td>Domaine Le Père Brun</td>
+    <td>Domaine Le Père Brun</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Cuvée</td>
+    <td>La Relève</td>
+    <td>La Relève</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Appellation</td>
+    <td>Côtes du Rhône</td>
+    <td>Côtes du Rhône</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Millésime</td>
+    <td>2021</td>
+    <td>2021</td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Couleur</td>
+    <td>blanc</td>
+    <td>rouge</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Région</td>
+    <td>Vallée du Rhône</td>
+    <td>Vallée du Rhône</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Cépage</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">3. PXL_20251115_115203907.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">2011ms</span>
+        <span class="time-badge time-gemini">3018ms</span>
+        <span class="diff-badge diff-badge-bad">3 diff</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-differ">
+    <td class="field-label-cell">Domaine</td>
+    <td>Bénicte &amp; Stéphane Tissot</td>
+    <td>Bénédicte &amp; Stéphane Tissot</td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Cuvée</td>
+    <td>La Mailloche</td>
+    <td><span class="null">—</span></td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Appellation</td>
+    <td>Chardonnay</td>
+    <td>Chardonnay</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Millésime</td>
+    <td>2021</td>
+    <td>2021</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>blanc</td>
+    <td>blanc</td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Région</td>
+    <td>Jura</td>
+    <td><span class="null">—</span></td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Cépage</td>
+    <td>Chardonnay</td>
+    <td>Chardonnay</td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">4. PXL_20251122_113840766.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">2453ms</span>
+        <span class="time-badge time-gemini">7094ms</span>
+        <span class="diff-badge diff-badge-warn">1 diff</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-agree">
+    <td class="field-label-cell">Domaine</td>
+    <td>Pierre Morey</td>
+    <td>Pierre Morey</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Cuvée</td>
+    <td>Perrieres</td>
+    <td>Perrieres</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Appellation</td>
+    <td>Meursault Premier Cru</td>
+    <td>Meursault Premier Cru</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Millésime</td>
+    <td>2018</td>
+    <td>2018</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>blanc</td>
+    <td>blanc</td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Région</td>
+    <td>Bourgogne</td>
+    <td>Côte d'Or</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Cépage</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">5. PXL_20251211_205514571.MP.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">2135ms</span>
+        <span class="time-badge time-gemini">2830ms</span>
+        <span class="diff-badge diff-badge-ok">100% accord</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-agree">
+    <td class="field-label-cell">Domaine</td>
+    <td>Domaine Anne Gros</td>
+    <td>Domaine Anne Gros</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Cuvée</td>
+    <td>Les Loachausses</td>
+    <td>Les Loachausses</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Appellation</td>
+    <td>Echezeaux</td>
+    <td>Echezeaux</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Millésime</td>
+    <td>2017</td>
+    <td>2017</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>rouge</td>
+    <td>rouge</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Région</td>
+    <td>Bourgogne</td>
+    <td>Bourgogne</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Cépage</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">6. PXL_20251211_213847304.MP.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">2947ms</span>
+        <span class="time-badge time-gemini">2858ms</span>
+        <span class="diff-badge diff-badge-warn">1 diff</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-agree">
+    <td class="field-label-cell">Domaine</td>
+    <td>Château Rayas</td>
+    <td>Château Rayas</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Cuvée</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Appellation</td>
+    <td>Châteauneuf-du-Pape</td>
+    <td>Châteauneuf-du-Pape</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Millésime</td>
+    <td>2014</td>
+    <td>2014</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>rouge</td>
+    <td>rouge</td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Région</td>
+    <td>Rhône</td>
+    <td>Vallée du Rhône</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Cépage</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">7. PXL_20251221_114112780.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">1779ms</span>
+        <span class="time-badge time-gemini">3088ms</span>
+        <span class="diff-badge diff-badge-ok">100% accord</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-agree">
+    <td class="field-label-cell">Domaine</td>
+    <td>Domaine de Villaine</td>
+    <td>DOMAINE DE VILLAINE</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Cuvée</td>
+    <td>Les Perrières</td>
+    <td>LES PERRIÈRES</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Appellation</td>
+    <td>Saint-Aubin 1er Cru</td>
+    <td>Saint-Aubin 1er Cru</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Millésime</td>
+    <td>2022</td>
+    <td>2022</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>blanc</td>
+    <td>blanc</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Région</td>
+    <td>Bourgogne</td>
+    <td>Bourgogne</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Cépage</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">8. PXL_20251224_183321903.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">2048ms</span>
+        <span class="time-badge time-gemini">❌</span>
+        
+      </div>
+    </div>
+    
+    <div class="result-body-fallback">
+      <div class="result-col col-claude">
+        <div class="col-header">Claude Haiku 4.5</div>
+        <span class="field-label">Domaine:</span> Caillez Lemaire<br><span class="field-label">Cuvée:</span> Reflets<br><span class="field-label">Appellation:</span> Champagne<br><span class="field-label">Millésime:</span> <span class="null">—</span><br><span class="field-label">Couleur:</span> bulles<br><span class="field-label">Région:</span> Champagne<br><span class="field-label">Cépage:</span> <span class="null">—</span><br><span class="field-label">Confidence:</span> 95%
+      </div>
+      <div class="result-col col-gemini">
+        <div class="col-header">Gemini 2.0 Flash</div>
+        <em class="error">Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.</em>
+      </div>
+    </div>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">9. PXL_20251225_103032550.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">1810ms</span>
+        <span class="time-badge time-gemini">2939ms</span>
+        <span class="diff-badge diff-badge-warn">1 diff</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-agree">
+    <td class="field-label-cell">Domaine</td>
+    <td>Caveau des Jacobins</td>
+    <td>Caveau des Jacobins</td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Cuvée</td>
+    <td><span class="null">—</span></td>
+    <td>Vin Jaune</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Appellation</td>
+    <td>Côtes du Jura</td>
+    <td>Côtes du Jura</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Millésime</td>
+    <td>2017</td>
+    <td>2017</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>blanc</td>
+    <td>blanc</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Région</td>
+    <td>Jura</td>
+    <td>Jura</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Cépage</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">10. PXL_20251225_124257633.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">2845ms</span>
+        <span class="time-badge time-gemini">7463ms</span>
+        <span class="diff-badge diff-badge-warn">2 diff</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-differ">
+    <td class="field-label-cell">Domaine</td>
+    <td>Château des Tours</td>
+    <td>CHATEAU DES TOURS</td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Cuvée</td>
+    <td>Réserve</td>
+    <td>RESERVE</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Appellation</td>
+    <td>Côtes-du-Rhône</td>
+    <td>CÔTES-DU-RHÔNE</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Millésime</td>
+    <td>2017</td>
+    <td>2017</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>rouge</td>
+    <td>rouge</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Région</td>
+    <td>Vallée du Rhône</td>
+    <td>Vallée du Rhône</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Cépage</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">11. PXL_20260101_163923605.MP.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">4748ms</span>
+        <span class="time-badge time-gemini">2300ms</span>
+        <span class="diff-badge diff-badge-bad">3 diff</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-differ">
+    <td class="field-label-cell">Domaine</td>
+    <td>Nuits-St-Georges</td>
+    <td><span class="null">—</span></td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Cuvée</td>
+    <td>Les Damodes</td>
+    <td>Les Damodes</td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Appellation</td>
+    <td>Nuits-St-Georges Premier Cru</td>
+    <td>Nuits-St-Georges</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Millésime</td>
+    <td>2018</td>
+    <td>2018</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>rouge</td>
+    <td>rouge</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Région</td>
+    <td>Bourgogne</td>
+    <td>Bourgogne</td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Cépage</td>
+    <td><span class="null">—</span></td>
+    <td>Pinot Noir</td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">12. PXL_20260103_164620741.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">3068ms</span>
+        <span class="time-badge time-gemini">3726ms</span>
+        <span class="diff-badge diff-badge-warn">2 diff</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-differ">
+    <td class="field-label-cell">Domaine</td>
+    <td>Pérelle et Fils</td>
+    <td>Chartogne-Taillet</td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Cuvée</td>
+    <td>Brut Réserve</td>
+    <td>Sainte Anne Magnum</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Appellation</td>
+    <td>Champagne</td>
+    <td>Champagne</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Millésime</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>bulles</td>
+    <td>bulles</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Région</td>
+    <td>Champagne</td>
+    <td>Champagne</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Cépage</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">13. PXL_20260124_122611367.MP.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">5539ms</span>
+        <span class="time-badge time-gemini">4171ms</span>
+        <span class="diff-badge diff-badge-warn">1 diff</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-agree">
+    <td class="field-label-cell">Domaine</td>
+    <td>Marie-Pierre Chevassu-Fassenet</td>
+    <td>Marie-Pierre Chevassu-Fassenet</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Cuvée</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Appellation</td>
+    <td><span class="null">—</span></td>
+    <td>Chardonnay</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Millésime</td>
+    <td>2021</td>
+    <td>2021</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>blanc</td>
+    <td>blanc</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Région</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Cépage</td>
+    <td>Chardonnay</td>
+    <td>Chardonnay</td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">14. PXL_20260124_122614911.MP.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">1792ms</span>
+        <span class="time-badge time-gemini">2973ms</span>
+        <span class="diff-badge diff-badge-warn">1 diff</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-agree">
+    <td class="field-label-cell">Domaine</td>
+    <td>Marie-Pierre Chevassu-Fassenet</td>
+    <td>Marie-Pierre Chevassu-Fassenet</td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Cuvée</td>
+    <td>Chardonnay</td>
+    <td><span class="null">—</span></td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Appellation</td>
+    <td>Côtes du Jura</td>
+    <td>Côtes du Jura</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Millésime</td>
+    <td>2021</td>
+    <td>2021</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>blanc</td>
+    <td>blanc</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Région</td>
+    <td>Jura</td>
+    <td>Jura</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Cépage</td>
+    <td>Chardonnay</td>
+    <td>Chardonnay</td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">15. PXL_20260129_190922150.MP.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">3699ms</span>
+        <span class="time-badge time-gemini">1978ms</span>
+        <span class="diff-badge diff-badge-ok">100% accord</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-agree">
+    <td class="field-label-cell">Domaine</td>
+    <td>Château des Rontets</td>
+    <td>Château des Rontets</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Cuvée</td>
+    <td>Pierrefolle</td>
+    <td>Pierrefolle</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Appellation</td>
+    <td>Pouilly-Fuissé</td>
+    <td>Pouilly-Fuissé</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Millésime</td>
+    <td>2017</td>
+    <td>2017</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>blanc</td>
+    <td>blanc</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Région</td>
+    <td>Bourgogne</td>
+    <td>Bourgogne</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Cépage</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">16. PXL_20260131_110702253.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">2682ms</span>
+        <span class="time-badge time-gemini">2579ms</span>
+        <span class="diff-badge diff-badge-warn">1 diff</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-agree">
+    <td class="field-label-cell">Domaine</td>
+    <td>Champagne Chartogne-Taillet</td>
+    <td>CHAMPAGNE CHARTOGNE-TAILLET</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Cuvée</td>
+    <td>Orizeaux</td>
+    <td>Orizeaux</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Appellation</td>
+    <td>Champagne</td>
+    <td>CHAMPAGNE</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Millésime</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>bulles</td>
+    <td>bulles</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Région</td>
+    <td>Champagne</td>
+    <td>Champagne</td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Cépage</td>
+    <td>Blanc de Noirs</td>
+    <td><span class="null">—</span></td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">17. PXL_20260207_111005591.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">1768ms</span>
+        <span class="time-badge time-gemini">2502ms</span>
+        <span class="diff-badge diff-badge-warn">2 diff</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-differ">
+    <td class="field-label-cell">Domaine</td>
+    <td>Château des Tours</td>
+    <td>CHATEAU DES TOURS</td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Cuvée</td>
+    <td><span class="null">—</span></td>
+    <td>RESERVE</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Appellation</td>
+    <td>Vacqueyras</td>
+    <td>VACQUEYRAS</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Millésime</td>
+    <td>2004</td>
+    <td>2004</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>rouge</td>
+    <td>rouge</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Région</td>
+    <td>Vallée du Rhône</td>
+    <td>Vallée du Rhône</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Cépage</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">18. PXL_20260207_113845634.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">6389ms</span>
+        <span class="time-badge time-gemini">2480ms</span>
+        <span class="diff-badge diff-badge-warn">1 diff</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-agree">
+    <td class="field-label-cell">Domaine</td>
+    <td>Domaine Paul Pillot</td>
+    <td>Domaine Paul Pillot</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Cuvée</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Appellation</td>
+    <td>Bourgogne Pinot Noir</td>
+    <td>Bourgogne</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Millésime</td>
+    <td>2022</td>
+    <td>2022</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>rouge</td>
+    <td>rouge</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Région</td>
+    <td>Bourgogne</td>
+    <td>Bourgogne</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Cépage</td>
+    <td>Pinot Noir</td>
+    <td>Pinot Noir</td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">19. PXL_20260207_184850457.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">1839ms</span>
+        <span class="time-badge time-gemini">3354ms</span>
+        <span class="diff-badge diff-badge-warn">2 diff</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-agree">
+    <td class="field-label-cell">Domaine</td>
+    <td>Bessin-Tremblay</td>
+    <td>BESSIN-TREMBLAY</td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Cuvée</td>
+    <td>Vieilles Vignes</td>
+    <td><span class="null">—</span></td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Appellation</td>
+    <td>Chablis</td>
+    <td>Chablis</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Millésime</td>
+    <td>2022</td>
+    <td>2022</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>blanc</td>
+    <td>blanc</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Région</td>
+    <td>Bourgogne</td>
+    <td>Bourgogne</td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Cépage</td>
+    <td><span class="null">—</span></td>
+    <td>Chardonnay</td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+  <div class="result-row">
+    <div class="result-header">
+      <div class="result-filename">20. PXL_20260207_184916129.jpg</div>
+      <div class="result-badges">
+        <span class="time-badge time-claude">2049ms</span>
+        <span class="time-badge time-gemini">2857ms</span>
+        <span class="diff-badge diff-badge-warn">2 diff</span>
+      </div>
+    </div>
+    
+    <table class="compare-table">
+      <thead><tr><th>Champ</th><th>Claude</th><th>Gemini</th></tr></thead>
+      <tbody>
+        <tr class="field-differ">
+    <td class="field-label-cell">Domaine</td>
+    <td>Domaine Saumaize-Michelin</td>
+    <td>Saumaize-Michelin</td>
+  </tr><tr class="field-differ">
+    <td class="field-label-cell">Cuvée</td>
+    <td>Ampelopisis</td>
+    <td><span class="null">—</span></td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Appellation</td>
+    <td>Pouilly-Fuissé</td>
+    <td>Pouilly-Fuissé</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Millésime</td>
+    <td>2016</td>
+    <td>2016</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Couleur</td>
+    <td>blanc</td>
+    <td>blanc</td>
+  </tr><tr class="field-agree">
+    <td class="field-label-cell">Région</td>
+    <td>Bourgogne</td>
+    <td>Bourgogne</td>
+  </tr><tr class="">
+    <td class="field-label-cell">Cépage</td>
+    <td><span class="null">—</span></td>
+    <td><span class="null">—</span></td>
+  </tr>
+      </tbody>
+    </table>
+    
+  </div>
+
+</div>
+</body>
+</html>
