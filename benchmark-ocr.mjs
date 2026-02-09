@@ -4,7 +4,7 @@ import sharp from 'sharp'
 
 // === CONFIG ===
 const PHOTOS_DIR = './Photo tests API'
-const GEMINI_API_KEY = 'AIzaSyAlkPZznIl1p2PqpVSKiGYNtKTFbXoRNao'
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY
 const SUPABASE_URL = 'https://flqsprbdcycweshvrcyx.supabase.co/functions/v1/extract-wine'
 const SUPABASE_ANON_KEY = 'sb_publishable_LdEsLloN35xRFQ1auOpLIQ_x1PYZXZt'
 
