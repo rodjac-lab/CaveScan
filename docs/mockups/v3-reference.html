@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CaveScan — v3</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F4EF;
+    --bg-card: #FFFFFF;
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B6560;
+    --text-muted: #A09A93;
+    --accent: #B8860B;
+    --accent-light: #D4A843;
+    --accent-bg: #FAF6ED;
+    --border: #E8E3DA;
+    --red-wine: #722F37;
+    --white-wine: #C8B560;
+    --rose-wine: #D4917A;
+    --champagne: #DAC17C;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+    --radius: 14px;
+    --radius-sm: 10px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #E8E3DA;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 20px;
+    gap: 30px;
+    flex-wrap: wrap;
+  }
+
+  .phone-frame {
+    width: 375px;
+    height: 812px;
+    background: var(--bg);
+    border-radius: 40px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05);
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .screen {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 24px 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .status-icons { display: flex; gap: 5px; align-items: center; font-size: 12px; }
+
+  /* ========= NAV BAR — 4 items, no Scan ========= */
+  .nav-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 10px 24px 28px;
+    border-top: 1px solid var(--border);
+    z-index: 10;
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    opacity: 0.4;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .nav-item.active { opacity: 1; }
+  .nav-item svg { width: 22px; height: 22px; }
+  .nav-item.active svg { color: var(--accent); }
+
+  .nav-item span {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .nav-item.active span { color: var(--accent); }
+
+  /* ========= CAVE SCREEN ========= */
+  .cave-header {
+    padding: 6px 24px 10px;
+  }
+
+  .cave-header .brand {
+    font-family: 'Playfair Display', serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 2px;
+  }
+
+  .cave-header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.1;
+  }
+
+  .cave-header .subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    font-weight: 300;
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 0;
+    padding: 0 24px;
+    margin-bottom: 14px;
+  }
+
+  .stat-item {
+    flex: 1;
+    text-align: center;
+    padding: 10px 0;
+    border-right: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .stat-item:first-child { border-radius: 10px 0 0 10px; }
+  .stat-item:last-child { border-right: none; border-radius: 0 10px 10px 0; }
+  .stat-item:hover { background: rgba(184,134,11,0.04); }
+
+  .stat-item .color-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin: 0 auto 4px;
+  }
+
+  .stat-number {
+    font-family: 'Playfair Display', serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-top: 2px;
+  }
+
+  .search-bar {
+    margin: 0 24px 12px;
+    position: relative;
+  }
+
+  .search-bar input {
+    width: 100%;
+    padding: 10px 16px 10px 38px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .search-bar input::placeholder { color: var(--text-muted); }
+  .search-bar input:focus { border-color: var(--accent); }
+
+  .search-bar svg {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: var(--text-muted);
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 24px;
+    margin-bottom: 8px;
+  }
+
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .section-link {
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+
+  .wine-list {
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 76px;
+    scrollbar-width: none;
+  }
+
+  .wine-list::-webkit-scrollbar { display: none; }
+
+  .wine-list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-card);
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .wine-date {
+    width: 36px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .wine-date .day {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+
+  .wine-date .month {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+  }
+
+  .wine-color-bar {
+    width: 3px;
+    height: 32px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .wine-color-bar.rouge { background: var(--red-wine); }
+  .wine-color-bar.blanc { background: var(--white-wine); }
+  .wine-color-bar.rose { background: var(--rose-wine); }
+  .wine-color-bar.champagne { background: var(--champagne); }
+
+  .wine-list-info { flex: 1; min-width: 0; }
+
+  .wine-list-info .name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .wine-list-info .detail {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .wine-list-qty {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    flex-shrink: 0;
+  }
+
+  .wine-list-qty em {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 400;
+    font-style: normal;
+  }
+
+  /* ========= DÉGUSTER SCREEN ========= */
+  .deg-header {
+    padding: 6px 24px 14px;
+  }
+
+  .deg-header .brand {
+    font-family: 'Playfair Display', serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 2px;
+  }
+
+  .deg-header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.1;
+  }
+
+  .deg-header .sub {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    font-weight: 300;
+  }
+
+  .divider-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 24px;
+    margin-bottom: 8px;
+  }
+
+  .divider-label::before,
+  .divider-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .divider-label span {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .recent-list {
+    padding: 0 24px;
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 148px; /* scan zone + nav */
+    scrollbar-width: none;
+  }
+
+  .recent-list::-webkit-scrollbar { display: none; }
+
+  .recent-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-card);
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .r-date {
+    width: 36px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .r-date .day {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+
+  .r-date .month {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+  }
+
+  .r-color {
+    width: 3px;
+    height: 32px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .r-color.rouge { background: var(--red-wine); }
+  .r-color.blanc { background: var(--white-wine); }
+  .r-color.champagne { background: var(--champagne); }
+  .r-color.rose { background: var(--rose-wine); }
+
+  .r-info { flex: 1; min-width: 0; }
+
+  .r-info .name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .r-info .detail {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .r-context {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: right;
+    line-height: 1.3;
+  }
+
+  .r-context .source {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  /* ========= SCAN ZONE — compact bottom bar, separated from nav ========= */
+  .scan-bottom {
+    position: absolute;
+    bottom: 80px; /* above nav with visible gap */
+    left: 16px;
+    right: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: var(--shadow-md);
+    z-index: 5;
+  }
+
+  .scan-mini-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s;
+    flex-shrink: 0;
+  }
+
+  .scan-mini-btn:active { transform: scale(0.93); }
+
+  .scan-mini-btn.cam {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+    box-shadow: 0 3px 12px rgba(184,134,11,0.25);
+  }
+
+  .scan-mini-btn.cam svg { color: white; }
+
+  .scan-mini-btn.gal {
+    background: var(--accent-bg);
+    border: 1px solid rgba(184,134,11,0.12);
+  }
+
+  .scan-mini-btn.gal svg { color: var(--accent); }
+
+  .scan-mini-btn svg { width: 20px; height: 20px; }
+
+  .scan-bottom-center {
+    flex: 1;
+    text-align: center;
+  }
+
+  .scan-bottom-center .title {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.2;
+  }
+
+  .scan-bottom-center .sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 300;
+  }
+
+
+  /* ========= LAYOUT ========= */
+  .screen-label {
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #6B6560;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .phone-wrapper {
+    position: relative;
+    padding-top: 36px;
+  }
+
+  .style-label {
+    text-align: center;
+    margin-bottom: 6px;
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    color: #1A1A1A;
+    width: 100%;
+  }
+
+  .style-sublabel {
+    text-align: center;
+    margin-bottom: 30px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: #6B6560;
+    width: 100%;
+    max-width: 800px;
+    line-height: 1.5;
+  }
+
+  .screens-container {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+</style>
+</head>
+<body>
+
+<div>
+  <div class="style-label">CaveScan — v3</div>
+  <div class="style-sublabel">
+    Nav bar à 4 onglets (pas de Scan). Zone scan en bas de Déguster : galerie à gauche, texte centré, caméra à droite. Carte flottante séparée de la nav.
+  </div>
+
+  <div class="screens-container">
+
+    <!-- ===================== CAVE SCREEN ===================== -->
+    <div class="phone-wrapper">
+      <div class="screen-label">Cave</div>
+      <div class="phone-frame">
+        <div class="screen">
+          <div class="status-bar">
+            <span>17:16</span>
+            <div class="status-icons">●●●● 📶 🔋37</div>
+          </div>
+
+          <div class="cave-header">
+            <div class="brand">CaveScan</div>
+            <h1>Ma Cave</h1>
+            <div class="subtitle">3 caves · 47 bouteilles</div>
+          </div>
+
+          <div class="stats-row">
+            <div class="stat-item">
+              <div class="color-dot" style="background:var(--red-wine);width:6px;height:6px;border-radius:50%;margin:0 auto 4px"></div>
+              <div class="stat-number">28</div>
+              <div class="stat-label">Rouges</div>
+            </div>
+            <div class="stat-item">
+              <div class="color-dot" style="background:var(--white-wine);width:6px;height:6px;border-radius:50%;margin:0 auto 4px"></div>
+              <div class="stat-number">11</div>
+              <div class="stat-label">Blancs</div>
+            </div>
+            <div class="stat-item">
+              <div class="color-dot" style="background:var(--champagne);width:6px;height:6px;border-radius:50%;margin:0 auto 4px"></div>
+              <div class="stat-number">5</div>
+              <div class="stat-label">Bulles</div>
+            </div>
+            <div class="stat-item">
+              <div class="color-dot" style="background:var(--rose-wine);width:6px;height:6px;border-radius:50%;margin:0 auto 4px"></div>
+              <div class="stat-number">3</div>
+              <div class="stat-label">Rosés</div>
+            </div>
+          </div>
+
+          <div class="search-bar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="text" placeholder="Rechercher un vin, domaine, appellation...">
+          </div>
+
+          <div class="section-header">
+            <span class="section-title">Entrées récentes</span>
+            <a class="section-link" href="#">Filtrer →</a>
+          </div>
+
+          <div class="wine-list">
+            <div class="wine-list-item">
+              <div class="wine-date"><div class="day">02</div><div class="month">Fév</div></div>
+              <div class="wine-color-bar rouge"></div>
+              <div class="wine-list-info">
+                <div class="name">Domaine Dugat-Py</div>
+                <div class="detail">Gevrey-Chambertin · 2019</div>
+              </div>
+              <div class="wine-list-qty">3 <em>btl</em></div>
+            </div>
+
+            <div class="wine-list-item">
+              <div class="wine-date"><div class="day">02</div><div class="month">Fév</div></div>
+              <div class="wine-color-bar champagne"></div>
+              <div class="wine-list-info">
+                <div class="name">Chartogne-Taillet</div>
+                <div class="detail">Champagne</div>
+              </div>
+              <div class="wine-list-qty">2 <em>btl</em></div>
+            </div>
+
+            <div class="wine-list-item">
+              <div class="wine-date"><div class="day">30</div><div class="month">Jan</div></div>
+              <div class="wine-color-bar blanc"></div>
+              <div class="wine-list-info">
+                <div class="name">Chevassu-Fassenet</div>
+                <div class="detail">Côtes du Jura · 2021</div>
+              </div>
+              <div class="wine-list-qty">1 <em>btl</em></div>
+            </div>
+
+            <div class="wine-list-item">
+              <div class="wine-date"><div class="day">28</div><div class="month">Jan</div></div>
+              <div class="wine-color-bar rouge"></div>
+              <div class="wine-list-info">
+                <div class="name">Storm — Hemel-en-Aarde</div>
+                <div class="detail">Pinot Noir · 2022</div>
+              </div>
+              <div class="wine-list-qty">2 <em>btl</em></div>
+            </div>
+
+            <div class="wine-list-item">
+              <div class="wine-date"><div class="day">25</div><div class="month">Jan</div></div>
+              <div class="wine-color-bar blanc"></div>
+              <div class="wine-list-info">
+                <div class="name">Roulot — Meursault 1er Cru</div>
+                <div class="detail">Chardonnay · 2020</div>
+              </div>
+              <div class="wine-list-qty">1 <em>btl</em></div>
+            </div>
+
+            <div class="wine-list-item">
+              <div class="wine-date"><div class="day">22</div><div class="month">Jan</div></div>
+              <div class="wine-color-bar champagne"></div>
+              <div class="wine-list-info">
+                <div class="name">Agrapart — Avizoise</div>
+                <div class="detail">Champagne · 2016</div>
+              </div>
+              <div class="wine-list-qty">3 <em>btl</em></div>
+            </div>
+
+            <div class="wine-list-item">
+              <div class="wine-date"><div class="day">20</div><div class="month">Jan</div></div>
+              <div class="wine-color-bar rouge"></div>
+              <div class="wine-list-info">
+                <div class="name">Clos Rougeard</div>
+                <div class="detail">Saumur-Champigny · 2017</div>
+              </div>
+              <div class="wine-list-qty">2 <em>btl</em></div>
+            </div>
+
+            <div class="wine-list-item">
+              <div class="wine-date"><div class="day">18</div><div class="month">Jan</div></div>
+              <div class="wine-color-bar blanc"></div>
+              <div class="wine-list-info">
+                <div class="name">Trimbach — Clos Ste Hune</div>
+                <div class="detail">Riesling · 2018</div>
+              </div>
+              <div class="wine-list-qty">1 <em>btl</em></div>
+            </div>
+          </div>
+
+          <!-- Nav Bar — 4 items -->
+          <div class="nav-bar">
+            <div class="nav-item active">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+              <span>Cave</span>
+            </div>
+            <div class="nav-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+              <span>Entrée</span>
+            </div>
+            <div class="nav-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+              <span>Déguster</span>
+            </div>
+            <div class="nav-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+              <span>Réglages</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ===================== DÉGUSTER SCREEN ===================== -->
+    <div class="phone-wrapper">
+      <div class="screen-label">Déguster</div>
+      <div class="phone-frame">
+        <div class="screen">
+          <div class="status-bar">
+            <span>17:16</span>
+            <div class="status-icons">●●●● 📶 🔋37</div>
+          </div>
+
+          <div class="deg-header">
+            <div class="brand">CaveScan</div>
+            <h1>Déguster</h1>
+            <div class="sub">Vos sorties de cave et dégustations</div>
+          </div>
+
+          <div class="divider-label"><span>Sorties récentes</span></div>
+
+          <div class="recent-list">
+            <div class="recent-item">
+              <div class="r-date"><div class="day">01</div><div class="month">Fév</div></div>
+              <div class="r-color rouge"></div>
+              <div class="r-info">
+                <div class="name">Storm — Hemel-en-Aarde</div>
+                <div class="detail">Pinot Noir · 2022</div>
+              </div>
+              <div class="r-context"><div class="source">Ma cave</div></div>
+            </div>
+
+            <div class="recent-item">
+              <div class="r-date"><div class="day">01</div><div class="month">Fév</div></div>
+              <div class="r-color blanc"></div>
+              <div class="r-info">
+                <div class="name">Chevassu-Fassenet</div>
+                <div class="detail">Côtes du Jura AOC · 2021</div>
+              </div>
+              <div class="r-context"><div class="source">Ma cave</div></div>
+            </div>
+
+            <div class="recent-item">
+              <div class="r-date"><div class="day">01</div><div class="month">Fév</div></div>
+              <div class="r-color champagne"></div>
+              <div class="r-info">
+                <div class="name">Chartogne-Taillet</div>
+                <div class="detail">Champagne</div>
+              </div>
+              <div class="r-context"><div class="source">Ma cave</div></div>
+            </div>
+
+            <div class="recent-item">
+              <div class="r-date"><div class="day">28</div><div class="month">Jan</div></div>
+              <div class="r-color blanc"></div>
+              <div class="r-info">
+                <div class="name">Domaine Roulot</div>
+                <div class="detail">Meursault 1er Cru · 2020</div>
+              </div>
+              <div class="r-context"><div class="source">Ma cave</div></div>
+            </div>
+
+            <div class="recent-item">
+              <div class="r-date"><div class="day">25</div><div class="month">Jan</div></div>
+              <div class="r-color rouge"></div>
+              <div class="r-info">
+                <div class="name">Clos Rougeard</div>
+                <div class="detail">Saumur-Champigny · 2017</div>
+              </div>
+              <div class="r-context"><div class="source">Restaurant</div></div>
+            </div>
+
+            <div class="recent-item">
+              <div class="r-date"><div class="day">20</div><div class="month">Jan</div></div>
+              <div class="r-color rouge"></div>
+              <div class="r-info">
+                <div class="name">Château Simone</div>
+                <div class="detail">Palette AOC · 2018</div>
+              </div>
+              <div class="r-context"><div class="source">Chez amis</div></div>
+            </div>
+
+            <div class="recent-item">
+              <div class="r-date"><div class="day">15</div><div class="month">Jan</div></div>
+              <div class="r-color blanc"></div>
+              <div class="r-info">
+                <div class="name">Trimbach — Clos Ste Hune</div>
+                <div class="detail">Riesling · 2018</div>
+              </div>
+              <div class="r-context"><div class="source">Ma cave</div></div>
+            </div>
+          </div>
+
+          <!-- Scan zone — floating card, symmetric: gallery | text | camera -->
+          <div class="scan-bottom">
+            <button class="scan-mini-btn gal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            </button>
+            <div class="scan-bottom-center">
+              <div class="title">Scanner un vin</div>
+              <div class="sub">Photo ou galerie</div>
+            </div>
+            <button class="scan-mini-btn cam">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </button>
+          </div>
+
+          <!-- Nav Bar — 4 items -->
+          <div class="nav-bar">
+            <div class="nav-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+              <span>Cave</span>
+            </div>
+            <div class="nav-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+              <span>Entrée</span>
+            </div>
+            <div class="nav-item active">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+              <span>Déguster</span>
+            </div>
+            <div class="nav-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+              <span>Réglages</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
