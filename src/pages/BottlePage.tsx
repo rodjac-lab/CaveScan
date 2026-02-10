@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { useBottle } from '@/hooks/useBottles'
 import { getWineColorLabel, type TastingPhoto, type BottleWithZone } from '@/lib/types'
 import { resizeImage } from '@/lib/image'
+import { track } from '@/lib/track'
 
 const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Autre']
 
@@ -104,6 +105,7 @@ export default function BottlePage() {
       .eq('id', bottle.id)
 
     if (!error) {
+      track('tasting_saved')
       await refetch()
     }
     setSaving(false)
@@ -164,6 +166,7 @@ export default function BottlePage() {
               text,
               files: [file],
             })
+            track('bottle_shared')
             setSharing(false)
             return
           }
@@ -175,6 +178,7 @@ export default function BottlePage() {
       // Fallback: text-only share
       if (navigator.share) {
         await navigator.share({ text })
+        track('bottle_shared')
       }
     } catch (err) {
       // User cancelled or share failed - ignore

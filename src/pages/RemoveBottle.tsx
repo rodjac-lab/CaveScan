@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
 import { normalizeWineColor, type WineColor, type BottleWithZone, type WineExtraction } from '@/lib/types'
 import { fileToBase64, resizeImage } from '@/lib/image'
+import { track } from '@/lib/track'
 import { stringSimilarity } from '@/lib/utils'
 import {
   createBatchSession,
@@ -272,6 +273,7 @@ export default function RemoveBottle() {
 
       if (updateError) throw updateError
 
+      track('bottle_opened', { matched: true })
       navigate(`/bottle/${bottle.id}`)
     } catch (err) {
       console.error('Save error:', err)
@@ -313,6 +315,7 @@ export default function RemoveBottle() {
         .single()
 
       if (insertError) throw insertError
+      track('bottle_opened', { matched: false })
       navigate(`/bottle/${data.id}`)
     } catch (err) {
       console.error('Save error:', err)

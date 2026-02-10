@@ -21,6 +21,7 @@ import { useZones } from '@/hooks/useZones'
 import { useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
 import { WINE_COLORS, normalizeWineColor, type WineColor, type WineExtraction } from '@/lib/types'
 import { fileToBase64, resizeImage } from '@/lib/image'
+import { track } from '@/lib/track'
 
 type Step = 'capture' | 'extracting' | 'confirm' | 'saving' | 'batch-extracting' | 'batch-confirm'
 
@@ -114,6 +115,7 @@ export default function AddBottle() {
       setAppellation(data.appellation || '')
       setMillesime(data.millesime?.toString() || '')
       setCouleur(normalizeWineColor(data.couleur) || '')
+      track('scan_single', { provider: 'claude' })
       setStep('confirm')
     } catch (err) {
       console.error('Extraction error:', err)
@@ -182,6 +184,7 @@ export default function AddBottle() {
     setCurrentBatchIndex(0)
     setBatchExtractionIndex(0)
     setError(null)
+    track('scan_batch', { count: selectedFiles.length })
     setStep('batch-extracting')
 
     // Start sequential extraction
@@ -385,6 +388,8 @@ export default function AddBottle() {
 
       if (insertError) throw insertError
 
+      track('bottle_added', { couleur: couleur || null, has_photo: !!photoFile })
+
       // Success - reset form to add more bottles
       handleReset()
     } catch (err) {
@@ -461,6 +466,8 @@ export default function AddBottle() {
       const { error: insertError } = await supabase.from('bottles').insert([bottleData])
 
       if (insertError) throw insertError
+
+      track('bottle_added', { couleur: item.couleur || null, has_photo: true })
 
       // Move to next item or finish
       if (currentBatchIndex < batchItems.length - 1) {

@@ -14,6 +14,7 @@ import {
 import { useZones } from '@/hooks/useZones'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
+import { track } from '@/lib/track'
 import type { Zone } from '@/lib/types'
 
 export default function Settings() {
@@ -82,6 +83,7 @@ export default function Settings() {
       })
 
       if (!error) {
+        track('zone_created')
         await refetch()
         handleClose()
       }
@@ -115,6 +117,7 @@ export default function Settings() {
     if (navigator.share) {
       try {
         await navigator.share(shareData)
+        track('invite_sent')
       } catch {
         // User cancelled — ignore
       }
@@ -122,6 +125,7 @@ export default function Settings() {
       // Fallback: copy to clipboard
       const fallbackText = shareData.text
       await navigator.clipboard.writeText(fallbackText)
+      track('invite_sent')
       setShowCopiedToast(true)
       setTimeout(() => setShowCopiedToast(false), 2000)
     }
