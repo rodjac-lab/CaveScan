@@ -526,8 +526,8 @@ export default function RemoveBottle() {
               </button>
 
               <div className="flex-1 text-center">
-                <p className="font-serif text-base font-semibold text-[var(--text-primary)]">Scanner un vin</p>
-                <p className="text-xs text-[var(--text-muted)]">Photo ou galerie</p>
+                <p className="font-serif text-base font-semibold text-[var(--text-primary)]">Ouvrir une bouteille</p>
+                <p className="text-xs text-[var(--text-muted)]">Scanner l'étiquette</p>
               </div>
 
               <button
