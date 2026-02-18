@@ -1,263 +1,188 @@
-﻿# CaveScan - PRD v2
+# CaveScan - PRD v2
 
 ## Vision
 
-**Une cave Ã  vin qui se gÃ¨re toute seule** pour les amateurs qui achÃ¨tent rÃ©guliÃ¨rement mais n'ont pas la rigueur de tenir un inventaire.
+**Une cave à vin qui se gère presque toute seule** pour les amateurs qui achètent régulièrement mais ne veulent pas maintenir un inventaire à la main.
 
-### Le problÃ¨me
+### Problème cible
 
-- J'achÃ¨te du vin mais je ne sais plus ce que j'ai
-- Je ne sais pas oÃ¹ sont rangÃ©es mes bouteilles
-- Je rate les fenÃªtres de maturitÃ©
-- Je n'ai aucune idÃ©e de la valeur de ma cave
-- **Les apps existantes demandent trop de saisie**
+- J'achète du vin mais je ne sais plus ce que j'ai
+- Je ne sais plus où sont rangées mes bouteilles
+- Je rate des fenêtres de maturité
+- Je n'ai pas de vue simple de la valeur de ma cave
+- Les apps existantes demandent trop de saisie manuelle
 
-### La promesse
+### Promesse
 
-> "Photo â†’ c'est rangÃ©. Photo â†’ c'est sorti. Le reste est automatique."
-
----
+> "Photo -> c'est rangé. Photo -> c'est sorti. Le reste est automatique."
 
 ## Utilisateur cible
 
-Amateur de vin avec une cave de 50-500 bouteilles, qui :
-- AchÃ¨te rÃ©guliÃ¨rement (cavistes, domaines, salons)
-- Stocke Ã  plusieurs endroits (caves Ã©lectriques, cartons)
-- Ne tiendra jamais un Excel Ã  jour
-- Veut retrouver ses bouteilles et savoir quand les boire
+Amateur de vin avec 50 à 500 bouteilles qui:
 
-**Contexte initial** : utilisateur unique, Android, rÃ©seau disponible en cave.
+- Achète régulièrement (cavistes, domaines, salons)
+- Stocke à plusieurs endroits (caves électriques, cartons)
+- Ne maintiendra jamais un tableur rigoureux
+- Veut retrouver vite une bouteille et savoir quand la boire
 
----
+Contexte initial: utilisateur solo, usage mobile Android, réseau disponible en cave.
 
-## DÃ©cisions prises
+## Décisions produit
 
-| Question | DÃ©cision | Raison |
+| Question | Décision | Raison |
 |----------|----------|--------|
-| Plateforme | PWA mobile-first | Android = bon support PWA, Ã©vite les galÃ¨res Expo Go |
-| Offline | Non critique au MVP | RÃ©seau dispo en cave |
-| Multi-utilisateur | Non au MVP | Usage solo pour commencer |
-| GranularitÃ© localisation | Zone + Ã©tagÃ¨re | La profondeur est trop pÃ©nible Ã  maintenir manuellement |
-| RFID / NFC | ReportÃ© post-MVP | NÃ©cessite app native (Bluetooth SPP incompatible PWA), friction hardware |
-| Source de donnÃ©es vins | Hors MVP | Se concentrer sur la saisie photo d'abord |
-
----
+| Plateforme | PWA mobile-first | Déploiement simple, pas d'app store |
+| Offline | Non critique au MVP | Réseau dispo en cave dans le contexte cible |
+| Multi-utilisateur | Non au MVP | Priorité à la valeur solo immédiatement |
+| Localisation | Zone + étagère | Granularité utile sans surcharge de saisie |
+| RFID/NFC | Post-MVP | Friction hardware et contraintes natives |
+| Enrichissement données vin | Hors MVP | Priorité à l'entrée/sortie rapide |
 
 ## Stack technique
 
-```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”     â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚     Vercel       â”‚     â”‚          Supabase             â”‚
-â”‚                  â”‚     â”‚                               â”‚
-â”‚  - PWA React     â”‚â”€â”€â”€â”€â–¶â”‚  - PostgreSQL (donnÃ©es vins)  â”‚
-â”‚  - Vite + TW     â”‚     â”‚  - Storage (photos Ã©tiquettes)â”‚
-â”‚  - API routes    â”‚     â”‚  - Auth (si besoin futur)     â”‚
-â”‚                  â”‚     â”‚  - Edge Functions              â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜     â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-         â”‚
-         â–¼
-   Claude API (Sonnet)
-   Vision : extraction Ã©tiquettes
-```
+- Frontend: React + Vite + TypeScript + Tailwind + shadcn/ui
+- Backend/Data: Supabase (PostgreSQL, Storage, Auth, Edge Functions)
+- Vision IA: Claude (principal) avec fallback Gemini via Edge Function
+- Hébergement front: Vercel
 
-| Composant | Choix | Raison |
-|-----------|-------|--------|
-| Frontend | React + Vite + Tailwind + shadcn/ui | Simple, rapide, PWA native |
-| Backend / DB | Supabase (PostgreSQL + Storage + Edge Functions) | Tout-en-un, rÃ©duit le nombre de services |
-| Vision AI | Claude Sonnet via API | Meilleur rapport qualitÃ©/coÃ»t pour OCR Ã©tiquettes |
-| HÃ©bergement front | Vercel | DÃ©jÃ  utilisÃ© sur d'autres projets, deploy auto |
-| Domaine | Porkbun | DÃ©jÃ  utilisÃ© |
+## Fonctionnalités
 
----
-
-## FonctionnalitÃ©s
-
-### MVP (v0.1) â€” Objectif : utiliser l'app au quotidien pendant 2-3 mois
+### MVP (v0.1)
 
 | Fonction | Description | Friction |
 |----------|-------------|----------|
-| **EntrÃ©e par photo** | Photo Ã©tiquette â†’ extraction auto (domaine, appellation, millÃ©sime, couleur) via Claude Vision | 1 photo + confirmation |
-| **Localisation simple** | Choix de zone + Ã©tagÃ¨re au moment de l'entrÃ©e | 2 taps |
-| **Inventaire consultable** | Liste filtrÃ©e par couleur, rÃ©gion, millÃ©sime | 0 |
-| **Recherche** | "OÃ¹ est mon Brunello ?" â†’ rÃ©ponse directe | 0 |
-| **Sortie par scan** | Photo Ã©tiquette â†’ match avec l'inventaire â†’ marquÃ©e "bue" | 1 photo |
-| **Sorties rÃ©centes** | Liste des derniÃ¨res bouteilles bues, accÃ¨s rapide | 0 |
-| **Note de dÃ©gustation** | Optionnel, asynchrone : depuis la fiche d'une sortie rÃ©cente | Quand j'ai envie |
+| Entrée par photo | Photo étiquette -> extraction auto (domaine, cuvée, appellation, millésime, couleur) | 1 photo + validation |
+| Localisation simple | Choix de zone + étagère | 2 taps |
+| Inventaire consultable | Liste des bouteilles en stock avec filtres | 0 |
+| Recherche | Recherche domaine/appellation/millésime | 0 |
+| Sortie par scan | Photo étiquette -> match inventaire -> statut `drunk` | 1 photo |
+| Sorties récentes | Liste des dernières bouteilles sorties | 0 |
+| Note de dégustation | Optionnelle depuis la fiche bouteille | Optionnel |
 
-#### Flux "EntrÃ©e par photo" (dÃ©tail)
+### Flux Entrée
 
-1. User ouvre l'app â†’ bouton "Ajouter"
-2. Prise de photo de l'Ã©tiquette
-3. Upload vers Supabase Storage
-4. Appel Claude Sonnet : extraction domaine, appellation, millÃ©sime, couleur
-5. Affichage du rÃ©sultat pour validation / correction
-6. SÃ©lection de la zone + Ã©tagÃ¨re (2 taps)
-7. Enregistrement en base
+1. Ouvrir l'app et aller sur Ajouter
+2. Prendre une photo ou choisir une photo
+3. Extraction IA des champs
+4. Corriger/valider rapidement
+5. Choisir zone + étagère
+6. Sauvegarder en base
 
-**Cible : < 10 secondes du lancement au rangement.**
+Cible: < 10 secondes du lancement au rangement.
 
-#### Flux "Sortie par scan" (dÃ©tail)
+### Flux Sortie
 
-1. User ouvre l'app â†’ bouton "Sortie"
-2. Prise de photo de l'Ã©tiquette
-3. Claude Vision extrait les infos â†’ match avec les bouteilles en stock
-4. Si match unique : confirmation en 1 tap â†’ marquÃ©e "bue"
-5. Si plusieurs matchs (mÃªme vin, plusieurs millÃ©simes) : sÃ©lection dans une liste courte
-6. La bouteille apparaÃ®t dans "Sorties rÃ©centes"
+1. Ouvrir l'app et aller sur Sortir
+2. Prendre une photo de l'étiquette
+3. Extraction IA puis matching sur les bouteilles `in_stock`
+4. Si match unique: confirmation rapide
+5. Si plusieurs matchs: sélection dans la liste
+6. La bouteille passe en `drunk` et apparaît en sorties récentes
 
-#### Flux "Note de dÃ©gustation" (dÃ©tail)
+### Flux Note de dégustation
 
-1. User ouvre l'app â†’ voit les sorties rÃ©centes (en haut de l'Ã©cran home ou onglet dÃ©diÃ©)
-2. Tap sur une sortie rÃ©cente â†’ fiche bouteille avec photo de l'Ã©tiquette
-3. Champ texte libre pour noter ses impressions
-4. Pas de notation chiffrÃ©e imposÃ©e, juste du texte libre
+1. Ouvrir une bouteille déjà sortie
+2. Saisir une note libre (facultatif)
+3. Sauvegarder
 
-**Principe : la note est toujours optionnelle. ZÃ©ro friction si on ne veut pas noter.**
+Principe: aucune friction supplémentaire si l'utilisateur ne veut pas noter.
 
-### V1 â€” Enrichissement
+## Évolutions
 
-| Fonction | Description |
-|----------|-------------|
-| **FenÃªtre de maturitÃ©** | Enrichissement via API (Wine-Searcher/Vivino) â†’ alertes "Ã  boire maintenant" |
-| **Prix marchÃ©** | RÃ©cupÃ©ration du prix moyen â†’ valorisation totale de la cave |
-| **Import factures** | Photo/PDF de facture caviste â†’ import batch |
-| **QuantitÃ©s** | GÃ©rer x6, x12 d'un mÃªme vin |
+### V1
 
-### V2 â€” RÃ©duire la friction des sorties
+- Fenêtres de maturité (enrichissement externe)
+- Valeur de cave (prix marché)
+- Import facture (photo/PDF)
+- Gestion fine des quantités (x6/x12)
 
-| Fonction | Description |
-|----------|-------------|
-| **Sortie vocale** | "OK Google, j'ouvre le ChÃ¢teauneuf 2019" |
-| **Photo bouteille vide** | Reconnaissance post-dÃ©gustation |
-| **RFID / NFC** | Tags sur bouteilles + lecteur pour scan rapide (nÃ©cessitera migration app native) |
-| **Mode "je devine"** | FIFO automatique si on dÃ©clare juste "j'ai bu un rouge" |
+### V2
 
-### Nice to have
+- Sortie vocale
+- Reconnaissance bouteille vide
+- RFID/NFC (si migration vers app native)
+- Mode déclaration rapide
 
-- Historique de consommation et tendances
-- Suggestions accords mets-vins
-- Partage de cave avec des amis
-- Export pour assurance
-
----
-
-## ModÃ¨le de donnÃ©es MVP
+## Modèle de données MVP (logique)
 
 ```sql
--- Zones de stockage (personnalisables)
 CREATE TABLE zones (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,           -- "Cave Ã©lectrique 1"
-  description TEXT,             -- "Service - blancs/champagnes"
-  position INT DEFAULT 0,      -- Ordre d'affichage
+  name TEXT NOT NULL,
+  description TEXT,
+  position INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Bouteilles
 CREATE TABLE bottles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-
-  -- Extrait par Claude Vision
   domaine TEXT,
+  cuvee TEXT,
   appellation TEXT,
   millesime INT,
-  couleur TEXT CHECK (couleur IN ('rouge', 'blanc', 'rosÃ©', 'bulles')),
-  raw_extraction JSONB,        -- RÃ©ponse brute Claude pour debug/amÃ©lioration
-
-  -- Localisation
+  couleur TEXT CHECK (couleur IN ('rouge', 'blanc', 'rose', 'bulles')),
+  raw_extraction JSONB,
   zone_id UUID REFERENCES zones(id),
-  shelf TEXT,                   -- "Ã‰tagÃ¨re 1", "Haut", "Bas"...
-
-  -- Photo
+  shelf TEXT,
   photo_url TEXT,
-
-  -- Ã‰tat
   status TEXT DEFAULT 'in_stock' CHECK (status IN ('in_stock', 'drunk')),
-
-  -- Timestamps
   added_at TIMESTAMPTZ DEFAULT now(),
   drunk_at TIMESTAMPTZ,
-
-  -- DÃ©gustation (optionnel, rempli aprÃ¨s sortie)
-  tasting_note TEXT,             -- Note libre de dÃ©gustation
-
-  -- Futur enrichissement
+  tasting_note TEXT,
   price NUMERIC,
-  drink_from INT,              -- MillÃ©sime de dÃ©but de maturitÃ©
-  drink_until INT,             -- MillÃ©sime de fin de maturitÃ©
+  drink_from INT,
+  drink_until INT,
   notes TEXT
 );
 ```
 
-### Zones par dÃ©faut (config initiale)
+## Prompt extraction (référence)
 
-```
-1. Cave Ã©lectrique 1 â€” Rouges
-2. Cave Ã©lectrique 2 â€” Rouges
-3. Cave Ã©lectrique 3 â€” Blancs et Champagne
-4. Cave cartons â€” Stock long terme
-```
+La fonction doit retourner un JSON strict:
 
----
-
-## Prompt Claude Vision (draft)
-
-```
-Analyse cette photo d'Ã©tiquette de vin et extrais les informations suivantes
-au format JSON :
-
+```json
 {
-  "domaine": "nom du domaine/chÃ¢teau/producteur",
-  "appellation": "appellation d'origine (AOC/AOP/DOC/DOCG...)",
-  "millesime": annÃ©e (nombre entier ou null si non visible),
-  "couleur": "rouge" | "blanc" | "rosÃ©" | "bulles",
-  "region": "rÃ©gion viticole",
-  "cepage": "cÃ©page principal si mentionnÃ©",
-  "confidence": 0.0-1.0
+  "domaine": "nom du domaine/château/producteur",
+  "cuvée": "nom de la cuvée si mentionnée",
+  "appellation": "appellation d'origine",
+  "millésime": 2020,
+  "couleur": "rouge | blanc | rose | bulles",
+  "région": "région viticole",
+  "cépage": "cépage principal",
+  "confidence": 0.0
 }
-
-Si une information n'est pas visible sur l'Ã©tiquette, utilise null.
-Pour la couleur, dÃ©duis-la de l'appellation si elle n'est pas explicite.
 ```
 
----
+Règles:
 
-## MÃ©triques de succÃ¨s MVP
+- `null` si information non visible
+- Réponse strictement JSON
+- Couleur déduite de l'appellation si nécessaire
 
-| MÃ©trique | Cible |
+## Métriques MVP
+
+| Métrique | Cible |
 |----------|-------|
-| Temps d'ajout d'une bouteille | < 10 secondes |
-| Taux de reconnaissance Ã©tiquette | > 85% |
-| Bouteilles ajoutÃ©es aprÃ¨s 1 mois d'usage | > 50 |
-| Sorties dÃ©clarÃ©es vs estimÃ©es | > 60% |
+| Temps d'ajout d'une bouteille | < 10 s |
+| Taux de reconnaissance étiquette | > 85% |
+| Bouteilles ajoutées après 1 mois | > 50 |
+| Sorties déclarées vs estimées | > 60% |
 
----
+## Écrans MVP
 
-## Ã‰crans MVP
-
-1. **Home / Inventaire** : liste des bouteilles en stock, filtres (couleur, zone, millÃ©sime) + bandeau "Sorties rÃ©centes" en haut
-2. **Ajouter (entrÃ©e)** : camÃ©ra â†’ rÃ©sultat extraction â†’ sÃ©lection zone/Ã©tagÃ¨re â†’ save
-3. **Sortir (sortie)** : camÃ©ra â†’ match inventaire â†’ confirmation â†’ marquÃ©e "bue"
-4. **DÃ©tail bouteille** : infos complÃ¨tes, photo Ã©tiquette, localisation. Si bue : champ note de dÃ©gustation
-5. **Recherche** : champ texte libre, rÃ©sultats instantanÃ©s
-6. **ParamÃ¨tres** : gestion des zones de stockage
-
----
+1. Home/Inventaire
+2. Ajouter (entrée)
+3. Sortir (sortie)
+4. Détail bouteille
+5. Recherche
+6. Paramètres (zones)
 
 ## Roadmap
 
-Voir backlog.md pour la liste des idees et travaux en cours.
-
-
-| Phase | Scope | CritÃ¨re de passage |
-|-------|-------|--------------------|
-| **MVP** | Photo entrÃ©e/sortie + zones + inventaire + recherche + sorties rÃ©centes + notes dÃ©gustation | J'utilise l'app toutes les semaines pendant 2 mois |
-| **V1** | Enrichissement prix/maturitÃ© + import factures | Base de 50+ bouteilles atteinte |
-| **V2** | Sorties facilitÃ©es (vocale, RFID) | Sorties dÃ©clarÃ©es > 60% |
-
----
+- MVP: entrée/sortie photo + inventaire + recherche + sorties récentes + notes
+- V1: enrichissement prix/maturité + import factures
+- V2: sortie encore plus fluide (voix, RFID)
 
 ## Nom
 
-**CaveScan** (confirmÃ© pour le dÃ©veloppement, nom final Ã  dÃ©finir)
-
+CaveScan (nom de travail validé pour le développement).

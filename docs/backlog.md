@@ -1,48 +1,36 @@
-﻿# Backlog
+# Backlog CaveScan
 
-Liste d'idees et de travaux a collecter au fil de l'eau.
+Liste vivante des travaux produit/tech, priorisée pour les prochaines itérations.
 
-## Priorites (initial)
+## Maintenant (P0)
 
-### Couts API
-- [ ] Reduire les couts d'API
+- [ ] Stabiliser le build sur environnements WSL/Linux (Rollup optional dependency).
+- [ ] Sécuriser `extract-wine` : planifier le retour à `verify_jwt = true` et valider les flux caméra/galerie/batch.
+- [ ] Ajouter un parcours de test manuel minimal avant release (auth, ajout, sortie, édition, notes).
+- [ ] Réduire la taille des pages monolithiques (`AddBottle`, `RemoveBottle`, `BottlePage`) par extraction de sous-composants/hooks.
 
-### UX / UI
-- [ ] Ameliorer l'UX et l'UI
+## Prochainement (P1)
 
-### Donnees / Ops
-- [ ] Permettre de supprimer des entrees et des sorties (actuellement indisponible)
-- [ ] **Securite Edge Function extract-wine : retour JWT ON** : garder temporairement `verify_jwt = false` pour stabilisation, puis repasser a `verify_jwt = true` avec envoi explicite du bearer token depuis le front, test camera/galerie/batch, et rollback plan documente si erreur 401.
+- [ ] Améliorer la qualité OCR sur cas difficiles (étiquettes inclinées, reflets, faible lumière).
+- [ ] Ajouter des métriques produit de base (taux de scan réussi, temps moyen ajout/sortie).
+- [ ] Ajouter suppression/restauration contrôlée d’entrées/sorties (historique robuste).
+- [ ] Clarifier l’UX de la sortie: scan d’abord vs recherche d’abord, puis normaliser le parcours.
 
-## Idees a ajouter
-- [ ] **Section "Suggestions" dans Partager** : Afficher des bouteilles selectionnees au hasard dans la cave pour les proposer a l'utilisateur. Imaginer un algo de selection fun (anciennete, maturite, diversite couleurs, saison...). Casse le cote "longue liste" du menu.
-- [ ] **Reflexion UX : recherche pour sortie de cave** : Actuellement, on ne peut pas chercher une bouteille dans Partager pour la declarer sortie. C'est possible via Cave. A reflechir : quel menu est le plus naturel pour cette action ? 
+## Plus tard (P2)
 
-## Deja dans PRD (roadmap)
+- [ ] Suggestions intelligentes de bouteilles à ouvrir (ancienneté, maturité, diversité).
+- [ ] Valorisation cave (prix marché) avec affichage de fiabilité de la donnée.
+- [ ] Import facture (photo/PDF) pour création batch assistée.
+- [ ] Mode partage (lecture seule puis collaboration).
 
-### MVP (v0.1)
-- [x] Entree par photo (extraction auto via Claude Vision)
-- [x] Localisation simple (zone + etagere)
-- [x] Inventaire consultable (filtres)
-- [x] Recherche
-- [x] Sortie par scan (photo -> match inventaire)
-- [x] Sorties recentes
-- [x] Note de degustation (optionnelle)
+## Idées à explorer
 
-### V1
-- [x] Fenetre de maturite (alertes "a boire maintenant")
-- [x] Prix marche / valorisation cave
-- [x] Import factures (photo/PDF)
-- [x] Quantites (x6, x12...)
+- [ ] Signature/partage “Partagé avec CaveScan”.
+- [ ] Rappels de fenêtre de dégustation (push ou email digest).
+- [ ] Export assurance (PDF/CSV).
 
-### V2
-- [x] Sortie vocale
-- [x] Photo bouteille vide
-- [x] RFID / NFC
-- [x] Mode "je devine" (FIFO automatique)
+## Références roadmap (PRD)
 
-### Nice to have
-- [x] Historique de consommation & tendances
-- [x] Suggestions accords mets-vins
-- [x] Partage de cave
-- [x] Export pour assurance
+- MVP: entrée/sortie photo, inventaire, recherche, sorties récentes, notes.
+- V1: enrichissement prix/maturité, import factures.
+- V2: réduction maximale de friction en sortie (voix, RFID, etc.).

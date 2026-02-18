@@ -1,73 +1,151 @@
-# React + TypeScript + Vite
+# CaveScan
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+PWA mobile-first pour gérer une cave à vin avec le moins de friction possible.
 
-Currently, two official plugins are available:
+Promesse produit: `Photo -> c'est rangé. Photo -> c'est sorti.`
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Ce que fait l'app aujourd'hui
 
-## React Compiler
+- Scan d'étiquette (ou galerie) avec extraction IA des infos vin
+- Validation/correction rapide des champs (domaine, cuvée, appellation, millésime, couleur)
+- Ajout en cave avec zone + étagère
+- Mode batch pour scanner plusieurs bouteilles d'un coup
+- Sortie de cave par photo avec matching sur l'inventaire
+- Fiche bouteille (édition, notes, photos avant/arrière)
+- Auth Supabase (signup/login) + données scopées par utilisateur via RLS
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Stack
 
-## Expanding the ESLint configuration
+- Frontend: React 19, TypeScript, Vite, Tailwind v4, Radix UI
+- Backend/Data: Supabase (Postgres, Auth, Edge Functions)
+- OCR/Extraction: Edge Function `extract-wine` avec fallback multi-provider (Claude/Gemini)
+- PWA: `vite-plugin-pwa`
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Structure utile
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```txt
+src/
+  pages/            Écrans principaux (Home, AddBottle, RemoveBottle, etc.)
+  components/       UI métier + composants Radix
+  hooks/            Hooks d'accès data/auth
+  lib/              Client supabase, types, utilitaires image/tracking
+supabase/
+  migrations/       Schéma + RLS + évolutions
+  functions/
+    extract-wine/   OCR d'étiquette (Edge Function)
+docs/               PRD, UX, backlog, benchmarks OCR
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Démarrage rapide
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### 1) Prérequis
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- Node.js 20+ (22 recommandé)
+- npm
+- Un projet Supabase
+
+### 2) Installer
+
+```bash
+npm ci
 ```
+
+### 3) Config frontend
+
+```bash
+cp .env.local.example .env.local
+```
+
+Puis renseigner:
+
+```env
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+### 4) Lancer
+
+```bash
+npm run dev
+```
+
+## Scripts
+
+- `npm run dev` : serveur local Vite
+- `npm run build` : typecheck + build production
+- `npm run lint` : lint ESLint
+- `npm run preview` : preview du build
+
+## Supabase
+
+### Migrations
+
+Le schéma est versionné dans `supabase/migrations/`.
+
+### Edge Function OCR
+
+La fonction est dans `supabase/functions/extract-wine/index.ts`.
+
+Secrets attendus côté Supabase:
+
+- `ANTHROPIC_API_KEY` (optionnel si Gemini est configuré)
+- `GEMINI_API_KEY` (optionnel si Claude est configuré)
+- `PRIMARY_PROVIDER` (`claude` par défaut, ou `gemini`)
+- `ANTHROPIC_MODEL` (optionnel, override du modèle Claude)
+
+La fonction essaie le provider principal puis bascule automatiquement sur l'autre en cas d'échec.
+
+## Déploiement (Supabase + Vercel)
+
+### 1) Initialiser Supabase
+
+1. Créer un projet Supabase.
+2. Appliquer les migrations de `supabase/migrations/` (via CLI ou SQL editor).
+3. Vérifier que les policies RLS sont bien actives.
+
+### 2) Déployer la fonction OCR
+
+1. Déployer `supabase/functions/extract-wine`.
+2. Configurer les secrets de la fonction:
+   - `ANTHROPIC_API_KEY` et/ou `GEMINI_API_KEY`
+   - `PRIMARY_PROVIDER` (`claude` ou `gemini`)
+   - `ANTHROPIC_MODEL` (optionnel)
+3. Tester un appel de la fonction depuis le dashboard Supabase.
+
+### 3) Configurer Vercel
+
+1. Importer le repo dans Vercel.
+2. Ajouter les variables d'environnement frontend:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+3. Lancer le premier déploiement.
+
+### 4) Vérification post-déploiement
+
+1. Signup/Login fonctionnels.
+2. Liste des bouteilles accessible.
+3. Ajout d'une bouteille avec extraction OCR.
+4. Sortie d'une bouteille et mise à jour du statut.
+5. Pas d'erreur CORS sur les appels Edge Function.
+
+## Troubleshooting
+
+### Erreur Rollup: `Cannot find module @rollup/rollup-linux-x64-gnu`
+
+Ce problème apparaît parfois avec les dépendances optionnelles npm (souvent visible sous WSL).
+
+Procédure simple:
+
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
+
+Si tu développes sous WSL, fais l'installation dans le même environnement que celui qui exécute `npm run build`.
+
+## Documentation produit
+
+- `docs/prd.md`
+- `docs/ux-spec.md`
+- `docs/backlog.md`
+- `docs/benchmark-ocr-notes.md`
