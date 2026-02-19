@@ -11,6 +11,13 @@ import { track } from '@/lib/track'
 
 const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Autre']
 
+const COLOR_CSS_VARS: Record<string, string> = {
+  rouge: 'red-wine',
+  blanc: 'white-wine',
+  rose: 'rose-wine',
+  bulles: 'champagne',
+}
+
 interface BatchState {
   batchIds?: string[]
   batchIndex?: number
@@ -109,9 +116,9 @@ export default function BottlePage() {
       .from('bottles')
       .update({
         tasting_note: tastingNote || null,
-        rating: rating,
-        rebuy: rebuy,
-        qpr: qpr,
+        rating,
+        rebuy,
+        qpr,
       })
       .eq('id', bottle.id)
 
@@ -271,9 +278,9 @@ export default function BottlePage() {
         .from('bottles')
         .update({
           tasting_note: tastingNote || null,
-          rating: rating,
-          rebuy: rebuy,
-          qpr: qpr,
+          rating,
+          rebuy,
+          qpr,
         })
         .eq('id', bottle.id)
     }
@@ -326,11 +333,8 @@ export default function BottlePage() {
     })
   }
 
-  const displayDate = isDrunk && bottle.drunk_at
-    ? formatDateShort(bottle.drunk_at)
-    : bottle.added_at
-      ? formatDateShort(bottle.added_at)
-      : '—'
+  const displayDateStr = (isDrunk && bottle.drunk_at) || bottle.added_at
+  const displayDate = displayDateStr ? formatDateShort(displayDateStr) : '—'
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -372,12 +376,7 @@ export default function BottlePage() {
         {bottle.couleur && (
           <div
             className="w-[3px] h-6 rounded-full shrink-0"
-            style={{ backgroundColor: `var(--${
-              bottle.couleur === 'rouge' ? 'red-wine' :
-              bottle.couleur === 'blanc' ? 'white-wine' :
-              bottle.couleur === 'rose' ? 'rose-wine' :
-              'champagne'
-            })` }}
+            style={{ backgroundColor: `var(--${COLOR_CSS_VARS[bottle.couleur] ?? 'champagne'})` }}
             title={getWineColorLabel(bottle.couleur)}
           />
         )}
@@ -517,7 +516,7 @@ export default function BottlePage() {
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-2 mb-2.5">
-              {bottle.tasting_photos && (bottle.tasting_photos as TastingPhoto[]).length > 0 && (
+              {bottle.tasting_photos && bottle.tasting_photos.length > 0 && (
                 (bottle.tasting_photos as TastingPhoto[]).map((photo, index) => (
                   <div key={index} className="relative">
                     <img
@@ -756,12 +755,7 @@ export default function BottlePage() {
                       {item.couleur && (
                         <div
                           className="w-[3px] h-8 rounded-full shrink-0 self-center"
-                          style={{ backgroundColor: `var(--${
-                            item.couleur === 'rouge' ? 'red-wine' :
-                            item.couleur === 'blanc' ? 'white-wine' :
-                            item.couleur === 'rose' ? 'rose-wine' :
-                            'champagne'
-                          })` }}
+                          style={{ backgroundColor: `var(--${COLOR_CSS_VARS[item.couleur] ?? 'champagne'})` }}
                         />
                       )}
                       {/* Content */}

@@ -68,17 +68,15 @@ export function getWineColorLabel(color: WineColor | null): string {
   return WINE_COLORS.find(c => c.value === color)?.label ?? 'Inconnu'
 }
 
+const VALID_WINE_COLORS = new Set<string>(['rouge', 'blanc', 'rose', 'bulles'])
+
 export function normalizeWineColor(color: string | null | undefined): WineColor | null {
   if (!color) return null
   const normalized = color
     .toLowerCase()
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
-  if (normalized === 'rose') return 'rose'
-  if (normalized === 'rouge') return 'rouge'
-  if (normalized === 'blanc') return 'blanc'
-  if (normalized === 'bulles') return 'bulles'
-  return null
+  return VALID_WINE_COLORS.has(normalized) ? (normalized as WineColor) : null
 }
 
 export interface WineExtraction {

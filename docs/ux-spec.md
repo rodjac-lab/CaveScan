@@ -98,26 +98,43 @@ Déclarer rapidement qu’une bouteille est sortie/ouverte.
 - Priorité au scan (action principale).
 - Si ambiguïté, proposer une liste courte triée par pertinence.
 - Si aucun match, proposer une sortie manuelle guidée.
+- "Ce n'est pas cette bouteille" : formulaire de correction éditable puis re-matching.
+- Après sortie, transition vers la fiche dégustation (mode batch si plusieurs bouteilles).
 
 ## Écran Détail bouteille (`/bottle/:id`)
 
 ## Rôle
 
-Consulter et modifier la donnée de référence d’une bouteille.
+Consulter et modifier la donnée de référence d’une bouteille. Sert aussi d’écran de dégustation après ouverture.
 
 ## Contenu
 
-- Identité vin (domaine, cuvée, appellation, millésime, couleur)
-- Localisation
-- Photos (avant/arrière)
-- Statut stock / sortie
-- Note de dégustation
+### Identity Card (toujours visible)
+- Photo étiquette (zoomable)
+- Domaine, cuvée, appellation, millésime, couleur
+- Barre de détails : date, prix, emplacement
+
+### Mode Cave (bouteille en stock)
+- Section "Ma cave" : quantité, emplacement, date d’entrée, prix d’achat
+- Section "Dégustations passées" : liste des bouteilles bues du même vin (même domaine + appellation + millésime), avec aperçu de la note
+- CTA "Ouvrir cette bouteille" (passe en statut `drunk`)
+
+### Mode Dégustation (bouteille bue)
+- Photos de dégustation (bouchon, bouteille, autre) avec ajout par caméra ou galerie
+- Tasting card intégrée :
+  - Textarea libre ("Vos impressions sur ce vin...")
+  - Rating sur 5 étoiles
+  - Toggle "À racheter"
+  - Rapport qualité/prix : Cher / Correct / Pépite
+  - Boutons Enregistrer + Partager
+- Mode batch : navigation prev/next entre plusieurs vins à déguster
 
 ## Actions
 
-- Éditer
+- Éditer (bouton crayon en header)
 - Marquer sortie (si en stock)
-- Restaurer en stock (si sortie) - option contrôlée
+- Enregistrer la dégustation (si bue)
+- Partager la note (Web Share API)
 
 ## Écran Réglages (`/settings`)
 

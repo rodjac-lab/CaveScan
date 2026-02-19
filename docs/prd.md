@@ -81,11 +81,21 @@ Cible: < 10 secondes du lancement au rangement.
 
 ### Flux Note de dégustation
 
-1. Ouvrir une bouteille déjà sortie
-2. Saisir une note libre (facultatif)
-3. Sauvegarder
+1. Ouvrir une bouteille déjà sortie (ou la marquer comme bue depuis la fiche)
+2. Ajouter des photos de dégustation (bouchon, bouteille, autre) — facultatif
+3. Saisir une note libre — facultatif
+4. Évaluer rapidement : note sur 5, rapport qualité/prix (Cher/Correct/Pépite), flag "À racheter" — facultatif
+5. Enregistrer
+6. Partager la note via Web Share API — facultatif
 
-Principe: aucune friction supplémentaire si l'utilisateur ne veut pas noter.
+Principe: aucune friction supplémentaire si l'utilisateur ne veut pas noter. Les champs structurés (rating, QPR, rebuy) permettent d'exploiter les dégustations passées pour décider quoi ouvrir ou racheter.
+
+### Flux Batch Tasting
+
+1. Scanner une bouteille via l'écran Ouvrir
+2. Si plusieurs bouteilles à déguster, enchaîner les fiches de dégustation
+3. Navigation prev/next entre les vins du batch
+4. À la fin du batch, retour à l'écran Ouvrir
 
 ## Évolutions
 
@@ -103,38 +113,65 @@ Principe: aucune friction supplémentaire si l'utilisateur ne veut pas noter.
 - RFID/NFC (si migration vers app native)
 - Mode déclaration rapide
 
-## Modèle de données MVP (logique)
+## Modèle de données
 
 ```sql
 CREATE TABLE zones (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT,
+  rows INT,
+  columns INT,
   position INT DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now()
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE bottles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE DEFAULT auth.uid(),
   domaine TEXT,
   cuvee TEXT,
   appellation TEXT,
   millesime INT,
   couleur TEXT CHECK (couleur IN ('rouge', 'blanc', 'rose', 'bulles')),
   raw_extraction JSONB,
-  zone_id UUID REFERENCES zones(id),
+  zone_id UUID REFERENCES zones(id) ON DELETE SET NULL,
   shelf TEXT,
   photo_url TEXT,
+  photo_url_back TEXT,
   status TEXT DEFAULT 'in_stock' CHECK (status IN ('in_stock', 'drunk')),
-  added_at TIMESTAMPTZ DEFAULT now(),
+  added_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   drunk_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  -- Tasting
   tasting_note TEXT,
-  price NUMERIC,
+  tasting_photos JSONB DEFAULT '[]',
+  rating SMALLINT CHECK (rating >= 1 AND rating <= 5),
+  rebuy BOOLEAN,
+  qpr SMALLINT CHECK (qpr >= 1 AND qpr <= 3),
+  -- Pricing & maturity
+  purchase_price DECIMAL(10,2),
+  market_value DECIMAL(10,2),
   drink_from INT,
   drink_until INT,
   notes TEXT
 );
+
+CREATE TABLE events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL DEFAULT auth.uid(),
+  action TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
 ```
+
+Notes:
+- RLS activé sur toutes les tables (user_id = auth.uid())
+- `tasting_photos` : tableau JSON `[{url, label?, taken_at}]`
+- `qpr` : 1 = Cher, 2 = Correct, 3 = Pépite
+- `rating` : note de dégustation sur 5
 
 ## Prompt extraction (référence)
 

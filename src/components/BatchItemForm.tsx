@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
 import { Autocomplete } from '@/components/Autocomplete'
+import { getProgressDotColor } from '@/components/BatchDrinkProgress'
 import { WINE_COLORS, type WineColor } from '@/lib/types'
 import type { Zone } from '@/lib/types'
 
@@ -88,13 +89,7 @@ export function BatchItemForm({
           {Array.from({ length: totalItems }).map((_, i) => (
             <div
               key={i}
-              className={`h-1.5 w-6 rounded-full transition-colors ${
-                i === currentIndex
-                  ? 'bg-[var(--accent)]'
-                  : i < currentIndex
-                    ? 'bg-green-500'
-                    : 'bg-muted'
-              }`}
+              className={`h-1.5 w-6 rounded-full transition-colors ${getProgressDotColor(i, currentIndex)}`}
             />
           ))}
         </div>

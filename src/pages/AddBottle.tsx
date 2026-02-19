@@ -128,34 +128,9 @@ export default function AddBottle() {
     const files = e.target.files
     if (!files || files.length === 0) return
 
-    // If only 1 photo selected, use single mode
+    // If only 1 photo selected, reuse single mode
     if (files.length === 1) {
-      const file = files[0]
-      setPhotoFile(file)
-      setPhotoPreview(URL.createObjectURL(file))
-      setError(null)
-      setStep('extracting')
-
-      try {
-        const base64 = await fileToBase64(file)
-        const { data, error } = await supabase.functions.invoke('extract-wine', {
-          body: { image_base64: base64 },
-        })
-
-        if (error) throw error
-
-        setRawExtraction(data)
-        setDomaine(data.domaine || '')
-        setCuvee(data.cuvee || '')
-        setAppellation(data.appellation || '')
-        setMillesime(data.millesime?.toString() || '')
-        setCouleur(normalizeWineColor(data.couleur) || '')
-        setStep('confirm')
-      } catch (err) {
-        console.error('Extraction error:', err)
-        setError('Échec de l\'extraction. Vous pouvez saisir manuellement.')
-        setStep('confirm')
-      }
+      await handleFileSelect(e)
       return
     }
 

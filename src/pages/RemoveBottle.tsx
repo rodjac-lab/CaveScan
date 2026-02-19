@@ -11,7 +11,6 @@ import { stringSimilarity } from '@/lib/utils'
 import {
   createBatchSession,
   getActiveBatchSession,
-  markBatchSessionDone,
   setBatchSessionStatus,
   updateBatchItem,
   useBatchSession,
@@ -86,9 +85,7 @@ export default function RemoveBottle() {
   }, [batchSession, step])
 
   const activeBatchSession = useMemo(() => {
-    if (!batchSession) return null
-    if (batchSession.status === 'done') return null
-    return batchSession
+    return batchSession && batchSession.status !== 'done' ? batchSession : null
   }, [batchSession])
 
   const batchSummary = useMemo(() => {
@@ -107,9 +104,10 @@ export default function RemoveBottle() {
   }, [activeBatchSession])
 
   const formatDrunkDate = (value?: string | null) => {
-    if (!value) return { day: '', month: '' }
+    const empty = { day: '', month: '' }
+    if (!value) return empty
     const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return { day: '', month: '' }
+    if (Number.isNaN(date.getTime())) return empty
     return {
       day: date.getDate().toString().padStart(2, '0'),
       month: date.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', ''),
@@ -385,7 +383,7 @@ export default function RemoveBottle() {
         }
       }
 
-      markBatchSessionDone(activeBatchSession.id)
+      setBatchSessionStatus(activeBatchSession.id, 'done')
       setStep('choose')
     } catch (err) {
       console.error('Batch save error:', err)
@@ -394,17 +392,19 @@ export default function RemoveBottle() {
     }
   }
 
+  const MATCH_BADGE_CONFIG: Record<string, { dot: string; text: string; label: string }> = {
+    in_cave: { dot: 'bg-[var(--accent)]', text: 'text-[var(--accent)]', label: 'En cave' },
+    not_in_cave: { dot: 'bg-[var(--text-muted)]', text: 'text-[var(--text-muted)]', label: 'Hors cave' },
+    unresolved: { dot: 'bg-[var(--text-muted)]', text: 'text-[var(--text-muted)]', label: 'Non identifie' },
+  }
+
   const renderMatchBadge = (matchType: MatchType | 'unresolved') => {
-    const isInCave = matchType === 'in_cave'
-    const isUnresolved = matchType === 'unresolved'
-    const dotColor = isInCave ? 'bg-[var(--accent)]' : 'bg-[var(--text-muted)]'
-    const textColor = isInCave ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'
-    const label = isUnresolved ? 'Non identifie' : isInCave ? 'En cave' : 'Hors cave'
+    const config = MATCH_BADGE_CONFIG[matchType]
 
     return (
-      <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${textColor}`}>
-        <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
-        {label}
+      <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${config.text}`}>
+        <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
+        {config.label}
       </span>
     )
   }

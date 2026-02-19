@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-function getProgressDotColor(index: number, currentIndex: number): string {
+export function getProgressDotColor(index: number, currentIndex: number): string {
   if (index === currentIndex) return 'bg-[var(--accent)]'
   if (index < currentIndex) return 'bg-green-500'
   return 'bg-muted'

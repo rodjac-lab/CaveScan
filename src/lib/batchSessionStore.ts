@@ -106,12 +106,6 @@ export function updateBatchItem(sessionId: string, itemId: string, patch: Partia
   emit()
 }
 
-export function markBatchSessionDone(sessionId: string) {
-  if (!store.session || store.session.id !== sessionId) return
-  store.session = { ...store.session, status: 'done' }
-  emit()
-}
-
 export function clearBatchSession() {
   if (store.session) {
     store.session.items.forEach((item) => URL.revokeObjectURL(item.photoUri))

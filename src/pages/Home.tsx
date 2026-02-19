@@ -137,16 +137,14 @@ function searchBottles(
   // Apply text search
   if (query.length >= 2) {
     const q = query.toLowerCase()
-    results = results.filter(b => {
-      return (
-        b.domaine?.toLowerCase().includes(q) ||
-        b.cuvee?.toLowerCase().includes(q) ||
-        b.appellation?.toLowerCase().includes(q) ||
-        b.millesime?.toString().includes(q) ||
-        b.zone?.name.toLowerCase().includes(q) ||
-        b.shelf?.toLowerCase().includes(q)
-      )
-    })
+    results = results.filter(b =>
+      b.domaine?.toLowerCase().includes(q) ||
+      b.cuvee?.toLowerCase().includes(q) ||
+      b.appellation?.toLowerCase().includes(q) ||
+      b.millesime?.toString().includes(q) ||
+      b.zone?.name.toLowerCase().includes(q) ||
+      b.shelf?.toLowerCase().includes(q)
+    )
   }
 
   return results
@@ -329,12 +327,10 @@ export default function Home() {
                     </div>
 
                     {/* Quantity */}
-                    {group.quantity > 0 && (
-                      <div className="flex-shrink-0 text-right">
-                        <span className="font-serif text-[15px] font-semibold text-[var(--text-primary)]">{group.quantity}</span>
-                        <span className="ml-0.5 text-[10px] text-[var(--text-muted)]">btl</span>
-                      </div>
-                    )}
+                    <div className="flex-shrink-0 text-right">
+                      <span className="font-serif text-[15px] font-semibold text-[var(--text-primary)]">{group.quantity}</span>
+                      <span className="ml-0.5 text-[10px] text-[var(--text-muted)]">btl</span>
+                    </div>
                   </div>
                 </Link>
               )
