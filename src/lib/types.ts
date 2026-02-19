@@ -42,6 +42,9 @@ export interface Bottle {
   drink_until: number | null
   notes: string | null
   tasting_photos: TastingPhoto[] | null
+  rating: number | null
+  rebuy: boolean | null
+  qpr: number | null
 }
 
 export interface BottleWithZone extends Bottle {

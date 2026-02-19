@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro, Pencil, Plus, Camera, ImageIcon, X, Check, Tag, Grid2x2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro, Pencil, Plus, Camera, ImageIcon, X, Check, Tag, Grid2x2, Star, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
@@ -29,6 +29,9 @@ export default function BottlePage() {
   const totalBatch = batchState?.batchIds?.length ?? 0
 
   const [tastingNote, setTastingNote] = useState('')
+  const [rating, setRating] = useState<number | null>(null)
+  const [rebuy, setRebuy] = useState<boolean | null>(null)
+  const [qpr, setQpr] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState(false)
   const [sharing, setSharing] = useState(false)
@@ -46,9 +49,12 @@ export default function BottlePage() {
   const tastingPhotoInputRef = useRef<HTMLInputElement>(null)
   const tastingPhotoGalleryRef = useRef<HTMLInputElement>(null)
 
-  // Sync tasting note with bottle data (reset when bottle changes)
+  // Sync tasting fields with bottle data (reset when bottle changes)
   useEffect(() => {
     setTastingNote(bottle?.tasting_note || '')
+    setRating(bottle?.rating ?? null)
+    setRebuy(bottle?.rebuy ?? null)
+    setQpr(bottle?.qpr ?? null)
   }, [bottle?.id])
 
   // Fetch cave data (same wine count + past tastings) for in_stock bottles
@@ -101,7 +107,12 @@ export default function BottlePage() {
     setSaving(true)
     const { error } = await supabase
       .from('bottles')
-      .update({ tasting_note: tastingNote || null })
+      .update({
+        tasting_note: tastingNote || null,
+        rating: rating,
+        rebuy: rebuy,
+        qpr: qpr,
+      })
       .eq('id', bottle.id)
 
     if (!error) {
@@ -248,11 +259,22 @@ export default function BottlePage() {
     if (!bottle) return
     setSaving(true)
 
-    // Save tasting note if modified
-    if (tastingNote !== (bottle.tasting_note || '')) {
+    // Save tasting fields if modified
+    const hasChanges =
+      tastingNote !== (bottle.tasting_note || '') ||
+      rating !== (bottle.rating ?? null) ||
+      rebuy !== (bottle.rebuy ?? null) ||
+      qpr !== (bottle.qpr ?? null)
+
+    if (hasChanges) {
       await supabase
         .from('bottles')
-        .update({ tasting_note: tastingNote || null })
+        .update({
+          tasting_note: tastingNote || null,
+          rating: rating,
+          rebuy: rebuy,
+          qpr: qpr,
+        })
         .eq('id', bottle.id)
     }
 
@@ -534,6 +556,72 @@ export default function BottlePage() {
               lang="fr"
               autoCapitalize="sentences"
             />
+            {/* Rating, Rebuy, QPR controls */}
+            <div className="border-t border-[var(--border-color)] px-[14px] py-3 flex flex-col gap-3">
+              {/* Rating stars */}
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] text-[var(--text-muted)] w-12 shrink-0">Note</span>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      className="p-0.5 transition-colors"
+                      onClick={() => setRating(rating === star ? null : star)}
+                    >
+                      <Star
+                        className={`h-[22px] w-[22px] ${
+                          rating && star <= rating
+                            ? 'fill-[var(--accent)] text-[var(--accent)]'
+                            : 'fill-none text-[var(--text-muted)]'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Rebuy + QPR row */}
+              <div className="flex items-center gap-4">
+                {/* Rebuy toggle */}
+                <button
+                  type="button"
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium border transition-colors ${
+                    rebuy
+                      ? 'bg-[var(--accent-bg)] border-[var(--accent)] text-[var(--accent)]'
+                      : 'bg-transparent border-[var(--border-color)] text-[var(--text-muted)]'
+                  }`}
+                  onClick={() => setRebuy(rebuy ? null : true)}
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  À racheter
+                </button>
+
+                {/* QPR chips */}
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <span className="text-[11px] text-[var(--text-muted)] mr-0.5">Q/P</span>
+                  {([
+                    { value: 1, label: 'Cher' },
+                    { value: 2, label: 'Correct' },
+                    { value: 3, label: 'Pépite' },
+                  ] as const).map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-medium border transition-colors ${
+                        qpr === option.value
+                          ? 'bg-[var(--accent-bg)] border-[var(--accent)] text-[var(--accent)]'
+                          : 'bg-transparent border-[var(--border-color)] text-[var(--text-muted)]'
+                      }`}
+                      onClick={() => setQpr(qpr === option.value ? null : option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <div className="flex gap-2 border-t border-[var(--border-color)] py-2.5 px-[14px]">
               {isBatchMode ? (
                 <button
