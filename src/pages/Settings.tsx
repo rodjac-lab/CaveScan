@@ -32,6 +32,8 @@ export default function Settings() {
   const [isAddingZone, setIsAddingZone] = useState(false)
   const [zoneName, setZoneName] = useState('')
   const [zoneDescription, setZoneDescription] = useState('')
+  const [zoneRows, setZoneRows] = useState('4')
+  const [zoneDepth, setZoneDepth] = useState('2')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [showCopiedToast, setShowCopiedToast] = useState(false)
@@ -39,6 +41,8 @@ export default function Settings() {
   const handleOpenAdd = () => {
     setZoneName('')
     setZoneDescription('')
+    setZoneRows('4')
+    setZoneDepth('2')
     setIsAddingZone(true)
   }
 
@@ -46,6 +50,8 @@ export default function Settings() {
     setEditingZone(zone)
     setZoneName(zone.name)
     setZoneDescription(zone.description || '')
+    setZoneRows(String(zone.rows || 4))
+    setZoneDepth(String(zone.columns || 2))
   }
 
   const handleClose = () => {
@@ -53,12 +59,16 @@ export default function Settings() {
     setEditingZone(null)
     setZoneName('')
     setZoneDescription('')
+    setZoneRows('4')
+    setZoneDepth('2')
   }
 
   const handleSave = async () => {
     if (!zoneName.trim()) return
 
     setSaving(true)
+    const rows = Math.max(1, Math.min(30, Number.parseInt(zoneRows, 10) || 4))
+    const columns = Math.max(1, Math.min(4, Number.parseInt(zoneDepth, 10) || 2))
 
     if (editingZone) {
       // Update existing zone
@@ -67,6 +77,8 @@ export default function Settings() {
         .update({
           name: zoneName.trim(),
           description: zoneDescription.trim() || null,
+          rows,
+          columns,
         })
         .eq('id', editingZone.id)
 
@@ -79,6 +91,8 @@ export default function Settings() {
       const { error } = await supabase.from('zones').insert({
         name: zoneName.trim(),
         description: zoneDescription.trim() || null,
+        rows,
+        columns,
         position: zones.length,
       })
 
@@ -192,6 +206,9 @@ export default function Settings() {
                     {zone.description && (
                       <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{zone.description}</p>
                     )}
+                    <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                      {zone.rows} étagères · profondeur {zone.columns}
+                    </p>
                   </div>
                   <div className="flex gap-1">
                     <button
@@ -291,6 +308,28 @@ export default function Settings() {
                 onChange={(e) => setZoneDescription(e.target.value)}
                 placeholder="ex: Rouges de garde"
               />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="zone-rows">Nombre d'étagères</Label>
+                <Input
+                  id="zone-rows"
+                  inputMode="numeric"
+                  value={zoneRows}
+                  onChange={(e) => setZoneRows(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                  placeholder="ex: 6"
+                />
+              </div>
+              <div>
+                <Label htmlFor="zone-depth">Profondeur (nb positions)</Label>
+                <Input
+                  id="zone-depth"
+                  inputMode="numeric"
+                  value={zoneDepth}
+                  onChange={(e) => setZoneDepth(e.target.value.replace(/\D/g, '').slice(0, 1))}
+                  placeholder="ex: 2"
+                />
+              </div>
             </div>
           </div>
 

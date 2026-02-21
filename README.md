@@ -69,6 +69,17 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 npm run dev
 ```
 
+### 5) Tester depuis un téléphone (même réseau Wi‑Fi)
+
+Par défaut, Vite écoute sur `localhost` (accessible uniquement sur la machine qui lance le serveur).
+Pour ouvrir l'app sur un autre appareil (ex: téléphone), lance:
+
+```bash
+npm run dev -- --host 0.0.0.0 --port 4173
+```
+
+Puis ouvre l'URL affichée sur la ligne `Network` (ex: `http://192.168.x.x:4173`).
+
 ## Scripts
 
 - `npm run dev` : serveur local Vite
