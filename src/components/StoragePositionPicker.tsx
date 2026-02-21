@@ -8,6 +8,12 @@ function getStorageLabel(row: number, depth: number): string {
   return `Étagère ${row} · Profondeur ${depth}`
 }
 
+function getDepthButtonLabel(depth: number): string {
+  if (depth === 1) return 'Avant'
+  if (depth === 2) return 'Fond'
+  return `Fond ${depth - 1}`
+}
+
 function parseStorageLabel(value: string): { row: number; depth: number } | null {
   const match = value.match(/Étagère\s+(\d+)\s+·\s+Profondeur\s+(\d+)/i)
   if (!match) return null
@@ -85,7 +91,7 @@ export function StoragePositionPicker({ zoneId, zone, value, onChange }: Storage
                 onClick={() => onChange(getStorageLabel(currentPosition?.row ?? 1, depth))}
                 className={`rounded-md border px-3 py-1 text-sm transition-colors ${isActive ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]' : 'border-[var(--border-color)] text-[var(--text-secondary)]'}`}
               >
-                {depth === 1 ? 'Avant' : `Fond ${depth}`}
+                {getDepthButtonLabel(depth)}
               </button>
             )
           })}

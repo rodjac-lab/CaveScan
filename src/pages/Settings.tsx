@@ -321,7 +321,7 @@ export default function Settings() {
                 />
               </div>
               <div>
-                <Label htmlFor="zone-depth">Profondeur (nb positions)</Label>
+                <Label htmlFor="zone-depth">Profondeur (Nombre)</Label>
                 <Input
                   id="zone-depth"
                   inputMode="numeric"

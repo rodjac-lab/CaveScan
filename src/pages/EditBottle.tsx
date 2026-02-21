@@ -15,6 +15,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Autocomplete } from '@/components/Autocomplete'
+import { StoragePositionPicker } from '@/components/StoragePositionPicker'
 import { supabase } from '@/lib/supabase'
 import { useZones } from '@/hooks/useZones'
 import { useBottle, useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
@@ -253,12 +254,14 @@ export default function EditBottle() {
 
         <div>
           <Label htmlFor="shelf">Etagere / Emplacement</Label>
-          <Input
-            id="shelf"
-            value={shelf}
-            onChange={(e) => setShelf(e.target.value)}
-            placeholder="ex: Etagere 1, Haut..."
-          />
+          <div id="shelf" className="mt-1">
+            <StoragePositionPicker
+              zoneId={zoneId === 'none' ? '' : zoneId}
+              zone={zones.find((z) => z.id === zoneId)}
+              value={shelf}
+              onChange={setShelf}
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
