@@ -13,6 +13,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { Autocomplete } from '@/components/Autocomplete'
 import { getProgressDotColor } from '@/components/BatchDrinkProgress'
+import { StoragePositionPicker } from '@/components/StoragePositionPicker'
 import { WINE_COLORS, type WineColor } from '@/lib/types'
 import type { Zone } from '@/lib/types'
 
@@ -245,12 +246,14 @@ export function BatchItemForm({
 
         <div>
           <Label htmlFor="shelf">Étagère / Emplacement</Label>
-          <Input
-            id="shelf"
-            value={item.shelf}
-            onChange={(e) => onUpdate({ shelf: e.target.value })}
-            placeholder="ex: Étagère 1, Haut..."
-          />
+          <div id="shelf" className="mt-1">
+            <StoragePositionPicker
+              zoneId={item.zoneId}
+              zone={zones.find((z) => z.id === item.zoneId)}
+              value={item.shelf}
+              onChange={(value) => onUpdate({ shelf: value })}
+            />
+          </div>
         </div>
 
         <div>

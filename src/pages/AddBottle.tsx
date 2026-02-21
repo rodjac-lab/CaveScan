@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Camera, Loader2, Check, X, Wine, Plus, Minus, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Autocomplete } from '@/components/Autocomplete'
 import { BatchProgress, type BatchProgressItem } from '@/components/BatchProgress'
 import { BatchItemForm, type BatchItemData } from '@/components/BatchItemForm'
+import { StoragePositionPicker } from '@/components/StoragePositionPicker'
 import { supabase } from '@/lib/supabase'
 import { useZones } from '@/hooks/useZones'
 import { useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
@@ -511,6 +512,12 @@ export default function AddBottle() {
     error: item.extractionError,
   }))
 
+  useEffect(() => {
+    if (!zoneId && zones.length === 1) {
+      setZoneId(zones[0].id)
+    }
+  }, [zoneId, zones])
+
   return (
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6">
       {/* Page Header */}
@@ -798,12 +805,14 @@ export default function AddBottle() {
 
             <div>
               <Label htmlFor="shelf">Étagère / Emplacement</Label>
-              <Input
-                id="shelf"
-                value={shelf}
-                onChange={(e) => setShelf(e.target.value)}
-                placeholder="ex: Étagère 1, Haut..."
-              />
+              <div id="shelf" className="mt-1">
+                <StoragePositionPicker
+                  zoneId={zoneId}
+                  zone={zones.find((z) => z.id === zoneId)}
+                  value={shelf}
+                  onChange={setShelf}
+                />
+              </div>
             </div>
 
             <div>
