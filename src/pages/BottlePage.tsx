@@ -9,7 +9,7 @@ import { getWineColorLabel, type TastingPhoto, type BottleWithZone } from '@/lib
 import { resizeImage } from '@/lib/image'
 import { track } from '@/lib/track'
 
-const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Autre']
+const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Plat', 'Ambiance', 'Autre']
 
 const COLOR_CSS_VARS: Record<string, string> = {
   rouge: 'red-wine',
@@ -171,18 +171,44 @@ export default function BottlePage() {
 
       const text = lines.join('\n')
 
-      // Try to share with image if available
-      if (bottle.photo_url && navigator.canShare) {
-        try {
-          const response = await fetch(bottle.photo_url)
-          const blob = await response.blob()
-          const fileName = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`
-          const file = new File([blob], fileName, { type: 'image/jpeg' })
+      // Try to share with all available images (main + tasting photos)
+      const photoEntries = [
+        bottle.photo_url ? { url: bottle.photo_url, label: 'principale' } : null,
+        ...(((bottle.tasting_photos as TastingPhoto[]) || []).map((photo) => ({
+          url: photo.url,
+          label: photo.label || 'degustation',
+        }))),
+      ].filter((entry): entry is { url: string; label: string } => !!entry?.url)
 
-          if (navigator.canShare({ files: [file] })) {
+      if (photoEntries.length > 0 && navigator.canShare) {
+        try {
+          const uniquePhotoEntries = Array.from(
+            new Map(photoEntries.map((entry) => [entry.url, entry])).values(),
+          )
+          const safeTitle = title.replace(/[^a-zA-Z0-9]/g, '_') || 'vin'
+          const downloadResults = await Promise.allSettled(
+            uniquePhotoEntries.map(async (entry, index) => {
+              const response = await fetch(entry.url)
+              const blob = await response.blob()
+              const mimeType = blob.type || 'image/jpeg'
+              const extension = mimeType.includes('png')
+                ? 'png'
+                : mimeType.includes('webp')
+                  ? 'webp'
+                  : 'jpg'
+              const safeLabel = entry.label.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
+              const fileName = `${safeTitle}_${index + 1}_${safeLabel}.${extension}`
+              return new File([blob], fileName, { type: mimeType })
+            }),
+          )
+          const files = downloadResults
+            .filter((result): result is PromiseFulfilledResult<File> => result.status === 'fulfilled')
+            .map((result) => result.value)
+
+          if (files.length > 0 && navigator.canShare({ files })) {
             await navigator.share({
               text,
-              files: [file],
+              files,
             })
             track('bottle_shared')
             setSharing(false)
