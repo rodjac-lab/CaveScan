@@ -157,7 +157,7 @@ export default function BottlePage() {
       const title = bottle.domaine || bottle.appellation || 'Vin'
       const lines: string[] = []
 
-      lines.push(`🍷 ${title}${bottle.millesime ? ` ${bottle.millesime}` : ''}`)
+      lines.push(`🍷 ${title}${bottle.cuvee ? ` « ${bottle.cuvee} »` : ''}${bottle.millesime ? ` ${bottle.millesime}` : ''}`)
       if (bottle.appellation && bottle.domaine) {
         lines.push(bottle.appellation)
       }
