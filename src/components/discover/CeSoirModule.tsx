@@ -119,9 +119,53 @@ function matchQueryToTag(query: string, mode: Mode): string | null {
   return null
 }
 
-function getSuggestion(tag: string, mode: Mode): SuggestionResult | null {
+function inferBarColor(name: string, appellation: string): string {
+  const text = stripAccents(`${name} ${appellation}`.toLowerCase())
+  const redKeys = ['rouge', 'malbec', 'cahors', 'chianti', 'beaujolais', 'rhone', 'corse', 'entrecote', 'daube', 'viande', 'terrine', 'sangiovese']
+  const whiteKeys = ['blanc', 'muscadet', 'loire', 'chardonnay', 'saint-jacques', 'bourgogne', 'coquilles']
+  const roseKeys = ['rose', 'provence', 'salade', 'mediterraneen', 'nicoise']
+  const champKeys = ['champagne', 'bulles', 'sauternes', 'muscat', 'gougeres', 'aperitif', 'brut']
+
+  if (champKeys.some(k => text.includes(k))) return 'bg-[var(--champagne)]'
+  if (roseKeys.some(k => text.includes(k))) return 'bg-[var(--rose-wine)]'
+  if (whiteKeys.some(k => text.includes(k))) return 'bg-[var(--white-wine)]'
+  if (redKeys.some(k => text.includes(k))) return 'bg-[var(--red-wine)]'
+  return 'bg-[var(--accent)]'
+}
+
+function buildSuggestionCards(tag: string, mode: Mode): CarouselCard[] {
   const lookup = mode === 'food' ? FOOD_TO_WINE : WINE_TO_FOOD
-  return lookup[tag] ?? null
+  const mainSuggestion = lookup[tag]
+  if (!mainSuggestion) return MOCK_CARDS
+
+  const cards: CarouselCard[] = []
+
+  // Card 1: the matched suggestion
+  cards.push({
+    id: `suggestion-${tag}`,
+    name: mainSuggestion.name,
+    appellation: mainSuggestion.appellation,
+    badge: 'Suggestion IA',
+    badgeColor: 'bg-[var(--accent)]',
+    reason: mainSuggestion.explanation,
+    barColor: inferBarColor(mainSuggestion.name, mainSuggestion.appellation),
+  })
+
+  // Cards 2+: other entries from the same mapping
+  for (const [otherTag, suggestion] of Object.entries(lookup)) {
+    if (otherTag === tag) continue
+    cards.push({
+      id: `accord-${otherTag}`,
+      name: suggestion.name,
+      appellation: suggestion.appellation,
+      badge: 'Accord',
+      badgeColor: 'bg-[var(--text-muted)]',
+      reason: suggestion.explanation,
+      barColor: inferBarColor(suggestion.name, suggestion.appellation),
+    })
+  }
+
+  return cards
 }
 
 // --- Component ---
@@ -136,8 +180,7 @@ export default function CeSoirModule() {
 
   const tags = mode === 'food' ? FOOD_TAGS : WINE_TAGS
   const placeholder = mode === 'food' ? 'Ex: Magret de canard...' : 'Ex: Pinot Noir...'
-  const result = selectedTag ? getSuggestion(selectedTag, mode) : null
-  const showCarousel = !selectedTag && !searchNotFound
+  const cards = selectedTag ? buildSuggestionCards(selectedTag, mode) : MOCK_CARDS
   const hasActiveSearch = searchQuery.trim().length > 0 || selectedTag !== null || searchNotFound
 
   function resetSearch(): void {
@@ -153,11 +196,19 @@ export default function CeSoirModule() {
     function handleScroll() {
       const cardWidth = 220 + 12
       const index = Math.round(el!.scrollLeft / cardWidth)
-      setActiveIndex(Math.min(index, MOCK_CARDS.length - 1))
+      setActiveIndex(Math.min(index, cards.length - 1))
     }
     el.addEventListener('scroll', handleScroll, { passive: true })
     return () => el.removeEventListener('scroll', handleScroll)
-  }, [])
+  }, [cards.length])
+
+  // Reset scroll to first card when suggestion changes
+  useEffect(() => {
+    if (selectedTag && scrollRef.current) {
+      scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' })
+      setActiveIndex(0)
+    }
+  }, [selectedTag])
 
   function handleTagClick(tag: string): void {
     setSelectedTag(selectedTag === tag ? null : tag)
@@ -246,50 +297,46 @@ export default function CeSoirModule() {
         )}
       </form>
 
-      {/* Carousel (shown when no search is active) */}
-      {showCarousel && (
-        <>
+      {/* Carousel — always visible */}
+      <div
+        ref={scrollRef}
+        className="flex gap-3 overflow-x-auto discover-carousel scrollbar-hide -mx-6 px-6 mb-1"
+      >
+        {cards.map((card) => (
           <div
-            ref={scrollRef}
-            className="flex gap-3 overflow-x-auto discover-carousel scrollbar-hide -mx-6 px-6 mb-1"
+            key={card.id}
+            className="flex-shrink-0 w-[220px] rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden"
           >
-            {MOCK_CARDS.map((card) => (
-              <div
-                key={card.id}
-                className="flex-shrink-0 w-[220px] rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden"
-              >
-                <div className="flex">
-                  <div className={`w-[4px] ${card.barColor}`} />
-                  <div className="flex-1 p-3">
-                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ${card.badgeColor} mb-2`}>
-                      {card.badge}
-                    </span>
-                    <p className="font-serif text-[15px] font-bold text-[var(--text-primary)] leading-tight">
-                      {card.name}
-                    </p>
-                    <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{card.appellation}</p>
-                    <p className="text-[12px] italic text-[var(--text-secondary)] mt-2 leading-relaxed line-clamp-3">
-                      {card.reason}
-                    </p>
-                  </div>
-                </div>
+            <div className="flex">
+              <div className={`w-[4px] ${card.barColor}`} />
+              <div className="flex-1 p-3">
+                <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ${card.badgeColor} mb-2`}>
+                  {card.badge}
+                </span>
+                <p className="font-serif text-[15px] font-bold text-[var(--text-primary)] leading-tight">
+                  {card.name}
+                </p>
+                <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{card.appellation}</p>
+                <p className="text-[12px] italic text-[var(--text-secondary)] mt-2 leading-relaxed line-clamp-3">
+                  {card.reason}
+                </p>
               </div>
-            ))}
+            </div>
           </div>
+        ))}
+      </div>
 
-          {/* Dots */}
-          <div className="flex items-center justify-center gap-1.5 mb-3">
-            {MOCK_CARDS.map((card, i) => (
-              <div
-                key={card.id}
-                className={`transition-all duration-200 ${
-                  i === activeIndex ? 'discover-dot-active' : 'discover-dot-inactive'
-                }`}
-              />
-            ))}
-          </div>
-        </>
-      )}
+      {/* Dots */}
+      <div className="flex items-center justify-center gap-1.5 mb-3">
+        {cards.map((card, i) => (
+          <div
+            key={card.id}
+            className={`transition-all duration-200 ${
+              i === activeIndex ? 'discover-dot-active' : 'discover-dot-inactive'
+            }`}
+          />
+        ))}
+      </div>
 
       {/* Not found message */}
       {searchNotFound && (
@@ -300,20 +347,6 @@ export default function CeSoirModule() {
           <p className="text-[11px] text-[var(--text-muted)] mt-1">
             Essayez un des tags ci-dessous ou un terme plus générique.
           </p>
-        </div>
-      )}
-
-      {/* Result card */}
-      {result && (
-        <div className="rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] p-4 card-shadow animate-in fade-in duration-200 mb-3">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)] border border-[rgba(184,134,11,0.12)]">
-              Suggestion IA
-            </span>
-          </div>
-          <p className="font-serif text-[16px] font-bold text-[var(--text-primary)]">{result.name}</p>
-          <p className="text-[12px] text-[var(--text-muted)] mt-0.5">{result.appellation}</p>
-          <p className="text-[13px] italic text-[var(--text-secondary)] mt-2 leading-relaxed">{result.explanation}</p>
         </div>
       )}
 
