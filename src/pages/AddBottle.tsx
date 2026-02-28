@@ -496,12 +496,18 @@ export default function AddBottle() {
 
       track('bottle_added', { couleur: item.couleur || null, has_photo: true })
 
-      // Move to next item or finish
-      if (currentBatchIndex < batchItems.length - 1) {
-        setCurrentBatchIndex(currentBatchIndex + 1)
+      // Mark current item as saved
+      const updatedItems = [...batchItems]
+      updatedItems[currentBatchIndex] = { ...updatedItems[currentBatchIndex], saved: true }
+      setBatchItems(updatedItems)
+
+      // Find next unsaved item, or finish
+      const nextUnsaved = updatedItems.findIndex((it, i) => i !== currentBatchIndex && !it.saved)
+      if (nextUnsaved !== -1) {
+        setCurrentBatchIndex(nextUnsaved)
         setStep('batch-confirm')
       } else {
-        // All items saved — recompute profile on last item
+        // All items saved
         triggerProfileRecompute()
         handleReset()
       }
@@ -513,10 +519,12 @@ export default function AddBottle() {
   }
 
   const handleBatchSkipCurrentItem = () => {
-    if (currentBatchIndex < batchItems.length - 1) {
-      setCurrentBatchIndex(currentBatchIndex + 1)
+    // Find next unsaved item after current
+    const nextUnsaved = batchItems.findIndex((it, i) => i !== currentBatchIndex && !it.saved)
+    if (nextUnsaved !== -1) {
+      setCurrentBatchIndex(nextUnsaved)
     } else {
-      // Last item, reset
+      // All items saved or skipped, finish
       handleReset()
     }
   }
@@ -932,7 +940,7 @@ export default function AddBottle() {
         <div className="mt-6 space-y-4">
           <div className="text-center mb-4">
             <p className="text-lg font-semibold text-[var(--text-primary)]">
-              {batchItems.length} bouteilles à valider
+              {batchItems.filter(it => !it.saved).length} bouteille{batchItems.filter(it => !it.saved).length > 1 ? 's' : ''} restante{batchItems.filter(it => !it.saved).length > 1 ? 's' : ''}
             </p>
           </div>
 
@@ -940,11 +948,13 @@ export default function AddBottle() {
             item={batchItems[currentBatchIndex]}
             currentIndex={currentBatchIndex}
             totalItems={batchItems.length}
+            allItems={batchItems}
             zones={zones}
             zonesLoading={zonesLoading}
             domainesSuggestions={domainesSuggestions}
             appellationsSuggestions={appellationsSuggestions}
             onUpdate={handleBatchItemUpdate}
+            onNavigate={(index) => setCurrentBatchIndex(index)}
             onBackPhotoSelect={handleBatchBackPhotoSelect}
             onZoomImage={(src, label) => setZoomImage({ src, label })}
           />
@@ -952,15 +962,26 @@ export default function AddBottle() {
           <div className="flex gap-3 pt-4">
             <Button variant="outline" className="flex-1" onClick={handleBatchSkipCurrentItem}>
               <X className="mr-2 h-4 w-4" />
-              {currentBatchIndex < batchItems.length - 1 ? 'Passer' : 'Annuler'}
+              {batchItems.filter(it => !it.saved).length > 1 ? 'Passer' : 'Terminer'}
             </Button>
-            <Button
-              className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-light)]"
-              onClick={handleBatchSaveCurrentItem}
-            >
-              <Check className="mr-2 h-4 w-4" />
-              {currentBatchIndex < batchItems.length - 1 ? 'Enregistrer →' : 'Enregistrer'}
-            </Button>
+            {batchItems[currentBatchIndex].saved ? (
+              <Button
+                variant="outline"
+                className="flex-1 border-green-500 text-green-600"
+                disabled
+              >
+                <Check className="mr-2 h-4 w-4" />
+                Déjà enregistrée
+              </Button>
+            ) : (
+              <Button
+                className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-light)]"
+                onClick={handleBatchSaveCurrentItem}
+              >
+                <Check className="mr-2 h-4 w-4" />
+                {batchItems.filter(it => !it.saved).length > 1 ? 'Enregistrer' : 'Enregistrer'}
+              </Button>
+            )}
           </div>
         </div>
       )}

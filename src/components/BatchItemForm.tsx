@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
 import { Autocomplete } from '@/components/Autocomplete'
-import { getProgressDotColor } from '@/components/BatchDrinkProgress'
 import { StoragePositionPicker } from '@/components/StoragePositionPicker'
 import { WINE_COLORS, type WineColor } from '@/lib/types'
 import type { Zone } from '@/lib/types'
@@ -34,17 +33,20 @@ export interface BatchItemData {
   shelf: string
   purchasePrice: string
   rawExtraction: unknown
+  saved?: boolean
 }
 
 interface BatchItemFormProps {
   item: BatchItemData
   currentIndex: number
   totalItems: number
+  allItems: BatchItemData[]
   zones: Zone[]
   zonesLoading: boolean
   domainesSuggestions: string[]
   appellationsSuggestions: string[]
   onUpdate: (updates: Partial<BatchItemData>) => void
+  onNavigate: (index: number) => void
   onBackPhotoSelect: (file: File) => void
   onZoomImage: (src: string, label?: string) => void
 }
@@ -53,11 +55,13 @@ export function BatchItemForm({
   item,
   currentIndex,
   totalItems,
+  allItems,
   zones,
   zonesLoading,
   domainesSuggestions,
   appellationsSuggestions,
   onUpdate,
+  onNavigate,
   onBackPhotoSelect,
   onZoomImage,
 }: BatchItemFormProps) {
@@ -80,17 +84,39 @@ export function BatchItemForm({
       {/* Batch navigation header */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
-          <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+          <button
+            type="button"
+            onClick={() => currentIndex > 0 && onNavigate(currentIndex - 1)}
+            disabled={currentIndex === 0}
+            className="p-1 rounded-full transition-colors disabled:opacity-30"
+          >
+            <ChevronLeft className="h-4 w-4 text-[var(--text-secondary)]" />
+          </button>
           <span className="text-sm font-medium">
             Fiche {currentIndex + 1} sur {totalItems}
           </span>
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          <button
+            type="button"
+            onClick={() => currentIndex < totalItems - 1 && onNavigate(currentIndex + 1)}
+            disabled={currentIndex === totalItems - 1}
+            className="p-1 rounded-full transition-colors disabled:opacity-30"
+          >
+            <ChevronRight className="h-4 w-4 text-[var(--text-secondary)]" />
+          </button>
         </div>
         <div className="flex gap-1">
-          {Array.from({ length: totalItems }).map((_, i) => (
-            <div
+          {allItems.map((batchItem, i) => (
+            <button
               key={i}
-              className={`h-1.5 w-6 rounded-full transition-colors ${getProgressDotColor(i, currentIndex)}`}
+              type="button"
+              onClick={() => onNavigate(i)}
+              className={`h-1.5 w-6 rounded-full transition-colors ${
+                batchItem.saved
+                  ? 'bg-green-500'
+                  : i === currentIndex
+                    ? 'bg-[var(--accent)]'
+                    : 'bg-muted'
+              }`}
             />
           ))}
         </div>
