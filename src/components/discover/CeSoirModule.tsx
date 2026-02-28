@@ -79,11 +79,31 @@ function badgeToClass(badge: string): string {
 
 function LoadingAnimation() {
   return (
-    <div className="flex flex-col items-center justify-center w-full py-4">
-      <Suspense fallback={<div className="h-32 w-32" />}>
+    <div className="flex flex-col items-center justify-center w-full py-6 min-h-[220px]">
+      <Suspense fallback={<div className="h-44 w-44" />}>
         <LottieLoader />
       </Suspense>
       <p className="text-[11px] text-[var(--text-muted)] mt-1 italic">Le sommelier réfléchit...</p>
+    </div>
+  )
+}
+
+function LoadingCardSkeleton({ index }: { index: number }) {
+  return (
+    <div
+      className="flex-shrink-0 w-[220px] rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden animate-pulse"
+      style={{ animationDelay: `${index * 80}ms` }}
+    >
+      <div className="flex">
+        <div className="w-[4px] bg-[var(--border-color)]" />
+        <div className="flex-1 p-3">
+          <div className="h-4 w-20 rounded-full bg-[var(--border-color)] mb-2" />
+          <div className="h-4 w-4/5 rounded bg-[var(--border-color)] mb-2" />
+          <div className="h-3 w-2/5 rounded bg-[var(--border-color)] mb-3" />
+          <div className="h-3 w-full rounded bg-[var(--border-color)] mb-1.5" />
+          <div className="h-3 w-5/6 rounded bg-[var(--border-color)]" />
+        </div>
+      </div>
     </div>
   )
 }
@@ -95,9 +115,9 @@ function LottieLoader() {
     import('@/assets/cheers-wine.json').then((mod) => setAnimationData(mod.default))
   }, [])
 
-  if (!animationData) return <div className="h-32 w-32" />
+  if (!animationData) return <div className="h-44 w-44" />
 
-  return <LottiePlayer animationData={animationData} loop className="h-32 w-32" />
+  return <LottiePlayer animationData={animationData} loop className="h-44 w-44" />
 }
 
 const TAP_THRESHOLD = 10 // px — below this, it's a tap, not a swipe
@@ -164,7 +184,7 @@ export default function CeSoirModule() {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const effectiveQuery = selectedTag ?? submittedQuery
-  const { cards, loading, error } = useRecommendations(mode, effectiveQuery)
+  const { cards, loading, refreshing, error } = useRecommendations(mode, effectiveQuery)
 
   const tags = mode === 'food' ? FOOD_TAGS : WINE_TAGS
   const placeholder = mode === 'food' ? 'Ex: Magret de canard...' : 'Ex: Pinot Noir...'
@@ -193,7 +213,6 @@ export default function CeSoirModule() {
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' })
-      setActiveIndex(0)
     }
   }, [effectiveQuery])
 
@@ -242,15 +261,29 @@ export default function CeSoirModule() {
         {loading ? (
           <LoadingAnimation />
         ) : (
-          cards.map((card, i) => (
-            <RecommendationCardItem
-              key={card.bottle_id ?? `reco-${i}`}
-              card={card}
-              onTap={() => setExpandedCard(card)}
-            />
-          ))
+          <>
+            {cards.map((card, i) => (
+              <RecommendationCardItem
+                key={card.bottle_id ?? `reco-${i}`}
+                card={card}
+                onTap={() => setExpandedCard(card)}
+              />
+            ))}
+            {refreshing && (
+              <>
+                <LoadingCardSkeleton index={0} />
+                <LoadingCardSkeleton index={1} />
+              </>
+            )}
+          </>
         )}
       </div>
+
+      {refreshing && !loading && (
+        <p className="text-[11px] text-[var(--text-muted)] italic mb-2 text-center">
+          Le sommelier affine les recommandations...
+        </p>
+      )}
 
       {/* Dots */}
       {showCards && (
@@ -367,3 +400,4 @@ export default function CeSoirModule() {
     </div>
   )
 }
+

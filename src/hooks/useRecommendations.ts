@@ -153,20 +153,23 @@ export function useRecommendations(
 ): {
   cards: RecommendationCard[]
   loading: boolean
+  refreshing: boolean
   error: string | null
 } {
   const [cards, setCards] = useState<RecommendationCard[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const { bottles: caveBottles, loading: cavesLoading } = useBottles()
   const { bottles: drunkBottles, loading: drunkLoading } = useRecentlyDrunk()
-  const { profile, loading: profileLoading } = useTasteProfile()
+  const { profile } = useTasteProfile()
 
   // Profile enriches ranking but should not block first recommendations.
   const baseDataReady = !cavesLoading && !drunkLoading
 
   const requestIdRef = useRef(0)
+  const cardsRef = useRef<RecommendationCard[]>([])
 
   const caveRef = useRef(caveBottles)
   const drunkRef = useRef(drunkBottles)
@@ -174,6 +177,7 @@ export function useRecommendations(
   caveRef.current = caveBottles
   drunkRef.current = drunkBottles
   profileRef.current = profile
+  cardsRef.current = cards
 
   useEffect(() => {
     const queryKey = buildQueryKey(mode, query)
@@ -181,24 +185,15 @@ export function useRecommendations(
     if (cached) {
       setCards(cached)
       setLoading(false)
+      setRefreshing(false)
       setError(null)
     } else {
       setCards([])
       setLoading(true)
+      setRefreshing(false)
       setError(null)
     }
   }, [mode, query])
-
-  // If recommendations were loaded before profile arrived, refresh once profile is ready.
-  const profileRefreshDoneRef = useRef<string | null>(null)
-  useEffect(() => {
-    if (profileLoading || !baseDataReady) return
-    const key = buildQueryKey(mode, query)
-    if (profileRefreshDoneRef.current === key) return
-    profileRefreshDoneRef.current = key
-    fetchRecommendations()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profileLoading, baseDataReady, mode, query])
 
   const fetchRecommendations = useCallback(async () => {
     const queryKey = buildQueryKey(mode, query)
@@ -207,13 +202,15 @@ export function useRecommendations(
     const ranked = rankCaveBottles(mode, query, caveRef.current, drunkRef.current, profileRef.current, 24)
     const shortlistedBottles = ranked.map((item) => item.bottle)
     const localCards = buildLocalRecommendationCards(ranked, query)
+    const hasVisibleCards = cardsRef.current.length > 0 || (cached?.length ?? 0) > 0 || localCards.length > 0
+    const hadPreviousCards = cardsRef.current.length > 0
 
-    if (!cached && localCards.length > 0) {
-      setCards(localCards)
+    if (cached) {
+      setCards(cached)
       setLoading(false)
       setError(null)
-    } else if (cached) {
-      setCards(cached)
+    } else if (!hadPreviousCards && localCards.length > 0) {
+      setCards(localCards)
       setLoading(false)
       setError(null)
     } else {
@@ -222,6 +219,7 @@ export function useRecommendations(
     }
 
     const currentRequestId = ++requestIdRef.current
+    setRefreshing(hasVisibleCards)
 
     try {
       const resolved = await callRecommendApi(
@@ -252,6 +250,7 @@ export function useRecommendations(
     } finally {
       if (currentRequestId === requestIdRef.current) {
         setLoading(false)
+        setRefreshing(false)
       }
     }
   }, [mode, query])
@@ -262,5 +261,5 @@ export function useRecommendations(
     }
   }, [baseDataReady, fetchRecommendations])
 
-  return { cards, loading, error }
+  return { cards, loading, refreshing, error }
 }
