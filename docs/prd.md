@@ -105,7 +105,7 @@ Principe: aucune friction supplémentaire si l'utilisateur ne veut pas noter. Le
 - Fenêtres de maturité (enrichissement externe)
 - Valeur de cave (prix marché)
 - Import facture (photo/PDF)
-- Gestion fine des quantités (x6/x12)
+- ~~Gestion fine des quantités (x6/x12)~~ → Implémenté (champ `quantity` par ligne, +/- sur fiche)
 
 ### V2
 
@@ -142,6 +142,7 @@ CREATE TABLE bottles (
   photo_url TEXT,
   photo_url_back TEXT,
   status TEXT DEFAULT 'in_stock' CHECK (status IN ('in_stock', 'drunk')),
+  quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity >= 0),
   added_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   drunk_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ DEFAULT now(),
@@ -151,6 +152,12 @@ CREATE TABLE bottles (
   rating SMALLINT CHECK (rating >= 1 AND rating <= 5),
   rebuy BOOLEAN,
   qpr SMALLINT CHECK (qpr >= 1 AND qpr <= 3),
+  -- Enriched wine data (from OCR extraction)
+  grape_varieties TEXT,
+  serving_temperature TEXT,
+  typical_aromas TEXT,
+  food_pairings TEXT,
+  character TEXT,
   -- Pricing & maturity
   purchase_price DECIMAL(10,2),
   market_value DECIMAL(10,2),
@@ -173,6 +180,7 @@ Notes:
 - `tasting_photos` : tableau JSON `[{url, label?, taken_at}]`
 - `qpr` : 1 = Cher, 2 = Correct, 3 = Pépite
 - `rating` : note de dégustation sur 5
+- `quantity` : 1 ligne = N bouteilles identiques ; décrément à l'ouverture, +/- sur fiche détail
 
 ## Prompt extraction (référence)
 
@@ -210,11 +218,13 @@ Règles:
 
 1. Landing (présentation + CTA signup/login, visible si déconnecté)
 2. Cave (inventaire, recherche intégrée, filtres par couleur)
-3. Encaver (entrée par photo)
-4. Cheers! (sortie par photo, single ou batch)
-5. Détail bouteille (fiche vin, dégustation, partage)
-6. Édition bouteille
-7. Réglages (zones de stockage, invitation)
+3. Scanner (plein écran, choix intent : Encaver ou Déguster)
+4. Encaver (entrée par photo, single ou batch)
+5. Cheers! (sortie par photo, single ou batch)
+6. Découvrir (Le Sommelier IA + cartes d'exploration)
+7. Détail bouteille (fiche vin, dégustation, partage)
+8. Édition bouteille
+9. Réglages (zones de stockage, invitation)
 
 ## Roadmap
 

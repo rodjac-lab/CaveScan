@@ -177,11 +177,12 @@ Position fixe en bas, avec fond semi-transparent et blur.
 - Icône : 22×22px, stroke-width: 2
 - Label : 10px, font-weight 500
 
-**Structure : 4 onglets**
+**Structure : 5 onglets**
 1. Cave (🏠)
-2. Encaver (➕)
-3. Cheers! (😊)
-4. Réglages (⚙️)
+2. Cheers! (😊)
+3. Scanner (📷) — bouton central surélevé (52px), gradient doré, pas de NavLink
+4. Découvrir (🔍)
+5. Réglages (⚙️)
 
 ### 5.2 Header d'écran
 

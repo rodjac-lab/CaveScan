@@ -16,8 +16,8 @@ Liste vivante des travaux produit/tech, priorisée pour les prochaines itératio
 
 ## Plus tard (P2)
 
-- [ ] Réduire la taille des pages monolithiques (`AddBottle`, `RemoveBottle`, `BottlePage`) par extraction de sous-composants/hooks.
-- [ ] Suggestions intelligentes de bouteilles à ouvrir (ancienneté, maturité, diversité).
+- [x] ~~Réduire la taille des pages monolithiques~~ → Refactoring Fowler complété : 13 composants extraits, 3 utilities centralisées (`bottleActions`, `uploadPhoto`, `wineMatching`).
+- [x] ~~Suggestions intelligentes de bouteilles à ouvrir~~ → Le Sommelier (module Découvrir) avec Gemini Flash + Claude Haiku fallback.
 - [ ] Valorisation cave (prix marché) avec affichage de fiabilité de la donnée.
 - [ ] Import facture (photo/PDF) pour création batch assistée.
 - [ ] Mode partage (lecture seule puis collaboration).

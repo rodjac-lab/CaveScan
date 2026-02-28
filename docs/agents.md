@@ -2,11 +2,26 @@
 
 ## Project Structure & Module Organization
 - `src/` holds the React + TypeScript application code.
-- `src/pages/` contains route-level screens; `src/components/` hosts reusable UI components.
-- `src/hooks/` and `src/lib/` contain shared logic and utilities.
+- `src/pages/` contains route-level screens (orchestrators); `src/components/` hosts reusable UI components.
+- `src/hooks/` contains React hooks; `src/lib/` contains shared utilities and business logic.
 - `src/assets/` and `public/` store static assets.
 - `supabase/` contains database-related configuration/migrations.
 - `dist/` is the production build output (generated).
+
+### Key utilities (`src/lib/`)
+- `bottleActions.ts` — `openBottle()`: centralized logic to mark a bottle as drunk (handles quantity decrement + drunk row creation).
+- `uploadPhoto.ts` — `uploadPhoto()`: centralized resize → upload → getPublicUrl pipeline for wine label photos.
+- `wineMatching.ts` — `findMatches()`: fuzzy matching algorithm to find cave bottles matching an OCR extraction.
+- `supabase.ts` — Supabase client instance.
+- `batchSessionStore.ts` — In-memory store for batch tasting sessions.
+- `taste-profile.ts` — User taste profile computation.
+- `recommendationStore.ts` — Cache and store for sommelier recommendations.
+
+### Page component architecture
+Pages in `src/pages/` are orchestrators that compose focused sub-components:
+- **BottlePage** → `BottleIdentityCard`, `TastingGuideCard`, `TastingSection`, `CaveSection`, `BottleDeleteDialog`
+- **AddBottle** → `PhotoPreviewCard`, `WineFormFields`, `QuantitySelector`, `BatchItemForm`
+- **RemoveBottle** → `RemoveChooseStep`, `RemoveResultStep`, `BatchTastingItemForm`
 
 ## Build, Test, and Development Commands
 - `npm install` installs dependencies.

@@ -14,24 +14,28 @@ Principe directeur: minimiser la friction entre l’action réelle (ranger / ouv
 - `/login` : Connexion
 - `/signup` : Création de compte
 - `/cave` : Inventaire
-- `/add` : Entrée de bouteilles
-- `/remove` : Sortie de bouteilles
+- `/scanner` : Scanner (plein écran, choix intent)
+- `/add` : Entrée de bouteilles (Encaver)
+- `/remove` : Sortie de bouteilles (Cheers!)
+- `/discover` : Découvrir (Le Sommelier IA + exploration)
 - `/settings` : Réglages
 - `/bottle/:id` : Détail bouteille
 - `/bottle/:id/edit` : Édition bouteille
 
-## Bottom nav (authentifié)
+## Bottom nav (authentifié) — 5 onglets
 
 - Cave
-- Encaver
 - Cheers!
+- [Scanner] (bouton central surélevé, gradient doré 52px)
+- Découvrir
 - Réglages
 
 Règles:
 
-- Visible uniquement sur les routes authentifiées.
+- Visible uniquement sur les routes authentifiées (sauf `/scanner` qui est plein écran sans nav).
 - Toujours accessible en bas de l’écran.
 - Onglet actif visuellement explicite.
+- Le bouton Scanner central n’est pas un NavLink : il ouvre une page plein écran avec 2 intent pills ("Encaver" → `/add`, "Déguster" → `/remove`), chacune déclenchant le flux avec `prefillExtraction` + `prefillPhotoFile` via `location.state`.
 
 ## Écran Cave (`/cave`)
 
