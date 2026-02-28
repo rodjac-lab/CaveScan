@@ -32,6 +32,7 @@ const MAX_BATCH_SIZE = 12
 interface AddBottleLocationState {
   prefillExtraction?: Partial<WineExtraction> | null
   prefillPhotoFile?: File | null
+  prefillBatchFiles?: File[] | null
 }
 
 export default function AddBottle() {
@@ -44,8 +45,10 @@ export default function AddBottle() {
   const domainesSuggestions = useDomainesSuggestions()
   const appellationsSuggestions = useAppellationsSuggestions()
 
-  const prefillExtraction = (location.state as AddBottleLocationState | null)?.prefillExtraction ?? null
-  const prefillPhotoFile = (location.state as AddBottleLocationState | null)?.prefillPhotoFile ?? null
+  const locationState = location.state as AddBottleLocationState | null
+  const prefillExtraction = locationState?.prefillExtraction ?? null
+  const prefillPhotoFile = locationState?.prefillPhotoFile ?? null
+  const prefillBatchFiles = locationState?.prefillBatchFiles ?? null
   const hasPrefill = !!(
     prefillExtraction?.domaine ||
     prefillExtraction?.cuvee ||
@@ -91,6 +94,42 @@ export default function AddBottle() {
   const [batchItems, setBatchItems] = useState<BatchItemData[]>([])
   const [currentBatchIndex, setCurrentBatchIndex] = useState(0)
   const [batchExtractionIndex, setBatchExtractionIndex] = useState(0)
+  const batchInitRef = useRef(false)
+
+  // Auto-start batch when arriving from Scanner with multiple files
+  useEffect(() => {
+    if (!prefillBatchFiles || prefillBatchFiles.length === 0 || batchInitRef.current) return
+    batchInitRef.current = true
+
+    const selectedFiles = prefillBatchFiles.slice(0, MAX_BATCH_SIZE)
+
+    const items: BatchItemData[] = selectedFiles.map((file, index) => ({
+      id: `batch-${Date.now()}-${index}`,
+      photoFile: file,
+      photoPreview: URL.createObjectURL(file),
+      photoFileBack: null,
+      photoPreviewBack: null,
+      extractionStatus: 'pending' as const,
+      domaine: '',
+      cuvee: '',
+      appellation: '',
+      millesime: '',
+      couleur: '' as const,
+      zoneId: '',
+      shelf: '',
+      purchasePrice: '',
+      rawExtraction: null,
+    }))
+
+    setBatchItems(items)
+    setCurrentBatchIndex(0)
+    setBatchExtractionIndex(0)
+    setError(null)
+    track('scan_batch', { count: selectedFiles.length })
+    setStep('batch-extracting')
+
+    extractBatchSequentially(items)
+  }, [prefillBatchFiles]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -523,6 +562,8 @@ export default function AddBottle() {
     photoPreview: item.photoPreview,
     status: item.extractionStatus,
     error: item.extractionError,
+    domaine: item.domaine,
+    appellation: item.appellation,
   }))
 
   useEffect(() => {

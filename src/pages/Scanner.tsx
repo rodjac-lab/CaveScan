@@ -209,8 +209,13 @@ export default function Scanner() {
     const selectedFiles = savedFiles.slice(0, 12)
 
     if (intent === 'encaver') {
-      // Process first photo, send to AddBottle for single entry
-      await processPhoto(selectedFiles[0])
+      // Send all files to AddBottle for batch entry
+      stopCamera()
+      navigate('/add', {
+        state: {
+          prefillBatchFiles: selectedFiles,
+        },
+      })
     } else {
       // Create batch session for tasting
       stopCamera()

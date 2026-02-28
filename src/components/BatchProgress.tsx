@@ -7,6 +7,8 @@ export interface BatchProgressItem {
   photoPreview: string
   status: ExtractionStatus
   error?: string
+  domaine?: string
+  appellation?: string
 }
 
 interface BatchProgressProps {
@@ -55,6 +57,7 @@ export function BatchProgress({ items, currentIndex }: BatchProgressProps) {
         {items.map((item, index) => {
           const config = statusConfig[item.status]
           const isCurrent = index === currentIndex
+          const hasWineInfo = item.status === 'extracted' && (item.domaine || item.appellation)
 
           return (
             <div
@@ -69,12 +72,21 @@ export function BatchProgress({ items, currentIndex }: BatchProgressProps) {
                 className="h-12 w-12 rounded object-cover"
               />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">Photo {index + 1}</p>
-                {item.error && (
-                  <p className="text-xs text-destructive truncate">{item.error}</p>
+                {hasWineInfo ? (
+                  <>
+                    <p className="text-sm font-medium truncate">{item.domaine || 'Domaine inconnu'}</p>
+                    <p className="text-[11px] text-[var(--text-muted)] truncate">{item.appellation}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium truncate">Photo {index + 1}</p>
+                    {item.error && (
+                      <p className="text-xs text-destructive truncate">{item.error}</p>
+                    )}
+                  </>
                 )}
               </div>
-              <div className={`flex items-center gap-1.5 ${config.className}`}>
+              <div className={`flex items-center gap-1.5 flex-shrink-0 ${config.className}`}>
                 {config.icon}
                 <span className="text-xs">{config.label}</span>
               </div>
