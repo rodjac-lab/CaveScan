@@ -1,22 +1,8 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRecommendations } from '@/hooks/useRecommendations'
+import type { RecommendationCard } from '@/lib/recommendationStore'
 
 type Mode = 'food' | 'wine'
-
-interface SuggestionResult {
-  name: string
-  appellation: string
-  explanation: string
-}
-
-interface CarouselCard {
-  id: string
-  name: string
-  appellation: string
-  badge: string
-  badgeColor: string
-  reason: string
-  barColor: string
-}
 
 // --- Icons ---
 
@@ -46,58 +32,18 @@ function ChevronIcon() {
   )
 }
 
+function SparkleIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3">
+      <path d="M8 0L9.5 5.5L15 7L9.5 8.5L8 14L6.5 8.5L1 7L6.5 5.5L8 0Z" />
+    </svg>
+  )
+}
+
 // --- Data ---
 
 const FOOD_TAGS = ['Poulet rôti', 'Poisson', 'Fromage', 'Viande rouge', 'Pâtes', 'Sushi', 'Charcuterie', 'Dessert']
 const WINE_TAGS = ['Rouge', 'Blanc', 'Rosé', 'Bulles', 'Léger', 'Corsé']
-
-const FOOD_KEYWORDS: Record<string, string> = {
-  'poulet': 'Poulet rôti', 'volaille': 'Poulet rôti', 'dinde': 'Poulet rôti', 'pintade': 'Poulet rôti',
-  'poisson': 'Poisson', 'saumon': 'Poisson', 'cabillaud': 'Poisson', 'bar': 'Poisson', 'dorade': 'Poisson', 'truite': 'Poisson', 'thon': 'Poisson',
-  'fromage': 'Fromage', 'comté': 'Fromage', 'brie': 'Fromage', 'camembert': 'Fromage', 'roquefort': 'Fromage', 'chèvre': 'Fromage',
-  'boeuf': 'Viande rouge', 'steak': 'Viande rouge', 'entrecôte': 'Viande rouge', 'filet': 'Viande rouge', 'côte': 'Viande rouge', 'agneau': 'Viande rouge', 'gibier': 'Viande rouge', 'canard': 'Viande rouge',
-  'pâtes': 'Pâtes', 'pasta': 'Pâtes', 'spaghetti': 'Pâtes', 'lasagne': 'Pâtes', 'risotto': 'Pâtes', 'pizza': 'Pâtes',
-  'sushi': 'Sushi', 'maki': 'Sushi', 'sashimi': 'Sushi', 'japonais': 'Sushi',
-  'charcuterie': 'Charcuterie', 'saucisson': 'Charcuterie', 'jambon': 'Charcuterie', 'rillettes': 'Charcuterie', 'pâté': 'Charcuterie', 'terrine': 'Charcuterie',
-  'dessert': 'Dessert', 'gâteau': 'Dessert', 'tarte': 'Dessert', 'chocolat': 'Dessert', 'crème': 'Dessert', 'fruits': 'Dessert',
-}
-
-const WINE_KEYWORDS: Record<string, string> = {
-  'rouge': 'Rouge', 'cabernet': 'Rouge', 'merlot': 'Rouge', 'syrah': 'Rouge', 'malbec': 'Rouge', 'grenache': 'Rouge',
-  'blanc': 'Blanc', 'chardonnay': 'Blanc', 'sauvignon': 'Blanc', 'riesling': 'Blanc', 'viognier': 'Blanc', 'chablis': 'Blanc',
-  'rosé': 'Rosé', 'provence': 'Rosé',
-  'bulles': 'Bulles', 'champagne': 'Bulles', 'crémant': 'Bulles', 'prosecco': 'Bulles', 'brut': 'Bulles', 'mousseux': 'Bulles', 'pétillant': 'Bulles',
-  'léger': 'Léger', 'pinot': 'Léger', 'gamay': 'Léger', 'beaujolais': 'Léger',
-  'corsé': 'Corsé', 'puissant': 'Corsé', 'tannique': 'Corsé', 'bordeaux': 'Corsé', 'cahors': 'Corsé', 'madiran': 'Corsé',
-}
-
-const FOOD_TO_WINE: Record<string, SuggestionResult> = {
-  'Poulet rôti': { name: 'Bourgogne Chardonnay', appellation: 'Bourgogne', explanation: 'Un blanc rond et beurré qui épouse la tendreté du poulet rôti, sans le dominer.' },
-  'Poisson': { name: 'Muscadet Sèvre et Maine', appellation: 'Loire', explanation: 'Sa fraîcheur minérale et ses notes d\'agrumes subliment les poissons grillés ou en sauce légère.' },
-  'Fromage': { name: 'Sauternes', appellation: 'Bordeaux', explanation: 'L\'accord classique sucré-salé : la douceur du Sauternes contre le caractère du fromage.' },
-  'Viande rouge': { name: 'Cahors Malbec', appellation: 'Sud-Ouest', explanation: 'Les tanins puissants et les arômes de fruits noirs tiennent tête à une belle pièce de boeuf.' },
-  'Pâtes': { name: 'Chianti Classico', appellation: 'Toscane', explanation: 'L\'acidité du Sangiovese répond parfaitement à la sauce tomate des pâtes italiennes.' },
-  'Sushi': { name: 'Champagne Brut', appellation: 'Champagne', explanation: 'L\'effervescence et la fraîcheur du Champagne nettoient le palais entre chaque bouchée.' },
-  'Charcuterie': { name: 'Beaujolais', appellation: 'Beaujolais', explanation: 'Un rouge léger et fruité, tout en souplesse, idéal avec saucisson et rillettes.' },
-  'Dessert': { name: 'Muscat de Beaumes-de-Venise', appellation: 'Rhône', explanation: 'Ses arômes de fruits confits et de miel accompagnent les desserts fruités à merveille.' },
-}
-
-const WINE_TO_FOOD: Record<string, SuggestionResult> = {
-  'Rouge': { name: 'Entrecôte grillée', appellation: 'Classique', explanation: 'La viande rouge grillée reste le compagnon idéal d\'un bon rouge charpenté.' },
-  'Blanc': { name: 'Coquilles Saint-Jacques', appellation: 'Fruits de mer', explanation: 'La finesse des Saint-Jacques s\'accorde avec la minéralité d\'un blanc sec.' },
-  'Rosé': { name: 'Salade niçoise', appellation: 'Méditerranéen', explanation: 'Le rosé frais et fruité est le partenaire naturel de la cuisine méditerranéenne estivale.' },
-  'Bulles': { name: 'Gougères au comté', appellation: 'Apéritif', explanation: 'Les bulles et le fromage chaud : un accord d\'apéritif incontournable.' },
-  'Léger': { name: 'Terrine de campagne', appellation: 'Bistrot', explanation: 'Un vin léger et fruité équilibre le gras de la terrine sans l\'écraser.' },
-  'Corsé': { name: 'Daube provençale', appellation: 'Mijoté', explanation: 'Un vin corsé résiste à la puissance d\'un plat longuement mijoté.' },
-}
-
-const MOCK_CARDS: CarouselCard[] = [
-  { id: '1', name: 'Château Margaux 2015', appellation: 'Margaux', badge: 'À boire', badgeColor: 'bg-[var(--red-wine)]', reason: 'Ce millésime approche son apogée. C\'est le moment idéal pour l\'ouvrir.', barColor: 'bg-[var(--red-wine)]' },
-  { id: '2', name: 'Pouilly-Fumé 2023', appellation: 'Loire', badge: 'Saison', badgeColor: 'bg-[var(--white-wine)]', reason: 'Un blanc vif parfait pour les soirées de fin d\'hiver, sur un poisson au four.', barColor: 'bg-[var(--white-wine)]' },
-  { id: '3', name: 'Champagne Brut Rosé', appellation: 'Champagne', badge: 'Favori', badgeColor: 'bg-[var(--accent)]', reason: 'Votre plus haute note. Pourquoi ne pas célébrer ce soir\u00a0?', barColor: 'bg-[var(--champagne)]' },
-  { id: '4', name: 'Côtes du Rhône 2021', appellation: 'Rhône', badge: 'À boire', badgeColor: 'bg-[var(--red-wine)]', reason: 'Ce vin généreux n\'attend que vous. Idéal avec un plat mijoté.', barColor: 'bg-[var(--red-wine)]' },
-  { id: '5', name: 'Bandol Rosé 2024', appellation: 'Provence', badge: 'Saison', badgeColor: 'bg-[var(--rose-wine)]', reason: 'La fraîcheur provençale pour accompagner vos plats méditerranéens.', barColor: 'bg-[var(--rose-wine)]' },
-]
 
 const MODE_OPTIONS: { value: Mode; label: string }[] = [
   { value: 'food', label: 'Ce soir je mange...' },
@@ -106,132 +52,139 @@ const MODE_OPTIONS: { value: Mode; label: string }[] = [
 
 // --- Helpers ---
 
-function stripAccents(text: string): string {
-  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-}
-
-function matchQueryToTag(query: string, mode: Mode): string | null {
-  const normalized = stripAccents(query.toLowerCase())
-  const keywords = mode === 'food' ? FOOD_KEYWORDS : WINE_KEYWORDS
-  for (const [keyword, tag] of Object.entries(keywords)) {
-    if (normalized.includes(stripAccents(keyword))) return tag
+function colorToBarClass(color: RecommendationCard['color']): string {
+  switch (color) {
+    case 'rouge': return 'bg-[var(--red-wine)]'
+    case 'blanc': return 'bg-[var(--white-wine)]'
+    case 'rose': return 'bg-[var(--rose-wine)]'
+    case 'bulles': return 'bg-[var(--champagne)]'
+    default: return 'bg-[var(--accent)]'
   }
-  return null
 }
 
-function inferBarColor(name: string, appellation: string): string {
-  const text = stripAccents(`${name} ${appellation}`.toLowerCase())
-  const redKeys = ['rouge', 'malbec', 'cahors', 'chianti', 'beaujolais', 'rhone', 'corse', 'entrecote', 'daube', 'viande', 'terrine', 'sangiovese']
-  const whiteKeys = ['blanc', 'muscadet', 'loire', 'chardonnay', 'saint-jacques', 'bourgogne', 'coquilles']
-  const roseKeys = ['rose', 'provence', 'salade', 'mediterraneen', 'nicoise']
-  const champKeys = ['champagne', 'bulles', 'sauternes', 'muscat', 'gougeres', 'aperitif', 'brut']
-
-  if (champKeys.some(k => text.includes(k))) return 'bg-[var(--champagne)]'
-  if (roseKeys.some(k => text.includes(k))) return 'bg-[var(--rose-wine)]'
-  if (whiteKeys.some(k => text.includes(k))) return 'bg-[var(--white-wine)]'
-  if (redKeys.some(k => text.includes(k))) return 'bg-[var(--red-wine)]'
-  return 'bg-[var(--accent)]'
-}
-
-function buildSuggestionCards(tag: string, mode: Mode): CarouselCard[] {
-  const lookup = mode === 'food' ? FOOD_TO_WINE : WINE_TO_FOOD
-  const mainSuggestion = lookup[tag]
-  if (!mainSuggestion) return MOCK_CARDS
-
-  const cards: CarouselCard[] = []
-
-  // Card 1: the matched suggestion
-  cards.push({
-    id: `suggestion-${tag}`,
-    name: mainSuggestion.name,
-    appellation: mainSuggestion.appellation,
-    badge: 'Suggestion IA',
-    badgeColor: 'bg-[var(--accent)]',
-    reason: mainSuggestion.explanation,
-    barColor: inferBarColor(mainSuggestion.name, mainSuggestion.appellation),
-  })
-
-  // Cards 2+: other entries from the same mapping
-  for (const [otherTag, suggestion] of Object.entries(lookup)) {
-    if (otherTag === tag) continue
-    cards.push({
-      id: `accord-${otherTag}`,
-      name: suggestion.name,
-      appellation: suggestion.appellation,
-      badge: 'Accord',
-      badgeColor: 'bg-[var(--text-muted)]',
-      reason: suggestion.explanation,
-      barColor: inferBarColor(suggestion.name, suggestion.appellation),
-    })
+function badgeToClass(badge: string): string {
+  switch (badge) {
+    case 'De ta cave': return 'bg-[var(--accent)]'
+    case 'Accord parfait': return 'bg-[var(--red-wine)]'
+    case 'Audacieux': return 'bg-[var(--champagne)]'
+    case 'Découverte': return 'bg-[var(--text-muted)]'
+    default: return 'bg-[var(--accent)]'
   }
-
-  return cards
 }
 
-// --- Component ---
+// --- Sub-components ---
+
+function SkeletonCard() {
+  return (
+    <div className="flex-shrink-0 w-[220px] rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden animate-pulse">
+      <div className="flex">
+        <div className="w-[4px] bg-[var(--border-color)]" />
+        <div className="flex-1 p-3">
+          <div className="h-4 w-16 rounded-full bg-[var(--border-color)] mb-2" />
+          <div className="h-5 w-32 rounded bg-[var(--border-color)]" />
+          <div className="h-3 w-20 rounded bg-[var(--border-color)] mt-1.5" />
+          <div className="h-3 w-full rounded bg-[var(--border-color)] mt-3" />
+          <div className="h-3 w-3/4 rounded bg-[var(--border-color)] mt-1" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface RecommendationCardItemProps {
+  card: RecommendationCard
+}
+
+function RecommendationCardItem({ card }: RecommendationCardItemProps) {
+  return (
+    <div className="flex-shrink-0 w-[220px] rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden">
+      <div className="flex">
+        <div className={`w-[4px] ${colorToBarClass(card.color)}`} />
+        <div className="flex-1 p-3">
+          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ${badgeToClass(card.badge)} mb-2`}>
+            {card.badge}
+          </span>
+          <p className="font-serif text-[15px] font-bold text-[var(--text-primary)] leading-tight">
+            {card.name}
+          </p>
+          <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{card.appellation}</p>
+          <p className="text-[12px] italic text-[var(--text-secondary)] mt-2 leading-relaxed line-clamp-3">
+            {card.reason}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// --- Main component ---
 
 export default function CeSoirModule() {
   const [mode, setMode] = useState<Mode>('food')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchNotFound, setSearchNotFound] = useState(false)
+  const [submittedQuery, setSubmittedQuery] = useState<string | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  const effectiveQuery = selectedTag ?? submittedQuery
+  const { cards, loading, error } = useRecommendations(mode, effectiveQuery)
+
   const tags = mode === 'food' ? FOOD_TAGS : WINE_TAGS
   const placeholder = mode === 'food' ? 'Ex: Magret de canard...' : 'Ex: Pinot Noir...'
-  const cards = selectedTag ? buildSuggestionCards(selectedTag, mode) : MOCK_CARDS
-  const hasActiveSearch = searchQuery.trim().length > 0 || selectedTag !== null || searchNotFound
+  const hasActiveSearch = selectedTag !== null || submittedQuery !== null || searchQuery.trim().length > 0
 
-  function resetSearch(): void {
+  const resetSearch = useCallback(() => {
     setSelectedTag(null)
     setSearchQuery('')
-    setSearchNotFound(false)
-  }
+    setSubmittedQuery(null)
+  }, [])
 
-  // Carousel scroll tracking
+  // Track which card is centered in the carousel
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
     function handleScroll() {
       const cardWidth = 220 + 12
       const index = Math.round(el!.scrollLeft / cardWidth)
-      setActiveIndex(Math.min(index, cards.length - 1))
+      setActiveIndex(Math.min(index, Math.max(cards.length - 1, 0)))
     }
     el.addEventListener('scroll', handleScroll, { passive: true })
     return () => el.removeEventListener('scroll', handleScroll)
   }, [cards.length])
 
-  // Reset scroll to first card when suggestion changes
+  // Reset scroll position when the query changes
   useEffect(() => {
-    if (selectedTag && scrollRef.current) {
+    if (scrollRef.current) {
       scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' })
       setActiveIndex(0)
     }
-  }, [selectedTag])
+  }, [effectiveQuery])
 
   function handleTagClick(tag: string): void {
     setSelectedTag(selectedTag === tag ? null : tag)
     setSearchQuery('')
-    setSearchNotFound(false)
+    setSubmittedQuery(null)
   }
 
   function handleSearchSubmit(): void {
     if (searchQuery.trim().length < 2) return
-    const matched = matchQueryToTag(searchQuery, mode)
-    if (matched) {
-      setSelectedTag(matched)
-      setSearchNotFound(false)
-    } else {
-      setSelectedTag(null)
-      setSearchNotFound(true)
-    }
+    setSubmittedQuery(searchQuery.trim())
+    setSelectedTag(null)
   }
 
   function handleModeSwitch(newMode: Mode): void {
     setMode(newMode)
     resetSearch()
   }
+
+  function handleSearchChange(value: string): void {
+    setSearchQuery(value)
+    setSelectedTag(null)
+    setSubmittedQuery(null)
+  }
+
+  const showCards = !loading && cards.length > 0
 
   return (
     <div>
@@ -269,11 +222,7 @@ export default function CeSoirModule() {
         </div>
         <input
           value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value)
-            setSelectedTag(null)
-            setSearchNotFound(false)
-          }}
+          onChange={(e) => handleSearchChange(e.target.value)}
           placeholder={placeholder}
           enterKeyHint="search"
           className="w-full h-9 rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-16 text-[13px] placeholder:text-[var(--text-muted)] placeholder:italic"
@@ -297,55 +246,54 @@ export default function CeSoirModule() {
         )}
       </form>
 
-      {/* Carousel — always visible */}
+      {/* AI badge */}
+      {showCards && !error && (
+        <div className="flex items-center gap-1 mb-2">
+          <SparkleIcon />
+          <span className="text-[10px] font-medium text-[var(--text-muted)]">Suggestion IA</span>
+        </div>
+      )}
+
+      {/* Carousel */}
       <div
         ref={scrollRef}
         className="flex gap-3 overflow-x-auto discover-carousel scrollbar-hide -mx-6 px-6 mb-1"
       >
-        {cards.map((card) => (
-          <div
-            key={card.id}
-            className="flex-shrink-0 w-[220px] rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden"
-          >
-            <div className="flex">
-              <div className={`w-[4px] ${card.barColor}`} />
-              <div className="flex-1 p-3">
-                <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ${card.badgeColor} mb-2`}>
-                  {card.badge}
-                </span>
-                <p className="font-serif text-[15px] font-bold text-[var(--text-primary)] leading-tight">
-                  {card.name}
-                </p>
-                <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{card.appellation}</p>
-                <p className="text-[12px] italic text-[var(--text-secondary)] mt-2 leading-relaxed line-clamp-3">
-                  {card.reason}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
+        {loading ? (
+          <>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </>
+        ) : (
+          cards.map((card, i) => (
+            <RecommendationCardItem
+              key={card.bottle_id ?? `reco-${i}`}
+              card={card}
+            />
+          ))
+        )}
       </div>
 
       {/* Dots */}
-      <div className="flex items-center justify-center gap-1.5 mb-3">
-        {cards.map((card, i) => (
-          <div
-            key={card.id}
-            className={`transition-all duration-200 ${
-              i === activeIndex ? 'discover-dot-active' : 'discover-dot-inactive'
-            }`}
-          />
-        ))}
-      </div>
+      {showCards && (
+        <div className="flex items-center justify-center gap-1.5 mb-3">
+          {cards.map((card, i) => (
+            <div
+              key={card.bottle_id ?? `dot-${i}`}
+              className={`transition-all duration-200 ${
+                i === activeIndex ? 'discover-dot-active' : 'discover-dot-inactive'
+              }`}
+            />
+          ))}
+        </div>
+      )}
 
-      {/* Not found message */}
-      {searchNotFound && (
-        <div className="rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] p-4 card-shadow mb-3 text-center">
-          <p className="text-[13px] text-[var(--text-secondary)]">
-            Pas de suggestion pour cette recherche.
-          </p>
-          <p className="text-[11px] text-[var(--text-muted)] mt-1">
-            Essayez un des tags ci-dessous ou un terme plus générique.
+      {/* Error message (non-blocking, fallback cards are shown) */}
+      {error && !loading && (
+        <div className="rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] p-3 card-shadow mb-3 text-center">
+          <p className="text-[11px] text-[var(--text-muted)]">
+            Le sommelier est momentanément indisponible. Suggestions par défaut affichées.
           </p>
         </div>
       )}
