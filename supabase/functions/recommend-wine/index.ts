@@ -3,7 +3,8 @@ import { WINE_CODEX } from "./wine-codex.ts"
 
 // === CONFIG ===
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
-const MODEL = 'claude-haiku-4-5-20251001'
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
+const CLAUDE_MODEL = 'claude-haiku-4-5-20251001'
 const API_TIMEOUT_MS = 15_000
 
 const CORS_HEADERS = {
@@ -45,6 +46,11 @@ interface RecommendationCard {
   color: 'rouge' | 'blanc' | 'rose' | 'bulles'
 }
 
+interface ProviderResult {
+  provider: string
+  cards: RecommendationCard[]
+}
+
 // === UTILS ===
 
 async function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
@@ -69,6 +75,17 @@ function stripMarkdownCodeBlock(text: string): string {
   }
   return result
 }
+
+function parseAndValidate(text: string): RecommendationCard[] {
+  const jsonText = stripMarkdownCodeBlock(text)
+  const data = JSON.parse(jsonText) as { cards: RecommendationCard[] }
+  if (!data.cards || !Array.isArray(data.cards)) {
+    throw new Error('Invalid response structure: missing cards array')
+  }
+  return data.cards
+}
+
+// === PROMPT BUILDERS ===
 
 function buildSystemPrompt(): string {
   return `${WINE_CODEX}
@@ -123,7 +140,6 @@ Le champ bottle_id est l'ID tronqué d'une bouteille de la cave (8 caractères).
 function buildUserPrompt(body: RequestBody): string {
   const parts: string[] = []
 
-  // Mode & query
   if (body.mode === 'food') {
     parts.push(`Mode : "Ce soir je mange..."`)
     if (body.query) {
@@ -142,7 +158,6 @@ function buildUserPrompt(body: RequestBody): string {
     parts.push(`Mode : Surprise ! Propose quelque chose d'inattendu et personnalisé.`)
   }
 
-  // Context
   if (body.context) {
     const ctx = body.context
     parts.push(`\nContexte : ${ctx.dayOfWeek}, ${ctx.season}.`)
@@ -151,12 +166,10 @@ function buildUserPrompt(body: RequestBody): string {
     }
   }
 
-  // Taste profile
   if (body.profile) {
     parts.push(`\nProfil de goût :\n${body.profile}`)
   }
 
-  // Cave
   if (body.cave.length > 0) {
     parts.push(`\nBouteilles en cave (${body.cave.length}) :`)
     for (const b of body.cave) {
@@ -173,6 +186,108 @@ function buildUserPrompt(body: RequestBody): string {
   return parts.join('\n')
 }
 
+// === PROVIDERS ===
+
+async function callGemini(systemPrompt: string, userPrompt: string): Promise<ProviderResult> {
+  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured')
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`
+
+  const response = await fetchWithTimeout(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ parts: [{ text: userPrompt }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 1500 },
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    let message = errorText
+    try {
+      const parsed = JSON.parse(errorText)
+      message = parsed.error?.message || errorText
+    } catch { /* use raw text */ }
+    throw new Error(`Gemini 2.0 Flash (${response.status}): ${message}`)
+  }
+
+  const result = await response.json()
+  const text = result.candidates?.[0]?.content?.parts?.[0]?.text
+  if (!text) throw new Error('No text response from Gemini')
+
+  const cards = parseAndValidate(text)
+  return { provider: 'gemini/2.0-flash', cards }
+}
+
+async function callClaude(systemPrompt: string, userPrompt: string): Promise<ProviderResult> {
+  if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not configured')
+
+  const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: 1500,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    let message = errorText
+    try {
+      const parsed = JSON.parse(errorText)
+      message = parsed.error?.message || errorText
+    } catch { /* use raw text */ }
+    throw new Error(`Claude ${CLAUDE_MODEL} (${response.status}): ${message}`)
+  }
+
+  const result = await response.json()
+  const textContent = result.content?.find((c: { type: string; text?: string }) => c.type === 'text')
+  if (!textContent?.text) throw new Error('No text response from Claude')
+
+  const cards = parseAndValidate(textContent.text)
+  return { provider: `claude/${CLAUDE_MODEL}`, cards }
+}
+
+// === FALLBACK ===
+
+async function recommendWithFallback(systemPrompt: string, userPrompt: string): Promise<ProviderResult> {
+  // Gemini primary, Claude fallback
+  const providers: Array<{ name: string; call: () => Promise<ProviderResult> }> = []
+
+  if (GEMINI_API_KEY) providers.push({ name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt) })
+  if (ANTHROPIC_API_KEY) providers.push({ name: 'Claude', call: () => callClaude(systemPrompt, userPrompt) })
+
+  if (providers.length === 0) {
+    throw new Error('No API keys configured. Set GEMINI_API_KEY and/or ANTHROPIC_API_KEY.')
+  }
+
+  const errors: string[] = []
+
+  for (const provider of providers) {
+    try {
+      console.log(`[recommend-wine] Trying ${provider.name}...`)
+      const result = await provider.call()
+      console.log(`[recommend-wine] ${provider.name} succeeded: ${result.cards.length} cards`)
+      return result
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error(`[recommend-wine] ${provider.name} failed: ${message}`)
+      errors.push(message)
+    }
+  }
+
+  throw new Error(`All providers failed. ${errors.join(' | ')}`)
+}
+
 // === MAIN HANDLER ===
 
 Deno.serve(async (req) => {
@@ -181,57 +296,16 @@ Deno.serve(async (req) => {
   }
 
   try {
-    if (!ANTHROPIC_API_KEY) {
-      throw new Error('ANTHROPIC_API_KEY not configured')
-    }
-
     const body: RequestBody = await req.json()
     console.log(`[recommend-wine] mode=${body.mode} query="${body.query ?? ''}" cave=${body.cave.length} bottles`)
 
     const systemPrompt = buildSystemPrompt()
     const userPrompt = buildUserPrompt(body)
 
-    const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1500,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
-    })
+    const { provider, cards } = await recommendWithFallback(systemPrompt, userPrompt)
+    console.log(`[recommend-wine] Done by ${provider}`)
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      let message = errorText
-      try {
-        const parsed = JSON.parse(errorText)
-        message = parsed.error?.message || errorText
-      } catch { /* use raw text */ }
-      throw new Error(`Claude ${MODEL} (${response.status}): ${message}`)
-    }
-
-    const result = await response.json()
-    const textContent = result.content?.find((c: { type: string; text?: string }) => c.type === 'text')
-
-    if (!textContent?.text) throw new Error('No text response from Claude')
-
-    const jsonText = stripMarkdownCodeBlock(textContent.text)
-    const data = JSON.parse(jsonText) as { cards: RecommendationCard[] }
-
-    // Validate structure
-    if (!data.cards || !Array.isArray(data.cards)) {
-      throw new Error('Invalid response structure: missing cards array')
-    }
-
-    console.log(`[recommend-wine] ${data.cards.length} cards returned`)
-
-    return new Response(JSON.stringify(data), {
+    return new Response(JSON.stringify({ cards }), {
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     })
   } catch (error) {
