@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Loader2, PenLine, Check, X, ChevronRight, CheckCircle } from 'lucide-react'
+import { useSwipeable } from 'react-swipeable'
 import { Button } from '@/components/ui/button'
 import { BatchProgress, type BatchProgressItem } from '@/components/BatchProgress'
 import { BatchTastingItemForm } from '@/components/BatchTastingItemForm'
@@ -956,6 +957,19 @@ export default function RemoveBottle() {
   if (step === 'batch-review' && activeBatchSession) {
     const currentItem = activeBatchSession.items[currentBatchIndex]
     const unsavedCount = activeBatchSession.items.filter((it) => !it.saved && !it.ignored).length
+    const totalBatchItems = activeBatchSession.items.length
+
+    const swipeHandlers = useSwipeable({
+      onSwipedLeft: () => {
+        if (currentBatchIndex < totalBatchItems - 1) setCurrentBatchIndex(currentBatchIndex + 1)
+      },
+      onSwipedRight: () => {
+        if (currentBatchIndex > 0) setCurrentBatchIndex(currentBatchIndex - 1)
+      },
+      preventScrollOnSwipe: false,
+      trackTouch: true,
+      delta: 40,
+    })
 
     return (
       <div className="flex h-full flex-col overflow-hidden">
@@ -966,13 +980,13 @@ export default function RemoveBottle() {
           </h2>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-3 scrollbar-hide">
+        <div {...swipeHandlers} className="flex-1 min-h-0 overflow-y-auto px-6 pb-3 scrollbar-hide">
           {currentItem && (
             <BatchTastingItemForm
               key={currentItem.id}
               item={currentItem}
               currentIndex={currentBatchIndex}
-              totalItems={activeBatchSession.items.length}
+              totalItems={totalBatchItems}
               allItems={activeBatchSession.items}
               domainesSuggestions={domainesSuggestions}
               appellationsSuggestions={appellationsSuggestions}

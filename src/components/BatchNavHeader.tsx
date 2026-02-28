@@ -1,5 +1,3 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-
 interface BatchNavHeaderProps {
   currentIndex: number
   totalItems: number
@@ -14,44 +12,26 @@ export function BatchNavHeader({
   onNavigate,
 }: BatchNavHeaderProps) {
   return (
-    <div className="flex items-center justify-between px-1">
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => currentIndex > 0 && onNavigate(currentIndex - 1)}
-          disabled={currentIndex === 0}
-          className="p-1 rounded-full transition-colors disabled:opacity-30"
-        >
-          <ChevronLeft className="h-4 w-4 text-[var(--text-secondary)]" />
-        </button>
-        <span className="text-sm font-medium">
-          Fiche {currentIndex + 1} sur {totalItems}
-        </span>
-        <button
-          type="button"
-          onClick={() => currentIndex < totalItems - 1 && onNavigate(currentIndex + 1)}
-          disabled={currentIndex === totalItems - 1}
-          className="p-1 rounded-full transition-colors disabled:opacity-30"
-        >
-          <ChevronRight className="h-4 w-4 text-[var(--text-secondary)]" />
-        </button>
-      </div>
-      <div className="flex gap-1">
+    <div className="flex flex-col items-center gap-2 px-1">
+      <div className="flex gap-1.5">
         {itemStatuses.map((saved, i) => (
           <button
             key={i}
             type="button"
             onClick={() => onNavigate(i)}
-            className={`h-1.5 w-6 rounded-full transition-colors ${
+            className={`h-2 rounded-full transition-colors ${
               saved
-                ? 'bg-green-500'
+                ? 'bg-green-500 w-6'
                 : i === currentIndex
-                  ? 'bg-[var(--accent)]'
-                  : 'bg-muted'
+                  ? 'bg-[var(--accent)] w-8'
+                  : 'bg-muted w-6'
             }`}
           />
         ))}
       </div>
+      <span className="text-xs text-[var(--text-muted)]">
+        {currentIndex + 1} / {totalItems}
+      </span>
     </div>
   )
 }
