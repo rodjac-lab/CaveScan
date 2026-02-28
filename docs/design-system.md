@@ -179,8 +179,8 @@ Position fixe en bas, avec fond semi-transparent et blur.
 
 **Structure : 4 onglets**
 1. Cave (🏠)
-2. Entrée (➕)
-3. Déguster (😊)
+2. Encaver (➕)
+3. Cheers! (😊)
 4. Réglages (⚙️)
 
 ### 5.2 Header d'écran
@@ -277,7 +277,7 @@ Structure :
 - **Color bar** : 3×32px, indique le type de vin
 - **Info** : flex: 1, nom en 13px/500, détail en 11px muted
 - **Quantité** (écran Cave) : Playfair 15px/600 + "btl" en DM Sans 10px
-- **Contexte** (écran Déguster) : source en 10px
+- **Contexte** (écran Cheers!) : source en 10px
 
 ```css
 .wine-list-item {
@@ -332,7 +332,7 @@ Séparateur horizontal avec texte centré.
 }
 ```
 
-### 5.8 Scan Zone (écran Déguster)
+### 5.8 Scan Zone (écran Cheers!)
 
 Carte flottante au-dessus de la nav bar.
 
@@ -407,7 +407,7 @@ Maison simple avec toit en pointe et base rectangulaire.
 </svg>
 ```
 
-#### Entrée (Add/Plus)
+#### Encaver (Add/Plus)
 Carré arrondi avec croix centrée.
 ```svg
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -416,7 +416,7 @@ Carré arrondi avec croix centrée.
 </svg>
 ```
 
-#### Déguster (Smiley malicieux) ⭐
+#### Cheers! (Smiley malicieux) ⭐
 **Icône signature de l'app** — Visage souriant avec des yeux en tirets horizontaux, donnant une expression malicieuse/complice, comme quelqu'un qui savoure un bon vin.
 
 ```svg
@@ -481,7 +481,7 @@ Appareil photo avec objectif central.
 ---
 
 ### Source des icônes
-Les icônes sont basées sur [Feather Icons](https://feathericons.com/) / [Lucide](https://lucide.dev/), avec une personnalisation pour le smiley "Déguster".
+Les icônes sont basées sur [Feather Icons](https://feathericons.com/) / [Lucide](https://lucide.dev/), avec une personnalisation pour le smiley "Cheers!".
 
 **⚠️ Ne pas utiliser d'emojis** — Toutes les icônes doivent être des SVG stroke pour garantir la cohérence visuelle et le bon fonctionnement des états actif/inactif avec le changement de couleur.
 
