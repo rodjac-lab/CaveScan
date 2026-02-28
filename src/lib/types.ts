@@ -50,6 +50,7 @@ export interface Bottle {
   typical_aromas: string[] | null
   food_pairings: string[] | null
   character: string | null
+  quantity: number
 }
 
 export interface BottleWithZone extends Bottle {

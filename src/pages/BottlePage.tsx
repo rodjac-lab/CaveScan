@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro, Pencil, Plus, Camera, ImageIcon, X, Check, Tag, Grid2x2, Star, RefreshCw, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro, Pencil, Plus, Minus, Camera, ImageIcon, X, Check, Tag, Grid2x2, Star, RefreshCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
@@ -48,8 +48,8 @@ export default function BottlePage() {
   const [deleting, setDeleting] = useState(false)
 
   // Cave mode state
-  const [sameWineCount, setSameWineCount] = useState<number>(1)
   const [pastTastings, setPastTastings] = useState<BottleWithZone[]>([])
+  const [updatingQuantity, setUpdatingQuantity] = useState(false)
 
   // Tasting photo state
   const [showPhotoOptions, setShowPhotoOptions] = useState(false)
@@ -67,28 +67,11 @@ export default function BottlePage() {
     setQpr(bottle?.qpr ?? null)
   }, [bottle?.id])
 
-  // Fetch cave data (same wine count + past tastings) for in_stock bottles
+  // Fetch past tastings for in_stock bottles
   useEffect(() => {
     if (!bottle || bottle.status === 'drunk') return
 
-    async function fetchCaveData() {
-      // Count in_stock bottles with same domaine + appellation + millesime
-      const countQuery = supabase
-        .from('bottles')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'in_stock')
-
-      if (bottle!.domaine) countQuery.eq('domaine', bottle!.domaine)
-      else countQuery.is('domaine', null)
-      if (bottle!.appellation) countQuery.eq('appellation', bottle!.appellation)
-      else countQuery.is('appellation', null)
-      if (bottle!.millesime) countQuery.eq('millesime', bottle!.millesime)
-      else countQuery.is('millesime', null)
-
-      const { count } = await countQuery
-      setSameWineCount(count ?? 1)
-
-      // Fetch drunk bottles with same wine identity
+    async function fetchPastTastings() {
       const tastingsQuery = supabase
         .from('bottles')
         .select('*, zone:zones(*)')
@@ -108,7 +91,7 @@ export default function BottlePage() {
       setPastTastings(tastings ?? [])
     }
 
-    fetchCaveData()
+    fetchPastTastings()
   }, [bottle?.id, bottle?.status])
 
   const handleSaveTastingNote = async () => {
@@ -137,17 +120,54 @@ export default function BottlePage() {
     if (!bottle) return
 
     setRemoving(true)
-    const { error } = await supabase
-      .from('bottles')
-      .update({
-        status: 'drunk',
-        drunk_at: new Date().toISOString()
-      })
-      .eq('id', bottle.id)
+    try {
+      if ((bottle.quantity ?? 1) > 1) {
+        // Decrement quantity and create a separate drunk row
+        const { error: decrementError } = await supabase
+          .from('bottles')
+          .update({ quantity: (bottle.quantity ?? 1) - 1 })
+          .eq('id', bottle.id)
+        if (decrementError) throw decrementError
 
-    if (!error) {
+        const { error: insertError } = await supabase
+          .from('bottles')
+          .insert({
+            domaine: bottle.domaine,
+            cuvee: bottle.cuvee,
+            appellation: bottle.appellation,
+            millesime: bottle.millesime,
+            couleur: bottle.couleur,
+            zone_id: bottle.zone_id,
+            shelf: bottle.shelf,
+            photo_url: bottle.photo_url,
+            photo_url_back: bottle.photo_url_back,
+            purchase_price: bottle.purchase_price,
+            raw_extraction: bottle.raw_extraction,
+            grape_varieties: bottle.grape_varieties,
+            serving_temperature: bottle.serving_temperature,
+            typical_aromas: bottle.typical_aromas,
+            food_pairings: bottle.food_pairings,
+            character: bottle.character,
+            quantity: 1,
+            status: 'drunk',
+            drunk_at: new Date().toISOString(),
+          })
+        if (insertError) throw insertError
+      } else {
+        // Last bottle — just mark as drunk
+        const { error } = await supabase
+          .from('bottles')
+          .update({
+            status: 'drunk',
+            drunk_at: new Date().toISOString(),
+          })
+          .eq('id', bottle.id)
+        if (error) throw error
+      }
       triggerProfileRecompute()
       await refetch()
+    } catch (err) {
+      console.error('Mark as drunk error:', err)
     }
     setRemoving(false)
   }
@@ -156,17 +176,47 @@ export default function BottlePage() {
     if (!bottle) return
 
     setDeleting(true)
-    const { error } = await supabase
-      .from('bottles')
-      .delete()
-      .eq('id', bottle.id)
-
-    if (!error) {
-      track('bottle_deleted')
-      setShowDeleteConfirm(false)
-      navigate('/cave', { replace: true })
+    try {
+      if ((bottle.quantity ?? 1) > 1) {
+        // Decrement quantity (remove 1 bottle)
+        const { error } = await supabase
+          .from('bottles')
+          .update({ quantity: (bottle.quantity ?? 1) - 1 })
+          .eq('id', bottle.id)
+        if (error) throw error
+        track('bottle_deleted')
+        setShowDeleteConfirm(false)
+        await refetch()
+      } else {
+        // Last bottle — delete the row
+        const { error } = await supabase
+          .from('bottles')
+          .delete()
+          .eq('id', bottle.id)
+        if (error) throw error
+        track('bottle_deleted')
+        setShowDeleteConfirm(false)
+        navigate('/cave', { replace: true })
+      }
+    } catch (err) {
+      console.error('Delete error:', err)
     }
     setDeleting(false)
+  }
+
+  const handleUpdateQuantity = async (newQuantity: number) => {
+    if (!bottle || newQuantity < 1 || newQuantity > 99) return
+    setUpdatingQuantity(true)
+    const { error } = await supabase
+      .from('bottles')
+      .update({ quantity: newQuantity })
+      .eq('id', bottle.id)
+    if (error) {
+      console.error('Update quantity error:', error)
+    } else {
+      await refetch()
+    }
+    setUpdatingQuantity(false)
   }
 
   const handleShare = async () => {
@@ -789,10 +839,28 @@ export default function BottlePage() {
               <div className="flex items-center px-4 py-3 border-b border-[var(--border-color)]">
                 <Tag className="h-4 w-4 text-[var(--text-muted)] shrink-0 mr-3" />
                 <span className="text-xs text-[var(--text-muted)] flex-1">Quantité</span>
-                <span className="text-right">
-                  <span className="font-serif text-[17px] font-bold text-[var(--text-primary)]">{sameWineCount}</span>
-                  <span className="text-[11px] text-[var(--text-muted)] ml-1">btl</span>
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-30"
+                    onClick={() => handleUpdateQuantity((bottle.quantity ?? 1) - 1)}
+                    disabled={updatingQuantity || (bottle.quantity ?? 1) <= 1}
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="font-serif text-[17px] font-bold text-[var(--text-primary)] w-6 text-center">
+                    {bottle.quantity ?? 1}
+                  </span>
+                  <button
+                    type="button"
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-30"
+                    onClick={() => handleUpdateQuantity((bottle.quantity ?? 1) + 1)}
+                    disabled={updatingQuantity || (bottle.quantity ?? 1) >= 99}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="text-[11px] text-[var(--text-muted)]">btl</span>
+                </div>
               </div>
               {/* Emplacement */}
               <div className="flex items-center px-4 py-3 border-b border-[var(--border-color)]">
@@ -924,9 +992,13 @@ export default function BottlePage() {
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
                 <Trash2 className="h-6 w-6 text-red-600" />
               </div>
-              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Supprimer cette bouteille ?</h3>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">
+                {(bottle.quantity ?? 1) > 1 ? 'Retirer une bouteille ?' : 'Supprimer cette bouteille ?'}
+              </h3>
               <p className="text-sm text-[var(--text-muted)]">
-                {bottle.domaine || bottle.appellation || 'Cette bouteille'}{bottle.millesime ? ` ${bottle.millesime}` : ''} sera définitivement supprimée de votre cave.
+                {(bottle.quantity ?? 1) > 1
+                  ? `La quantité de ${bottle.domaine || bottle.appellation || 'cette bouteille'}${bottle.millesime ? ` ${bottle.millesime}` : ''} passera de ${bottle.quantity} à ${(bottle.quantity ?? 1) - 1}.`
+                  : `${bottle.domaine || bottle.appellation || 'Cette bouteille'}${bottle.millesime ? ` ${bottle.millesime}` : ''} sera définitivement supprimée de votre cave.`}
               </p>
             </div>
             <div className="flex gap-3">
@@ -945,7 +1017,7 @@ export default function BottlePage() {
                 disabled={deleting}
               >
                 {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Supprimer
+                {(bottle.quantity ?? 1) > 1 ? 'Retirer' : 'Supprimer'}
               </Button>
             </div>
           </div>

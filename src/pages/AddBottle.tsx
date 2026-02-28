@@ -406,9 +406,8 @@ export default function AddBottle() {
         character: rawExtraction?.character || null,
       }
 
-      // Insert multiple bottles if quantity > 1
-      const bottles = Array.from({ length: quantity }, () => ({ ...bottleData }))
-      const { error: insertError } = await supabase.from('bottles').insert(bottles)
+      // Insert single row with quantity
+      const { error: insertError } = await supabase.from('bottles').insert({ ...bottleData, quantity })
 
       if (insertError) throw insertError
 
@@ -493,8 +492,7 @@ export default function AddBottle() {
         character: (item.rawExtraction as WineExtraction | null)?.character || null,
       }
 
-      const bottles = Array.from({ length: item.quantity }, () => ({ ...bottleData }))
-      const { error: insertError } = await supabase.from('bottles').insert(bottles)
+      const { error: insertError } = await supabase.from('bottles').insert({ ...bottleData, quantity: item.quantity })
 
       if (insertError) throw insertError
 

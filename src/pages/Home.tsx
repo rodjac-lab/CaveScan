@@ -19,7 +19,7 @@ const COLOR_STYLES: Record<WineColor, string> = {
 const BULLES_TEXT_STYLE = 'text-[var(--champagne)]'
 
 function countByColor(bottles: BottleWithZone[], color: WineColor): number {
-  return bottles.filter(b => b.couleur === color).length
+  return bottles.reduce((sum, b) => sum + (b.couleur === color ? (b.quantity ?? 1) : 0), 0)
 }
 
 function SparkleIcon({ className }: { className?: string }) {
@@ -102,7 +102,7 @@ function groupBottles(bottles: BottleWithZone[]): BottleGroup[] {
     const existing = groups.get(groupKey)
     if (existing) {
       existing.bottles.push(bottle)
-      existing.quantity++
+      existing.quantity += bottle.quantity ?? 1
     } else {
       groups.set(groupKey, {
         key: groupKey,
@@ -113,7 +113,7 @@ function groupBottles(bottles: BottleWithZone[]): BottleGroup[] {
         millesime: bottle.millesime,
         couleur: bottle.couleur,
         addedAt: addedDate,
-        quantity: 1,
+        quantity: bottle.quantity ?? 1,
       })
     }
   }
@@ -167,7 +167,7 @@ export default function Home() {
   )
 
   const stats = {
-    total: bottles.length,
+    total: bottles.reduce((sum, b) => sum + (b.quantity ?? 1), 0),
     rouge: countByColor(bottles, 'rouge'),
     blanc: countByColor(bottles, 'blanc'),
     rose: countByColor(bottles, 'rose'),

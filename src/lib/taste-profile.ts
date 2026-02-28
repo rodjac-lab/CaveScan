@@ -22,7 +22,7 @@ export function computeTasteProfile(
   const allBottles = [...inStockBottles, ...drunkBottles]
 
   // 1. Stats globales
-  const totalInCave = inStockBottles.length
+  const totalInCave = inStockBottles.reduce((sum, b) => sum + (b.quantity ?? 1), 0)
   const totalTasted = drunkBottles.length
 
   const ratedBottles = drunkBottles.filter((b) => b.rating != null)
@@ -136,8 +136,9 @@ function computeColorDistribution(bottles: Bottle[]): ColorDistribution {
 
   for (const b of bottles) {
     if (b.couleur && b.couleur in counts) {
-      counts[b.couleur]++
-      withColor++
+      const qty = b.quantity ?? 1
+      counts[b.couleur] += qty
+      withColor += qty
     }
   }
 

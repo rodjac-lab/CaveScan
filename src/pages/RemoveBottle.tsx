@@ -367,19 +367,59 @@ export default function RemoveBottle() {
     setStep('saving')
 
     try {
-      const { error: updateError } = await supabase
-        .from('bottles')
-        .update({
-          status: 'drunk',
-          drunk_at: new Date().toISOString(),
-        })
-        .eq('id', bottle.id)
+      if ((bottle.quantity ?? 1) > 1) {
+        // Decrement quantity and create a separate drunk row
+        const { error: decrementError } = await supabase
+          .from('bottles')
+          .update({ quantity: (bottle.quantity ?? 1) - 1 })
+          .eq('id', bottle.id)
+        if (decrementError) throw decrementError
 
-      if (updateError) throw updateError
+        const { data: newDrunk, error: insertError } = await supabase
+          .from('bottles')
+          .insert({
+            domaine: bottle.domaine,
+            cuvee: bottle.cuvee,
+            appellation: bottle.appellation,
+            millesime: bottle.millesime,
+            couleur: bottle.couleur,
+            zone_id: bottle.zone_id,
+            shelf: bottle.shelf,
+            photo_url: bottle.photo_url,
+            photo_url_back: bottle.photo_url_back,
+            purchase_price: bottle.purchase_price,
+            raw_extraction: bottle.raw_extraction,
+            grape_varieties: bottle.grape_varieties,
+            serving_temperature: bottle.serving_temperature,
+            typical_aromas: bottle.typical_aromas,
+            food_pairings: bottle.food_pairings,
+            character: bottle.character,
+            quantity: 1,
+            status: 'drunk',
+            drunk_at: new Date().toISOString(),
+          })
+          .select()
+          .single()
+        if (insertError) throw insertError
 
-      track('bottle_opened', { matched: true })
-      triggerProfileRecompute()
-      navigate(`/bottle/${bottle.id}`)
+        track('bottle_opened', { matched: true })
+        triggerProfileRecompute()
+        navigate(`/bottle/${newDrunk.id}`)
+      } else {
+        // Last bottle — just mark as drunk
+        const { error: updateError } = await supabase
+          .from('bottles')
+          .update({
+            status: 'drunk',
+            drunk_at: new Date().toISOString(),
+          })
+          .eq('id', bottle.id)
+        if (updateError) throw updateError
+
+        track('bottle_opened', { matched: true })
+        triggerProfileRecompute()
+        navigate(`/bottle/${bottle.id}`)
+      }
     } catch (err) {
       console.error('Save error:', err)
       setError("Echec de l'enregistrement")
@@ -465,11 +505,41 @@ export default function RemoveBottle() {
 
     try {
       if (item.matchType === 'in_cave' && item.primaryMatch) {
-        // Mark existing bottle as drunk
-        await supabase
-          .from('bottles')
-          .update({ status: 'drunk', drunk_at: new Date().toISOString() })
-          .eq('id', item.primaryMatch.id)
+        const matchedBottle = item.primaryMatch
+        if ((matchedBottle.quantity ?? 1) > 1) {
+          // Decrement quantity and create a separate drunk row
+          await supabase
+            .from('bottles')
+            .update({ quantity: (matchedBottle.quantity ?? 1) - 1 })
+            .eq('id', matchedBottle.id)
+          await supabase.from('bottles').insert({
+            domaine: matchedBottle.domaine,
+            cuvee: matchedBottle.cuvee,
+            appellation: matchedBottle.appellation,
+            millesime: matchedBottle.millesime,
+            couleur: matchedBottle.couleur,
+            zone_id: matchedBottle.zone_id,
+            shelf: matchedBottle.shelf,
+            photo_url: matchedBottle.photo_url,
+            photo_url_back: matchedBottle.photo_url_back,
+            purchase_price: matchedBottle.purchase_price,
+            raw_extraction: matchedBottle.raw_extraction,
+            grape_varieties: matchedBottle.grape_varieties,
+            serving_temperature: matchedBottle.serving_temperature,
+            typical_aromas: matchedBottle.typical_aromas,
+            food_pairings: matchedBottle.food_pairings,
+            character: matchedBottle.character,
+            quantity: 1,
+            status: 'drunk',
+            drunk_at: new Date().toISOString(),
+          })
+        } else {
+          // Last bottle — just mark as drunk
+          await supabase
+            .from('bottles')
+            .update({ status: 'drunk', drunk_at: new Date().toISOString() })
+            .eq('id', matchedBottle.id)
+        }
         track('bottle_opened', { matched: true, batch: true })
       } else {
         // Insert new bottle as drunk (not_in_cave or unresolved with user edits)
@@ -581,10 +651,39 @@ export default function RemoveBottle() {
         if (item.saved || item.ignored) continue
 
         if (item.matchType === 'in_cave' && item.primaryMatch) {
-          await supabase
-            .from('bottles')
-            .update({ status: 'drunk', drunk_at: new Date().toISOString() })
-            .eq('id', item.primaryMatch.id)
+          const matchedBottle = item.primaryMatch
+          if ((matchedBottle.quantity ?? 1) > 1) {
+            await supabase
+              .from('bottles')
+              .update({ quantity: (matchedBottle.quantity ?? 1) - 1 })
+              .eq('id', matchedBottle.id)
+            await supabase.from('bottles').insert({
+              domaine: matchedBottle.domaine,
+              cuvee: matchedBottle.cuvee,
+              appellation: matchedBottle.appellation,
+              millesime: matchedBottle.millesime,
+              couleur: matchedBottle.couleur,
+              zone_id: matchedBottle.zone_id,
+              shelf: matchedBottle.shelf,
+              photo_url: matchedBottle.photo_url,
+              photo_url_back: matchedBottle.photo_url_back,
+              purchase_price: matchedBottle.purchase_price,
+              raw_extraction: matchedBottle.raw_extraction,
+              grape_varieties: matchedBottle.grape_varieties,
+              serving_temperature: matchedBottle.serving_temperature,
+              typical_aromas: matchedBottle.typical_aromas,
+              food_pairings: matchedBottle.food_pairings,
+              character: matchedBottle.character,
+              quantity: 1,
+              status: 'drunk',
+              drunk_at: new Date().toISOString(),
+            })
+          } else {
+            await supabase
+              .from('bottles')
+              .update({ status: 'drunk', drunk_at: new Date().toISOString() })
+              .eq('id', matchedBottle.id)
+          }
           updateBatchItem(activeBatchSession.id, item.id, { saved: true })
           continue
         }
