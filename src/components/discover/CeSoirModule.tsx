@@ -1,4 +1,5 @@
-import { useRef, useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useRef, useState, useEffect, useCallback, lazy, Suspense, type PointerEvent as ReactPointerEvent } from 'react'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useRecommendations } from '@/hooks/useRecommendations'
 import type { RecommendationCard } from '@/lib/recommendationStore'
 
@@ -99,13 +100,39 @@ function LottieLoader() {
   return <LottiePlayer animationData={animationData} loop className="h-32 w-32" />
 }
 
+const TAP_THRESHOLD = 10 // px — below this, it's a tap, not a swipe
+
 interface RecommendationCardItemProps {
   card: RecommendationCard
+  onTap: () => void
 }
 
-function RecommendationCardItem({ card }: RecommendationCardItemProps) {
+function RecommendationCardItem({ card, onTap }: RecommendationCardItemProps) {
+  const pointerStart = useRef<{ x: number; y: number } | null>(null)
+
+  function handlePointerDown(e: ReactPointerEvent) {
+    pointerStart.current = { x: e.clientX, y: e.clientY }
+  }
+
+  function handlePointerUp(e: ReactPointerEvent) {
+    if (!pointerStart.current) return
+    const dx = Math.abs(e.clientX - pointerStart.current.x)
+    const dy = Math.abs(e.clientY - pointerStart.current.y)
+    pointerStart.current = null
+    if (dx < TAP_THRESHOLD && dy < TAP_THRESHOLD) {
+      onTap()
+    }
+  }
+
   return (
-    <div className="flex-shrink-0 w-[220px] rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden">
+    <div
+      role="button"
+      tabIndex={0}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onKeyDown={(e) => { if (e.key === 'Enter') onTap() }}
+      className="flex-shrink-0 w-[220px] rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden cursor-pointer select-none"
+    >
       <div className="flex">
         <div className={`w-[4px] ${colorToBarClass(card.color)}`} />
         <div className="flex-1 p-3">
@@ -129,6 +156,7 @@ function RecommendationCardItem({ card }: RecommendationCardItemProps) {
 
 export default function CeSoirModule() {
   const [mode, setMode] = useState<Mode>('food')
+  const [expandedCard, setExpandedCard] = useState<RecommendationCard | null>(null)
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState<string | null>(null)
@@ -218,6 +246,7 @@ export default function CeSoirModule() {
             <RecommendationCardItem
               key={card.bottle_id ?? `reco-${i}`}
               card={card}
+              onTap={() => setExpandedCard(card)}
             />
           ))
         )}
@@ -312,6 +341,29 @@ export default function CeSoirModule() {
           </button>
         )}
       </form>
+
+      {/* Expanded card dialog */}
+      <Dialog open={!!expandedCard} onOpenChange={() => setExpandedCard(null)}>
+        <DialogContent className="max-w-[340px] rounded-[var(--radius)] p-0 overflow-hidden">
+          {expandedCard && (
+            <div className="flex">
+              <div className={`w-[5px] flex-shrink-0 ${colorToBarClass(expandedCard.color)}`} />
+              <div className="flex-1 p-5">
+                <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold text-white ${badgeToClass(expandedCard.badge)} mb-3`}>
+                  {expandedCard.badge}
+                </span>
+                <p className="font-serif text-[20px] font-bold text-[var(--text-primary)] leading-tight">
+                  {expandedCard.name}
+                </p>
+                <p className="text-[12px] text-[var(--text-muted)] mt-1">{expandedCard.appellation}</p>
+                <p className="text-[13px] italic text-[var(--text-secondary)] mt-3 leading-relaxed">
+                  {expandedCard.reason}
+                </p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

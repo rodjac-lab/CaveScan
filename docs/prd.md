@@ -220,8 +220,8 @@ Règles:
 2. Cave (inventaire, recherche intégrée, filtres par couleur)
 3. Scanner (plein écran, choix intent : Encaver ou Déguster)
 4. Encaver (entrée par photo, single ou batch)
-5. Cheers! (sortie par photo, single ou batch)
-6. Découvrir (Le Sommelier IA + cartes d'exploration)
+5. Dégustations (sortie par photo, single ou batch)
+6. Cheers! (Le Sommelier IA + cartes d'exploration)
 7. Détail bouteille (fiche vin, dégustation, partage)
 8. Édition bouteille
 9. Réglages (zones de stockage, invitation)

@@ -69,7 +69,7 @@ export function RemoveChooseStep({
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <header className="flex-shrink-0 px-6 pt-4 pb-3">
         <p className="brand-text">CaveScan</p>
-        <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Cheers!</h1>
+        <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Dégustations</h1>
         <p className="text-[13px] font-light text-[var(--text-secondary)]">Sorties de cave & degustations</p>
       </header>
 

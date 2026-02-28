@@ -599,7 +599,7 @@ export default function RemoveBottle() {
       <div className="flex-1 p-6">
         <div className="mb-4">
           <p className="brand-text">CaveScan</p>
-          <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Cheers!</h1>
+          <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Dégustations</h1>
         </div>
 
         <div className="mt-10 flex flex-col items-center gap-3 transition-all duration-200 ease-out">
@@ -629,7 +629,7 @@ export default function RemoveBottle() {
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mb-4">
           <p className="brand-text">CaveScan</p>
-          <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Cheers!</h1>
+          <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Dégustations</h1>
         </div>
 
         <BatchProgress
@@ -713,7 +713,7 @@ export default function RemoveBottle() {
       <div className="flex-1 p-6">
         <div className="mb-4">
           <p className="brand-text">CaveScan</p>
-          <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Cheers!</h1>
+          <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Dégustations</h1>
         </div>
         <div className="mt-10 flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-[var(--accent)]" />

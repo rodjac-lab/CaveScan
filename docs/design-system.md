@@ -179,9 +179,9 @@ Position fixe en bas, avec fond semi-transparent et blur.
 
 **Structure : 5 onglets**
 1. Cave (🏠)
-2. Cheers! (😊)
+2. Dégustations (📅)
 3. Scanner (📷) — bouton central surélevé (52px), gradient doré, pas de NavLink
-4. Découvrir (🔍)
+4. Cheers! (😊)
 5. Réglages (⚙️)
 
 ### 5.2 Header d'écran

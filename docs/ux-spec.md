@@ -25,9 +25,9 @@ Principe directeur: minimiser la friction entre l’action réelle (ranger / ouv
 ## Bottom nav (authentifié) — 5 onglets
 
 - Cave
-- Cheers!
+- Dégustations
 - [Scanner] (bouton central surélevé, gradient doré 52px)
-- Découvrir
+- Cheers!
 - Réglages
 
 Règles:
@@ -83,7 +83,7 @@ Ajouter une ou plusieurs bouteilles avec un minimum d’effort.
 - Afficher les erreurs d’extraction sans bloquer la suite.
 - En batch, exposer clairement la progression et les éléments en erreur.
 
-## Écran Cheers! (`/remove`)
+## Écran Dégustations (`/remove`)
 
 ## Rôle
 

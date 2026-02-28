@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
+import { Calendar } from 'lucide-react'
 
 // Cave icon (house)
 function CaveIcon({ className }: { className?: string }) {
@@ -35,16 +36,6 @@ function ScannerIcon({ className }: { className?: string }) {
   )
 }
 
-// Discover icon (compass)
-function DiscoverIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="12" cy="12" r="10" />
-      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="currentColor" stroke="none" />
-    </svg>
-  )
-}
-
 // Settings icon (gear)
 function SettingsIcon({ className }: { className?: string }) {
   return (
@@ -57,11 +48,11 @@ function SettingsIcon({ className }: { className?: string }) {
 
 const leftTabs = [
   { to: '/cave', icon: CaveIcon, label: 'Cave' },
-  { to: '/cheers', icon: CheersIcon, label: 'Cheers!' },
+  { to: '/cheers', icon: Calendar, label: 'Dégustations' },
 ]
 
 const rightTabs = [
-  { to: '/decouvrir', icon: DiscoverIcon, label: 'Découvrir' },
+  { to: '/decouvrir', icon: CheersIcon, label: 'Cheers!' },
   { to: '/settings', icon: SettingsIcon, label: 'Réglages' },
 ]
 
