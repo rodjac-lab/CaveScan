@@ -33,16 +33,41 @@ The user is not a professional developer but is learning quickly and wants to im
 
 ## Common User Flows (remind user to test these)
 
-When making UI changes, remind the user to test:
-- Create wine → Add tasting notes → View the wine with notes displayed
-- Batch tasting mode → Rate multiple wines → Save all ratings
-- Search/filter wines → Select one → View details
+When making UI changes, remind the user to test the relevant flows:
+- **Encaver** : photo étiquette → OCR → correction manuelle → choix zone/étagère → sauvegarde
+- **Cheers! (single)** : photo → OCR → match en cave ou hors cave → notes de dégustation → partage
+- **Cheers! (batch)** : sélection multiple → traitement parallèle → revue des résultats → sauvegarde groupée
+- **Détail bouteille** : consulter infos, ajouter/modifier notes, photos dégustation, partager
+- **Édition bouteille** : modifier domaine, cuvée, appellation, millésime, emplacement
+- **Réglages** : gestion des zones de stockage (grille lignes × colonnes)
 
 ## When Debugging
 
 - Do not stop until the bug is fully fixed AND verified
 - If fixing one thing might break another, check the connected code
 - Tell the user exactly what you fixed and what they should test
+
+## Documentation de référence
+
+Le dossier `docs/` contient la documentation détaillée du projet. Consulter au besoin :
+- `docs/prd.md` — Vision produit, décisions, cible utilisateur
+- `docs/ux-spec.md` — Spécifications UX et navigation
+- `docs/design-system.md` — Palette, typographie, composants
+- `docs/backlog.md` — Backlog priorisé (P0/P1/P2)
+- `docs/agents.md` — Conventions de code et structure projet
+- `docs/personas.md` — Persona cible (Philippe)
+- `docs/benchmark-ocr-notes.md` — Benchmark OCR (Claude vs Gemini)
+- `docs/prompts/` — Specs détaillées de features individuelles
+
+## Règle de fin de session
+
+Avant de terminer une session de travail, mettre à jour le fichier MEMORY.md
+(`~/.claude/projects/.../memory/MEMORY.md`) avec une section **"État actuel"** contenant :
+- Ce qui a été fait durant la session
+- Ce qui reste à faire
+- Les décisions prises et leur justification
+
+Ce fichier est automatiquement chargé au début de chaque conversation.
 
 ## Quick Reference
 
