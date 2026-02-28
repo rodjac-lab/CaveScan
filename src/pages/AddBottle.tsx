@@ -23,6 +23,7 @@ import { useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useB
 import { WINE_COLORS, normalizeWineColor, type WineColor, type WineExtraction } from '@/lib/types'
 import { fileToBase64, resizeImage } from '@/lib/image'
 import { track } from '@/lib/track'
+import { triggerProfileRecompute } from '@/lib/taste-profile'
 
 type Step = 'capture' | 'extracting' | 'confirm' | 'saving' | 'batch-extracting' | 'batch-confirm'
 
@@ -370,6 +371,7 @@ export default function AddBottle() {
       if (insertError) throw insertError
 
       track('bottle_added', { couleur: couleur || null, has_photo: !!photoFile })
+      triggerProfileRecompute()
 
       // Success - reset form to add more bottles
       handleReset()
@@ -460,7 +462,8 @@ export default function AddBottle() {
         setCurrentBatchIndex(currentBatchIndex + 1)
         setStep('batch-confirm')
       } else {
-        // All items saved, reset
+        // All items saved — recompute profile on last item
+        triggerProfileRecompute()
         handleReset()
       }
     } catch (err) {

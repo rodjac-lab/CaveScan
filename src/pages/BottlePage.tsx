@@ -8,6 +8,7 @@ import { useBottle } from '@/hooks/useBottles'
 import { getWineColorLabel, type TastingPhoto, type BottleWithZone } from '@/lib/types'
 import { resizeImage } from '@/lib/image'
 import { track } from '@/lib/track'
+import { triggerProfileRecompute } from '@/lib/taste-profile'
 
 const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Plat', 'Ambiance', 'Autre']
 
@@ -124,6 +125,7 @@ export default function BottlePage() {
 
     if (!error) {
       track('tasting_saved')
+      triggerProfileRecompute()
       await refetch()
     }
     setSaving(false)
@@ -142,6 +144,7 @@ export default function BottlePage() {
       .eq('id', bottle.id)
 
     if (!error) {
+      triggerProfileRecompute()
       await refetch()
     }
     setRemoving(false)

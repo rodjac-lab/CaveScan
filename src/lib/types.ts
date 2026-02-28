@@ -84,6 +84,89 @@ export function normalizeWineColor(color: string | null | undefined): WineColor 
   return VALID_WINE_COLORS.has(normalized) ? (normalized as WineColor) : null
 }
 
+// ── Taste Profile types ──
+
+export interface AppellationStat {
+  name: string
+  count: number
+  avgRating: number | null
+  score: number
+}
+
+export interface DomaineStat {
+  name: string
+  count: number
+  avgRating: number | null
+  score: number
+}
+
+export interface ColorDistribution {
+  rouge: number
+  blanc: number
+  rose: number
+  bulles: number
+}
+
+export interface PriceRange {
+  min: number | null
+  max: number | null
+  avg: number | null
+}
+
+export interface QPRDistribution {
+  cher: number
+  correct: number
+  pepite: number
+}
+
+export interface RecentTasting {
+  bottleId: string
+  domaine: string | null
+  appellation: string | null
+  millesime: number | null
+  rating: number | null
+  drunkAt: string
+}
+
+export interface SeasonalPattern {
+  spring: number
+  summer: number
+  autumn: number
+  winter: number
+}
+
+export interface ComputedTasteProfile {
+  totalInCave: number
+  totalTasted: number
+  avgRating: number | null
+  rebuyRate: number | null
+  topAppellations: AppellationStat[]
+  topDomaines: DomaineStat[]
+  colorDistribution: ColorDistribution
+  priceRange: PriceRange
+  qprDistribution: QPRDistribution
+  topAromas: string[]
+  topFoodPairings: string[]
+  recentTastings: RecentTasting[]
+  seasonalPattern: SeasonalPattern
+  dataPoints: number
+}
+
+export interface ExplicitPreferences {
+  customPairings?: string[]
+  lovedRegions?: string[]
+  avoidedRegions?: string[]
+  freeNotes?: string
+}
+
+export interface TasteProfile {
+  computed: ComputedTasteProfile
+  explicit: ExplicitPreferences
+  computedAt: string
+}
+
+// ── Wine Extraction types ──
+
 export interface WineExtraction {
   domaine: string | null
   cuvee: string | null

@@ -7,6 +7,7 @@ import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
 import { normalizeWineColor, type WineColor, type BottleWithZone, type WineExtraction } from '@/lib/types'
 import { fileToBase64, resizeImage } from '@/lib/image'
 import { track } from '@/lib/track'
+import { triggerProfileRecompute } from '@/lib/taste-profile'
 import { stringSimilarity } from '@/lib/utils'
 import {
   createBatchSession,
@@ -321,6 +322,7 @@ export default function RemoveBottle() {
       if (updateError) throw updateError
 
       track('bottle_opened', { matched: true })
+      triggerProfileRecompute()
       navigate(`/bottle/${bottle.id}`)
     } catch (err) {
       console.error('Save error:', err)
@@ -368,6 +370,7 @@ export default function RemoveBottle() {
 
       if (insertError) throw insertError
       track('bottle_opened', { matched: false })
+      triggerProfileRecompute()
       navigate(`/bottle/${data.id}`)
     } catch (err) {
       console.error('Save error:', err)
@@ -443,6 +446,7 @@ export default function RemoveBottle() {
       }
 
       setBatchSessionStatus(activeBatchSession.id, 'done')
+      triggerProfileRecompute()
       setStep('choose')
     } catch (err) {
       console.error('Batch save error:', err)
