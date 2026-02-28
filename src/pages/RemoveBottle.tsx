@@ -969,6 +969,7 @@ export default function RemoveBottle() {
         <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-3 scrollbar-hide">
           {currentItem && (
             <BatchTastingItemForm
+              key={currentItem.id}
               item={currentItem}
               currentIndex={currentBatchIndex}
               totalItems={activeBatchSession.items.length}
