@@ -113,12 +113,15 @@ export async function prefetchDefaultRecommendations(): Promise<void> {
   if (getCachedRecommendation(queryKey)) return
 
   try {
-    // Fetch data directly from Supabase (no hooks here)
-    const [caveRes, drunkRes, profileRes] = await Promise.all([
+    // Fetch core data first; profile is optional and must not block prefetch.
+    const [caveRes, drunkRes] = await Promise.all([
       supabase.from('bottles').select('*').eq('status', 'in_stock'),
       supabase.from('bottles').select('*').eq('status', 'drunk').order('drunk_at', { ascending: false }).limit(30),
-      supabase.from('user_taste_profiles').select('computed_profile, explicit_preferences, computed_at').maybeSingle(),
     ])
+    const profileRes = await supabase
+      .from('user_taste_profiles')
+      .select('computed_profile, explicit_preferences, computed_at')
+      .maybeSingle()
 
     const caveBottles = (caveRes.data ?? []) as Bottle[]
     const drunkBottles = (drunkRes.data ?? []) as Bottle[]
@@ -160,7 +163,8 @@ export function useRecommendations(
   const { bottles: drunkBottles, loading: drunkLoading } = useRecentlyDrunk()
   const { profile, loading: profileLoading } = useTasteProfile()
 
-  const dataReady = !cavesLoading && !drunkLoading && !profileLoading
+  // Profile enriches ranking but should not block first recommendations.
+  const baseDataReady = !cavesLoading && !drunkLoading
 
   const requestIdRef = useRef(0)
 
@@ -184,6 +188,17 @@ export function useRecommendations(
       setError(null)
     }
   }, [mode, query])
+
+  // If recommendations were loaded before profile arrived, refresh once profile is ready.
+  const profileRefreshDoneRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (profileLoading || !baseDataReady) return
+    const key = buildQueryKey(mode, query)
+    if (profileRefreshDoneRef.current === key) return
+    profileRefreshDoneRef.current = key
+    fetchRecommendations()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileLoading, baseDataReady, mode, query])
 
   const fetchRecommendations = useCallback(async () => {
     const queryKey = buildQueryKey(mode, query)
@@ -242,10 +257,10 @@ export function useRecommendations(
   }, [mode, query])
 
   useEffect(() => {
-    if (dataReady) {
+    if (baseDataReady) {
       fetchRecommendations()
     }
-  }, [dataReady, fetchRecommendations])
+  }, [baseDataReady, fetchRecommendations])
 
   return { cards, loading, error }
 }
