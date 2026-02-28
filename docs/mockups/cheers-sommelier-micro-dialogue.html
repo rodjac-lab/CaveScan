@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CaveScan - Micro-dialogue Sommelier</title>
+  <style>
+    :root {
+      --bg: #f5f1ea;
+      --card: #fffaf3;
+      --border: #e4d9cb;
+      --text: #1f1a17;
+      --muted: #77685c;
+      --accent: #a56a33;
+      --accent-soft: #f6eadc;
+      --wine: #722f37;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "DM Sans", "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #fff7ee 0%, var(--bg) 60%);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      padding: 24px;
+    }
+    .phone {
+      width: 380px;
+      border: 1px solid #d7c8b8;
+      border-radius: 28px;
+      background: #f8f3ec;
+      padding: 18px;
+      box-shadow: 0 20px 45px rgba(80, 50, 20, 0.12);
+    }
+    .title { font-size: 28px; font-weight: 800; font-family: "Fraunces", Georgia, serif; margin: 4px 0 2px; }
+    .subtitle { font-size: 12px; color: var(--muted); margin: 0 0 14px; }
+    .cards { display: flex; gap: 10px; overflow: hidden; margin-bottom: 10px; }
+    .tile {
+      width: 220px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px;
+      flex-shrink: 0;
+    }
+    .pill {
+      display: inline-block;
+      background: var(--wine);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 3px 8px;
+      margin-bottom: 7px;
+    }
+    .wine { font-size: 14px; font-weight: 700; margin: 0 0 2px; }
+    .app { font-size: 11px; color: var(--muted); margin: 0 0 8px; }
+    .reason { font-size: 12px; color: #4d4037; margin: 0; line-height: 1.35; font-style: italic; }
+
+    .panel {
+      margin-top: 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .panel-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .panel-title { margin: 0; font-size: 12px; font-weight: 700; }
+    .reset { border: none; background: transparent; color: var(--muted); font-size: 10px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .chip {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: #4a3d34;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .chip.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .assistant {
+      background: #fff;
+      border-left: 3px solid var(--accent);
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 11px;
+      color: #4a3d34;
+      margin-bottom: 8px;
+      font-style: italic;
+    }
+    .input-row { display: flex; gap: 8px; }
+    .input {
+      flex: 1;
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 9px;
+      font-size: 12px;
+      padding: 9px 10px;
+    }
+    .send {
+      border: none;
+      width: 32px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .meta { margin: 8px 0 0; font-size: 10px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main class="phone">
+    <p class="subtitle">CaveScan</p>
+    <h1 class="title">Cheers!</h1>
+    <p class="subtitle">Micro-dialogue sommelier intégré au module "Ce soir"</p>
+
+    <section class="cards">
+      <article class="tile">
+        <span class="pill">De ta cave</span>
+        <h3 class="wine">Pommard 2018</h3>
+        <p class="app">Bourgogne</p>
+        <p class="reason">Structure nette, tanins maîtrisés, parfait sur filet de boeuf.</p>
+      </article>
+      <article class="tile">
+        <span class="pill">Accord parfait</span>
+        <h3 class="wine">Côtes-du-Rhône 2021</h3>
+        <p class="app">Vallée du Rhône</p>
+        <p class="reason">Plus solaire et épicé pour une version plus chaleureuse du plat.</p>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-top">
+        <p class="panel-title">Affiner avec le sommelier</p>
+        <button class="reset">Reset</button>
+      </div>
+      <div class="chips">
+        <button class="chip active">Plus audacieux</button>
+        <button class="chip">Plus classique</button>
+        <button class="chip">Moins cher</button>
+        <button class="chip">Accord parfait</button>
+        <button class="chip">Autre style</button>
+      </div>
+      <p class="assistant">Parfait, je pousse des accords plus originaux avec un peu plus de caractère.</p>
+      <div class="input-row">
+        <input class="input" placeholder="Ex: sans tanins, budget 20-30€, pour apéro" />
+        <button class="send">›</button>
+      </div>
+      <p class="meta">Prototype de flux conversationnel court: chips + demande libre + mémoire de session.</p>
+    </section>
+  </main>
+</body>
+</html>

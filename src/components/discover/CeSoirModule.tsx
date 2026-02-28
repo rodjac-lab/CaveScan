@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback, type PointerEvent as ReactPointerEvent } from 'react'
+import { useRef, useState, useEffect, useCallback, useMemo, type PointerEvent as ReactPointerEvent } from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useRecommendations } from '@/hooks/useRecommendations'
 import type { RecommendationCard } from '@/lib/recommendationStore'
@@ -50,6 +50,27 @@ const MODE_OPTIONS: { value: Mode; label: string }[] = [
   { value: 'food', label: 'Ce soir je mange...' },
   { value: 'wine', label: 'Ce soir je bois...' },
 ]
+
+const SOMMELIER_ACTIONS: Array<{ label: string; hint: string; reply: string }> = [
+  { label: 'Plus audacieux', hint: 'style plus audacieux, accords originaux', reply: 'Parfait, je pousse des accords plus originaux avec un peu plus de caractere.' },
+  { label: 'Plus classique', hint: 'style plus classique, valeur sure', reply: 'Compris, je reste sur des references tres sures et consensuelles.' },
+  { label: 'Moins cher', hint: 'budget plus accessible, meilleur rapport qualite-prix', reply: 'Je vais privilegier des options avec un meilleur rapport plaisir/prix.' },
+  { label: 'Accord parfait', hint: 'priorite precision de l accord mets-vin', reply: 'Je vise la precision maximale accord mets-vin pour ce contexte.' },
+  { label: 'Autre style', hint: 'proposer un autre style de vin', reply: 'On change de registre pour ouvrir une alternative differente.' },
+]
+
+const REFINEMENT_HINTS = SOMMELIER_ACTIONS.reduce<Record<string, string>>((acc, action) => {
+  acc[action.label] = action.hint
+  return acc
+}, {})
+
+function buildRecommendationQuery(baseQuery: string | null, refinements: string[]): string | null {
+  if (!baseQuery && refinements.length === 0) return null
+  const refinementHints = refinements.map((item) => REFINEMENT_HINTS[item] ?? item)
+  if (!baseQuery) return `Affinage sommelier: ${refinementHints.join(', ')}`
+  if (refinementHints.length === 0) return baseQuery
+  return `${baseQuery} | Contraintes: ${refinementHints.join(', ')}`
+}
 
 // --- Helpers ---
 
@@ -166,9 +187,16 @@ export default function CeSoirModule() {
   const [searchQuery, setSearchQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState<string | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
+  const [refinementInput, setRefinementInput] = useState('')
+  const [activeRefinements, setActiveRefinements] = useState<string[]>([])
+  const [sommelierReply, setSommelierReply] = useState('Je peux affiner en un clic: style, budget, audace.')
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const effectiveQuery = selectedTag ?? submittedQuery
+  const baseQuery = selectedTag ?? submittedQuery
+  const effectiveQuery = useMemo(
+    () => buildRecommendationQuery(baseQuery, activeRefinements),
+    [baseQuery, activeRefinements]
+  )
   const { cards, loading, refreshing, error } = useRecommendations(mode, effectiveQuery)
 
   const tags = mode === 'food' ? FOOD_TAGS : WINE_TAGS
@@ -216,12 +244,35 @@ export default function CeSoirModule() {
   function handleModeSwitch(newMode: Mode): void {
     setMode(newMode)
     resetSearch()
+    resetRefinements()
   }
 
   function handleSearchChange(value: string): void {
     setSearchQuery(value)
     setSelectedTag(null)
     setSubmittedQuery(null)
+  }
+
+  function addRefinement(value: string, reply?: string): void {
+    const token = value.trim()
+    if (!token) return
+    setActiveRefinements((prev) => [token, ...prev.filter((item) => item !== token)].slice(0, 4))
+    if (reply) {
+      setSommelierReply(reply)
+    } else {
+      setSommelierReply(`Bien vu. Je prends "${token}" pour affiner les recommandations.`)
+    }
+  }
+
+  function handleRefinementSubmit(): void {
+    if (refinementInput.trim().length < 2) return
+    addRefinement(refinementInput)
+    setRefinementInput('')
+  }
+
+  function resetRefinements(): void {
+    setActiveRefinements([])
+    setSommelierReply('Je peux affiner en un clic: style, budget, audace.')
   }
 
   const showCards = !loading && cards.length > 0
@@ -359,6 +410,78 @@ export default function CeSoirModule() {
           </button>
         )}
       </form>
+
+      {/* 4. Micro-dialogue (UI prototype) */}
+      <div className="rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] p-3 card-shadow mt-3">
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <p className="text-[12px] font-semibold text-[var(--text-primary)]">Affiner avec le sommelier</p>
+          {activeRefinements.length > 0 && (
+            <button
+              type="button"
+              onClick={resetRefinements}
+              className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {SOMMELIER_ACTIONS.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              onClick={() => addRefinement(action.label, action.reply)}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-medium border transition-colors ${
+                activeRefinements.includes(action.label)
+                  ? 'bg-[var(--accent-bg)] border-[var(--accent)] text-[var(--accent)]'
+                  : 'bg-transparent border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--accent)]'
+              }`}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
+
+        {activeRefinements.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {activeRefinements.map((refinement) => (
+              <span
+                key={refinement}
+                className="inline-flex items-center rounded-full bg-[var(--accent-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent)]"
+              >
+                {refinement}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <p className="text-[11px] text-[var(--text-secondary)] italic mb-2">
+          {sommelierReply}
+        </p>
+
+        <form
+          onSubmit={(e) => { e.preventDefault(); handleRefinementSubmit() }}
+          className="relative"
+        >
+          <input
+            value={refinementInput}
+            onChange={(e) => setRefinementInput(e.target.value)}
+            placeholder="Ex: sans tanins, budget 20-30€, pour apero..."
+            className="w-full h-9 rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] px-3 pr-12 text-[12px] placeholder:text-[var(--text-muted)] placeholder:italic"
+          />
+          <button
+            type="submit"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-white"
+          >
+            <ChevronIcon />
+          </button>
+        </form>
+
+        <p className="text-[10px] text-[var(--text-muted)] mt-1">
+          Les raffinements sont appliques en direct aux recommandations.
+        </p>
+      </div>
 
       {/* Expanded card dialog */}
       <Dialog open={!!expandedCard} onOpenChange={() => setExpandedCard(null)}>
