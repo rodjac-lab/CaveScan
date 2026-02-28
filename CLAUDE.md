@@ -57,7 +57,6 @@ Le dossier `docs/` contient la documentation détaillée du projet. Consulter au
 - `docs/agents.md` — Conventions de code et structure projet
 - `docs/personas.md` — Persona cible (Philippe)
 - `docs/benchmark-ocr-notes.md` — Benchmark OCR (Claude vs Gemini)
-- `docs/prompts/` — Specs détaillées de features individuelles
 
 ## Règle de fin de session
 
