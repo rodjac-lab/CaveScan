@@ -1,6 +1,7 @@
 import { useRef } from 'react'
-import { Minus, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { QuantitySelector } from '@/components/QuantitySelector'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -264,32 +265,10 @@ export function BatchItemForm({
             />
           </div>
 
-          <div>
-            <Label>Quantité</Label>
-            <div className="flex items-center gap-2 mt-1">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-9 w-9"
-                onClick={() => onUpdate({ quantity: Math.max(1, item.quantity - 1) })}
-                disabled={item.quantity <= 1}
-              >
-                <Minus className="h-4 w-4" />
-              </Button>
-              <span className="text-lg font-semibold w-6 text-center">{item.quantity}</span>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-9 w-9"
-                onClick={() => onUpdate({ quantity: Math.min(12, item.quantity + 1) })}
-                disabled={item.quantity >= 12}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          <QuantitySelector
+            value={item.quantity}
+            onChange={(v) => onUpdate({ quantity: v })}
+          />
         </div>
       </div>
     </div>

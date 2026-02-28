@@ -1,17 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Loader2, PenLine, Check, X, ChevronRight, CheckCircle } from 'lucide-react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { Loader2 } from 'lucide-react'
 import { useSwipeable } from 'react-swipeable'
 import { Button } from '@/components/ui/button'
 import { BatchProgress, type BatchProgressItem } from '@/components/BatchProgress'
 import { BatchTastingItemForm } from '@/components/BatchTastingItemForm'
+import { RemoveChooseStep } from '@/components/RemoveChooseStep'
+import { RemoveResultStep } from '@/components/RemoveResultStep'
 import { supabase } from '@/lib/supabase'
 import { useBottles, useRecentlyDrunk, useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
-import { normalizeWineColor, type WineColor, type BottleWithZone, type WineExtraction } from '@/lib/types'
-import { fileToBase64, resizeImage } from '@/lib/image'
+import { normalizeWineColor, type BottleWithZone, type WineExtraction } from '@/lib/types'
+import { fileToBase64 } from '@/lib/image'
 import { track } from '@/lib/track'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
-import { stringSimilarity } from '@/lib/utils'
+import { openBottle } from '@/lib/bottleActions'
+import { uploadPhoto } from '@/lib/uploadPhoto'
+import { findMatches } from '@/lib/wineMatching'
 import {
   createBatchSession,
   getActiveBatchSession,
@@ -41,37 +45,9 @@ interface ScanResult {
   alternatives: BottleWithZone[]
 }
 
-const COLOR_BAR_STYLES: Record<WineColor, string> = {
-  rouge: 'bg-[var(--red-wine)]',
-  blanc: 'bg-[var(--white-wine)]',
-  rose: 'bg-[var(--rose-wine)]',
-  bulles: 'bg-[var(--champagne)]',
-}
-
-function CameraIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-      <circle cx="12" cy="13" r="4" />
-    </svg>
-  )
-}
-
-function GalleryIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <circle cx="8.5" cy="8.5" r="1.5" />
-      <path d="M21 15l-5-5L5 21" />
-    </svg>
-  )
-}
-
 export default function RemoveBottle() {
   const navigate = useNavigate()
   const location = useLocation()
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const fileInputGalleryRef = useRef<HTMLInputElement>(null)
   const { bottles, loading: bottlesLoading } = useBottles()
   const { bottles: recentlyDrunk, loading: drunkLoading } = useRecentlyDrunk()
   const batchSession = useBatchSession()
@@ -203,17 +179,6 @@ export default function RemoveBottle() {
     )
     return idx >= 0 ? idx : batchSession.items.length - 1
   }, [batchSession])
-
-  const formatDrunkDate = (value?: string | null) => {
-    const empty = { day: '', month: '' }
-    if (!value) return empty
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return empty
-    return {
-      day: date.getDate().toString().padStart(2, '0'),
-      month: date.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', ''),
-    }
-  }
 
   const resetToChoose = () => {
     setError(null)
@@ -367,59 +332,10 @@ export default function RemoveBottle() {
     setStep('saving')
 
     try {
-      if ((bottle.quantity ?? 1) > 1) {
-        // Decrement quantity and create a separate drunk row
-        const { error: decrementError } = await supabase
-          .from('bottles')
-          .update({ quantity: (bottle.quantity ?? 1) - 1 })
-          .eq('id', bottle.id)
-        if (decrementError) throw decrementError
-
-        const { data: newDrunk, error: insertError } = await supabase
-          .from('bottles')
-          .insert({
-            domaine: bottle.domaine,
-            cuvee: bottle.cuvee,
-            appellation: bottle.appellation,
-            millesime: bottle.millesime,
-            couleur: bottle.couleur,
-            zone_id: bottle.zone_id,
-            shelf: bottle.shelf,
-            photo_url: bottle.photo_url,
-            photo_url_back: bottle.photo_url_back,
-            purchase_price: bottle.purchase_price,
-            raw_extraction: bottle.raw_extraction,
-            grape_varieties: bottle.grape_varieties,
-            serving_temperature: bottle.serving_temperature,
-            typical_aromas: bottle.typical_aromas,
-            food_pairings: bottle.food_pairings,
-            character: bottle.character,
-            quantity: 1,
-            status: 'drunk',
-            drunk_at: new Date().toISOString(),
-          })
-          .select()
-          .single()
-        if (insertError) throw insertError
-
-        track('bottle_opened', { matched: true })
-        triggerProfileRecompute()
-        navigate(`/bottle/${newDrunk.id}`)
-      } else {
-        // Last bottle — just mark as drunk
-        const { error: updateError } = await supabase
-          .from('bottles')
-          .update({
-            status: 'drunk',
-            drunk_at: new Date().toISOString(),
-          })
-          .eq('id', bottle.id)
-        if (updateError) throw updateError
-
-        track('bottle_opened', { matched: true })
-        triggerProfileRecompute()
-        navigate(`/bottle/${bottle.id}`)
-      }
+      const { drunkBottleId } = await openBottle(bottle)
+      track('bottle_opened', { matched: true })
+      triggerProfileRecompute()
+      navigate(`/bottle/${drunkBottleId}`)
     } catch (err) {
       console.error('Save error:', err)
       setError("Echec de l'enregistrement")
@@ -432,15 +348,10 @@ export default function RemoveBottle() {
 
     try {
       let photoUrl: string | null = null
-      const compressedBlob = await resizeImage(result.photoFile)
-      const fileName = `${Date.now()}-front.jpg`
-      const { error: uploadError } = await supabase.storage
-        .from('wine-labels')
-        .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
-
-      if (!uploadError) {
-        const { data: urlData } = supabase.storage.from('wine-labels').getPublicUrl(fileName)
-        photoUrl = urlData.publicUrl
+      try {
+        photoUrl = await uploadPhoto(result.photoFile, `${Date.now()}-front.jpg`)
+      } catch {
+        // Photo upload failed — continue without photo
       }
 
       const { data, error: insertError } = await supabase
@@ -505,55 +416,15 @@ export default function RemoveBottle() {
 
     try {
       if (item.matchType === 'in_cave' && item.primaryMatch) {
-        const matchedBottle = item.primaryMatch
-        if ((matchedBottle.quantity ?? 1) > 1) {
-          // Decrement quantity and create a separate drunk row
-          await supabase
-            .from('bottles')
-            .update({ quantity: (matchedBottle.quantity ?? 1) - 1 })
-            .eq('id', matchedBottle.id)
-          await supabase.from('bottles').insert({
-            domaine: matchedBottle.domaine,
-            cuvee: matchedBottle.cuvee,
-            appellation: matchedBottle.appellation,
-            millesime: matchedBottle.millesime,
-            couleur: matchedBottle.couleur,
-            zone_id: matchedBottle.zone_id,
-            shelf: matchedBottle.shelf,
-            photo_url: matchedBottle.photo_url,
-            photo_url_back: matchedBottle.photo_url_back,
-            purchase_price: matchedBottle.purchase_price,
-            raw_extraction: matchedBottle.raw_extraction,
-            grape_varieties: matchedBottle.grape_varieties,
-            serving_temperature: matchedBottle.serving_temperature,
-            typical_aromas: matchedBottle.typical_aromas,
-            food_pairings: matchedBottle.food_pairings,
-            character: matchedBottle.character,
-            quantity: 1,
-            status: 'drunk',
-            drunk_at: new Date().toISOString(),
-          })
-        } else {
-          // Last bottle — just mark as drunk
-          await supabase
-            .from('bottles')
-            .update({ status: 'drunk', drunk_at: new Date().toISOString() })
-            .eq('id', matchedBottle.id)
-        }
+        await openBottle(item.primaryMatch)
         track('bottle_opened', { matched: true, batch: true })
       } else {
         // Insert new bottle as drunk (not_in_cave or unresolved with user edits)
         let photoUrl: string | null = null
-        const compressedBlob = await resizeImage(item.photoFile)
-        const fileName = `${Date.now()}-front-${item.id}.jpg`
-
-        const { error: uploadError } = await supabase.storage
-          .from('wine-labels')
-          .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
-
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage.from('wine-labels').getPublicUrl(fileName)
-          photoUrl = urlData.publicUrl
+        try {
+          photoUrl = await uploadPhoto(item.photoFile, `${Date.now()}-front-${item.id}.jpg`)
+        } catch {
+          // Photo upload failed — continue without photo
         }
 
         await supabase.from('bottles').insert({
@@ -651,55 +522,17 @@ export default function RemoveBottle() {
         if (item.saved || item.ignored) continue
 
         if (item.matchType === 'in_cave' && item.primaryMatch) {
-          const matchedBottle = item.primaryMatch
-          if ((matchedBottle.quantity ?? 1) > 1) {
-            await supabase
-              .from('bottles')
-              .update({ quantity: (matchedBottle.quantity ?? 1) - 1 })
-              .eq('id', matchedBottle.id)
-            await supabase.from('bottles').insert({
-              domaine: matchedBottle.domaine,
-              cuvee: matchedBottle.cuvee,
-              appellation: matchedBottle.appellation,
-              millesime: matchedBottle.millesime,
-              couleur: matchedBottle.couleur,
-              zone_id: matchedBottle.zone_id,
-              shelf: matchedBottle.shelf,
-              photo_url: matchedBottle.photo_url,
-              photo_url_back: matchedBottle.photo_url_back,
-              purchase_price: matchedBottle.purchase_price,
-              raw_extraction: matchedBottle.raw_extraction,
-              grape_varieties: matchedBottle.grape_varieties,
-              serving_temperature: matchedBottle.serving_temperature,
-              typical_aromas: matchedBottle.typical_aromas,
-              food_pairings: matchedBottle.food_pairings,
-              character: matchedBottle.character,
-              quantity: 1,
-              status: 'drunk',
-              drunk_at: new Date().toISOString(),
-            })
-          } else {
-            await supabase
-              .from('bottles')
-              .update({ status: 'drunk', drunk_at: new Date().toISOString() })
-              .eq('id', matchedBottle.id)
-          }
+          await openBottle(item.primaryMatch)
           updateBatchItem(activeBatchSession.id, item.id, { saved: true })
           continue
         }
 
         if ((item.matchType === 'not_in_cave' || item.matchType === 'unresolved') && item.extraction) {
           let photoUrl: string | null = null
-          const compressedBlob = await resizeImage(item.photoFile)
-          const fileName = `${Date.now()}-front-${item.id}.jpg`
-
-          const { error: uploadError } = await supabase.storage
-            .from('wine-labels')
-            .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
-
-          if (!uploadError) {
-            const { data: urlData } = supabase.storage.from('wine-labels').getPublicUrl(fileName)
-            photoUrl = urlData.publicUrl
+          try {
+            photoUrl = await uploadPhoto(item.photoFile, `${Date.now()}-front-${item.id}.jpg`)
+          } catch {
+            // Photo upload failed — continue without photo
           }
 
           await supabase.from('bottles').insert({
@@ -732,29 +565,11 @@ export default function RemoveBottle() {
     }
   }
 
-  const MATCH_BADGE_CONFIG: Record<string, { dot: string; text: string; label: string }> = {
-    in_cave: { dot: 'bg-[var(--accent)]', text: 'text-[var(--accent)]', label: 'En cave' },
-    not_in_cave: { dot: 'bg-[var(--text-muted)]', text: 'text-[var(--text-muted)]', label: 'Hors cave' },
-    unresolved: { dot: 'bg-[var(--text-muted)]', text: 'text-[var(--text-muted)]', label: 'Non identifie' },
-  }
-
-  const renderMatchBadge = (matchType: MatchType | 'unresolved') => {
-    const config = MATCH_BADGE_CONFIG[matchType]
-
-    return (
-      <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${config.text}`}>
-        <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
-        {config.label}
-      </span>
-    )
-  }
-
   // ══════════════════════════════════════════
   //  RENDER
   // ══════════════════════════════════════════
 
   if (step === 'choose') {
-    // Determine where the batch banner button should navigate
     const handleBatchBannerClick = () => {
       if (!activeBatchSession) return
       if (activeBatchSession.status === 'processing') {
@@ -766,142 +581,16 @@ export default function RemoveBottle() {
     }
 
     return (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden">
-        <header className="flex-shrink-0 px-6 pt-4 pb-3">
-          <p className="brand-text">CaveScan</p>
-          <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Cheers!</h1>
-          <p className="text-[13px] font-light text-[var(--text-secondary)]">Sorties de cave & degustations</p>
-        </header>
-
-        {error && (
-          <div className="flex-shrink-0 mx-6 rounded-[var(--radius-sm)] bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-          </div>
-        )}
-
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[84px] scrollbar-hide">
-          {activeBatchSession && batchSummary && (
-            <button
-              type="button"
-              onClick={handleBatchBannerClick}
-              className="mx-6 mb-3 mt-2 flex w-[calc(100%-3rem)] items-center gap-3 rounded-[var(--radius-sm)] border border-[rgba(184,134,11,0.12)] bg-[var(--accent-bg)] px-3 py-2.5 text-left"
-            >
-              {activeBatchSession.status === 'processing' ? (
-                <Loader2 className="h-5 w-5 animate-spin text-[var(--accent)]" />
-              ) : (
-                <CheckCircle className="h-5 w-5 text-[var(--accent)]" />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-medium text-[var(--text-primary)]">
-                  {activeBatchSession.status === 'processing'
-                    ? `${batchSummary.total} vins en cours d'analyse...`
-                    : `${batchSummary.total} vins a documenter`}
-                </p>
-                <p className="text-[11px] font-normal text-[var(--text-muted)]">{activeBatchSession.label}</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-[var(--text-muted)]" />
-            </button>
-          )}
-
-          <div className="mx-6 mt-2 mb-2 flex items-center gap-3">
-            <div className="h-px flex-1 bg-[var(--border-color)]" />
-            <span className="text-[10px] font-medium uppercase tracking-[2px] text-[var(--text-muted)]">Ouvertures recentes</span>
-            <div className="h-px flex-1 bg-[var(--border-color)]" />
-          </div>
-
-          <div className="px-6 py-2">
-            {drunkLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-[var(--accent)]" />
-              </div>
-            ) : recentlyDrunk.length === 0 ? (
-              <div className="mt-2 rounded-[var(--radius-sm)] bg-[var(--bg-card)] py-6 text-center text-sm text-[var(--text-secondary)] card-shadow">
-                Aucune ouverture recente.
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                {recentlyDrunk.map((bottle) => {
-                  const { day, month } = formatDrunkDate(bottle.drunk_at)
-
-                  return (
-                    <Link key={bottle.id} to={`/bottle/${bottle.id}`}>
-                      <div className="flex items-center gap-3 rounded-[var(--radius-sm)] bg-[var(--bg-card)] p-2.5 pr-3 card-shadow transition-all duration-200 hover:bg-[var(--accent-bg)]">
-                        <div className="w-9 flex-shrink-0 text-center">
-                          <p className="font-serif text-[17px] font-bold leading-tight text-[var(--text-primary)]">{day}</p>
-                          <p className="text-[9px] font-medium uppercase text-[var(--text-muted)]">{month}</p>
-                        </div>
-
-                        <div
-                          className={`h-8 w-[3px] flex-shrink-0 rounded-sm ${
-                            bottle.couleur ? COLOR_BAR_STYLES[bottle.couleur] : 'bg-[var(--text-muted)]'
-                          }`}
-                        />
-
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-medium text-[var(--text-primary)]">
-                            {bottle.domaine || bottle.appellation || 'Vin'}
-                          </p>
-                          <p className="truncate text-[11px] font-light text-[var(--text-secondary)]">
-                            {[bottle.appellation !== bottle.domaine ? bottle.appellation : null, bottle.millesime].filter(Boolean).join(' · ')}
-                          </p>
-                        </div>
-
-                        {bottle.zone_id && <span className="flex-shrink-0 text-[10px] text-[var(--text-muted)]">Ma cave</span>}
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex-shrink-0 px-4 py-2 bg-[var(--bg)]">
-          <div className="rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3 scan-shadow">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-            <input
-              ref={fileInputGalleryRef}
-              type="file"
-              accept="image/*"
-              onChange={handleBatchFileSelect}
-              multiple
-              className="hidden"
-            />
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => fileInputGalleryRef.current?.click()}
-                className="flex h-[42px] w-[42px] items-center justify-center rounded-full border border-[rgba(184,134,11,0.12)] bg-[var(--accent-bg)] text-[var(--accent)] transition-all duration-200 hover:bg-[var(--accent-bg)]/80"
-              >
-                <GalleryIcon className="h-5 w-5" />
-              </button>
-
-              <div className="flex-1 text-center">
-                <p className="font-serif text-base font-semibold text-[var(--text-primary)]">Ouvrir une bouteille</p>
-                <p className="text-xs text-[var(--text-muted)]">Scanner l'etiquette</p>
-              </div>
-
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex h-[42px] w-[42px] items-center justify-center rounded-full text-white transition-all duration-200"
-                style={{
-                  background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)',
-                  boxShadow: '0 3px 12px rgba(184,134,11,0.25)',
-                }}
-              >
-                <CameraIcon className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <RemoveChooseStep
+        error={error}
+        activeBatchSession={activeBatchSession}
+        batchSummary={batchSummary}
+        drunkLoading={drunkLoading}
+        recentlyDrunk={recentlyDrunk}
+        onBatchBannerClick={handleBatchBannerClick}
+        onFileSelect={handleFileSelect}
+        onBatchFileSelect={handleBatchFileSelect}
+      />
     )
   }
 
@@ -922,112 +611,16 @@ export default function RemoveBottle() {
   }
 
   if (step === 'result' && scanResult) {
-    const displayName = scanResult.primaryMatch?.domaine || scanResult.primaryMatch?.appellation || scanResult.extraction.domaine || scanResult.extraction.appellation || 'Vin'
-    const detail = scanResult.primaryMatch
-      ? [scanResult.primaryMatch.appellation, scanResult.primaryMatch.millesime].filter(Boolean).join(' · ')
-      : [scanResult.extraction.appellation, scanResult.extraction.millesime].filter(Boolean).join(' · ')
-
     return (
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="mb-4">
-          <p className="brand-text">CaveScan</p>
-          <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Cheers!</h1>
-        </div>
-
-        {error && (
-          <div className="mb-4 rounded-[var(--radius-sm)] bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-          </div>
-        )}
-
-        <div className="space-y-4 animate-in fade-in duration-200">
-          <div className="rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] p-3.5 card-shadow">
-            <div className="flex items-start gap-3">
-              <img src={scanResult.photoUri} alt="Bouteille scannee" className="h-[58px] w-[58px] rounded object-cover" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-medium text-[var(--text-primary)]">{displayName}</p>
-                <p className="mt-0.5 truncate text-[11px] font-normal text-[var(--text-muted)]">{detail || 'Information partielle'}</p>
-                <div className="mt-2 flex items-center gap-3">
-                  {renderMatchBadge(scanResult.matchType)}
-                  {scanResult.matchType === 'in_cave' && scanResult.primaryMatch?.zone && (
-                    <span className="text-[11px] font-normal text-[var(--text-muted)]">
-                      {scanResult.primaryMatch.zone.name}
-                      {scanResult.primaryMatch.shelf ? ` · ${scanResult.primaryMatch.shelf}` : ''}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <Button className="w-full bg-[var(--accent)] hover:bg-[var(--accent-light)]" onClick={handlePrimaryAction}>
-            {scanResult.matchType === 'in_cave' ? (
-              <>
-                <Check className="mr-2 h-4 w-4" />
-                Sortir de cave
-              </>
-            ) : (
-              <>
-                <PenLine className="mr-2 h-4 w-4" />
-                Noter la degustation
-              </>
-            )}
-          </Button>
-
-          <button
-            type="button"
-            onClick={() => setShowAlternatives((current) => !current)}
-            className="w-full text-center text-[12px] font-medium text-[var(--accent)]"
-          >
-            Ce n'est pas cette bouteille ?
-          </button>
-
-          {showAlternatives && (
-            <div className="space-y-2 rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] p-3">
-              {scanResult.alternatives.length > 0 ? (
-                scanResult.alternatives.map((bottle) => (
-                  <button
-                    key={bottle.id}
-                    type="button"
-                    onClick={() => handleSelectAlternative(bottle)}
-                    className="flex w-full items-center gap-3 rounded-[var(--radius-sm)] bg-[var(--bg)] p-2.5 text-left transition-colors hover:bg-[var(--accent-bg)]"
-                  >
-                    <div className={`h-8 w-[3px] rounded-sm ${bottle.couleur ? COLOR_BAR_STYLES[bottle.couleur] : 'bg-[var(--text-muted)]'}`} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium text-[var(--text-primary)]">
-                        {bottle.domaine || bottle.appellation || 'Vin'}
-                      </p>
-                      <p className="truncate text-[11px] font-normal text-[var(--text-muted)]">
-                        {[bottle.appellation, bottle.millesime].filter(Boolean).join(' · ')}
-                      </p>
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() =>
-                    navigate('/add', {
-                      state: {
-                        prefillExtraction: scanResult.extraction,
-                        prefillPhotoFile: scanResult.photoFile,
-                      },
-                    })
-                  }
-                >
-                  Saisir manuellement
-                </Button>
-              )}
-            </div>
-          )}
-
-          <Button variant="outline" className="w-full" onClick={resetScanResult}>
-            <X className="mr-2 h-4 w-4" />
-            Annuler
-          </Button>
-        </div>
-      </div>
+      <RemoveResultStep
+        scanResult={scanResult}
+        error={error}
+        showAlternatives={showAlternatives}
+        onPrimaryAction={handlePrimaryAction}
+        onSelectAlternative={handleSelectAlternative}
+        onToggleAlternatives={() => setShowAlternatives((current) => !current)}
+        onCancel={resetScanResult}
+      />
     )
   }
 
@@ -1133,62 +726,4 @@ export default function RemoveBottle() {
   }
 
   return null
-}
-
-const SIMILARITY_THRESHOLD_PRIMARY = 0.75
-const SIMILARITY_THRESHOLD_SECONDARY = 0.8
-const MATCH_SCORE_THRESHOLD = 3
-const APPELLATION_MISMATCH_PENALTY = -2.0
-
-type MatchCandidate = {
-  bottle: BottleWithZone
-  score: number
-}
-
-function findMatches(
-  bottles: BottleWithZone[],
-  extraction: { domaine?: string | null; cuvee?: string | null; appellation?: string | null; millesime?: number | null },
-): BottleWithZone[] {
-  const candidates: MatchCandidate[] = []
-
-  for (const bottle of bottles) {
-    if (extraction.millesime && bottle.millesime && bottle.millesime !== extraction.millesime) {
-      continue
-    }
-
-    let score = 0
-
-    if (extraction.domaine && bottle.domaine) {
-      const similarity = stringSimilarity(extraction.domaine, bottle.domaine)
-      if (similarity >= SIMILARITY_THRESHOLD_PRIMARY) {
-        score += similarity * 4
-      }
-    }
-
-    if (extraction.cuvee && bottle.cuvee) {
-      const similarity = stringSimilarity(extraction.cuvee, bottle.cuvee)
-      if (similarity >= SIMILARITY_THRESHOLD_PRIMARY) {
-        score += similarity * 4
-      }
-    }
-
-    if (extraction.appellation && bottle.appellation) {
-      const similarity = stringSimilarity(extraction.appellation, bottle.appellation)
-      if (similarity >= SIMILARITY_THRESHOLD_SECONDARY) {
-        score += similarity * 1.5
-      } else {
-        score += APPELLATION_MISMATCH_PENALTY
-      }
-    }
-
-    if (extraction.millesime && bottle.millesime === extraction.millesime) {
-      score += 1
-    }
-
-    if (score >= MATCH_SCORE_THRESHOLD) {
-      candidates.push({ bottle, score })
-    }
-  }
-
-  return candidates.sort((a, b) => b.score - a.score).map((candidate) => candidate.bottle)
 }

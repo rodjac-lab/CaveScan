@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Camera, Loader2, Check, X, Wine, Plus, Minus, ImageIcon } from 'lucide-react'
+import { Camera, Loader2, Check, X, Wine, Plus, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,20 +11,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { Autocomplete } from '@/components/Autocomplete'
 import { BatchProgress, type BatchProgressItem } from '@/components/BatchProgress'
 import { useSwipeable } from 'react-swipeable'
 import { BatchItemForm, type BatchItemData } from '@/components/BatchItemForm'
 import { StoragePositionPicker } from '@/components/StoragePositionPicker'
+import { PhotoPreviewCard } from '@/components/PhotoPreviewCard'
+import { WineFormFields } from '@/components/WineFormFields'
+import { QuantitySelector } from '@/components/QuantitySelector'
 import { supabase } from '@/lib/supabase'
 import { useZones } from '@/hooks/useZones'
 import { useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
-import { WINE_COLORS, normalizeWineColor, type WineColor, type WineExtraction, type Zone } from '@/lib/types'
-import { fileToBase64, resizeImage } from '@/lib/image'
+import { normalizeWineColor, type WineColor, type WineExtraction, type Zone } from '@/lib/types'
+import { fileToBase64 } from '@/lib/image'
 import { track } from '@/lib/track'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
+import { uploadPhoto } from '@/lib/uploadPhoto'
 
 type Step = 'capture' | 'extracting' | 'confirm' | 'saving' | 'batch-extracting' | 'batch-confirm'
 
@@ -347,43 +349,9 @@ export default function AddBottle() {
     setError(null)
 
     try {
-      let photoUrl: string | null = null
-      let photoUrlBack: string | null = null
       const timestamp = Date.now()
-
-      // Upload compressed front photo if exists
-      if (photoFile) {
-        const compressedBlob = await resizeImage(photoFile)
-        const fileName = `${timestamp}-front.jpg`
-        const { error: uploadError } = await supabase.storage
-          .from('wine-labels')
-          .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
-
-        if (uploadError) throw uploadError
-
-        const { data: urlData } = supabase.storage
-          .from('wine-labels')
-          .getPublicUrl(fileName)
-
-        photoUrl = urlData.publicUrl
-      }
-
-      // Upload compressed back photo if exists
-      if (photoFileBack) {
-        const compressedBlob = await resizeImage(photoFileBack)
-        const fileName = `${timestamp}-back.jpg`
-        const { error: uploadError } = await supabase.storage
-          .from('wine-labels')
-          .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
-
-        if (uploadError) throw uploadError
-
-        const { data: urlData } = supabase.storage
-          .from('wine-labels')
-          .getPublicUrl(fileName)
-
-        photoUrlBack = urlData.publicUrl
-      }
+      const photoUrl = photoFile ? await uploadPhoto(photoFile, `${timestamp}-front.jpg`) : null
+      const photoUrlBack = photoFileBack ? await uploadPhoto(photoFileBack, `${timestamp}-back.jpg`) : null
 
       // Create bottle records (one per quantity)
       const bottleData = {
@@ -435,41 +403,11 @@ export default function AddBottle() {
     setError(null)
 
     try {
-      let photoUrl: string | null = null
-      let photoUrlBack: string | null = null
       const timestamp = Date.now()
-
-      // Upload compressed front photo
-      const compressedBlob = await resizeImage(item.photoFile)
-      const fileName = `${timestamp}-${item.id}-front.jpg`
-      const { error: uploadError } = await supabase.storage
-        .from('wine-labels')
-        .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
-
-      if (uploadError) throw uploadError
-
-      const { data: urlData } = supabase.storage
-        .from('wine-labels')
-        .getPublicUrl(fileName)
-
-      photoUrl = urlData.publicUrl
-
-      // Upload compressed back photo if exists
-      if (item.photoFileBack) {
-        const compressedBlobBack = await resizeImage(item.photoFileBack)
-        const fileNameBack = `${timestamp}-${item.id}-back.jpg`
-        const { error: uploadErrorBack } = await supabase.storage
-          .from('wine-labels')
-          .upload(fileNameBack, compressedBlobBack, { contentType: 'image/jpeg' })
-
-        if (uploadErrorBack) throw uploadErrorBack
-
-        const { data: urlDataBack } = supabase.storage
-          .from('wine-labels')
-          .getPublicUrl(fileNameBack)
-
-        photoUrlBack = urlDataBack.publicUrl
-      }
+      const photoUrl = await uploadPhoto(item.photoFile, `${timestamp}-${item.id}-front.jpg`)
+      const photoUrlBack = item.photoFileBack
+        ? await uploadPhoto(item.photoFileBack, `${timestamp}-${item.id}-back.jpg`)
+        : null
 
       // Create bottle record
       const bottleData = {
@@ -559,11 +497,6 @@ export default function AddBottle() {
     setBatchItems([])
     setCurrentBatchIndex(0)
     setBatchExtractionIndex(0)
-  }
-
-  function handleMillesimeChange(e: React.ChangeEvent<HTMLInputElement>): void {
-    const val = e.target.value.replace(/\D/g, '').slice(0, 4)
-    setMillesime(val)
   }
 
   // Build batch progress items for display
@@ -702,37 +635,11 @@ export default function AddBottle() {
       {/* Step: Confirm (single mode) */}
       {step === 'confirm' && (
         <div className="mt-6 space-y-4">
-          {/* Photo previews */}
-          {(photoPreview || photoPreviewBack) && (
-            <Card>
-              <CardContent className="p-2">
-                <div className="flex gap-2">
-                  {photoPreview && (
-                    <div className="flex-1">
-                      <img
-                        src={photoPreview}
-                        alt="Étiquette avant"
-                        className="max-h-28 w-full rounded object-contain cursor-zoom-in"
-                        onClick={() => setZoomImage({ src: photoPreview, label: 'Avant' })}
-                      />
-                      <p className="text-xs text-center text-muted-foreground mt-1">Avant</p>
-                    </div>
-                  )}
-                  {photoPreviewBack && (
-                    <div className="flex-1">
-                      <img
-                        src={photoPreviewBack}
-                        alt="Étiquette arrière"
-                        className="max-h-28 w-full rounded object-contain cursor-zoom-in"
-                        onClick={() => setZoomImage({ src: photoPreviewBack, label: 'Arriere' })}
-                      />
-                      <p className="text-xs text-center text-muted-foreground mt-1">Arrière</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <PhotoPreviewCard
+            photoPreview={photoPreview}
+            photoPreviewBack={photoPreviewBack}
+            onZoom={(src, label) => setZoomImage({ src, label })}
+          />
 
           {/* Add back photo button */}
           {photoPreview && !photoPreviewBack && (
@@ -757,99 +664,22 @@ export default function AddBottle() {
           )}
 
           <div className="space-y-3">
-            <div>
-              <Label htmlFor="domaine">Domaine / Producteur</Label>
-              <Autocomplete
-                id="domaine"
-                value={domaine}
-                onChange={setDomaine}
-                suggestions={domainesSuggestions}
-                placeholder="ex: Chartogne Taillet"
-              />
-            </div>
+            <WineFormFields
+              domaine={domaine}
+              cuvee={cuvee}
+              appellation={appellation}
+              millesime={millesime}
+              couleur={couleur}
+              onDomaineChange={setDomaine}
+              onCuveeChange={setCuvee}
+              onAppellationChange={setAppellation}
+              onMillesimeChange={setMillesime}
+              onCouleurChange={setCouleur}
+              domainesSuggestions={domainesSuggestions}
+              appellationsSuggestions={appellationsSuggestions}
+            />
 
-            <div>
-              <Label htmlFor="cuvee">Cuvée</Label>
-              <Input
-                id="cuvee"
-                value={cuvee}
-                onChange={(e) => setCuvee(e.target.value)}
-                placeholder="ex: Orizeaux"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="appellation">Appellation</Label>
-              <Autocomplete
-                id="appellation"
-                value={appellation}
-                onChange={setAppellation}
-                suggestions={appellationsSuggestions}
-                placeholder="ex: Margaux"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="millesime">Millésime</Label>
-                <Input
-                  id="millesime"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={millesime}
-                  onChange={handleMillesimeChange}
-                  placeholder="ex: 2020"
-                  maxLength={4}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="couleur">Couleur</Label>
-                <Select value={couleur} onValueChange={(v) => setCouleur(v as WineColor)}>
-                  <SelectTrigger id="couleur">
-                    <SelectValue placeholder="Choisir" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {WINE_COLORS.map((c) => (
-                      <SelectItem key={c.value} value={c.value}>
-                        {c.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Quantity selector */}
-            <div className="pt-2 border-t">
-              <Label>Quantité</Label>
-              <div className="flex items-center gap-3 mt-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                  disabled={quantity <= 1}
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-                <span className="text-xl font-semibold w-8 text-center">{quantity}</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setQuantity(q => Math.min(12, q + 1))}
-                  disabled={quantity >= 12}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-                {quantity > 1 && (
-                  <span className="text-sm text-muted-foreground">
-                    bouteilles
-                  </span>
-                )}
-              </div>
-            </div>
+            <QuantitySelector value={quantity} onChange={setQuantity} />
 
             <div>
               <Label htmlFor="zone">Zone de stockage</Label>
