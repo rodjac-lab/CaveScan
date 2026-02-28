@@ -1,6 +1,8 @@
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useRecommendations } from '@/hooks/useRecommendations'
 import type { RecommendationCard } from '@/lib/recommendationStore'
+
+const LottiePlayer = lazy(() => import('lottie-react'))
 
 type Mode = 'food' | 'wine'
 
@@ -74,21 +76,27 @@ function badgeToClass(badge: string): string {
 
 // --- Sub-components ---
 
-function SkeletonCard() {
+function LoadingAnimation() {
   return (
-    <div className="flex-shrink-0 w-[220px] rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden animate-pulse">
-      <div className="flex">
-        <div className="w-[4px] bg-[var(--border-color)]" />
-        <div className="flex-1 p-3">
-          <div className="h-4 w-16 rounded-full bg-[var(--border-color)] mb-2" />
-          <div className="h-5 w-32 rounded bg-[var(--border-color)]" />
-          <div className="h-3 w-20 rounded bg-[var(--border-color)] mt-1.5" />
-          <div className="h-3 w-full rounded bg-[var(--border-color)] mt-3" />
-          <div className="h-3 w-3/4 rounded bg-[var(--border-color)] mt-1" />
-        </div>
-      </div>
+    <div className="flex flex-col items-center justify-center w-full py-4">
+      <Suspense fallback={<div className="h-32 w-32" />}>
+        <LottieLoader />
+      </Suspense>
+      <p className="text-[11px] text-[var(--text-muted)] mt-1 italic">Le sommelier réfléchit...</p>
     </div>
   )
+}
+
+function LottieLoader() {
+  const [animationData, setAnimationData] = useState<unknown>(null)
+
+  useEffect(() => {
+    import('@/assets/cheers-wine.json').then((mod) => setAnimationData(mod.default))
+  }, [])
+
+  if (!animationData) return <div className="h-32 w-32" />
+
+  return <LottiePlayer animationData={animationData} loop className="h-32 w-32" />
 }
 
 interface RecommendationCardItemProps {
@@ -204,11 +212,7 @@ export default function CeSoirModule() {
         className="flex gap-3 overflow-x-auto discover-carousel scrollbar-hide -mx-6 px-6 mb-1"
       >
         {loading ? (
-          <>
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </>
+          <LoadingAnimation />
         ) : (
           cards.map((card, i) => (
             <RecommendationCardItem
