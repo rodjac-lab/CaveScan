@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Autocomplete } from '@/components/Autocomplete'
 import { BatchNavHeader } from '@/components/BatchNavHeader'
 import { WINE_COLORS, type WineColor, type BottleWithZone } from '@/lib/types'
@@ -50,6 +51,7 @@ export function BatchTastingItemForm({
   onUpdateExtraction,
 }: BatchTastingItemFormProps) {
   const [showAlternatives, setShowAlternatives] = useState(false)
+  const [zoomOpen, setZoomOpen] = useState(false)
 
   const isSaved = item.saved
 
@@ -62,14 +64,28 @@ export function BatchTastingItemForm({
         onNavigate={onNavigate}
       />
 
-      {/* Photo preview */}
+      {/* Photo preview — tap to zoom */}
       <div className="flex justify-center">
         <img
           src={item.photoUri}
           alt="Etiquette"
-          className="max-h-32 rounded-lg object-contain"
+          className="max-h-32 rounded-lg object-contain cursor-zoom-in"
+          onClick={() => setZoomOpen(true)}
         />
       </div>
+
+      <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
+        <DialogContent
+          className="max-w-[calc(100%-1rem)] p-2 sm:max-w-3xl"
+          showCloseButton={false}
+        >
+          <img
+            src={item.photoUri}
+            alt="Etiquette agrandie"
+            className="max-h-[80vh] w-full object-contain rounded-md bg-black/80"
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Layout depends on matchType */}
       {item.matchType === 'in_cave' && item.primaryMatch ? (
