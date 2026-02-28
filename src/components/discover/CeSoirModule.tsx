@@ -188,73 +188,17 @@ export default function CeSoirModule() {
 
   return (
     <div>
-      {/* Section title */}
+      {/* Section title + AI badge */}
       <div className="flex items-center gap-2.5 mb-3">
         <div className="flex-1 h-px bg-[var(--border-color)]" />
-        <span className="section-divider-label">Ce soir</span>
+        <div className="flex items-center gap-1.5">
+          <SparkleIcon />
+          <span className="section-divider-label">Ce soir</span>
+        </div>
         <div className="flex-1 h-px bg-[var(--border-color)]" />
       </div>
 
-      {/* Mode toggle */}
-      <div className="flex items-center gap-2 mb-3">
-        {MODE_OPTIONS.map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => handleModeSwitch(value)}
-            className={`rounded-full px-3 py-1.5 text-[12px] font-medium border transition-colors ${
-              mode === value
-                ? 'bg-[var(--accent-bg)] border-[var(--accent)] text-[var(--accent)]'
-                : 'bg-transparent border-[var(--border-color)] text-[var(--text-muted)]'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Search input */}
-      <form
-        onSubmit={(e) => { e.preventDefault(); handleSearchSubmit() }}
-        className="relative mb-3"
-      >
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
-          <SearchIcon />
-        </div>
-        <input
-          value={searchQuery}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          placeholder={placeholder}
-          enterKeyHint="search"
-          className="w-full h-9 rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-16 text-[13px] placeholder:text-[var(--text-muted)] placeholder:italic"
-        />
-        {hasActiveSearch && (
-          <button
-            type="button"
-            onClick={resetSearch}
-            className="absolute right-8 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-          >
-            <CloseIcon />
-          </button>
-        )}
-        {searchQuery.trim().length >= 2 && (
-          <button
-            type="submit"
-            className="absolute right-2 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-white"
-          >
-            <ChevronIcon />
-          </button>
-        )}
-      </form>
-
-      {/* AI badge */}
-      {showCards && !error && (
-        <div className="flex items-center gap-1 mb-2">
-          <SparkleIcon />
-          <span className="text-[10px] font-medium text-[var(--text-muted)]">Suggestion IA</span>
-        </div>
-      )}
-
-      {/* Carousel */}
+      {/* 1. Carousel — content first */}
       <div
         ref={scrollRef}
         className="flex gap-3 overflow-x-auto discover-carousel scrollbar-hide -mx-6 px-6 mb-1"
@@ -298,8 +242,8 @@ export default function CeSoirModule() {
         </div>
       )}
 
-      {/* Quick tags */}
-      <div className="flex flex-wrap gap-1.5">
+      {/* 2. Quick tags — refine */}
+      <div className="flex flex-wrap gap-1.5 mb-3">
         {tags.map((tag) => (
           <button
             key={tag}
@@ -314,6 +258,56 @@ export default function CeSoirModule() {
           </button>
         ))}
       </div>
+
+      {/* 3. Mode toggle + search — deep search */}
+      <div className="flex items-center gap-2 mb-2">
+        {MODE_OPTIONS.map(({ value, label }) => (
+          <button
+            key={value}
+            onClick={() => handleModeSwitch(value)}
+            className={`rounded-full px-3 py-1.5 text-[12px] font-medium border transition-colors ${
+              mode === value
+                ? 'bg-[var(--accent-bg)] border-[var(--accent)] text-[var(--accent)]'
+                : 'bg-transparent border-[var(--border-color)] text-[var(--text-muted)]'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <form
+        onSubmit={(e) => { e.preventDefault(); handleSearchSubmit() }}
+        className="relative"
+      >
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
+          <SearchIcon />
+        </div>
+        <input
+          value={searchQuery}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          placeholder={placeholder}
+          enterKeyHint="search"
+          className="w-full h-9 rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-16 text-[13px] placeholder:text-[var(--text-muted)] placeholder:italic"
+        />
+        {hasActiveSearch && (
+          <button
+            type="button"
+            onClick={resetSearch}
+            className="absolute right-8 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+          >
+            <CloseIcon />
+          </button>
+        )}
+        {searchQuery.trim().length >= 2 && (
+          <button
+            type="submit"
+            className="absolute right-2 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-white"
+          >
+            <ChevronIcon />
+          </button>
+        )}
+      </form>
     </div>
   )
 }
