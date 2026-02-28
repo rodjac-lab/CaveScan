@@ -23,8 +23,8 @@ Principe directeur: minimiser la friction entre l’action réelle (ranger / ouv
 ## Bottom nav (authentifié)
 
 - Cave
-- Entrée
-- Ouvrir
+- Encaver
+- Cheers!
 - Réglages
 
 Règles:
@@ -59,7 +59,7 @@ Vue de pilotage de la cave: consultation, recherche, filtres, accès rapide aux 
 - Error: message clair + action de retry
 - Empty: illustration sobre + CTA “Ajouter une bouteille”
 
-## Écran Entrée (`/add`)
+## Écran Encaver (`/add`)
 
 ## Rôle
 
@@ -79,27 +79,35 @@ Ajouter une ou plusieurs bouteilles avec un minimum d’effort.
 - Afficher les erreurs d’extraction sans bloquer la suite.
 - En batch, exposer clairement la progression et les éléments en erreur.
 
-## Écran Ouvrir (`/remove`)
+## Écran Cheers! (`/remove`)
 
 ## Rôle
 
-Déclarer rapidement qu’une bouteille est sortie/ouverte.
+Scanner une bouteille pour la marquer comme bue et ajouter des notes de dégustation. Permet aussi de noter un vin goûté hors cave.
 
-## Étapes
+## Étapes (single)
 
 1. Capture (caméra / galerie)
 2. Extraction OCR
 3. Matching sur bouteilles `in_stock`
-4. Confirmation du match
-5. Passage en `drunk`
+4. Si match en cave : confirmation → passage en `drunk`
+5. Si pas en cave : création d’une bouteille avec statut `drunk`
+6. Transition vers la fiche dégustation
+
+## Étapes (batch)
+
+1. Sélection de plusieurs photos (jusqu’à 12)
+2. Extraction IA en parallèle
+3. Écran de revue avec badges : En cave / Hors cave / Non identifié
+4. Sauvegarde groupée
 
 ## Principes UX
 
 - Priorité au scan (action principale).
 - Si ambiguïté, proposer une liste courte triée par pertinence.
-- Si aucun match, proposer une sortie manuelle guidée.
-- "Ce n'est pas cette bouteille" : formulaire de correction éditable puis re-matching.
-- Après sortie, transition vers la fiche dégustation (mode batch si plusieurs bouteilles).
+- "Ce n’est pas cette bouteille" : formulaire de correction éditable puis re-matching.
+- Après sortie, transition vers la fiche dégustation.
+- En batch, exposer clairement la progression et les résultats par catégorie.
 
 ## Écran Détail bouteille (`/bottle/:id`)
 

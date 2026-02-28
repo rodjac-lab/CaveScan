@@ -59,9 +59,9 @@ Contexte initial: utilisateur solo, usage mobile Android, réseau disponible en 
 | Sorties récentes | Liste des dernières bouteilles sorties | 0 |
 | Note de dégustation | Optionnelle depuis la fiche bouteille | Optionnel |
 
-### Flux Entrée
+### Flux Encaver
 
-1. Ouvrir l'app et aller sur Ajouter
+1. Ouvrir l'app et aller sur Encaver
 2. Prendre une photo ou choisir une photo
 3. Extraction IA des champs
 4. Corriger/valider rapidement
@@ -70,14 +70,14 @@ Contexte initial: utilisateur solo, usage mobile Android, réseau disponible en 
 
 Cible: < 10 secondes du lancement au rangement.
 
-### Flux Sortie
+### Flux Cheers! (single)
 
-1. Ouvrir l'app et aller sur Sortir
+1. Ouvrir l'app et aller sur Cheers!
 2. Prendre une photo de l'étiquette
 3. Extraction IA puis matching sur les bouteilles `in_stock`
-4. Si match unique: confirmation rapide
-5. Si plusieurs matchs: sélection dans la liste
-6. La bouteille passe en `drunk` et apparaît en sorties récentes
+4. Si match en cave: confirmation rapide → passage en `drunk`
+5. Si pas en cave: création d'une bouteille avec statut `drunk` (permet de noter un vin goûté ailleurs)
+6. Transition vers la fiche dégustation (notes, photos, partage)
 
 ### Flux Note de dégustation
 
@@ -90,12 +90,13 @@ Cible: < 10 secondes du lancement au rangement.
 
 Principe: aucune friction supplémentaire si l'utilisateur ne veut pas noter. Les champs structurés (rating, QPR, rebuy) permettent d'exploiter les dégustations passées pour décider quoi ouvrir ou racheter.
 
-### Flux Batch Tasting
+### Flux Cheers! (batch)
 
-1. Scanner une bouteille via l'écran Ouvrir
-2. Si plusieurs bouteilles à déguster, enchaîner les fiches de dégustation
-3. Navigation prev/next entre les vins du batch
-4. À la fin du batch, retour à l'écran Ouvrir
+1. Sélectionner plusieurs photos (jusqu'à 12) depuis l'écran Cheers!
+2. Extraction IA en parallèle pour toutes les bouteilles
+3. Écran de revue avec badges : En cave (jaune) / Hors cave (gris) / Non identifié (erreur)
+4. Sauvegarde groupée en un tap
+5. Utile pour les dégustations entre amis ou les salons
 
 ## Évolutions
 
@@ -205,14 +206,15 @@ Règles:
 | Bouteilles ajoutées après 1 mois | > 50 |
 | Sorties déclarées vs estimées | > 60% |
 
-## Écrans MVP
+## Écrans
 
-1. Home/Inventaire
-2. Ajouter (entrée)
-3. Sortir (sortie)
-4. Détail bouteille
-5. Recherche
-6. Paramètres (zones)
+1. Landing (présentation + CTA signup/login, visible si déconnecté)
+2. Cave (inventaire, recherche intégrée, filtres par couleur)
+3. Encaver (entrée par photo)
+4. Cheers! (sortie par photo, single ou batch)
+5. Détail bouteille (fiche vin, dégustation, partage)
+6. Édition bouteille
+7. Réglages (zones de stockage, invitation)
 
 ## Roadmap
 
