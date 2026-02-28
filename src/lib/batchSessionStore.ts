@@ -3,6 +3,7 @@ import type { BottleWithZone, WineExtraction } from '@/lib/types'
 
 export type BatchSessionStatus = 'processing' | 'ready' | 'done'
 export type BatchMatchType = 'in_cave' | 'not_in_cave' | 'unresolved' | null
+export type BatchExtractionStatus = 'pending' | 'extracting' | 'extracted' | 'error'
 
 export interface BatchItem {
   id: string
@@ -16,6 +17,8 @@ export interface BatchItem {
   processedAt: string | null
   ignored: boolean
   error: string | null
+  extractionStatus: BatchExtractionStatus
+  saved: boolean
 }
 
 export interface BatchSession {
@@ -82,6 +85,8 @@ export function createBatchSession(files: File[]): BatchSession {
       processedAt: null,
       ignored: false,
       error: null,
+      extractionStatus: 'pending',
+      saved: false,
     })),
   }
 

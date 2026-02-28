@@ -1,9 +1,11 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Loader2, PenLine, Check, X, ChevronRight, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { BatchProgress, type BatchProgressItem } from '@/components/BatchProgress'
+import { BatchTastingItemForm } from '@/components/BatchTastingItemForm'
 import { supabase } from '@/lib/supabase'
-import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
+import { useBottles, useRecentlyDrunk, useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
 import { normalizeWineColor, type WineColor, type BottleWithZone, type WineExtraction } from '@/lib/types'
 import { fileToBase64, resizeImage } from '@/lib/image'
 import { track } from '@/lib/track'
@@ -18,7 +20,8 @@ import {
   type BatchItem,
 } from '@/lib/batchSessionStore'
 
-type Step = 'choose' | 'processing' | 'result' | 'review' | 'saving' | 'batch-saving'
+type Step = 'choose' | 'processing' | 'result' | 'saving'
+           | 'batch-extracting' | 'batch-review' | 'batch-saving'
 type MatchType = 'in_cave' | 'not_in_cave'
 
 const MAX_BATCH_SIZE = 12
@@ -71,12 +74,15 @@ export default function RemoveBottle() {
   const { bottles, loading: bottlesLoading } = useBottles()
   const { bottles: recentlyDrunk, loading: drunkLoading } = useRecentlyDrunk()
   const batchSession = useBatchSession()
+  const domainesSuggestions = useDomainesSuggestions()
+  const appellationsSuggestions = useAppellationsSuggestions()
 
   const [step, setStep] = useState<Step>('choose')
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
   const [showAlternatives, setShowAlternatives] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [prefillHandled, setPrefillHandled] = useState(false)
+  const [currentBatchIndex, setCurrentBatchIndex] = useState(0)
 
   // Handle prefill from Scanner
   useEffect(() => {
@@ -139,11 +145,20 @@ export default function RemoveBottle() {
     if (!hasUnprocessed) return
 
     batchStartedRef.current = true
+    setStep('batch-extracting')
     void processBatchInBackground(batchSession.id)
   }, [batchSession, bottlesLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-transition: when batch is ready, go from extracting to review
   useEffect(() => {
-    if (step === 'review' && (!batchSession || batchSession.status === 'done')) {
+    if (step === 'batch-extracting' && batchSession?.status === 'ready') {
+      setCurrentBatchIndex(0)
+      setStep('batch-review')
+    }
+  }, [batchSession?.status, step])
+
+  useEffect(() => {
+    if (step === 'batch-review' && (!batchSession || batchSession.status === 'done')) {
       setStep('choose')
     }
   }, [batchSession, step])
@@ -166,6 +181,27 @@ export default function RemoveBottle() {
       unresolved,
     }
   }, [activeBatchSession])
+
+  // Map batch items to BatchProgressItem[] for the BatchProgress component
+  const batchProgressItems: BatchProgressItem[] = useMemo(() => {
+    if (!batchSession) return []
+    return batchSession.items.map((item) => ({
+      id: item.id,
+      photoPreview: item.photoUri,
+      status: item.extractionStatus,
+      error: item.error ?? undefined,
+      domaine: item.extraction?.domaine ?? undefined,
+      appellation: item.extraction?.appellation ?? undefined,
+    }))
+  }, [batchSession])
+
+  const batchExtractionCurrentIndex = useMemo(() => {
+    if (!batchSession) return 0
+    const idx = batchSession.items.findIndex(
+      (item) => item.extractionStatus === 'extracting'
+    )
+    return idx >= 0 ? idx : batchSession.items.length - 1
+  }, [batchSession])
 
   const formatDrunkDate = (value?: string | null) => {
     const empty = { day: '', month: '' }
@@ -251,6 +287,9 @@ export default function RemoveBottle() {
         return
       }
 
+      // Mark as extracting
+      updateBatchItem(sessionId, item.id, { extractionStatus: 'extracting' })
+
       try {
         const base64 = await fileToBase64(item.photoFile)
         const { data, error: extractError } = await supabase.functions.invoke('extract-wine', {
@@ -271,6 +310,7 @@ export default function RemoveBottle() {
           matchType: primaryMatch ? 'in_cave' : 'not_in_cave',
           processedAt: new Date().toISOString(),
           error: null,
+          extractionStatus: 'extracted',
         })
       } catch (err) {
         console.error('Batch extraction error:', err)
@@ -282,6 +322,7 @@ export default function RemoveBottle() {
           matchType: 'unresolved',
           processedAt: new Date().toISOString(),
           error: 'Non identifie',
+          extractionStatus: 'error',
         })
       }
     }
@@ -302,7 +343,7 @@ export default function RemoveBottle() {
     const selectedFiles = Array.from(files).slice(0, MAX_BATCH_SIZE)
     const session = createBatchSession(selectedFiles)
     setError(null)
-    setStep('choose')
+    setStep('batch-extracting')
     e.target.value = ''
 
     void processBatchInBackground(session.id)
@@ -404,29 +445,150 @@ export default function RemoveBottle() {
     await handleLogTasting(scanResult)
   }
 
-  const handleToggleIgnoreBatchItem = (item: BatchItem) => {
-    if (!activeBatchSession) return
-    updateBatchItem(activeBatchSession.id, item.id, { ignored: !item.ignored })
+  // ── Batch per-item handlers ──
+
+  const findNextUnsavedIndex = (fromIndex: number, items: BatchItem[]): number | null => {
+    // Search forward from fromIndex
+    for (let i = fromIndex + 1; i < items.length; i++) {
+      if (!items[i].saved && !items[i].ignored) return i
+    }
+    // Wrap around
+    for (let i = 0; i < fromIndex; i++) {
+      if (!items[i].saved && !items[i].ignored) return i
+    }
+    return null
   }
 
-  const handleBatchConfirmAll = async () => {
+  const handleBatchItemSave = async (item: BatchItem) => {
+    if (!activeBatchSession) return
+
+    try {
+      if (item.matchType === 'in_cave' && item.primaryMatch) {
+        // Mark existing bottle as drunk
+        await supabase
+          .from('bottles')
+          .update({ status: 'drunk', drunk_at: new Date().toISOString() })
+          .eq('id', item.primaryMatch.id)
+        track('bottle_opened', { matched: true, batch: true })
+      } else {
+        // Insert new bottle as drunk (not_in_cave or unresolved with user edits)
+        let photoUrl: string | null = null
+        const compressedBlob = await resizeImage(item.photoFile)
+        const fileName = `${Date.now()}-front-${item.id}.jpg`
+
+        const { error: uploadError } = await supabase.storage
+          .from('wine-labels')
+          .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage.from('wine-labels').getPublicUrl(fileName)
+          photoUrl = urlData.publicUrl
+        }
+
+        await supabase.from('bottles').insert({
+          domaine: item.extraction?.domaine || null,
+          cuvee: item.extraction?.cuvee || null,
+          appellation: item.extraction?.appellation || null,
+          millesime: item.extraction?.millesime || null,
+          couleur: normalizeWineColor(item.extraction?.couleur) || null,
+          photo_url: photoUrl,
+          raw_extraction: item.extraction,
+          status: 'drunk',
+          drunk_at: new Date().toISOString(),
+          grape_varieties: item.extraction?.grape_varieties || null,
+          serving_temperature: item.extraction?.serving_temperature || null,
+          typical_aromas: item.extraction?.typical_aromas || null,
+          food_pairings: item.extraction?.food_pairings || null,
+          character: item.extraction?.character || null,
+        })
+        track('bottle_opened', { matched: false, batch: true })
+      }
+
+      // Mark saved
+      updateBatchItem(activeBatchSession.id, item.id, { saved: true })
+
+      // Check if all items are done
+      const currentItems = getActiveBatchSession()?.items ?? []
+      const allDone = currentItems.every((it) => it.id === item.id || it.saved || it.ignored)
+
+      if (allDone) {
+        setBatchSessionStatus(activeBatchSession.id, 'done')
+        triggerProfileRecompute()
+        setStep('choose')
+        return
+      }
+
+      // Jump to next unsaved
+      const nextIdx = findNextUnsavedIndex(currentBatchIndex, currentItems)
+      if (nextIdx !== null) {
+        setCurrentBatchIndex(nextIdx)
+      }
+    } catch (err) {
+      console.error('Batch item save error:', err)
+      setError("Echec de l'enregistrement")
+    }
+  }
+
+  const handleBatchItemSkip = () => {
+    if (!activeBatchSession) return
+
+    const items = activeBatchSession.items
+    const nextIdx = findNextUnsavedIndex(currentBatchIndex, items)
+
+    if (nextIdx !== null) {
+      setCurrentBatchIndex(nextIdx)
+    } else {
+      // All items are saved or ignored — finish
+      setBatchSessionStatus(activeBatchSession.id, 'done')
+      triggerProfileRecompute()
+      setStep('choose')
+    }
+  }
+
+  const handleBatchSelectAlternative = (item: BatchItem, bottle: BottleWithZone) => {
+    if (!activeBatchSession) return
+    const merged = [item.primaryMatch, ...item.alternatives].filter(Boolean) as BottleWithZone[]
+    updateBatchItem(activeBatchSession.id, item.id, {
+      matchType: 'in_cave',
+      primaryMatch: bottle,
+      matchedBottleId: bottle.id,
+      alternatives: merged.filter((c) => c.id !== bottle.id),
+    })
+  }
+
+  const handleUpdateBatchExtraction = (itemId: string, field: string, value: string) => {
+    if (!activeBatchSession) return
+    const item = activeBatchSession.items.find((it) => it.id === itemId)
+    if (!item) return
+
+    const currentExtraction = item.extraction ?? ({} as Record<string, unknown>)
+    const updatedExtraction = {
+      ...currentExtraction,
+      [field]: field === 'millesime' ? (value ? parseInt(value, 10) : null) : value,
+    } as WineExtraction
+
+    updateBatchItem(activeBatchSession.id, itemId, { extraction: updatedExtraction })
+  }
+
+  const handleBatchConfirmAllRemaining = async () => {
     if (!activeBatchSession) return
 
     setStep('batch-saving')
 
     try {
       for (const item of activeBatchSession.items) {
-        if (item.ignored) continue
+        if (item.saved || item.ignored) continue
 
         if (item.matchType === 'in_cave' && item.primaryMatch) {
           await supabase
             .from('bottles')
             .update({ status: 'drunk', drunk_at: new Date().toISOString() })
             .eq('id', item.primaryMatch.id)
+          updateBatchItem(activeBatchSession.id, item.id, { saved: true })
           continue
         }
 
-        if (item.matchType === 'not_in_cave' && item.extraction) {
+        if ((item.matchType === 'not_in_cave' || item.matchType === 'unresolved') && item.extraction) {
           let photoUrl: string | null = null
           const compressedBlob = await resizeImage(item.photoFile)
           const fileName = `${Date.now()}-front-${item.id}.jpg`
@@ -456,6 +618,7 @@ export default function RemoveBottle() {
             food_pairings: item.extraction.food_pairings || null,
             character: item.extraction.character || null,
           })
+          updateBatchItem(activeBatchSession.id, item.id, { saved: true })
         }
       }
 
@@ -465,7 +628,7 @@ export default function RemoveBottle() {
     } catch (err) {
       console.error('Batch save error:', err)
       setError("Echec de l'enregistrement de la rafale")
-      setStep('review')
+      setStep('batch-review')
     }
   }
 
@@ -486,13 +649,28 @@ export default function RemoveBottle() {
     )
   }
 
+  // ══════════════════════════════════════════
+  //  RENDER
+  // ══════════════════════════════════════════
+
   if (step === 'choose') {
+    // Determine where the batch banner button should navigate
+    const handleBatchBannerClick = () => {
+      if (!activeBatchSession) return
+      if (activeBatchSession.status === 'processing') {
+        setStep('batch-extracting')
+      } else {
+        setCurrentBatchIndex(0)
+        setStep('batch-review')
+      }
+    }
+
     return (
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <header className="flex-shrink-0 px-6 pt-4 pb-3">
           <p className="brand-text">CaveScan</p>
           <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Cheers!</h1>
-          <p className="text-[13px] font-light text-[var(--text-secondary)]">Sorties de cave & dégustations</p>
+          <p className="text-[13px] font-light text-[var(--text-secondary)]">Sorties de cave & degustations</p>
         </header>
 
         {error && (
@@ -505,7 +683,7 @@ export default function RemoveBottle() {
           {activeBatchSession && batchSummary && (
             <button
               type="button"
-              onClick={() => setStep('review')}
+              onClick={handleBatchBannerClick}
               className="mx-6 mb-3 mt-2 flex w-[calc(100%-3rem)] items-center gap-3 rounded-[var(--radius-sm)] border border-[rgba(184,134,11,0.12)] bg-[var(--accent-bg)] px-3 py-2.5 text-left"
             >
               {activeBatchSession.status === 'processing' ? (
@@ -607,7 +785,7 @@ export default function RemoveBottle() {
 
               <div className="flex-1 text-center">
                 <p className="font-serif text-base font-semibold text-[var(--text-primary)]">Ouvrir une bouteille</p>
-                <p className="text-xs text-[var(--text-muted)]">Scanner l'étiquette</p>
+                <p className="text-xs text-[var(--text-muted)]">Scanner l'etiquette</p>
               </div>
 
               <button
@@ -753,93 +931,69 @@ export default function RemoveBottle() {
     )
   }
 
-  if (step === 'review' && activeBatchSession && batchSummary) {
+  if (step === 'batch-extracting' && batchSession) {
     return (
-      <div className="flex h-full flex-col overflow-hidden p-6 pb-3">
-        <div className="mb-3">
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="mb-4">
           <p className="brand-text">CaveScan</p>
-          <h2 className="font-serif text-[16px] font-semibold text-[var(--text-primary)]">{activeBatchSession.label}</h2>
-          <p className="text-[11px] font-normal text-[var(--text-muted)]">
-            {batchSummary.total} vins · {batchSummary.inCave} en cave, {batchSummary.notInCave} hors cave
-          </p>
+          <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Cheers!</h1>
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 scrollbar-hide">
-          {activeBatchSession.items.map((item) => {
-            const name = item.primaryMatch?.domaine || item.primaryMatch?.appellation || item.extraction?.domaine || item.extraction?.appellation || 'Vin non identifie'
-            const detail = item.primaryMatch
-              ? [item.primaryMatch.appellation, item.primaryMatch.millesime].filter(Boolean).join(' · ')
-              : [item.extraction?.appellation, item.extraction?.millesime].filter(Boolean).join(' · ')
+        <BatchProgress
+          items={batchProgressItems}
+          currentIndex={batchExtractionCurrentIndex}
+        />
 
-            return (
-              <div key={item.id} className="rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] p-2.5">
-                <div className="flex items-start gap-3">
-                  <img src={item.photoUri} alt="Bouteille" className="h-[30px] w-[30px] rounded object-cover" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="truncate text-[13px] font-medium text-[var(--text-primary)]">{name}</p>
-                      {renderMatchBadge(item.matchType === null ? 'unresolved' : item.matchType)}
-                    </div>
-                    <p className="truncate text-[11px] font-normal text-[var(--text-muted)]">{detail || item.error || 'Information partielle'}</p>
-                  </div>
-                </div>
-
-                <div className="mt-2 flex items-center gap-3">
-                  {item.matchType === 'in_cave' && (
-                    <button
-                      type="button"
-                      onClick={() => updateBatchItem(activeBatchSession.id, item.id, { ignored: false })}
-                      className="flex-1 rounded-[var(--radius-sm)] bg-[var(--accent-bg)] px-3 py-2 text-center text-[12px] font-medium text-[var(--accent)]"
-                    >
-                      Sortir de cave
-                    </button>
-                  )}
-
-                  {item.matchType === 'not_in_cave' && (
-                    <button
-                      type="button"
-                      onClick={() => updateBatchItem(activeBatchSession.id, item.id, { ignored: false })}
-                      className="flex-1 rounded-[var(--radius-sm)] bg-[var(--accent-bg)] px-3 py-2 text-center text-[12px] font-medium text-[var(--accent)]"
-                    >
-                      Noter la degustation
-                    </button>
-                  )}
-
-                  {(item.matchType === 'unresolved' || item.matchType === null) && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        navigate('/add', {
-                          state: {
-                            prefillExtraction: item.extraction,
-                            prefillPhotoFile: item.photoFile,
-                          },
-                        })
-                      }
-                      className="flex-1 rounded-[var(--radius-sm)] bg-[var(--accent-bg)] px-3 py-2 text-center text-[12px] font-medium text-[var(--accent)]"
-                    >
-                      Saisir manuellement
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => handleToggleIgnoreBatchItem(item)}
-                    className="text-[12px] font-medium text-[var(--text-muted)]"
-                  >
-                    {item.ignored ? 'Reprendre' : 'Ignorer'}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        <div className="pt-3">
-          <Button className="w-full bg-[var(--accent)] hover:bg-[var(--accent-light)]" onClick={handleBatchConfirmAll}>
-            Tout valider
+        <div className="mt-6">
+          <Button variant="outline" className="w-full" onClick={resetToChoose}>
+            Retour
           </Button>
-          <Button variant="outline" className="mt-2 w-full" onClick={resetToChoose}>
+        </div>
+      </div>
+    )
+  }
+
+  if (step === 'batch-review' && activeBatchSession) {
+    const currentItem = activeBatchSession.items[currentBatchIndex]
+    const unsavedCount = activeBatchSession.items.filter((it) => !it.saved && !it.ignored).length
+
+    return (
+      <div className="flex h-full flex-col overflow-hidden">
+        <div className="flex-shrink-0 px-6 pt-4 pb-2">
+          <p className="brand-text">CaveScan</p>
+          <h2 className="font-serif text-[16px] font-semibold text-[var(--text-primary)]">
+            {activeBatchSession.label}
+          </h2>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-3 scrollbar-hide">
+          {currentItem && (
+            <BatchTastingItemForm
+              item={currentItem}
+              currentIndex={currentBatchIndex}
+              totalItems={activeBatchSession.items.length}
+              allItems={activeBatchSession.items}
+              domainesSuggestions={domainesSuggestions}
+              appellationsSuggestions={appellationsSuggestions}
+              onNavigate={setCurrentBatchIndex}
+              onSave={handleBatchItemSave}
+              onSkip={handleBatchItemSkip}
+              onSelectAlternative={handleBatchSelectAlternative}
+              onUpdateExtraction={handleUpdateBatchExtraction}
+            />
+          )}
+        </div>
+
+        <div className="flex-shrink-0 px-6 py-3 border-t border-[var(--border-color)] bg-[var(--bg)]">
+          {unsavedCount > 0 && (
+            <Button
+              className="w-full bg-[var(--accent)] hover:bg-[var(--accent-light)]"
+              onClick={handleBatchConfirmAllRemaining}
+            >
+              Tout valider les {unsavedCount} restants
+            </Button>
+          )}
+          <Button variant="outline" className={`w-full ${unsavedCount > 0 ? 'mt-2' : ''}`} onClick={resetToChoose}>
             Retour
           </Button>
         </div>

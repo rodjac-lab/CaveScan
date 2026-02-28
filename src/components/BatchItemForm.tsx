@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
 import { Autocomplete } from '@/components/Autocomplete'
+import { BatchNavHeader } from '@/components/BatchNavHeader'
 import { StoragePositionPicker } from '@/components/StoragePositionPicker'
 import { WINE_COLORS, type WineColor } from '@/lib/types'
 import type { Zone } from '@/lib/types'
@@ -81,46 +82,12 @@ export function BatchItemForm({
 
   return (
     <div className="space-y-4">
-      {/* Batch navigation header */}
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => currentIndex > 0 && onNavigate(currentIndex - 1)}
-            disabled={currentIndex === 0}
-            className="p-1 rounded-full transition-colors disabled:opacity-30"
-          >
-            <ChevronLeft className="h-4 w-4 text-[var(--text-secondary)]" />
-          </button>
-          <span className="text-sm font-medium">
-            Fiche {currentIndex + 1} sur {totalItems}
-          </span>
-          <button
-            type="button"
-            onClick={() => currentIndex < totalItems - 1 && onNavigate(currentIndex + 1)}
-            disabled={currentIndex === totalItems - 1}
-            className="p-1 rounded-full transition-colors disabled:opacity-30"
-          >
-            <ChevronRight className="h-4 w-4 text-[var(--text-secondary)]" />
-          </button>
-        </div>
-        <div className="flex gap-1">
-          {allItems.map((batchItem, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => onNavigate(i)}
-              className={`h-1.5 w-6 rounded-full transition-colors ${
-                batchItem.saved
-                  ? 'bg-green-500'
-                  : i === currentIndex
-                    ? 'bg-[var(--accent)]'
-                    : 'bg-muted'
-              }`}
-            />
-          ))}
-        </div>
-      </div>
+      <BatchNavHeader
+        currentIndex={currentIndex}
+        totalItems={totalItems}
+        itemStatuses={allItems.map((it) => !!it.saved)}
+        onNavigate={onNavigate}
+      />
 
       {/* Photo previews */}
       {(item.photoPreview || item.photoPreviewBack) && (
