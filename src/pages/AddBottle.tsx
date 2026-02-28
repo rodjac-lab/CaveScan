@@ -119,6 +119,7 @@ export default function AddBottle() {
       zoneId: '',
       shelf: '',
       purchasePrice: '',
+      quantity: 1,
       rawExtraction: null,
     }))
 
@@ -194,6 +195,7 @@ export default function AddBottle() {
       zoneId: '',
       shelf: '',
       purchasePrice: '',
+      quantity: 1,
       rawExtraction: null,
     }))
 
@@ -491,11 +493,12 @@ export default function AddBottle() {
         character: (item.rawExtraction as WineExtraction | null)?.character || null,
       }
 
-      const { error: insertError } = await supabase.from('bottles').insert([bottleData])
+      const bottles = Array.from({ length: item.quantity }, () => ({ ...bottleData }))
+      const { error: insertError } = await supabase.from('bottles').insert(bottles)
 
       if (insertError) throw insertError
 
-      track('bottle_added', { couleur: item.couleur || null, has_photo: true })
+      track('bottle_added', { couleur: item.couleur || null, has_photo: true, quantity: item.quantity })
 
       // Mark current item as saved
       const updatedItems = [...batchItems]

@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { Plus } from 'lucide-react'
+import { Minus, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -33,6 +33,7 @@ export interface BatchItemData {
   zoneId: string
   shelf: string
   purchasePrice: string
+  quantity: number
   rawExtraction: unknown
   saved?: boolean
 }
@@ -249,17 +250,46 @@ export function BatchItemForm({
           </div>
         </div>
 
-        <div>
-          <Label htmlFor="price">Prix d'achat (€)</Label>
-          <Input
-            id="price"
-            inputMode="decimal"
-            value={item.purchasePrice}
-            onChange={(e) =>
-              onUpdate({ purchasePrice: e.target.value.replace(/[^0-9.,]/g, '') })
-            }
-            placeholder="ex: 12.50"
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="price">Prix d'achat (€)</Label>
+            <Input
+              id="price"
+              inputMode="decimal"
+              value={item.purchasePrice}
+              onChange={(e) =>
+                onUpdate({ purchasePrice: e.target.value.replace(/[^0-9.,]/g, '') })
+              }
+              placeholder="ex: 12.50"
+            />
+          </div>
+
+          <div>
+            <Label>Quantité</Label>
+            <div className="flex items-center gap-2 mt-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-9 w-9"
+                onClick={() => onUpdate({ quantity: Math.max(1, item.quantity - 1) })}
+                disabled={item.quantity <= 1}
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+              <span className="text-lg font-semibold w-6 text-center">{item.quantity}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-9 w-9"
+                onClick={() => onUpdate({ quantity: Math.min(12, item.quantity + 1) })}
+                disabled={item.quantity >= 12}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

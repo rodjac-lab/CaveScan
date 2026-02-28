@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro, Pencil, Plus, Camera, ImageIcon, X, Check, Tag, Grid2x2, Star, RefreshCw } from 'lucide-react'
+import { ArrowLeft, ArrowRight, MapPin, Calendar, Wine, Loader2, Save, Share2, Euro, Pencil, Plus, Camera, ImageIcon, X, Check, Tag, Grid2x2, Star, RefreshCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
@@ -44,6 +44,8 @@ export default function BottlePage() {
   const [removing, setRemoving] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [zoomImage, setZoomImage] = useState<{ src: string; label?: string } | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Cave mode state
   const [sameWineCount, setSameWineCount] = useState<number>(1)
@@ -148,6 +150,23 @@ export default function BottlePage() {
       await refetch()
     }
     setRemoving(false)
+  }
+
+  const handleDelete = async () => {
+    if (!bottle) return
+
+    setDeleting(true)
+    const { error } = await supabase
+      .from('bottles')
+      .delete()
+      .eq('id', bottle.id)
+
+    if (!error) {
+      track('bottle_deleted')
+      setShowDeleteConfirm(false)
+      navigate('/cave', { replace: true })
+    }
+    setDeleting(false)
   }
 
   const handleShare = async () => {
@@ -884,8 +903,54 @@ export default function BottlePage() {
         </>
       )}
 
+      {/* ===== DELETE ===== */}
+      <div className="mx-4 mt-6 mb-2 flex justify-center">
+        <button
+          className="text-[13px] text-[var(--text-muted)] hover:text-red-600 transition-colors"
+          onClick={() => setShowDeleteConfirm(true)}
+        >
+          Supprimer cette bouteille
+        </button>
+      </div>
+
       {/* Bottom spacer for nav bar */}
       <div className="h-[90px]" />
+
+      {/* ===== DELETE CONFIRMATION DIALOG ===== */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-sm" showCloseButton={false}>
+          <div className="flex flex-col gap-4 p-2">
+            <div className="flex flex-col items-center gap-2 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Supprimer cette bouteille ?</h3>
+              <p className="text-sm text-[var(--text-muted)]">
+                {bottle.domaine || bottle.appellation || 'Cette bouteille'}{bottle.millesime ? ` ${bottle.millesime}` : ''} sera définitivement supprimée de votre cave.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Supprimer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ===== ZOOM DIALOG ===== */}
       <Dialog open={!!zoomImage} onOpenChange={(open) => !open && setZoomImage(null)}>
