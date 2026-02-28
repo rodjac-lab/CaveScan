@@ -17,12 +17,18 @@ const EXTRACTION_PROMPT = `Analyse cette photo d'étiquette de vin et extrais le
   "couleur": "rouge" | "blanc" | "rose" | "bulles",
   "region": "région viticole",
   "cepage": "cépage principal si mentionné",
-  "confidence": 0.0-1.0
+  "confidence": 0.0-1.0,
+  "grape_varieties": ["cépage1", "cépage2"] ou null,
+  "serving_temperature": "16-18°C" ou null,
+  "typical_aromas": ["arôme1", "arôme2", "arôme3"] ou null,
+  "food_pairings": ["accord1", "accord2"] ou null,
+  "character": "description courte du caractère du vin (1-2 phrases)" ou null
 }
 
 Si une information n'est pas visible sur l'étiquette, utilise null.
 La cuvée est le nom spécifique du vin, distinct du domaine et de l'appellation. Par exemple pour "Chartogne Taillet Orizeaux Champagne", le domaine est "Chartogne Taillet", la cuvée est "Orizeaux", et l'appellation est "Champagne".
 Pour la couleur, déduis-la de l'appellation si elle n'est pas explicite.
+Pour grape_varieties, serving_temperature, typical_aromas, food_pairings et character : déduis ces informations à partir de tes connaissances sur ce vin, son appellation et son cépage, même si elles ne sont pas sur l'étiquette.
 Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
 
 const CORS_HEADERS = {
@@ -90,7 +96,7 @@ async function callClaude(imageBase64: string | undefined, imageUrl: string | un
     },
     body: JSON.stringify({
       model,
-      max_tokens: 1024,
+      max_tokens: 1500,
       messages: [{
         role: 'user',
         content: [imageContent, { type: 'text', text: EXTRACTION_PROMPT }],
@@ -136,7 +142,7 @@ async function callGemini(imageBase64: string | undefined, _imageUrl: string | u
           { text: EXTRACTION_PROMPT },
         ],
       }],
-      generationConfig: { temperature: 0, maxOutputTokens: 1024 },
+      generationConfig: { temperature: 0, maxOutputTokens: 1500 },
     }),
   })
 

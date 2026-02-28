@@ -45,6 +45,11 @@ export interface Bottle {
   rating: number | null
   rebuy: boolean | null
   qpr: number | null
+  grape_varieties: string[] | null
+  serving_temperature: string | null
+  typical_aromas: string[] | null
+  food_pairings: string[] | null
+  character: string | null
 }
 
 export interface BottleWithZone extends Bottle {
@@ -88,4 +93,9 @@ export interface WineExtraction {
   region: string | null
   cepage: string | null
   confidence: number
+  grape_varieties?: string[] | null
+  serving_temperature?: string | null
+  typical_aromas?: string[] | null
+  food_pairings?: string[] | null
+  character?: string | null
 }

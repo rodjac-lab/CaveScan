@@ -1,7 +1,7 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 
-// Custom SVG icons from design system
-function HomeIcon({ className }: { className?: string }) {
+// Cave icon (house)
+function CaveIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
@@ -9,27 +9,43 @@ function HomeIcon({ className }: { className?: string }) {
   )
 }
 
-function PlusSquareIcon({ className }: { className?: string }) {
+// Cheers icon (smirk — mouth only, no eyes)
+function CheersIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect x="3" y="3" width="18" height="18" rx="2"/>
-      <path d="M12 5v14M5 12h14"/>
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="9" cy="10" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="10" r="1" fill="currentColor" stroke="none" />
+      {/* Smirk — shifted right, curves up */}
+      <path d="M10 15.5 Q13 17 16.5 14" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   )
 }
 
-// Smiley malicieux - signature icon with squinted eyes
-function SmileyIcon({ className }: { className?: string }) {
+// Scanner icon (viewfinder)
+function ScannerIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="12" cy="12" r="10"/>
-      <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
-      <line x1="9" y1="9" x2="9.01" y2="9"/>
-      <line x1="15" y1="9" x2="15.01" y2="9"/>
+      <path d="M2 7V2h5" />
+      <path d="M17 2h5v5" />
+      <path d="M22 17v5h-5" />
+      <path d="M7 22H2v-5" />
+      <rect x="7" y="7" width="10" height="10" rx="1" />
     </svg>
   )
 }
 
+// Discover icon (compass)
+function DiscoverIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="12" r="10" />
+      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+// Settings icon (gear)
 function SettingsIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -39,29 +55,57 @@ function SettingsIcon({ className }: { className?: string }) {
   )
 }
 
-const navItems = [
-  { to: '/cave', icon: HomeIcon, label: 'Cave' },
-  { to: '/add', icon: PlusSquareIcon, label: 'Encaver' },
-  { to: '/remove', icon: SmileyIcon, label: 'Cheers!' },
+const leftTabs = [
+  { to: '/cave', icon: CaveIcon, label: 'Cave' },
+  { to: '/cheers', icon: CheersIcon, label: 'Cheers!' },
+]
+
+const rightTabs = [
+  { to: '/decouvrir', icon: DiscoverIcon, label: 'Découvrir' },
   { to: '/settings', icon: SettingsIcon, label: 'Réglages' },
 ]
 
 export default function BottomNav() {
+  const navigate = useNavigate()
+
+  const tabClass = ({ isActive }: { isActive: boolean }) =>
+    `flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-opacity duration-200 ${
+      isActive
+        ? 'opacity-100 text-[var(--accent)]'
+        : 'opacity-40 text-[var(--text-primary)]'
+    }`
+
   return (
     <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-50 border-t border-[var(--border-color)] nav-backdrop">
-      <div className="mx-auto flex h-16 max-w-lg items-center justify-around px-6">
-        {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              `flex flex-col items-center justify-center gap-1 px-3 py-2 transition-opacity duration-200 ${
-                isActive
-                  ? 'opacity-100 text-[var(--accent)]'
-                  : 'opacity-40 text-[var(--text-primary)]'
-              }`
-            }
+      <div className="mx-auto flex h-16 max-w-lg items-center justify-around px-4">
+        {/* Left tabs */}
+        {leftTabs.map(({ to, icon: Icon, label }) => (
+          <NavLink key={to} to={to} className={tabClass}>
+            <Icon className="h-[22px] w-[22px]" />
+            <span className="text-[10px] font-medium">{label}</span>
+          </NavLink>
+        ))}
+
+        {/* Center Scanner button */}
+        <button
+          onClick={() => navigate('/scanner')}
+          className="flex-1 flex flex-col items-center justify-center gap-1 -mt-[22px]"
+        >
+          <div
+            className="flex h-[52px] w-[52px] items-center justify-center rounded-full text-white"
+            style={{
+              background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)',
+              boxShadow: '0 4px 14px rgba(184,134,11,0.35)',
+            }}
           >
+            <ScannerIcon className="h-[24px] w-[24px]" />
+          </div>
+          <span className="text-[10px] font-medium text-[var(--accent)]">Scanner</span>
+        </button>
+
+        {/* Right tabs */}
+        {rightTabs.map(({ to, icon: Icon, label }) => (
+          <NavLink key={to} to={to} className={tabClass}>
             <Icon className="h-[22px] w-[22px]" />
             <span className="text-[10px] font-medium">{label}</span>
           </NavLink>

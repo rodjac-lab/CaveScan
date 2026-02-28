@@ -356,6 +356,11 @@ export default function AddBottle() {
         photo_url_back: photoUrlBack,
         raw_extraction: rawExtraction,
         status: 'in_stock',
+        grape_varieties: rawExtraction?.grape_varieties || null,
+        serving_temperature: rawExtraction?.serving_temperature || null,
+        typical_aromas: rawExtraction?.typical_aromas || null,
+        food_pairings: rawExtraction?.food_pairings || null,
+        character: rawExtraction?.character || null,
       }
 
       // Insert multiple bottles if quantity > 1
@@ -437,6 +442,11 @@ export default function AddBottle() {
         photo_url_back: photoUrlBack,
         raw_extraction: item.rawExtraction,
         status: 'in_stock',
+        grape_varieties: (item.rawExtraction as WineExtraction | null)?.grape_varieties || null,
+        serving_temperature: (item.rawExtraction as WineExtraction | null)?.serving_temperature || null,
+        typical_aromas: (item.rawExtraction as WineExtraction | null)?.typical_aromas || null,
+        food_pairings: (item.rawExtraction as WineExtraction | null)?.food_pairings || null,
+        character: (item.rawExtraction as WineExtraction | null)?.character || null,
       }
 
       const { error: insertError } = await supabase.from('bottles').insert([bottleData])
@@ -519,7 +529,7 @@ export default function AddBottle() {
   }, [zoneId, zones])
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 pb-28">
       {/* Page Header */}
       <div className="mb-4">
         <p className="brand-text">CaveScan</p>
@@ -826,6 +836,36 @@ export default function AddBottle() {
               />
             </div>
           </div>
+
+          {/* Enriched tasting guide */}
+          {rawExtraction && (rawExtraction.typical_aromas?.length || rawExtraction.food_pairings?.length || rawExtraction.serving_temperature || rawExtraction.character) && (
+            <div className="rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] p-3 card-shadow">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">Repères de dégustation</p>
+              {rawExtraction.serving_temperature && (
+                <p className="text-[12px] text-[var(--text-secondary)] mb-1">
+                  <span className="text-[var(--text-muted)]">Temp. :</span> {rawExtraction.serving_temperature}
+                </p>
+              )}
+              {rawExtraction.typical_aromas && rawExtraction.typical_aromas.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-1.5">
+                  {rawExtraction.typical_aromas.map((a, i) => (
+                    <span key={i} className="rounded-full bg-[var(--accent-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">{a}</span>
+                  ))}
+                </div>
+              )}
+              {rawExtraction.character && (
+                <p className="text-[12px] italic text-[var(--text-secondary)] leading-relaxed">{rawExtraction.character}</p>
+              )}
+              {rawExtraction.food_pairings && rawExtraction.food_pairings.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  <span className="text-[11px] text-[var(--text-muted)] mr-1">Accords :</span>
+                  {rawExtraction.food_pairings.map((f, i) => (
+                    <span key={i} className="rounded-full bg-[var(--accent-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">{f}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-3 pt-4">
             <Button variant="outline" className="flex-1" onClick={handleReset}>

@@ -63,6 +63,30 @@ export function useRecentlyDrunk(): {
   return { bottles, loading }
 }
 
+export function useDrunkBottles(): {
+  bottles: BottleWithZone[]
+  loading: boolean
+} {
+  const [bottles, setBottles] = useState<BottleWithZone[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchDrunkBottles(): Promise<void> {
+      const { data } = await supabase
+        .from('bottles')
+        .select(BOTTLES_SELECT_QUERY)
+        .eq('status', 'drunk')
+        .order('drunk_at', { ascending: false })
+
+      setBottles(data || [])
+      setLoading(false)
+    }
+    fetchDrunkBottles()
+  }, [])
+
+  return { bottles, loading }
+}
+
 export function useDomainesSuggestions(): string[] {
   const [domaines, setDomaines] = useState<string[]>([])
 

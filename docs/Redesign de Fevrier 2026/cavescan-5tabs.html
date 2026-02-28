@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CaveScan — Navigation 5 onglets + Scan central</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F4EF;
+    --bg-card: #FFFFFF;
+    --accent-bg: #FAF6ED;
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B6560;
+    --text-muted: #A09A93;
+    --accent: #B8860B;
+    --accent-light: #D4A843;
+    --border: #E8E3DA;
+    --red-wine: #722F37;
+    --white-wine: #C8B560;
+    --rose-wine: #D4917A;
+    --champagne: #DAC17C;
+    --radius: 14px;
+    --radius-sm: 10px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #2A2520;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 32px 16px;
+    min-height: 100vh;
+    font-family: 'DM Sans', sans-serif;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .mockup-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .mockup-label {
+    font-family: 'DM Sans', sans-serif;
+    color: #A09A93;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .mockup-sublabel {
+    font-family: 'DM Sans', sans-serif;
+    color: #6B6560;
+    font-size: 11px;
+    margin-top: -8px;
+  }
+
+  .phone-frame {
+    width: 360px;
+    height: 720px;
+    background: var(--bg);
+    border-radius: 40px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
+  }
+
+  /* ===== STATUS BAR ===== */
+  .status-bar {
+    height: 50px;
+    padding: 14px 24px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .status-icons { display: flex; gap: 6px; align-items: center; }
+
+  /* ===== SCREEN HEADER ===== */
+  .screen-header {
+    padding: 8px 24px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .screen-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .header-actions { display: flex; gap: 10px; }
+  .header-btn {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary);
+  }
+
+  /* ===== STATS ROW ===== */
+  .stats-row {
+    display: flex;
+    gap: 8px;
+    padding: 0 24px 14px;
+  }
+  .stat-card {
+    flex: 1;
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    padding: 10px;
+    box-shadow: var(--shadow-sm);
+  }
+  .stat-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .stat-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 500;
+    margin-top: 2px;
+  }
+
+  /* ===== SECTION LABEL ===== */
+  .section-label {
+    padding: 0 24px 8px;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 500;
+  }
+
+  /* ===== WINE LIST ===== */
+  .wine-list {
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .wine-item {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+  }
+  .wine-item::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+  }
+  .wine-item.red::before { background: var(--red-wine); }
+  .wine-item.white::before { background: var(--white-wine); }
+  .wine-item.rose::before { background: var(--rose-wine); }
+  .wine-item.champagne::before { background: var(--champagne); }
+
+  .wine-color-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .wine-color-dot.red { background: var(--red-wine); }
+  .wine-color-dot.white { background: var(--white-wine); }
+  .wine-color-dot.rose { background: var(--rose-wine); }
+  .wine-color-dot.champagne { background: var(--champagne); }
+
+  .wine-info { flex: 1; min-width: 0; }
+  .wine-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .wine-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .wine-qty {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+  .wine-qty-label {
+    font-size: 9px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* ===== TASTING LIST ===== */
+  .tasting-item {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+  }
+  .tasting-item::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+  }
+  .tasting-item.red::before { background: var(--red-wine); }
+  .tasting-item.white::before { background: var(--white-wine); }
+  .tasting-item.champagne::before { background: var(--champagne); }
+
+  .tasting-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 4px;
+  }
+  .tasting-wine-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .tasting-date {
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .tasting-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .tasting-note {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    font-style: italic;
+  }
+  .tasting-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 6px;
+  }
+  .tasting-rating { display: flex; gap: 1px; }
+  .star { color: var(--accent); font-size: 12px; }
+  .star.empty { color: var(--border); }
+  .share-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  /* ===== FRIENDS / AMIS ===== */
+  .friend-item {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .friend-avatar {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 16px;
+    color: white;
+    flex-shrink: 0;
+  }
+  .friend-avatar.a { background: var(--red-wine); }
+  .friend-avatar.b { background: var(--accent); }
+  .friend-avatar.c { background: var(--rose-wine); }
+  .friend-avatar.d { background: #5B7B6A; }
+
+  .friend-info { flex: 1; min-width: 0; }
+  .friend-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .friend-last {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .friend-badge {
+    background: var(--accent);
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+
+  .invite-card {
+    background: var(--accent-bg);
+    border: 1.5px dashed var(--accent);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+  }
+  .invite-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .invite-sub {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+  .invite-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 10px 20px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ===== SHARED TASTING (received) ===== */
+  .shared-tasting {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    box-shadow: var(--shadow-sm);
+  }
+  .shared-from {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .shared-from-avatar {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: white;
+  }
+  .shared-from-text {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .shared-from-text strong {
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+
+  /* ===== DÉCOUVRIR MODULES ===== */
+  .discover-prompt {
+    margin: 0 24px 16px;
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+  .discover-prompt-header {
+    padding: 14px 16px 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .discover-prompt-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .discover-prompt-icon svg { width: 18px; height: 18px; }
+  .discover-prompt-icon.food { background: #F3E8D0; color: var(--accent); }
+  .discover-prompt-icon.cave { background: #F0E0E2; color: var(--red-wine); }
+  .discover-prompt-icon.explore { background: #E8EDE9; color: #5B7B6A; }
+  .discover-prompt-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .discover-prompt-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
+
+  /* Search-style input */
+  .accord-toggle-row {
+    padding: 0 16px 10px;
+  }
+  .accord-toggle {
+    display: flex;
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .accord-toggle-option {
+    flex: 1;
+    text-align: center;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .accord-toggle-option.active-toggle {
+    background: var(--bg-card);
+    color: var(--accent);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  /* Search-style input */
+  .discover-input-row {
+    padding: 0 16px 14px;
+  }
+  .discover-input {
+    width: 100%;
+    padding: 11px 14px 11px 38px;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border);
+    background: var(--accent-bg);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--text-muted);
+    position: relative;
+  }
+  .discover-input-wrap {
+    position: relative;
+  }
+  .discover-input-wrap svg {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px; height: 16px;
+    stroke: var(--text-muted);
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* Quick tags */
+  .discover-tags {
+    padding: 0 16px 14px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .discover-tag {
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    background: var(--bg);
+    cursor: pointer;
+  }
+  .discover-tag.active-tag {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  /* Suggestion cards */
+  .discover-suggestion {
+    margin: 0 24px 10px;
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    position: relative;
+    overflow: hidden;
+  }
+  .discover-suggestion::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+  }
+  .discover-suggestion.red::before { background: var(--red-wine); }
+  .discover-suggestion.white::before { background: var(--white-wine); }
+  .discover-suggestion.champagne::before { background: var(--champagne); }
+  .discover-suggestion-content { flex: 1; }
+  .discover-suggestion-wine {
+    font-family: 'Playfair Display', serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 3px;
+  }
+  .discover-suggestion-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .discover-suggestion-reason {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    font-style: italic;
+  }
+  .discover-suggestion-badge {
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .badge-peak { background: #F0E0E2; color: var(--red-wine); }
+  .badge-match { background: #F3E8D0; color: var(--accent); }
+
+  /* Explore card */
+  .explore-card {
+    margin: 0 24px 10px;
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+  .explore-card-banner {
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .explore-card-banner.burgundy {
+    background: linear-gradient(135deg, #722F37 0%, #4A1E24 60%, #2D1215 100%);
+  }
+  .explore-card-banner.champagne-region {
+    background: linear-gradient(135deg, #DAC17C 0%, #B8A060 60%, #8C7A48 100%);
+  }
+  .explore-card-banner-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+  .explore-card-banner-sub {
+    font-size: 10px;
+    color: rgba(255,255,255,0.7);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    position: absolute;
+    bottom: 8px;
+  }
+  .explore-card-body {
+    padding: 12px 16px;
+  }
+  .explore-card-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+  .explore-card-stats {
+    display: flex;
+    gap: 16px;
+  }
+  .explore-card-stat {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .explore-card-stat strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  /* ===== CAROUSEL ===== */
+  .carousel-wrapper {
+    padding: 0 0 12px;
+  }
+  .carousel-track {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 24px 8px;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .carousel-track::-webkit-scrollbar { display: none; }
+
+  .carousel-card {
+    flex: 0 0 220px;
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
+    scroll-snap-align: start;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .carousel-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+  }
+  .carousel-card.red::before { background: var(--red-wine); }
+  .carousel-card.white::before { background: var(--white-wine); }
+  .carousel-card.rose::before { background: var(--rose-wine); }
+  .carousel-card.champagne::before { background: var(--champagne); }
+
+  .carousel-card-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+  }
+  .carousel-card-wine {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 3px;
+    line-height: 1.3;
+  }
+  .carousel-card-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  .carousel-card-sep {
+    height: 1px;
+    background: var(--border);
+    margin-bottom: 10px;
+  }
+  .carousel-card-reason {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    font-style: italic;
+    margin-bottom: 12px;
+  }
+  .carousel-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .carousel-card-qty {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  .carousel-card-rating {
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .carousel-dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    padding-top: 4px;
+  }
+  .carousel-dots .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+  }
+  .carousel-dots .dot.active-dot {
+    background: var(--accent);
+    width: 16px;
+    border-radius: 3px;
+  }
+
+  /* AI sparkle icon */
+  .ai-sparkle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .ai-sparkle svg { width: 12px; height: 12px; }
+
+  /* ===== NAV BAR 5 TABS ===== */
+  .nav-bar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 76px;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-start;
+    padding: 0 16px 28px;
+    z-index: 11;
+  }
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    text-decoration: none;
+    opacity: 0.4;
+    transition: opacity 0.2s;
+    cursor: pointer;
+    padding-top: 10px;
+    min-width: 52px;
+  }
+  .nav-item.active {
+    opacity: 1;
+  }
+  .nav-item svg {
+    width: 22px; height: 22px;
+    stroke: var(--text-secondary);
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .nav-item.active svg { stroke: var(--accent); }
+  .nav-item span {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: 0.2px;
+  }
+  .nav-item.active span { color: var(--accent); }
+
+  /* CENTER SCAN BUTTON */
+  .nav-scan {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    padding-top: 0;
+    margin-top: -22px;
+    min-width: 52px;
+    opacity: 1 !important;
+  }
+  .scan-btn {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+    box-shadow: 0 3px 12px rgba(184,134,11,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+  }
+  .scan-btn svg {
+    width: 24px; height: 24px;
+    stroke: white !important;
+  }
+  .nav-scan span {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.2px;
+  }
+
+  /* ===== SCROLLABLE ===== */
+  .screen-content {
+    height: calc(720px - 50px - 76px);
+    overflow-y: auto;
+    padding-bottom: 30px;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .screen-content::-webkit-scrollbar { display: none; }
+
+  /* ===== CAMERA SCREEN ===== */
+  .camera-screen {
+    display: flex;
+    flex-direction: column;
+    height: calc(720px - 50px);
+    background: #0A0A0A;
+  }
+  .camera-viewfinder {
+    flex: 1;
+    position: relative;
+    background: linear-gradient(160deg, #1a1a1a 0%, #0d0d0d 50%, #1a1a1a 100%);
+    overflow: hidden;
+  }
+  /* Simulated texture */
+  .camera-viewfinder::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse at 30% 40%, rgba(60,50,40,0.3) 0%, transparent 60%),
+      radial-gradient(ellipse at 70% 60%, rgba(50,40,35,0.2) 0%, transparent 50%);
+  }
+  .camera-top-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    z-index: 2;
+  }
+  .camera-close-btn, .camera-flash-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  /* Scan guide */
+  .scan-guide {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    height: 260px;
+    z-index: 2;
+  }
+  .scan-guide-corners {
+    position: absolute;
+    inset: 0;
+  }
+  .sg-corner {
+    position: absolute;
+    width: 28px; height: 28px;
+    border-color: rgba(184,134,11,0.8);
+    border-style: solid;
+    border-width: 0;
+  }
+  .sg-tl { top: 0; left: 0; border-top-width: 2.5px; border-left-width: 2.5px; border-radius: 8px 0 0 0; }
+  .sg-tr { top: 0; right: 0; border-top-width: 2.5px; border-right-width: 2.5px; border-radius: 0 8px 0 0; }
+  .sg-bl { bottom: 0; left: 0; border-bottom-width: 2.5px; border-left-width: 2.5px; border-radius: 0 0 0 8px; }
+  .sg-br { bottom: 0; right: 0; border-bottom-width: 2.5px; border-right-width: 2.5px; border-radius: 0 0 8px 0; }
+  .scan-guide-text {
+    position: absolute;
+    bottom: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+    white-space: nowrap;
+    font-family: 'DM Sans', sans-serif;
+    letter-spacing: 0.3px;
+  }
+
+  /* Camera controls bar */
+  .camera-controls {
+    background: #0A0A0A;
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .camera-gallery-thumb {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    border: 2px solid rgba(255,255,255,0.25);
+    overflow: hidden;
+    cursor: pointer;
+    background: #2a2a2a;
+    position: relative;
+  }
+  .gallery-thumb-inner {
+    width: 100%; height: 100%;
+    background: linear-gradient(135deg, #3d2b2b 0%, #4a3528 50%, #2d2420 100%);
+  }
+  .camera-shutter {
+    cursor: pointer;
+  }
+  .shutter-outer {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    border: 3px solid white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px;
+  }
+  .shutter-inner {
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    background: white;
+    transition: transform 0.15s;
+  }
+  .camera-shutter:hover .shutter-inner {
+    transform: scale(0.92);
+  }
+  .camera-control-spacer {
+    width: 44px;
+  }
+
+  /* Intent selector */
+  .camera-intent {
+    background: #0A0A0A;
+    padding: 6px 32px 20px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+  }
+  .intent-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: rgba(255,255,255,0.4);
+    background: transparent;
+    border: 1.5px solid rgba(255,255,255,0.1);
+  }
+  .intent-pill svg { stroke: currentColor; }
+  .intent-pill.active-intent {
+    color: white;
+    background: var(--red-wine);
+    border-color: var(--red-wine);
+  }
+
+  /* ===== RÉGLAGES ===== */
+  .settings-group {
+    padding: 0 24px;
+    margin-bottom: 16px;
+  }
+  .settings-group-title {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .settings-card {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+  .settings-row {
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: var(--accent-bg);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .settings-row-icon svg { width: 16px; height: 16px; }
+  .settings-row-info { flex: 1; }
+  .settings-row-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+  .settings-row-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
+  .settings-chevron {
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .toggle-track {
+    width: 42px; height: 24px;
+    border-radius: 12px;
+    background: var(--accent);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .toggle-track.off { background: var(--border); }
+  .toggle-thumb {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: white;
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+  .toggle-track.off .toggle-thumb { right: auto; left: 2px; }
+
+  .about-version {
+    text-align: center;
+    padding: 20px 24px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  @media (max-width: 1200px) {
+    body { gap: 16px; }
+    .phone-frame { width: 340px; height: 700px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== SCREEN 1: CAVE ==================== -->
+<div class="mockup-wrapper">
+  <div class="mockup-label">Cave</div>
+  <div class="phone-frame">
+    <div class="status-bar">
+      <span>9:41</span>
+      <div class="status-icons">
+        <svg width="16" height="12" viewBox="0 0 16 12" fill="var(--text-primary)"><path d="M1 8h2v4H1zM5 5h2v7H5zM9 3h2v9H9zM13 0h2v12h-2z"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" stroke-width="2"><path d="M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg>
+        <svg width="26" height="12" viewBox="0 0 26 12" fill="var(--text-primary)"><rect x="0" y="1" width="22" height="10" rx="2" fill="none" stroke="var(--text-primary)" stroke-width="1.2"/><rect x="23" y="4" width="2" height="4" rx="0.5"/><rect x="1.5" y="2.5" width="16" height="7" rx="1" fill="var(--text-primary)"/></svg>
+      </div>
+    </div>
+    <div class="screen-content">
+      <div class="screen-header">
+        <div class="screen-title">Ma Cave</div>
+        <div class="header-actions">
+          <div class="header-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
+          <div class="header-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h7"/></svg></div>
+        </div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-value">47</div><div class="stat-label">Bouteilles</div></div>
+        <div class="stat-card"><div class="stat-value">12</div><div class="stat-label">Régions</div></div>
+        <div class="stat-card"><div class="stat-value">8</div><div class="stat-label">Millésimes</div></div>
+      </div>
+      <div class="section-label">Ajoutées récemment</div>
+      <div class="wine-list">
+        <div class="wine-item red"><div class="wine-color-dot red"></div><div class="wine-info"><div class="wine-name">Domaine Paul Pillot</div><div class="wine-meta">Chassagne-Montrachet · 2021</div></div><div style="text-align:right"><div class="wine-qty">3</div><div class="wine-qty-label">bout.</div></div></div>
+        <div class="wine-item white"><div class="wine-color-dot white"></div><div class="wine-info"><div class="wine-name">Clos des Mouches</div><div class="wine-meta">Beaune 1er Cru · 2020</div></div><div style="text-align:right"><div class="wine-qty">2</div><div class="wine-qty-label">bout.</div></div></div>
+        <div class="wine-item red"><div class="wine-color-dot red"></div><div class="wine-info"><div class="wine-name">Château Figeac</div><div class="wine-meta">Saint-Émilion · 2018</div></div><div style="text-align:right"><div class="wine-qty">6</div><div class="wine-qty-label">bout.</div></div></div>
+        <div class="wine-item champagne"><div class="wine-color-dot champagne"></div><div class="wine-info"><div class="wine-name">Billecart-Salmon Rosé</div><div class="wine-meta">Champagne · NV</div></div><div style="text-align:right"><div class="wine-qty">2</div><div class="wine-qty-label">bout.</div></div></div>
+        <div class="wine-item rose"><div class="wine-color-dot rose"></div><div class="wine-info"><div class="wine-name">Domaine Tempier</div><div class="wine-meta">Bandol Rosé · 2023</div></div><div style="text-align:right"><div class="wine-qty">4</div><div class="wine-qty-label">bout.</div></div></div>
+      </div>
+    </div>
+    <!-- NAV 5 TABS -->
+    <div class="nav-bar">
+      <a class="nav-item active"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span>Cave</span></a>
+      <a class="nav-item"><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg><span>Dégustations</span></a>
+      <a class="nav-scan"><div class="scan-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v3h-3M14 20h3M20 20v-3"/></svg></div><span>Scanner</span></a>
+      <a class="nav-item"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><span>Découvrir</span></a>
+      <a class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Réglages</span></a>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCREEN 2: DÉGUSTATIONS ==================== -->
+<div class="mockup-wrapper">
+  <div class="mockup-label">Dégustations</div>
+  <div class="phone-frame">
+    <div class="status-bar"><span>9:41</span><div class="status-icons"><svg width="16" height="12" viewBox="0 0 16 12" fill="var(--text-primary)"><path d="M1 8h2v4H1zM5 5h2v7H5zM9 3h2v9H9zM13 0h2v12h-2z"/></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" stroke-width="2"><path d="M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg><svg width="26" height="12" viewBox="0 0 26 12" fill="var(--text-primary)"><rect x="0" y="1" width="22" height="10" rx="2" fill="none" stroke="var(--text-primary)" stroke-width="1.2"/><rect x="23" y="4" width="2" height="4" rx="0.5"/><rect x="1.5" y="2.5" width="16" height="7" rx="1" fill="var(--text-primary)"/></svg></div></div>
+    <div class="screen-content">
+      <div class="screen-header">
+        <div class="screen-title">Dégustations</div>
+        <div class="header-actions">
+          <div class="header-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
+        </div>
+      </div>
+      <div class="section-label">Février 2026</div>
+      <div class="wine-list">
+        <div class="tasting-item red">
+          <div class="tasting-header"><div class="tasting-wine-name">Domaine Paul Pillot</div><div class="tasting-date">8 fév.</div></div>
+          <div class="tasting-meta">Chassagne-Montrachet · 2021 · Rouge</div>
+          <div class="tasting-note">"Nez de fruits noirs, bouche soyeuse avec des tanins encore jeunes."</div>
+          <div class="tasting-footer"><div class="tasting-rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star empty">★</span></div><div class="share-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>Partagé</div></div>
+        </div>
+        <div class="tasting-item champagne">
+          <div class="tasting-header"><div class="tasting-wine-name">Billecart-Salmon Rosé</div><div class="tasting-date">5 fév.</div></div>
+          <div class="tasting-meta">Champagne · NV</div>
+          <div class="tasting-note">"Bulles fines, petits fruits rouges et brioche. Parfait apéro."</div>
+          <div class="tasting-footer"><div class="tasting-rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div><div class="share-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>Partagé</div></div>
+        </div>
+        <div class="tasting-item white">
+          <div class="tasting-header"><div class="tasting-wine-name">Clos des Mouches</div><div class="tasting-date">1 fév.</div></div>
+          <div class="tasting-meta">Beaune 1er Cru · 2020 · Blanc</div>
+          <div class="tasting-note">"Magnifique minéralité, fleurs blanches et amande."</div>
+          <div class="tasting-footer"><div class="tasting-rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div><div class="share-badge"></div></div>
+        </div>
+      </div>
+      <div class="section-label" style="padding-top:16px">Janvier 2026</div>
+      <div class="wine-list">
+        <div class="tasting-item red">
+          <div class="tasting-header"><div class="tasting-wine-name">Château Figeac</div><div class="tasting-date">28 jan.</div></div>
+          <div class="tasting-meta">Saint-Émilion · 2018 · Rouge</div>
+          <div class="tasting-note">"Complexe, fruits mûrs, épices, finale interminable."</div>
+          <div class="tasting-footer"><div class="tasting-rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div><div class="share-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>Partagé</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="nav-bar">
+      <a class="nav-item"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span>Cave</span></a>
+      <a class="nav-item active"><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg><span>Dégustations</span></a>
+      <a class="nav-scan"><div class="scan-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v3h-3M14 20h3M20 20v-3"/></svg></div><span>Scanner</span></a>
+      <a class="nav-item"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><span>Découvrir</span></a>
+      <a class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Réglages</span></a>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCREEN 3: SCANNER ==================== -->
+<div class="mockup-wrapper">
+  <div class="mockup-label">Scanner</div>
+  <div class="mockup-sublabel">Mode caméra · Galerie en bas à gauche</div>
+  <div class="phone-frame" style="background:#0A0A0A">
+    <div class="status-bar" style="background:transparent"><span style="color:white">9:41</span><div class="status-icons"><svg width="16" height="12" viewBox="0 0 16 12" fill="white"><path d="M1 8h2v4H1zM5 5h2v7H5zM9 3h2v9H9zM13 0h2v12h-2z"/></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg><svg width="26" height="12" viewBox="0 0 26 12" fill="white"><rect x="0" y="1" width="22" height="10" rx="2" fill="none" stroke="white" stroke-width="1.2"/><rect x="23" y="4" width="2" height="4" rx="0.5"/><rect x="1.5" y="2.5" width="16" height="7" rx="1" fill="white"/></svg></div></div>
+    <div class="camera-screen">
+      <!-- Camera viewfinder -->
+      <div class="camera-viewfinder">
+        <div class="camera-top-bar">
+          <div class="camera-close-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </div>
+          <div class="camera-flash-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+        </div>
+
+        <!-- Scan guide overlay -->
+        <div class="scan-guide">
+          <div class="scan-guide-corners">
+            <div class="sg-corner sg-tl"></div>
+            <div class="sg-corner sg-tr"></div>
+            <div class="sg-corner sg-bl"></div>
+            <div class="sg-corner sg-br"></div>
+          </div>
+          <div class="scan-guide-text">Cadrez l'étiquette</div>
+        </div>
+      </div>
+
+      <!-- Camera controls -->
+      <div class="camera-controls">
+        <!-- Gallery thumbnail -->
+        <div class="camera-gallery-thumb">
+          <div class="gallery-thumb-inner"></div>
+        </div>
+
+        <!-- Shutter button -->
+        <div class="camera-shutter">
+          <div class="shutter-outer">
+            <div class="shutter-inner"></div>
+          </div>
+        </div>
+
+        <!-- Spacer for symmetry -->
+        <div class="camera-control-spacer"></div>
+      </div>
+
+      <!-- Intent selector -->
+      <div class="camera-intent">
+        <div class="intent-pill active-intent">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+          Encaver
+        </div>
+        <div class="intent-pill">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Déguster
+        </div>
+      </div>
+    </div>
+    <!-- No nav bar on camera screen - full immersion -->
+  </div>
+</div>
+
+<!-- ==================== SCREEN 4: DÉCOUVRIR ==================== -->
+<div class="mockup-wrapper">
+  <div class="mockup-label">Découvrir</div>
+  <div class="phone-frame">
+    <div class="status-bar"><span>9:41</span><div class="status-icons"><svg width="16" height="12" viewBox="0 0 16 12" fill="var(--text-primary)"><path d="M1 8h2v4H1zM5 5h2v7H5zM9 3h2v9H9zM13 0h2v12h-2z"/></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" stroke-width="2"><path d="M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg><svg width="26" height="12" viewBox="0 0 26 12" fill="var(--text-primary)"><rect x="0" y="1" width="22" height="10" rx="2" fill="none" stroke="var(--text-primary)" stroke-width="1.2"/><rect x="23" y="4" width="2" height="4" rx="0.5"/><rect x="1.5" y="2.5" width="16" height="7" rx="1" fill="var(--text-primary)"/></svg></div></div>
+    <div class="screen-content">
+      <div class="screen-header">
+        <div class="screen-title">Découvrir</div>
+      </div>
+
+      <!-- MODULE 1: Accords — Toggle je mange / je bois -->
+      <div class="discover-prompt">
+        <div class="discover-prompt-header">
+          <div class="discover-prompt-icon food">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+          </div>
+          <div>
+            <div class="discover-prompt-title">Accords parfaits</div>
+            <div class="discover-prompt-sub">Trouvez le vin ou le plat idéal</div>
+          </div>
+        </div>
+        <!-- Toggle -->
+        <div class="accord-toggle-row">
+          <div class="accord-toggle">
+            <span class="accord-toggle-option active-toggle">Ce soir je mange...</span>
+            <span class="accord-toggle-option">Ce soir je bois...</span>
+          </div>
+        </div>
+        <div class="discover-input-row">
+          <div class="discover-input-wrap">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <div class="discover-input">Poulet rôti, sushi, raclette...</div>
+          </div>
+        </div>
+        <div class="discover-tags">
+          <span class="discover-tag active-tag">Poulet rôti</span>
+          <span class="discover-tag">Poisson</span>
+          <span class="discover-tag">Fromage</span>
+          <span class="discover-tag">Apéro</span>
+          <span class="discover-tag">Dessert</span>
+        </div>
+      </div>
+
+      <!-- AI result for food pairing -->
+      <div class="discover-suggestion white">
+        <div class="discover-suggestion-content">
+          <div class="ai-sparkle">
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61z"/></svg>
+            Suggestion IA
+          </div>
+          <div class="discover-suggestion-wine" style="margin-top:6px">Clos des Mouches 2020</div>
+          <div class="discover-suggestion-meta">Beaune 1er Cru · Blanc · Dans votre cave</div>
+          <div class="discover-suggestion-reason">Le Chardonnay de Beaune avec sa rondeur et sa minéralité s'accorde parfaitement avec un poulet rôti aux herbes.</div>
+        </div>
+        <div class="discover-suggestion-badge badge-match">Accord</div>
+      </div>
+
+      <!-- MODULE 2: Depuis votre cave — CAROUSEL -->
+      <div class="section-label" style="padding-top:8px">
+        <span class="ai-sparkle" style="font-size:10px">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61z"/></svg>
+        </span>
+        Ouvrez ce soir
+      </div>
+
+      <div class="carousel-wrapper">
+        <div class="carousel-track">
+          <div class="carousel-card red">
+            <div class="carousel-card-badge badge-peak">À boire</div>
+            <div class="carousel-card-wine">Château Figeac 2018</div>
+            <div class="carousel-card-meta">Saint-Émilion · Rouge</div>
+            <div class="carousel-card-sep"></div>
+            <div class="carousel-card-reason">Fenêtre de dégustation idéale 2024-2030. Ce millésime entre dans sa phase optimale.</div>
+            <div class="carousel-card-footer">
+              <span class="carousel-card-qty">6 bout. en cave</span>
+              <span class="carousel-card-rating">★ 4.8</span>
+            </div>
+          </div>
+
+          <div class="carousel-card champagne">
+            <div class="carousel-card-badge badge-match">Favori</div>
+            <div class="carousel-card-wine">Billecart-Salmon Rosé</div>
+            <div class="carousel-card-meta">Champagne · NV</div>
+            <div class="carousel-card-sep"></div>
+            <div class="carousel-card-reason">Parfait pour un vendredi soir. Vous l'aviez noté 5/5 la dernière fois.</div>
+            <div class="carousel-card-footer">
+              <span class="carousel-card-qty">2 bout. en cave</span>
+              <span class="carousel-card-rating">★ 5.0</span>
+            </div>
+          </div>
+
+          <div class="carousel-card rose">
+            <div class="carousel-card-badge badge-match">Saison</div>
+            <div class="carousel-card-wine">Domaine Tempier 2023</div>
+            <div class="carousel-card-meta">Bandol · Rosé</div>
+            <div class="carousel-card-sep"></div>
+            <div class="carousel-card-reason">Les premiers beaux jours arrivent. Un rosé de gastronomie à redécouvrir.</div>
+            <div class="carousel-card-footer">
+              <span class="carousel-card-qty">4 bout. en cave</span>
+              <span class="carousel-card-rating">★ 4.2</span>
+            </div>
+          </div>
+
+          <div class="carousel-card white">
+            <div class="carousel-card-badge badge-peak">À boire</div>
+            <div class="carousel-card-wine">Clos des Mouches 2020</div>
+            <div class="carousel-card-meta">Beaune 1er Cru · Blanc</div>
+            <div class="carousel-card-sep"></div>
+            <div class="carousel-card-reason">Prêt à boire maintenant. La minéralité est à son apogée.</div>
+            <div class="carousel-card-footer">
+              <span class="carousel-card-qty">2 bout. en cave</span>
+              <span class="carousel-card-rating">★ 5.0</span>
+            </div>
+          </div>
+        </div>
+        <div class="carousel-dots">
+          <span class="dot active-dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+        </div>
+      </div>
+
+      <!-- MODULE 3: Explorer -->
+      <div class="section-label" style="padding-top:8px">Explorer</div>
+
+      <div class="explore-card">
+        <div class="explore-card-banner burgundy">
+          <div class="explore-card-banner-text">Bourgogne</div>
+          <div class="explore-card-banner-sub">Région</div>
+        </div>
+        <div class="explore-card-body">
+          <div class="explore-card-desc">Pinot Noir et Chardonnay d'exception. Terroirs classés en village, premier cru et grand cru depuis des siècles.</div>
+          <div class="explore-card-stats">
+            <div class="explore-card-stat"><strong>3</strong> vins en cave</div>
+            <div class="explore-card-stat"><strong>2</strong> dégustés</div>
+            <div class="explore-card-stat"><strong>33</strong> appellations</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="explore-card">
+        <div class="explore-card-banner champagne-region">
+          <div class="explore-card-banner-text">Champagne</div>
+          <div class="explore-card-banner-sub">Région</div>
+        </div>
+        <div class="explore-card-body">
+          <div class="explore-card-desc">Chardonnay, Pinot Noir et Meunier. Des grandes maisons aux vignerons indépendants.</div>
+          <div class="explore-card-stats">
+            <div class="explore-card-stat"><strong>2</strong> vins en cave</div>
+            <div class="explore-card-stat"><strong>1</strong> dégusté</div>
+            <div class="explore-card-stat"><strong>6</strong> cépages</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="nav-bar">
+      <a class="nav-item"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span>Cave</span></a>
+      <a class="nav-item"><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg><span>Dégustations</span></a>
+      <a class="nav-scan"><div class="scan-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v3h-3M14 20h3M20 20v-3"/></svg></div><span>Scanner</span></a>
+      <a class="nav-item active"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><span>Découvrir</span></a>
+      <a class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Réglages</span></a>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCREEN 5: RÉGLAGES ==================== -->
+<div class="mockup-wrapper">
+  <div class="mockup-label">Réglages</div>
+  <div class="phone-frame">
+    <div class="status-bar"><span>9:41</span><div class="status-icons"><svg width="16" height="12" viewBox="0 0 16 12" fill="var(--text-primary)"><path d="M1 8h2v4H1zM5 5h2v7H5zM9 3h2v9H9zM13 0h2v12h-2z"/></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" stroke-width="2"><path d="M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg><svg width="26" height="12" viewBox="0 0 26 12" fill="var(--text-primary)"><rect x="0" y="1" width="22" height="10" rx="2" fill="none" stroke="var(--text-primary)" stroke-width="1.2"/><rect x="23" y="4" width="2" height="4" rx="0.5"/><rect x="1.5" y="2.5" width="16" height="7" rx="1" fill="var(--text-primary)"/></svg></div></div>
+    <div class="screen-content">
+      <div class="screen-header">
+        <div class="screen-title">Réglages</div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-title">Compte</div>
+        <div class="settings-card">
+          <div class="settings-row">
+            <div class="settings-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+            <div class="settings-row-info"><div class="settings-row-label">Mon profil</div><div class="settings-row-desc"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="a9dbc6cdc6c5d9c1cce9ccc4c8c0c587cac6c4">[email&#160;protected]</a></div></div>
+            <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div>
+            <div class="settings-row-info"><div class="settings-row-label">Confidentialité</div></div>
+            <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-title">Cave</div>
+        <div class="settings-card">
+          <div class="settings-row">
+            <div class="settings-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></div>
+            <div class="settings-row-info"><div class="settings-row-label">Mes caves</div><div class="settings-row-desc">2 caves configurées</div></div>
+            <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+            <div class="settings-row-info"><div class="settings-row-label">Exporter ma cave</div></div>
+            <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-title">Préférences</div>
+        <div class="settings-card">
+          <div class="settings-row">
+            <div class="settings-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg></div>
+            <div class="settings-row-info"><div class="settings-row-label">Notifications</div></div>
+            <div class="toggle-track"><div class="toggle-thumb"></div></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></div>
+            <div class="settings-row-info"><div class="settings-row-label">Apparence</div><div class="settings-row-desc">Clair</div></div>
+            <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="about-version">CaveScan v1.0.0 · Reconnaissance d'étiquettes</div>
+    </div>
+    <div class="nav-bar">
+      <a class="nav-item"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span>Cave</span></a>
+      <a class="nav-item"><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg><span>Dégustations</span></a>
+      <a class="nav-scan"><div class="scan-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v3h-3M14 20h3M20 20v-3"/></svg></div><span>Scanner</span></a>
+      <a class="nav-item"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><span>Découvrir</span></a>
+      <a class="nav-item active"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H2

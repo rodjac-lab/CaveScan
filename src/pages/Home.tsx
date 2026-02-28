@@ -278,9 +278,9 @@ export default function Home() {
             <p className="text-center text-[var(--text-secondary)]">
               Votre cave est vide.<br />Ajoutez votre première bouteille !
             </p>
-            <Link to="/add">
+            <Link to="/scanner">
               <Button className="bg-[var(--accent)] hover:bg-[var(--accent-light)] text-white">
-                Ajouter une bouteille
+                Scanner une bouteille
               </Button>
             </Link>
           </div>

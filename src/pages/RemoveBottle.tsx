@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Loader2, PenLine, Check, X, ChevronRight, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
@@ -21,6 +21,11 @@ type Step = 'choose' | 'processing' | 'result' | 'review' | 'saving' | 'batch-sa
 type MatchType = 'in_cave' | 'not_in_cave'
 
 const MAX_BATCH_SIZE = 12
+
+interface RemoveBottleLocationState {
+  prefillExtraction?: Partial<WineExtraction> | null
+  prefillPhotoFile?: File | null
+}
 
 interface ScanResult {
   extraction: WineExtraction
@@ -59,9 +64,10 @@ function GalleryIcon({ className }: { className?: string }) {
 
 export default function RemoveBottle() {
   const navigate = useNavigate()
+  const location = useLocation()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const fileInputGalleryRef = useRef<HTMLInputElement>(null)
-  const { bottles } = useBottles()
+  const { bottles, loading: bottlesLoading } = useBottles()
   const { bottles: recentlyDrunk, loading: drunkLoading } = useRecentlyDrunk()
   const batchSession = useBatchSession()
 
@@ -69,6 +75,49 @@ export default function RemoveBottle() {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
   const [showAlternatives, setShowAlternatives] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [prefillHandled, setPrefillHandled] = useState(false)
+
+  // Handle prefill from Scanner
+  useEffect(() => {
+    if (prefillHandled) return
+    if (bottlesLoading) return // Wait until bottles are loaded before matching
+    const state = location.state as RemoveBottleLocationState | null
+    if (!state) return
+
+    const { prefillExtraction, prefillPhotoFile } = state
+
+    if (prefillExtraction && prefillPhotoFile) {
+      // We have both extraction and photo - go straight to matching
+      setPrefillHandled(true)
+      const extraction = {
+        domaine: prefillExtraction.domaine || null,
+        cuvee: prefillExtraction.cuvee || null,
+        appellation: prefillExtraction.appellation || null,
+        millesime: prefillExtraction.millesime || null,
+        couleur: normalizeWineColor(prefillExtraction.couleur || null),
+        region: prefillExtraction.region || null,
+        cepage: prefillExtraction.cepage || null,
+        confidence: prefillExtraction.confidence ?? 0,
+      } as WineExtraction
+
+      const matched = findMatches(bottles, extraction)
+      const [primaryMatch, ...alternatives] = matched
+
+      setScanResult({
+        extraction,
+        photoFile: prefillPhotoFile,
+        photoUri: URL.createObjectURL(prefillPhotoFile),
+        matchType: primaryMatch ? 'in_cave' : 'not_in_cave',
+        primaryMatch: primaryMatch ?? null,
+        alternatives,
+      })
+      setStep('result')
+    } else if (prefillPhotoFile) {
+      // Only photo, need to run OCR
+      setPrefillHandled(true)
+      void processSingleFile(prefillPhotoFile)
+    }
+  }, [location.state, bottles, bottlesLoading, prefillHandled])
 
   useEffect(() => {
     return () => {
@@ -308,6 +357,11 @@ export default function RemoveBottle() {
           raw_extraction: result.extraction,
           status: 'drunk',
           drunk_at: new Date().toISOString(),
+          grape_varieties: result.extraction.grape_varieties || null,
+          serving_temperature: result.extraction.serving_temperature || null,
+          typical_aromas: result.extraction.typical_aromas || null,
+          food_pairings: result.extraction.food_pairings || null,
+          character: result.extraction.character || null,
         })
         .select()
         .single()
@@ -379,6 +433,11 @@ export default function RemoveBottle() {
             raw_extraction: item.extraction,
             status: 'drunk',
             drunk_at: new Date().toISOString(),
+            grape_varieties: item.extraction.grape_varieties || null,
+            serving_temperature: item.extraction.serving_temperature || null,
+            typical_aromas: item.extraction.typical_aromas || null,
+            food_pairings: item.extraction.food_pairings || null,
+            character: item.extraction.character || null,
           })
         }
       }
