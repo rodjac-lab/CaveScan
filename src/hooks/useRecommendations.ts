@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { serializeProfileForPrompt } from '@/lib/taste-profile'
 import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
+import { buildLocalRecommendationCards, rankCaveBottles } from '@/lib/recommendationRanking'
 import {
   buildQueryKey,
   getCachedRecommendation,
@@ -72,11 +73,12 @@ async function callRecommendApi(
   mode: Mode,
   query: string | null,
   profile: TasteProfile | null,
-  caveBottles: Bottle[],
+  caveBottlesForPrompt: Bottle[],
   drunkBottles: Bottle[],
+  allCaveBottles: Bottle[],
 ): Promise<RecommendationCard[]> {
   const profileStr = profile ? serializeProfileForPrompt(profile) : ''
-  const cave = buildCavePayload(caveBottles)
+  const cave = buildCavePayload(caveBottlesForPrompt)
   const recentDrunk = drunkBottles.slice(0, 5).map(formatDrunkSummary)
 
   const { data, error } = await supabase.functions.invoke('recommend-wine', {
@@ -96,7 +98,7 @@ async function callRecommendApi(
   if (error) throw error
   if (data?.error) throw new Error(data.error)
 
-  return resolveBottleIds(data.cards ?? [], caveBottles)
+  return resolveBottleIds(data.cards ?? [], allCaveBottles)
 }
 
 // === Prefetch (fire-and-forget, called from AppLayout) ===
@@ -128,7 +130,9 @@ export async function prefetchDefaultRecommendations(): Promise<void> {
         }
       : null
 
-    const cards = await callRecommendApi('food', null, profile, caveBottles, drunkBottles)
+    const ranked = rankCaveBottles('food', null, caveBottles, drunkBottles, profile, 24)
+    const shortlistedBottles = ranked.map((item) => item.bottle)
+    const cards = await callRecommendApi('food', null, profile, shortlistedBottles, drunkBottles, caveBottles)
     setCachedRecommendation(queryKey, cards)
     console.log('[prefetch] Default recommendations cached')
   } catch (err) {
@@ -167,24 +171,51 @@ export function useRecommendations(
   drunkRef.current = drunkBottles
   profileRef.current = profile
 
-  const fetchRecommendations = useCallback(async () => {
+  useEffect(() => {
     const queryKey = buildQueryKey(mode, query)
-
     const cached = getCachedRecommendation(queryKey)
     if (cached) {
       setCards(cached)
       setLoading(false)
       setError(null)
-      return
+    } else {
+      setCards([])
+      setLoading(true)
+      setError(null)
+    }
+  }, [mode, query])
+
+  const fetchRecommendations = useCallback(async () => {
+    const queryKey = buildQueryKey(mode, query)
+
+    const cached = getCachedRecommendation(queryKey)
+    const ranked = rankCaveBottles(mode, query, caveRef.current, drunkRef.current, profileRef.current, 24)
+    const shortlistedBottles = ranked.map((item) => item.bottle)
+    const localCards = buildLocalRecommendationCards(ranked, query)
+
+    if (!cached && localCards.length > 0) {
+      setCards(localCards)
+      setLoading(false)
+      setError(null)
+    } else if (cached) {
+      setCards(cached)
+      setLoading(false)
+      setError(null)
+    } else {
+      setLoading(true)
+      setError(null)
     }
 
     const currentRequestId = ++requestIdRef.current
-    setLoading(true)
-    setError(null)
 
     try {
       const resolved = await callRecommendApi(
-        mode, query, profileRef.current, caveRef.current, drunkRef.current,
+        mode,
+        query,
+        profileRef.current,
+        shortlistedBottles,
+        drunkRef.current,
+        caveRef.current,
       )
 
       if (currentRequestId !== requestIdRef.current) return
@@ -196,7 +227,13 @@ export function useRecommendations(
       if (currentRequestId !== requestIdRef.current) return
       console.error('[useRecommendations] fetch failed:', err)
       setError(err instanceof Error ? err.message : 'Erreur de recommandation')
-      setCards(FALLBACK_CARDS)
+      if (localCards.length > 0) {
+        setCards(localCards)
+      } else if (cached) {
+        setCards(cached)
+      } else {
+        setCards(FALLBACK_CARDS)
+      }
     } finally {
       if (currentRequestId === requestIdRef.current) {
         setLoading(false)
