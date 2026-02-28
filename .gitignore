@@ -26,5 +26,13 @@ npm-debug.log*
 
 # Supabase
 .supabase/
+supabase/.temp/
 
+# Claude Code
+.claude/settings.local.json
+
+# Test assets
+Photo tests API/
+
+# Hosting
 .vercel
