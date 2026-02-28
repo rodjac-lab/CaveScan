@@ -128,6 +128,20 @@ export default function RemoveBottle() {
     }
   }, [scanResult?.photoUri])
 
+  // Auto-start batch processing when arriving from Scanner with a pending batch session
+  const batchStartedRef = useRef(false)
+  useEffect(() => {
+    if (batchStartedRef.current) return
+    if (bottlesLoading) return
+    if (!batchSession || batchSession.status !== 'processing') return
+    // Check if any items still need processing (no processedAt)
+    const hasUnprocessed = batchSession.items.some(item => !item.processedAt)
+    if (!hasUnprocessed) return
+
+    batchStartedRef.current = true
+    void processBatchInBackground(batchSession.id)
+  }, [batchSession, bottlesLoading]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (step === 'review' && (!batchSession || batchSession.status === 'done')) {
       setStep('choose')
