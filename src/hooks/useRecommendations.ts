@@ -9,7 +9,7 @@ import {
   setCachedRecommendation,
   type RecommendationCard,
 } from '@/lib/recommendationStore'
-import type { BottleWithZone } from '@/lib/types'
+import type { Bottle, TasteProfile } from '@/lib/types'
 
 type Mode = 'food' | 'wine' | 'surprise'
 
@@ -41,7 +41,7 @@ function getDayOfWeek(): string {
   return new Date().toLocaleDateString('fr-FR', { weekday: 'long' })
 }
 
-function buildCavePayload(bottles: BottleWithZone[]): CaveBottleSummary[] {
+function buildCavePayload(bottles: Bottle[]): CaveBottleSummary[] {
   return bottles.map((b) => ({
     id: b.id.substring(0, 8),
     domaine: b.domaine,
@@ -55,7 +55,7 @@ function buildCavePayload(bottles: BottleWithZone[]): CaveBottleSummary[] {
 
 function resolveBottleIds(
   cards: RecommendationCard[],
-  bottles: BottleWithZone[]
+  bottles: Bottle[]
 ): RecommendationCard[] {
   return cards.map((card) => {
     if (!card.bottle_id) return card
@@ -64,9 +64,81 @@ function resolveBottleIds(
   })
 }
 
-function formatDrunkSummary(b: BottleWithZone): string {
+function formatDrunkSummary(b: Bottle): string {
   return [b.domaine, b.appellation, b.millesime].filter(Boolean).join(' ')
 }
+
+async function callRecommendApi(
+  mode: Mode,
+  query: string | null,
+  profile: TasteProfile | null,
+  caveBottles: Bottle[],
+  drunkBottles: Bottle[],
+): Promise<RecommendationCard[]> {
+  const profileStr = profile ? serializeProfileForPrompt(profile) : ''
+  const cave = buildCavePayload(caveBottles)
+  const recentDrunk = drunkBottles.slice(0, 5).map(formatDrunkSummary)
+
+  const { data, error } = await supabase.functions.invoke('recommend-wine', {
+    body: {
+      mode,
+      query: query || undefined,
+      profile: profileStr,
+      cave,
+      context: {
+        dayOfWeek: getDayOfWeek(),
+        season: getSeason(),
+        recentDrunk: recentDrunk.length > 0 ? recentDrunk : undefined,
+      },
+    },
+  })
+
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+
+  return resolveBottleIds(data.cards ?? [], caveBottles)
+}
+
+// === Prefetch (fire-and-forget, called from AppLayout) ===
+
+let prefetchStarted = false
+
+export async function prefetchDefaultRecommendations(): Promise<void> {
+  if (prefetchStarted) return
+  prefetchStarted = true
+
+  const queryKey = buildQueryKey('food', null)
+  if (getCachedRecommendation(queryKey)) return
+
+  try {
+    // Fetch data directly from Supabase (no hooks here)
+    const [caveRes, drunkRes, profileRes] = await Promise.all([
+      supabase.from('bottles').select('*').eq('status', 'in_stock'),
+      supabase.from('bottles').select('*').eq('status', 'drunk').order('drunk_at', { ascending: false }).limit(30),
+      supabase.from('user_taste_profiles').select('computed_profile, explicit_preferences, computed_at').maybeSingle(),
+    ])
+
+    const caveBottles = (caveRes.data ?? []) as Bottle[]
+    const drunkBottles = (drunkRes.data ?? []) as Bottle[]
+    const profile: TasteProfile | null = profileRes.data
+      ? {
+          computed: profileRes.data.computed_profile as TasteProfile['computed'],
+          explicit: (profileRes.data.explicit_preferences as TasteProfile['explicit']) ?? {},
+          computedAt: profileRes.data.computed_at ?? '',
+        }
+      : null
+
+    const cards = await callRecommendApi('food', null, profile, caveBottles, drunkBottles)
+    setCachedRecommendation(queryKey, cards)
+    console.log('[prefetch] Default recommendations cached')
+  } catch (err) {
+    // Fire-and-forget: don't crash, the hook will retry on page visit
+    console.warn('[prefetch] Failed:', err)
+    prefetchStarted = false
+  }
+}
+
+// === Hook (used by CeSoirModule) ===
 
 export function useRecommendations(
   mode: Mode,
@@ -88,8 +160,6 @@ export function useRecommendations(
 
   const requestIdRef = useRef(0)
 
-  // Keep refs in sync so the fetch callback captures latest data
-  // without re-creating on every data change
   const caveRef = useRef(caveBottles)
   const drunkRef = useRef(drunkBottles)
   const profileRef = useRef(profile)
@@ -113,33 +183,12 @@ export function useRecommendations(
     setError(null)
 
     try {
-      const profileStr = profileRef.current
-        ? serializeProfileForPrompt(profileRef.current)
-        : ''
-      const cave = buildCavePayload(caveRef.current)
-      const recentDrunk = drunkRef.current
-        .slice(0, 5)
-        .map(formatDrunkSummary)
-
-      const { data, error: invokeError } = await supabase.functions.invoke('recommend-wine', {
-        body: {
-          mode,
-          query: query || undefined,
-          profile: profileStr,
-          cave,
-          context: {
-            dayOfWeek: getDayOfWeek(),
-            season: getSeason(),
-            recentDrunk: recentDrunk.length > 0 ? recentDrunk : undefined,
-          },
-        },
-      })
+      const resolved = await callRecommendApi(
+        mode, query, profileRef.current, caveRef.current, drunkRef.current,
+      )
 
       if (currentRequestId !== requestIdRef.current) return
-      if (invokeError) throw invokeError
-      if (data?.error) throw new Error(data.error)
 
-      const resolved = resolveBottleIds(data.cards ?? [], caveRef.current)
       setCachedRecommendation(queryKey, resolved)
       setCards(resolved)
       setError(null)

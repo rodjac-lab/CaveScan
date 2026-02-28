@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { prefetchDefaultRecommendations } from '@/hooks/useRecommendations'
 import BottomNav from './components/BottomNav'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import Home from './pages/Home'
@@ -16,6 +18,10 @@ import Decouvrir from './pages/Decouvrir'
 
 function AppLayout() {
   const location = useLocation()
+
+  // Pre-fetch default recommendations on app start (fire-and-forget)
+  useEffect(() => { prefetchDefaultRecommendations() }, [])
+
   const isAuthPage = location.pathname === '/login' || location.pathname === '/signup'
   const isLanding = location.pathname === '/'
   const isScanner = location.pathname === '/scanner'
