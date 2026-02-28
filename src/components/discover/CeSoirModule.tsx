@@ -1,9 +1,7 @@
-import { useRef, useState, useEffect, useCallback, lazy, Suspense, type PointerEvent as ReactPointerEvent } from 'react'
+import { useRef, useState, useEffect, useCallback, type PointerEvent as ReactPointerEvent } from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useRecommendations } from '@/hooks/useRecommendations'
 import type { RecommendationCard } from '@/lib/recommendationStore'
-
-const LottiePlayer = lazy(() => import('lottie-react'))
 
 type Mode = 'food' | 'wine'
 
@@ -77,17 +75,6 @@ function badgeToClass(badge: string): string {
 
 // --- Sub-components ---
 
-function LoadingAnimation() {
-  return (
-    <div className="flex flex-col items-center justify-center w-full py-6 min-h-[220px]">
-      <Suspense fallback={<div className="h-44 w-44" />}>
-        <LottieLoader />
-      </Suspense>
-      <p className="text-[11px] text-[var(--text-muted)] mt-1 italic">Le sommelier réfléchit...</p>
-    </div>
-  )
-}
-
 function LoadingCardSkeleton({ index }: { index: number }) {
   return (
     <div
@@ -108,16 +95,14 @@ function LoadingCardSkeleton({ index }: { index: number }) {
   )
 }
 
-function LottieLoader() {
-  const [animationData, setAnimationData] = useState<unknown>(null)
-
-  useEffect(() => {
-    import('@/assets/cheers-wine.json').then((mod) => setAnimationData(mod.default))
-  }, [])
-
-  if (!animationData) return <div className="h-44 w-44" />
-
-  return <LottiePlayer animationData={animationData} loop className="h-44 w-44" />
+function InitialLoadingSkeleton() {
+  return (
+    <>
+      <LoadingCardSkeleton index={0} />
+      <LoadingCardSkeleton index={1} />
+      <LoadingCardSkeleton index={2} />
+    </>
+  )
 }
 
 const TAP_THRESHOLD = 10 // px — below this, it's a tap, not a swipe
@@ -259,7 +244,7 @@ export default function CeSoirModule() {
         className="flex gap-3 overflow-x-auto discover-carousel scrollbar-hide -mx-6 px-6 mb-1"
       >
         {loading ? (
-          <LoadingAnimation />
+          <InitialLoadingSkeleton />
         ) : (
           <>
             {cards.map((card, i) => (
@@ -400,4 +385,6 @@ export default function CeSoirModule() {
     </div>
   )
 }
+
+
 
