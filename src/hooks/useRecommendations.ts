@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { serializeProfileForPrompt } from '@/lib/taste-profile'
 import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
@@ -165,100 +165,81 @@ export function useRecommendations(
   const { bottles: drunkBottles, loading: drunkLoading } = useRecentlyDrunk()
   const { profile } = useTasteProfile()
 
-  // Profile enriches ranking but should not block first recommendations.
   const baseDataReady = !cavesLoading && !drunkLoading
 
-  const requestIdRef = useRef(0)
-  const cardsRef = useRef<RecommendationCard[]>([])
-
+  // Refs: access fresh data without re-triggering the effect
   const caveRef = useRef(caveBottles)
   const drunkRef = useRef(drunkBottles)
   const profileRef = useRef(profile)
   caveRef.current = caveBottles
   drunkRef.current = drunkBottles
   profileRef.current = profile
-  cardsRef.current = cards
+
+  // Track whether the effect has run once (= initial mount).
+  // On mount: show cache or local cards, NO API call (prefetch handles it).
+  // On subsequent runs (user changed mode/query): call API.
+  const isInitialMount = useRef(true)
+  const requestIdRef = useRef(0)
 
   useEffect(() => {
+    if (!baseDataReady) return
+
+    const isUserAction = !isInitialMount.current
+    isInitialMount.current = false
+
     const queryKey = buildQueryKey(mode, query)
     const cached = getCachedRecommendation(queryKey)
+
+    // --- Cache hit → display and STOP ---
     if (cached) {
       setCards(cached)
       setLoading(false)
       setRefreshing(false)
       setError(null)
-    } else {
-      setCards([])
-      setLoading(true)
-      setRefreshing(false)
-      setError(null)
+      return
     }
-  }, [mode, query])
 
-  const fetchRecommendations = useCallback(async () => {
-    const queryKey = buildQueryKey(mode, query)
+    // --- Cache miss → show local cards ---
+    const cave = caveRef.current
+    const drunk = drunkRef.current
+    const prof = profileRef.current
 
-    const cached = getCachedRecommendation(queryKey)
-    const ranked = rankCaveBottles(mode, query, caveRef.current, drunkRef.current, profileRef.current, 24)
+    const ranked = rankCaveBottles(mode, query, cave, drunk, prof, 24)
     const localCards = buildLocalRecommendationCards(ranked, query)
-    const hasVisibleCards = cardsRef.current.length > 0 || (cached?.length ?? 0) > 0 || localCards.length > 0
-    const hadPreviousCards = cardsRef.current.length > 0
 
-    if (cached) {
-      setCards(cached)
-      setLoading(false)
-      setError(null)
-    } else if (!hadPreviousCards && localCards.length > 0) {
-      setCards(localCards)
-      setLoading(false)
-      setError(null)
-    } else {
-      setLoading(true)
-      setError(null)
+    setCards(localCards.length > 0 ? localCards : FALLBACK_CARDS)
+    setLoading(false)
+    setError(null)
+
+    // On initial mount: local cards are enough. Prefetch will fill cache
+    // for next visit. No API call from the hook.
+    if (!isUserAction) {
+      setRefreshing(false)
+      return
     }
 
+    // User-initiated change (chip, query, mode switch) → call API
+    setRefreshing(true)
     const currentRequestId = ++requestIdRef.current
-    setRefreshing(hasVisibleCards)
 
-    try {
-      const resolved = await callRecommendApi(
-        mode,
-        query,
-        profileRef.current,
-        ranked,
-        drunkRef.current,
-        caveRef.current,
-      )
-
-      if (currentRequestId !== requestIdRef.current) return
-
-      setCachedRecommendation(queryKey, resolved)
-      setCards(resolved)
-      setError(null)
-    } catch (err) {
-      if (currentRequestId !== requestIdRef.current) return
-      console.error('[useRecommendations] fetch failed:', err)
-      setError(err instanceof Error ? err.message : 'Erreur de recommandation')
-      if (localCards.length > 0) {
-        setCards(localCards)
-      } else if (cached) {
-        setCards(cached)
-      } else {
-        setCards(FALLBACK_CARDS)
-      }
-    } finally {
-      if (currentRequestId === requestIdRef.current) {
-        setLoading(false)
+    callRecommendApi(mode, query, prof, ranked, drunk, cave)
+      .then((resolved) => {
+        if (currentRequestId !== requestIdRef.current) return
+        setCachedRecommendation(queryKey, resolved)
+        setCards(resolved)
+        setError(null)
+      })
+      .catch((err) => {
+        if (currentRequestId !== requestIdRef.current) return
+        console.error('[useRecommendations] fetch failed:', err)
+        setError(err instanceof Error ? err.message : 'Erreur de recommandation')
+        // Keep local cards already displayed
+      })
+      .finally(() => {
+        if (currentRequestId !== requestIdRef.current) return
         setRefreshing(false)
-      }
-    }
-  }, [mode, query])
-
-  useEffect(() => {
-    if (baseDataReady) {
-      fetchRecommendations()
-    }
-  }, [baseDataReady, fetchRecommendations])
+      })
+  }, [baseDataReady, mode, query])
 
   return { cards, loading, refreshing, error }
 }

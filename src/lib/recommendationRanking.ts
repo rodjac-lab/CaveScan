@@ -248,14 +248,11 @@ export function buildLocalRecommendationCards(
 ): RecommendationCard[] {
   if (ranked.length === 0) return []
 
-  return ranked.slice(0, 3).map(({ bottle, score }, index) => {
+  return ranked.slice(0, 3).map(({ bottle }, index) => {
     const name = buildBottleLabel(bottle) || bottle.appellation || 'Selection de la cave'
-    const reasonBase = query
-      ? `Bon match pour "${query}" selon ton profil.`
-      : 'Selection rapide basee sur tes habitudes recentes.'
-    const reason = score >= 3
-      ? `${reasonBase} Option tres pertinente pour ce soir.`
-      : `${reasonBase} Si tu veux, je peux affiner ensuite.`
+    const reason = query
+      ? `Bon match pour « ${query} » selon ton profil et ta cave.`
+      : 'Sélection basée sur tes habitudes, la saison et le jour. On peut affiner ensemble si tu veux\u00a0!'
 
     return {
       bottle_id: bottle.id,
