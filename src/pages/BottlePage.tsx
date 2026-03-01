@@ -21,6 +21,7 @@ const COLOR_CSS_VARS: Record<string, string> = {
 interface BatchState {
   batchIds?: string[]
   batchIndex?: number
+  groupBottleIds?: string[]
 }
 
 export default function BottlePage() {
@@ -139,7 +140,7 @@ export default function BottlePage() {
 
       {/* ===== CAVE SECTIONS (in_stock bottles) ===== */}
       {!isDrunk && (
-        <CaveSection bottle={bottle} onRefetch={refetch} />
+        <CaveSection bottle={bottle} onRefetch={refetch} groupBottleIds={batchState?.groupBottleIds} />
       )}
 
       {/* ===== DELETE ===== */}

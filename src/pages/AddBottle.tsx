@@ -38,19 +38,6 @@ interface AddBottleLocationState {
   prefillBatchFiles?: File[] | null
 }
 
-interface InStockMergeCandidate {
-  id: string
-  quantity: number
-  domaine: string | null
-  cuvee: string | null
-  appellation: string | null
-  millesime: number | null
-  couleur: WineColor | null
-  zone_id: string | null
-  shelf: string | null
-  volume_l: number
-}
-
 export default function AddBottle() {
   const location = useLocation()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -112,61 +99,6 @@ export default function AddBottle() {
   const [currentBatchIndex, setCurrentBatchIndex] = useState(0)
   const [batchExtractionIndex, setBatchExtractionIndex] = useState(0)
   const batchInitRef = useRef(false)
-
-  function normalizeNullableText(value: string | null | undefined): string {
-    return (value ?? '').trim().toLowerCase()
-  }
-
-  function sameNullableNumber(a: number | null | undefined, b: number | null | undefined): boolean {
-    if (a == null && b == null) return true
-    if (a == null || b == null) return false
-    return Math.abs(a - b) < 0.001
-  }
-
-  function isSameBottleIdentity(
-    existing: InStockMergeCandidate,
-    draft: {
-      domaine: string | null
-      cuvee: string | null
-      appellation: string | null
-      millesime: number | null
-      couleur: WineColor | null
-      zone_id: string | null
-      shelf: string | null
-      volume_l: number
-    }
-  ): boolean {
-    return (
-      normalizeNullableText(existing.domaine) === normalizeNullableText(draft.domaine) &&
-      normalizeNullableText(existing.cuvee) === normalizeNullableText(draft.cuvee) &&
-      normalizeNullableText(existing.appellation) === normalizeNullableText(draft.appellation) &&
-      sameNullableNumber(existing.millesime, draft.millesime) &&
-      normalizeNullableText(existing.couleur) === normalizeNullableText(draft.couleur) &&
-      normalizeNullableText(existing.zone_id) === normalizeNullableText(draft.zone_id) &&
-      normalizeNullableText(existing.shelf) === normalizeNullableText(draft.shelf) &&
-      sameNullableNumber(existing.volume_l, draft.volume_l)
-    )
-  }
-
-  async function findMergeCandidate(draft: {
-    domaine: string | null
-    cuvee: string | null
-    appellation: string | null
-    millesime: number | null
-    couleur: WineColor | null
-    zone_id: string | null
-    shelf: string | null
-    volume_l: number
-  }): Promise<InStockMergeCandidate | null> {
-    const { data, error } = await supabase
-      .from('bottles')
-      .select('id, quantity, domaine, cuvee, appellation, millesime, couleur, zone_id, shelf, volume_l')
-      .eq('status', 'in_stock')
-
-    if (error) throw error
-    const candidates = (data ?? []) as InStockMergeCandidate[]
-    return candidates.find((existing) => isSameBottleIdentity(existing, draft)) ?? null
-  }
 
   // Auto-start batch when arriving from Scanner with multiple files
   useEffect(() => {
@@ -446,24 +378,9 @@ export default function AddBottle() {
         volume_l: parseFloat(volumeL),
       }
 
-      // Merge with existing in-stock bottle identity when possible.
-      const mergeTarget = await findMergeCandidate(bottleData)
-
-      if (mergeTarget) {
-        const { error: updateError } = await supabase
-          .from('bottles')
-          .update({
-            quantity: (mergeTarget.quantity ?? 1) + quantity,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', mergeTarget.id)
-
-        if (updateError) throw updateError
-      } else {
-        // Insert new row when no merge target exists.
-        const { error: insertError } = await supabase.from('bottles').insert({ ...bottleData, quantity })
-        if (insertError) throw insertError
-      }
+      // Keep acquisitions as separate lots; no automatic merge.
+      const { error: insertError } = await supabase.from('bottles').insert({ ...bottleData, quantity })
+      if (insertError) throw insertError
 
       track('bottle_added', { couleur: couleur || null, has_photo: !!photoFile })
       triggerProfileRecompute()
@@ -517,22 +434,9 @@ export default function AddBottle() {
         volume_l: parseFloat(item.volumeL),
       }
 
-      const mergeTarget = await findMergeCandidate(bottleData)
-
-      if (mergeTarget) {
-        const { error: updateError } = await supabase
-          .from('bottles')
-          .update({
-            quantity: (mergeTarget.quantity ?? 1) + item.quantity,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', mergeTarget.id)
-
-        if (updateError) throw updateError
-      } else {
-        const { error: insertError } = await supabase.from('bottles').insert({ ...bottleData, quantity: item.quantity })
-        if (insertError) throw insertError
-      }
+      // Keep acquisitions as separate lots; no automatic merge.
+      const { error: insertError } = await supabase.from('bottles').insert({ ...bottleData, quantity: item.quantity })
+      if (insertError) throw insertError
 
       track('bottle_added', { couleur: item.couleur || null, has_photo: true, quantity: item.quantity })
 

@@ -16,11 +16,13 @@ const COLOR_CSS_VARS: Record<string, string> = {
 interface CaveSectionProps {
   bottle: BottleWithZone
   onRefetch: () => Promise<void>
+  groupBottleIds?: string[]
 }
 
-export function CaveSection({ bottle, onRefetch }: CaveSectionProps) {
+export function CaveSection({ bottle, onRefetch, groupBottleIds }: CaveSectionProps) {
   const navigate = useNavigate()
   const [pastTastings, setPastTastings] = useState<BottleWithZone[]>([])
+  const [groupInStock, setGroupInStock] = useState<BottleWithZone[]>([])
   const [updatingQuantity, setUpdatingQuantity] = useState(false)
   const [removing, setRemoving] = useState(false)
 
@@ -47,18 +49,78 @@ export function CaveSection({ bottle, onRefetch }: CaveSectionProps) {
     }
 
     fetchPastTastings()
-  }, [bottle.id, bottle.status])
+  }, [bottle.id, bottle.status, bottle.domaine, bottle.appellation, bottle.millesime])
 
-  const handleUpdateQuantity = async (newQuantity: number) => {
-    if (newQuantity < 1 || newQuantity > 99) return
+  useEffect(() => {
+    async function fetchGroupInStock() {
+      if (!groupBottleIds || groupBottleIds.length === 0) {
+        setGroupInStock([bottle])
+        return
+      }
+
+      const { data } = await supabase
+        .from('bottles')
+        .select('*, zone:zones(*)')
+        .eq('status', 'in_stock')
+        .in('id', groupBottleIds)
+
+      setGroupInStock((data as BottleWithZone[] | null) ?? [bottle])
+    }
+
+    fetchGroupInStock()
+  }, [bottle.id, groupBottleIds, bottle])
+
+  const totalQuantity = (groupInStock.length > 0 ? groupInStock : [bottle]).reduce(
+    (sum, item) => sum + (item.quantity ?? 1),
+    0
+  )
+
+  const handleUpdateQuantity = async (delta: 1 | -1) => {
     setUpdatingQuantity(true)
-    const { error } = await supabase
-      .from('bottles')
-      .update({ quantity: newQuantity })
-      .eq('id', bottle.id)
-    if (!error) {
+
+    try {
+      if (delta === 1) {
+        const { error } = await supabase
+          .from('bottles')
+          .update({ quantity: (bottle.quantity ?? 1) + 1 })
+          .eq('id', bottle.id)
+        if (error) throw error
+      } else {
+        if (totalQuantity <= 1) {
+          setUpdatingQuantity(false)
+          return
+        }
+
+        const rows = groupInStock.length > 0 ? groupInStock : [bottle]
+        let target = rows.find((r) => r.id === bottle.id && (r.quantity ?? 1) > 1)
+        if (!target) {
+          target = rows.find((r) => r.id !== bottle.id && (r.quantity ?? 1) > 1)
+        }
+        if (!target) {
+          target = rows.find((r) => r.id !== bottle.id)
+        }
+        if (!target) {
+          setUpdatingQuantity(false)
+          return
+        }
+
+        if ((target.quantity ?? 1) > 1) {
+          const { error } = await supabase
+            .from('bottles')
+            .update({ quantity: (target.quantity ?? 1) - 1 })
+            .eq('id', target.id)
+          if (error) throw error
+        } else {
+          const { error } = await supabase
+            .from('bottles')
+            .delete()
+            .eq('id', target.id)
+          if (error) throw error
+        }
+      }
+
       await onRefetch()
-    } else {
+    } catch (error) {
       console.error('Update quantity error:', error)
     }
     setUpdatingQuantity(false)
@@ -95,19 +157,19 @@ export function CaveSection({ bottle, onRefetch }: CaveSectionProps) {
               <button
                 type="button"
                 className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-30"
-                onClick={() => handleUpdateQuantity((bottle.quantity ?? 1) - 1)}
-                disabled={updatingQuantity || (bottle.quantity ?? 1) <= 1}
+                onClick={() => handleUpdateQuantity(-1)}
+                disabled={updatingQuantity || totalQuantity <= 1}
               >
                 <Minus className="h-3.5 w-3.5" />
               </button>
               <span className="font-serif text-[17px] font-bold text-[var(--text-primary)] w-6 text-center">
-                {bottle.quantity ?? 1}
+                {totalQuantity}
               </span>
               <button
                 type="button"
                 className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-30"
-                onClick={() => handleUpdateQuantity((bottle.quantity ?? 1) + 1)}
-                disabled={updatingQuantity || (bottle.quantity ?? 1) >= 99}
+                onClick={() => handleUpdateQuantity(1)}
+                disabled={updatingQuantity || totalQuantity >= 99}
               >
                 <Plus className="h-3.5 w-3.5" />
               </button>

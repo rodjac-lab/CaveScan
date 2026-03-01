@@ -80,6 +80,7 @@ interface BottleGroup {
   appellation: string | null
   millesime: number | null
   couleur: WineColor | null
+  volumeL: number
   addedAt: Date
   quantity: number
 }
@@ -97,6 +98,7 @@ function groupBottles(bottles: BottleWithZone[]): BottleGroup[] {
       bottle.appellation || '',
       bottle.millesime || '',
       bottle.couleur || '',
+      bottle.volume_l || 0.75,
     ].join('|')
 
     const existing = groups.get(groupKey)
@@ -112,6 +114,7 @@ function groupBottles(bottles: BottleWithZone[]): BottleGroup[] {
         appellation: bottle.appellation,
         millesime: bottle.millesime,
         couleur: bottle.couleur,
+        volumeL: bottle.volume_l ?? 0.75,
         addedAt: addedDate,
         quantity: bottle.quantity ?? 1,
       })
@@ -299,7 +302,11 @@ export default function Home() {
               const month = group.addedAt.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')
 
               return (
-                <Link key={group.key} to={`/bottle/${group.bottles[0].id}`}>
+                <Link
+                  key={group.key}
+                  to={`/bottle/${group.bottles[0].id}`}
+                  state={{ groupBottleIds: group.bottles.map((b) => b.id) }}
+                >
                   <div className="flex items-center gap-3 rounded-[var(--radius-sm)] bg-[var(--bg-card)] p-2.5 pr-3 card-shadow transition-all duration-200 hover:bg-[var(--accent-bg)]">
                     {/* Date */}
                     <div className="w-9 flex-shrink-0 text-center">
