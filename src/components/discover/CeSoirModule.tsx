@@ -1,26 +1,15 @@
-import { useRef, useState, useEffect, useCallback, useMemo, type PointerEvent as ReactPointerEvent } from 'react'
+import { useRef, useState, useEffect, useMemo, type PointerEvent as ReactPointerEvent } from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useRecommendations } from '@/hooks/useRecommendations'
 import type { RecommendationCard } from '@/lib/recommendationStore'
 
 type Mode = 'food' | 'wine'
 
-// --- Icons ---
-
 function SearchIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
       <circle cx="11" cy="11" r="8" />
       <path d="M21 21l-4.35-4.35" />
-    </svg>
-  )
-}
-
-function CloseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-      <path d="M18 6L6 18" />
-      <path d="M6 6l12 12" />
     </svg>
   )
 }
@@ -41,38 +30,23 @@ function SparkleIcon() {
   )
 }
 
-// --- Data ---
-
-const FOOD_TAGS = ['Poulet rôti', 'Poisson', 'Fromage', 'Viande rouge', 'Pâtes', 'Sushi', 'Charcuterie', 'Dessert']
-const WINE_TAGS = ['Rouge', 'Blanc', 'Rosé', 'Bulles', 'Léger', 'Corsé']
-
 const MODE_OPTIONS: { value: Mode; label: string }[] = [
   { value: 'food', label: 'Ce soir je mange...' },
   { value: 'wine', label: 'Ce soir je bois...' },
 ]
 
-const SOMMELIER_ACTIONS: Array<{ label: string; hint: string; reply: string }> = [
-  { label: 'Plus audacieux', hint: 'style plus audacieux, accords originaux', reply: 'Parfait, je pousse des accords plus originaux avec un peu plus de caractere.' },
-  { label: 'Plus classique', hint: 'style plus classique, valeur sure', reply: 'Compris, je reste sur des references tres sures et consensuelles.' },
-  { label: 'Moins cher', hint: 'budget plus accessible, meilleur rapport qualite-prix', reply: 'Je vais privilegier des options avec un meilleur rapport plaisir/prix.' },
-  { label: 'Accord parfait', hint: 'priorite precision de l accord mets-vin', reply: 'Je vise la precision maximale accord mets-vin pour ce contexte.' },
-  { label: 'Autre style', hint: 'proposer un autre style de vin', reply: 'On change de registre pour ouvrir une alternative differente.' },
+const PRIMARY_ACTIONS: Array<{ label: string; hint: string }> = [
+  { label: 'Plus audacieux', hint: 'style plus audacieux, accords originaux' },
+  { label: 'Plus classique', hint: 'style plus classique, valeur sure' },
+  { label: 'Moins cher', hint: 'budget plus accessible, meilleur rapport qualite-prix' },
 ]
 
-const REFINEMENT_HINTS = SOMMELIER_ACTIONS.reduce<Record<string, string>>((acc, action) => {
-  acc[action.label] = action.hint
-  return acc
-}, {})
-
-function buildRecommendationQuery(baseQuery: string | null, refinements: string[]): string | null {
-  if (!baseQuery && refinements.length === 0) return null
-  const refinementHints = refinements.map((item) => REFINEMENT_HINTS[item] ?? item)
-  if (!baseQuery) return `Affinage sommelier: ${refinementHints.join(', ')}`
-  if (refinementHints.length === 0) return baseQuery
-  return `${baseQuery} | Contraintes: ${refinementHints.join(', ')}`
+function buildRecommendationQuery(baseQuery: string | null, refinementHint: string | null): string | null {
+  if (!baseQuery && !refinementHint) return null
+  if (!baseQuery && refinementHint) return `Affinage sommelier: ${refinementHint}`
+  if (!refinementHint) return baseQuery
+  return `${baseQuery} | Contraintes: ${refinementHint}`
 }
-
-// --- Helpers ---
 
 function colorToBarClass(color: RecommendationCard['color']): string {
   switch (color) {
@@ -89,12 +63,10 @@ function badgeToClass(badge: string): string {
     case 'De ta cave': return 'bg-[var(--accent)]'
     case 'Accord parfait': return 'bg-[var(--red-wine)]'
     case 'Audacieux': return 'bg-[var(--champagne)]'
-    case 'Découverte': return 'bg-[var(--text-muted)]'
+    case 'Decouverte': return 'bg-[var(--text-muted)]'
     default: return 'bg-[var(--accent)]'
   }
 }
-
-// --- Sub-components ---
 
 function LoadingCardSkeleton({ index }: { index: number }) {
   return (
@@ -126,7 +98,7 @@ function InitialLoadingSkeleton() {
   )
 }
 
-const TAP_THRESHOLD = 10 // px — below this, it's a tap, not a swipe
+const TAP_THRESHOLD = 10
 
 interface RecommendationCardItemProps {
   card: RecommendationCard
@@ -178,108 +150,71 @@ function RecommendationCardItem({ card, onTap }: RecommendationCardItemProps) {
   )
 }
 
-// --- Main component ---
-
 export default function CeSoirModule() {
   const [mode, setMode] = useState<Mode>('food')
   const [expandedCard, setExpandedCard] = useState<RecommendationCard | null>(null)
-  const [selectedTag, setSelectedTag] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [submittedQuery, setSubmittedQuery] = useState<string | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
-  const [refinementInput, setRefinementInput] = useState('')
-  const [activeRefinements, setActiveRefinements] = useState<string[]>([])
-  const [sommelierReply, setSommelierReply] = useState('Je peux affiner en un clic: style, budget, audace.')
+  const [queryInput, setQueryInput] = useState('')
+  const [submittedQuery, setSubmittedQuery] = useState<string | null>(null)
+  const [activeRefinement, setActiveRefinement] = useState<string | null>(null)
+  const [showQueryInput, setShowQueryInput] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const baseQuery = selectedTag ?? submittedQuery
-  const effectiveQuery = useMemo(
-    () => buildRecommendationQuery(baseQuery, activeRefinements),
-    [baseQuery, activeRefinements]
+  const refinementHint = useMemo(
+    () => PRIMARY_ACTIONS.find((item) => item.label === activeRefinement)?.hint ?? activeRefinement,
+    [activeRefinement]
   )
+
+  const effectiveQuery = useMemo(
+    () => buildRecommendationQuery(submittedQuery, refinementHint ?? null),
+    [submittedQuery, refinementHint]
+  )
+
   const { cards, loading, refreshing, error } = useRecommendations(mode, effectiveQuery)
 
-  const tags = mode === 'food' ? FOOD_TAGS : WINE_TAGS
-  const placeholder = mode === 'food' ? 'Ex: Magret de canard...' : 'Ex: Pinot Noir...'
-  const hasActiveSearch = selectedTag !== null || submittedQuery !== null || searchQuery.trim().length > 0
+  const searchPlaceholder = mode === 'food'
+    ? 'Ex: filet de boeuf, sans tanins, 20-30EUR'
+    : 'Ex: rouge leger, pas boise, 20-30EUR'
 
-  const resetSearch = useCallback(() => {
-    setSelectedTag(null)
-    setSearchQuery('')
-    setSubmittedQuery(null)
-  }, [])
-
-  // Track which card is centered in the carousel
   useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
+    const node = scrollRef.current
+    if (!node) return
     function handleScroll() {
       const cardWidth = 220 + 12
-      const index = Math.round(el!.scrollLeft / cardWidth)
+      const index = Math.round(node!.scrollLeft / cardWidth)
       setActiveIndex(Math.min(index, Math.max(cards.length - 1, 0)))
     }
-    el.addEventListener('scroll', handleScroll, { passive: true })
-    return () => el.removeEventListener('scroll', handleScroll)
+    node.addEventListener('scroll', handleScroll, { passive: true })
+    return () => node.removeEventListener('scroll', handleScroll)
   }, [cards.length])
 
-  // Reset scroll position when the query changes
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' })
     }
   }, [effectiveQuery])
 
-  function handleTagClick(tag: string): void {
-    setSelectedTag(selectedTag === tag ? null : tag)
-    setSearchQuery('')
-    setSubmittedQuery(null)
-  }
-
-  function handleSearchSubmit(): void {
-    if (searchQuery.trim().length < 2) return
-    setSubmittedQuery(searchQuery.trim())
-    setSelectedTag(null)
-  }
-
   function handleModeSwitch(newMode: Mode): void {
     setMode(newMode)
-    resetSearch()
-    resetRefinements()
-  }
-
-  function handleSearchChange(value: string): void {
-    setSearchQuery(value)
-    setSelectedTag(null)
     setSubmittedQuery(null)
+    setQueryInput('')
+    setActiveRefinement(null)
+    setShowQueryInput(true)
   }
 
-  function addRefinement(value: string, reply?: string): void {
-    const token = value.trim()
-    if (!token) return
-    setActiveRefinements((prev) => [token, ...prev.filter((item) => item !== token)].slice(0, 4))
-    if (reply) {
-      setSommelierReply(reply)
-    } else {
-      setSommelierReply(`Bien vu. Je prends "${token}" pour affiner les recommandations.`)
-    }
+  function handleQuerySubmit(): void {
+    const next = queryInput.trim()
+    setSubmittedQuery(next.length >= 2 ? next : null)
   }
 
-  function handleRefinementSubmit(): void {
-    if (refinementInput.trim().length < 2) return
-    addRefinement(refinementInput)
-    setRefinementInput('')
-  }
-
-  function resetRefinements(): void {
-    setActiveRefinements([])
-    setSommelierReply('Je peux affiner en un clic: style, budget, audace.')
+  function toggleRefinement(label: string): void {
+    setActiveRefinement((prev) => (prev === label ? null : label))
   }
 
   const showCards = !loading && cards.length > 0
 
   return (
     <div>
-      {/* Section title + AI badge */}
       <div className="flex items-center gap-2.5 mb-3">
         <div className="flex-1 h-px bg-[var(--border-color)]" />
         <div className="flex items-center gap-1.5">
@@ -289,11 +224,7 @@ export default function CeSoirModule() {
         <div className="flex-1 h-px bg-[var(--border-color)]" />
       </div>
 
-      {/* 1. Carousel — content first */}
-      <div
-        ref={scrollRef}
-        className="flex gap-3 overflow-x-auto discover-carousel scrollbar-hide -mx-6 px-6 mb-1"
-      >
+      <div ref={scrollRef} className="flex gap-3 overflow-x-auto discover-carousel scrollbar-hide -mx-6 px-6 mb-1">
         {loading ? (
           <InitialLoadingSkeleton />
         ) : (
@@ -321,7 +252,6 @@ export default function CeSoirModule() {
         </p>
       )}
 
-      {/* Dots */}
       {showCards && (
         <div className="flex items-center justify-center gap-1.5 mb-3">
           {cards.map((card, i) => (
@@ -335,105 +265,23 @@ export default function CeSoirModule() {
         </div>
       )}
 
-      {/* Error message (non-blocking, fallback cards are shown) */}
       {error && !loading && (
         <div className="rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] p-3 card-shadow mb-3 text-center">
           <p className="text-[11px] text-[var(--text-muted)]">
-            Le sommelier est momentanément indisponible. Suggestions par défaut affichées.
+            Le sommelier est momentanement indisponible. Suggestions par defaut affichees.
           </p>
         </div>
       )}
 
-      {/* 2. Quick tags — refine */}
-      <div className="flex flex-wrap gap-1.5 mb-3">
-        {tags.map((tag) => (
-          <button
-            key={tag}
-            onClick={() => handleTagClick(tag)}
-            className={`rounded-full px-2.5 py-1 text-[11px] font-medium border transition-colors ${
-              selectedTag === tag
-                ? 'bg-[var(--red-wine)] border-[var(--red-wine)] text-white'
-                : 'bg-transparent border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--accent)]'
-            }`}
-          >
-            {tag}
-          </button>
-        ))}
-      </div>
-
-      {/* 3. Mode toggle + search — deep search */}
-      <div className="flex items-center gap-2 mb-2">
-        {MODE_OPTIONS.map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => handleModeSwitch(value)}
-            className={`rounded-full px-3 py-1.5 text-[12px] font-medium border transition-colors ${
-              mode === value
-                ? 'bg-[var(--accent-bg)] border-[var(--accent)] text-[var(--accent)]'
-                : 'bg-transparent border-[var(--border-color)] text-[var(--text-muted)]'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <form
-        onSubmit={(e) => { e.preventDefault(); handleSearchSubmit() }}
-        className="relative"
-      >
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
-          <SearchIcon />
-        </div>
-        <input
-          value={searchQuery}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          placeholder={placeholder}
-          enterKeyHint="search"
-          className="w-full h-9 rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-16 text-[13px] placeholder:text-[var(--text-muted)] placeholder:italic"
-        />
-        {hasActiveSearch && (
-          <button
-            type="button"
-            onClick={resetSearch}
-            className="absolute right-8 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-          >
-            <CloseIcon />
-          </button>
-        )}
-        {searchQuery.trim().length >= 2 && (
-          <button
-            type="submit"
-            className="absolute right-2 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-white"
-          >
-            <ChevronIcon />
-          </button>
-        )}
-      </form>
-
-      {/* 4. Micro-dialogue (UI prototype) */}
-      <div className="rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] p-3 card-shadow mt-3">
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <p className="text-[12px] font-semibold text-[var(--text-primary)]">Affiner avec le sommelier</p>
-          {activeRefinements.length > 0 && (
-            <button
-              type="button"
-              onClick={resetRefinements}
-              className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-            >
-              Reset
-            </button>
-          )}
-        </div>
-
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {SOMMELIER_ACTIONS.map((action) => (
+      <div className="rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] p-3 card-shadow mt-3 mb-2">
+        <div className="flex items-center gap-1.5 mb-2 overflow-x-auto scrollbar-hide">
+          {PRIMARY_ACTIONS.map((action) => (
             <button
               key={action.label}
               type="button"
-              onClick={() => addRefinement(action.label, action.reply)}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-medium border transition-colors ${
-                activeRefinements.includes(action.label)
+              onClick={() => toggleRefinement(action.label)}
+              className={`h-8 inline-flex items-center justify-center rounded-full px-3 text-[11px] leading-none font-medium border whitespace-nowrap transition-colors ${
+                activeRefinement === action.label
                   ? 'bg-[var(--accent-bg)] border-[var(--accent)] text-[var(--accent)]'
                   : 'bg-transparent border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--accent)]'
               }`}
@@ -443,47 +291,55 @@ export default function CeSoirModule() {
           ))}
         </div>
 
-        {activeRefinements.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            {activeRefinements.map((refinement) => (
-              <span
-                key={refinement}
-                className="inline-flex items-center rounded-full bg-[var(--accent-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent)]"
-              >
-                {refinement}
-              </span>
-            ))}
-          </div>
-        )}
-
-        <p className="text-[11px] text-[var(--text-secondary)] italic mb-2">
-          {sommelierReply}
-        </p>
-
-        <form
-          onSubmit={(e) => { e.preventDefault(); handleRefinementSubmit() }}
-          className="relative"
-        >
-          <input
-            value={refinementInput}
-            onChange={(e) => setRefinementInput(e.target.value)}
-            placeholder="Ex: sans tanins, budget 20-30€, pour apero..."
-            className="w-full h-9 rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] px-3 pr-12 text-[12px] placeholder:text-[var(--text-muted)] placeholder:italic"
-          />
+        <div className="flex items-center gap-1.5 mb-2 overflow-x-auto scrollbar-hide">
+          {MODE_OPTIONS.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => handleModeSwitch(value)}
+              className={`h-8 inline-flex items-center justify-center rounded-full px-3 text-[11px] leading-none font-medium border whitespace-nowrap transition-colors ${
+                mode === value
+                  ? 'bg-[var(--accent-bg)] border-[var(--accent)] text-[var(--accent)]'
+                  : 'bg-transparent border-[var(--border-color)] text-[var(--text-muted)]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
           <button
-            type="submit"
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-white"
+            type="button"
+            onClick={() => setShowQueryInput((prev) => !prev)}
+            className="h-8 inline-flex items-center justify-center rounded-full px-3 text-[11px] leading-none font-medium border border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--accent)] whitespace-nowrap"
           >
-            <ChevronIcon />
+            {showQueryInput ? 'Fermer' : 'Preciser'}
           </button>
-        </form>
+        </div>
 
-        <p className="text-[10px] text-[var(--text-muted)] mt-1">
-          Les raffinements sont appliques en direct aux recommandations.
-        </p>
+        {showQueryInput && (
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleQuerySubmit() }}
+            className="relative"
+          >
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
+              <SearchIcon />
+            </div>
+            <input
+              value={queryInput}
+              onChange={(e) => setQueryInput(e.target.value)}
+              placeholder={searchPlaceholder}
+              enterKeyHint="search"
+              className="w-full h-9 rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-10 text-[12px] placeholder:text-[var(--text-muted)] placeholder:italic"
+            />
+            <button
+              type="submit"
+              className="absolute right-2 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-white"
+            >
+              <ChevronIcon />
+            </button>
+          </form>
+        )}
       </div>
 
-      {/* Expanded card dialog */}
       <Dialog open={!!expandedCard} onOpenChange={() => setExpandedCard(null)}>
         <DialogContent className="max-w-[340px] rounded-[var(--radius)] p-0 overflow-hidden">
           {expandedCard && (
@@ -508,6 +364,3 @@ export default function CeSoirModule() {
     </div>
   )
 }
-
-
-

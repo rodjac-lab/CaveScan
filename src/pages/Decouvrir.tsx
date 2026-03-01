@@ -14,7 +14,7 @@ export default function Decouvrir() {
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-6 scrollbar-hide">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-24 scrollbar-hide">
         <div className="space-y-6 mt-2">
           <CeSoirModule />
           <ExploreCards />
