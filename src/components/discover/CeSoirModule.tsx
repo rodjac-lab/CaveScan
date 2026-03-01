@@ -99,7 +99,7 @@ function badgeToClass(badge: string): string {
 function LoadingCardSkeleton({ index }: { index: number }) {
   return (
     <div
-      className="flex-shrink-0 w-[220px] rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden animate-pulse"
+      className="flex-shrink-0 w-[220px] h-[188px] rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden animate-pulse"
       style={{ animationDelay: `${index * 80}ms` }}
     >
       <div className="flex">
@@ -157,7 +157,7 @@ function RecommendationCardItem({ card, onTap }: RecommendationCardItemProps) {
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onKeyDown={(e) => { if (e.key === 'Enter') onTap() }}
-      className="flex-shrink-0 w-[220px] rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden cursor-pointer select-none"
+      className="flex-shrink-0 w-[220px] h-[188px] rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden cursor-pointer select-none"
     >
       <div className="flex">
         <div className={`w-[4px] ${colorToBarClass(card.color)}`} />
