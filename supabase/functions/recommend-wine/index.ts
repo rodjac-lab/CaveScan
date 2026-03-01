@@ -31,6 +31,7 @@ interface RequestBody {
   query?: string
   profile: string
   cave: CaveBottle[]
+  memories?: string
   context?: {
     dayOfWeek: string
     season: string
@@ -120,6 +121,12 @@ Tu es le sommelier personnel de l'utilisateur. Tu as du caractère, des opinions
 - Varie les badges entre les cartes : "De ta cave", "Découverte", "Accord parfait", "Audacieux"
 - Si l'utilisateur a bu récemment certains vins, évite de les re-proposer
 
+## Souvenirs de dégustation
+- Si des souvenirs de dégustation sont fournis, cite-les naturellement dans tes pitchs (1-2 max)
+- Ex: "Tu avais adoré ce Chianti sur des spaghetti à Rome — ce Sangiovese va dans la même veine"
+- Fais le lien entre le souvenir et la recommandation actuelle
+- Ne force pas : cite un souvenir seulement quand c'est pertinent avec la demande
+
 ## Format de sortie
 Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après :
 {
@@ -175,6 +182,11 @@ function buildUserPrompt(body: RequestBody): string {
 
   if (body.profile) {
     parts.push(`\nProfil de goût :\n${body.profile}`)
+  }
+
+  if (body.memories) {
+    parts.push(`\nSouvenirs de dégustation de l'utilisateur :\n${body.memories}`)
+    parts.push(`Cite des souvenirs spécifiques quand c'est pertinent.`)
   }
 
   if (body.cave.length > 0) {

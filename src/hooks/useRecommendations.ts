@@ -10,6 +10,7 @@ import {
   setCachedRecommendation,
   type RecommendationCard,
 } from '@/lib/recommendationStore'
+import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
 import type { Bottle, TasteProfile } from '@/lib/types'
 
 type Mode = 'generic' | 'food' | 'wine' | 'surprise'
@@ -82,12 +83,17 @@ async function callRecommendApi(
   const cave = buildRankedCavePayload(rankedForPrompt)
   const recentDrunk = drunkBottles.slice(0, 5).map(formatDrunkSummary)
 
+  // Select and serialize relevant tasting memories
+  const memories = selectRelevantMemories(mode, query, drunkBottles)
+  const memoriesStr = serializeMemoriesForPrompt(memories)
+
   const { data, error } = await supabase.functions.invoke('recommend-wine', {
     body: {
       mode,
       query: query || undefined,
       profile: profileStr,
       cave,
+      memories: memoriesStr || undefined,
       context: {
         dayOfWeek: getDayOfWeek(),
         season: getSeason(),

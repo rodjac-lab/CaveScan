@@ -6,6 +6,7 @@ import { type TastingPhoto, type BottleWithZone } from '@/lib/types'
 import { track } from '@/lib/track'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
 import { uploadPhoto } from '@/lib/uploadPhoto'
+import { extractAndSaveTags } from '@/lib/tastingMemories'
 
 const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Plat', 'Ambiance', 'Autre']
 
@@ -63,6 +64,7 @@ export function TastingSection({
     if (!error) {
       track('tasting_saved')
       triggerProfileRecompute()
+      extractAndSaveTags({ ...bottle, tasting_note: tastingNote || null, rating, rebuy, qpr })
       await onRefetch()
     }
     setSaving(false)
@@ -207,6 +209,7 @@ export function TastingSection({
           qpr,
         })
         .eq('id', bottle.id)
+      extractAndSaveTags({ ...bottle, tasting_note: tastingNote || null, rating, rebuy, qpr })
     }
 
     setSaving(false)

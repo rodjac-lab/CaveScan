@@ -53,6 +53,7 @@ export interface Bottle {
   character: string | null
   quantity: number
   volume_l: number
+  tasting_tags: TastingTags | null
 }
 
 export interface BottleWithZone extends Bottle {
@@ -179,6 +180,16 @@ export interface TasteProfile {
   computed: ComputedTasteProfile
   explicit: ExplicitPreferences
   computedAt: string
+}
+
+// ── Tasting Tags types ──
+
+export interface TastingTags {
+  plats: string[]
+  descripteurs: string[]
+  occasion: string | null
+  sentiment: 'excellent' | 'bon' | 'moyen' | 'decevant' | null
+  keywords: string[]
 }
 
 // ── Wine Extraction types ──

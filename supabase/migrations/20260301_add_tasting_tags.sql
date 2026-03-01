@@ -1,0 +1,1 @@
+ALTER TABLE bottles ADD COLUMN IF NOT EXISTS tasting_tags JSONB;
