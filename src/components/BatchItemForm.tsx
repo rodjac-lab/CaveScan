@@ -15,7 +15,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Autocomplete } from '@/components/Autocomplete'
 import { BatchNavHeader } from '@/components/BatchNavHeader'
 import { StoragePositionPicker } from '@/components/StoragePositionPicker'
-import { WINE_COLORS, type WineColor } from '@/lib/types'
+import { BOTTLE_VOLUMES, WINE_COLORS, type BottleVolumeOption, type WineColor } from '@/lib/types'
 import type { Zone } from '@/lib/types'
 
 export interface BatchItemData {
@@ -35,6 +35,7 @@ export interface BatchItemData {
   shelf: string
   purchasePrice: string
   quantity: number
+  volumeL: BottleVolumeOption
   rawExtraction: unknown
   saved?: boolean
 }
@@ -269,6 +270,25 @@ export function BatchItemForm({
             value={item.quantity}
             onChange={(v) => onUpdate({ quantity: v })}
           />
+        </div>
+
+        <div>
+          <Label htmlFor="volume">Volume</Label>
+          <Select
+            value={item.volumeL}
+            onValueChange={(v) => onUpdate({ volumeL: v as BottleVolumeOption })}
+          >
+            <SelectTrigger id="volume">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {BOTTLE_VOLUMES.map((v) => (
+                <SelectItem key={v.value} value={v.value}>
+                  {v.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
     </div>

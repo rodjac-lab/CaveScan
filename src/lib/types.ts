@@ -1,4 +1,5 @@
 export type WineColor = 'rouge' | 'blanc' | 'rose' | 'bulles'
+export type BottleVolumeOption = '0.375' | '0.75' | '1.5'
 
 export type BottleStatus = 'in_stock' | 'drunk'
 
@@ -51,6 +52,7 @@ export interface Bottle {
   food_pairings: string[] | null
   character: string | null
   quantity: number
+  volume_l: number
 }
 
 export interface BottleWithZone extends Bottle {
@@ -69,6 +71,12 @@ export const WINE_COLORS: WineColorOption[] = [
   { value: 'bulles', label: 'Bulles' },
 ]
 
+export const BOTTLE_VOLUMES: Array<{ value: BottleVolumeOption; label: string }> = [
+  { value: '0.375', label: '0,375L' },
+  { value: '0.75', label: '0,75L' },
+  { value: '1.5', label: '1,5L' },
+]
+
 export function getWineColorLabel(color: WineColor | null): string {
   if (!color) return 'Inconnu'
   return WINE_COLORS.find(c => c.value === color)?.label ?? 'Inconnu'
@@ -83,6 +91,13 @@ export function normalizeWineColor(color: string | null | undefined): WineColor 
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
   return VALID_WINE_COLORS.has(normalized) ? (normalized as WineColor) : null
+}
+
+export function formatBottleVolume(volume: number | null | undefined): string {
+  if (volume == null) return '0,75L'
+  if (Math.abs(volume - 0.375) < 0.001) return '0,375L'
+  if (Math.abs(volume - 1.5) < 0.001) return '1,5L'
+  return '0,75L'
 }
 
 // ── Taste Profile types ──

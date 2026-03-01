@@ -1,5 +1,5 @@
 import { Wine, Calendar, Euro, MapPin } from 'lucide-react'
-import { getWineColorLabel, type BottleWithZone } from '@/lib/types'
+import { formatBottleVolume, getWineColorLabel, type BottleWithZone } from '@/lib/types'
 
 function formatDateShort(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('fr-FR', {
@@ -57,6 +57,9 @@ export function BottleIdentityCard({ bottle, onZoom }: BottleIdentityCardProps) 
                 {bottle.millesime}
               </span>
             )}
+            <span className="text-[11px] font-medium text-[var(--text-secondary)] bg-[var(--accent-bg)] border border-[rgba(184,134,11,0.06)] rounded-full px-2.5 py-0.5">
+              {formatBottleVolume(bottle.volume_l)}
+            </span>
             {bottle.couleur && (
               <span className="text-[11px] font-medium text-[var(--text-secondary)] bg-[var(--accent-bg)] border border-[rgba(184,134,11,0.06)] rounded-full px-2.5 py-0.5">
                 {getWineColorLabel(bottle.couleur)}

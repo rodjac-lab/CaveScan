@@ -22,7 +22,7 @@ import { QuantitySelector } from '@/components/QuantitySelector'
 import { supabase } from '@/lib/supabase'
 import { useZones } from '@/hooks/useZones'
 import { useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
-import { normalizeWineColor, type WineColor, type WineExtraction, type Zone } from '@/lib/types'
+import { normalizeWineColor, type BottleVolumeOption, type WineColor, type WineExtraction, type Zone } from '@/lib/types'
 import { fileToBase64 } from '@/lib/image'
 import { track } from '@/lib/track'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
@@ -78,6 +78,7 @@ export default function AddBottle() {
   const [shelf, setShelf] = useState('')
   const [purchasePrice, setPurchasePrice] = useState('')
   const [quantity, setQuantity] = useState(1)
+  const [volumeL, setVolumeL] = useState<BottleVolumeOption>('0.75')
   const [rawExtraction, setRawExtraction] = useState<WineExtraction | null>(
     prefillExtraction
       ? {
@@ -122,6 +123,7 @@ export default function AddBottle() {
       shelf: '',
       purchasePrice: '',
       quantity: 1,
+      volumeL: '0.75' as const,
       rawExtraction: null,
     }))
 
@@ -133,7 +135,7 @@ export default function AddBottle() {
     setStep('batch-extracting')
 
     extractBatchSequentially(items)
-  }, [prefillBatchFiles]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [prefillBatchFiles])
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -198,6 +200,7 @@ export default function AddBottle() {
       shelf: '',
       purchasePrice: '',
       quantity: 1,
+      volumeL: '0.75' as const,
       rawExtraction: null,
     }))
 
@@ -372,6 +375,7 @@ export default function AddBottle() {
         typical_aromas: rawExtraction?.typical_aromas || null,
         food_pairings: rawExtraction?.food_pairings || null,
         character: rawExtraction?.character || null,
+        volume_l: parseFloat(volumeL),
       }
 
       // Insert single row with quantity
@@ -428,6 +432,7 @@ export default function AddBottle() {
         typical_aromas: (item.rawExtraction as WineExtraction | null)?.typical_aromas || null,
         food_pairings: (item.rawExtraction as WineExtraction | null)?.food_pairings || null,
         character: (item.rawExtraction as WineExtraction | null)?.character || null,
+        volume_l: parseFloat(item.volumeL),
       }
 
       const { error: insertError } = await supabase.from('bottles').insert({ ...bottleData, quantity: item.quantity })
@@ -491,6 +496,7 @@ export default function AddBottle() {
     setShelf('')
     setPurchasePrice('')
     setQuantity(1)
+    setVolumeL('0.75')
     setRawExtraction(null)
     setError(null)
     // Reset batch state
@@ -675,6 +681,8 @@ export default function AddBottle() {
               onAppellationChange={setAppellation}
               onMillesimeChange={setMillesime}
               onCouleurChange={setCouleur}
+              volumeL={volumeL}
+              onVolumeChange={setVolumeL}
               domainesSuggestions={domainesSuggestions}
               appellationsSuggestions={appellationsSuggestions}
             />

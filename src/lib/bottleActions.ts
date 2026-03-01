@@ -35,6 +35,7 @@ export async function openBottle(bottle: BottleWithZone): Promise<{ drunkBottleI
         typical_aromas: bottle.typical_aromas,
         food_pairings: bottle.food_pairings,
         character: bottle.character,
+        volume_l: bottle.volume_l,
         quantity: 1,
         status: 'drunk',
         drunk_at: new Date().toISOString(),

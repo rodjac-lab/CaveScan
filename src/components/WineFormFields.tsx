@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Autocomplete } from '@/components/Autocomplete'
-import { WINE_COLORS, type WineColor } from '@/lib/types'
+import { BOTTLE_VOLUMES, WINE_COLORS, type BottleVolumeOption, type WineColor } from '@/lib/types'
 
 interface WineFormFieldsProps {
   domaine: string
@@ -16,11 +16,13 @@ interface WineFormFieldsProps {
   appellation: string
   millesime: string
   couleur: WineColor | ''
+  volumeL: BottleVolumeOption
   onDomaineChange: (v: string) => void
   onCuveeChange: (v: string) => void
   onAppellationChange: (v: string) => void
   onMillesimeChange: (v: string) => void
   onCouleurChange: (v: WineColor) => void
+  onVolumeChange: (v: BottleVolumeOption) => void
   domainesSuggestions: string[]
   appellationsSuggestions: string[]
 }
@@ -31,11 +33,13 @@ export function WineFormFields({
   appellation,
   millesime,
   couleur,
+  volumeL,
   onDomaineChange,
   onCuveeChange,
   onAppellationChange,
   onMillesimeChange,
   onCouleurChange,
+  onVolumeChange,
   domainesSuggestions,
   appellationsSuggestions,
 }: WineFormFieldsProps) {
@@ -107,6 +111,22 @@ export function WineFormFields({
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div>
+        <Label htmlFor="volume">Volume</Label>
+        <Select value={volumeL} onValueChange={(v) => onVolumeChange(v as BottleVolumeOption)}>
+          <SelectTrigger id="volume">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {BOTTLE_VOLUMES.map((v) => (
+              <SelectItem key={v.value} value={v.value}>
+                {v.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </>
   )

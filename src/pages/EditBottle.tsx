@@ -19,7 +19,7 @@ import { StoragePositionPicker } from '@/components/StoragePositionPicker'
 import { supabase } from '@/lib/supabase'
 import { useZones } from '@/hooks/useZones'
 import { useBottle, useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
-import { WINE_COLORS, type WineColor } from '@/lib/types'
+import { BOTTLE_VOLUMES, WINE_COLORS, type BottleVolumeOption, type WineColor } from '@/lib/types'
 
 export default function EditBottle() {
   const { id } = useParams<{ id: string }>()
@@ -44,8 +44,10 @@ export default function EditBottle() {
   const [purchasePrice, setPurchasePrice] = useState('')
   const [marketValue, setMarketValue] = useState('')
   const [notes, setNotes] = useState('')
+  const [volumeL, setVolumeL] = useState<BottleVolumeOption>('0.75')
 
   // Populate form when bottle data loads
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (bottle) {
       setDomaine(bottle.domaine || '')
@@ -58,8 +60,10 @@ export default function EditBottle() {
       setPurchasePrice(bottle.purchase_price?.toString() || '')
       setMarketValue(bottle.market_value?.toString() || '')
       setNotes(bottle.notes || '')
+      setVolumeL((bottle.volume_l?.toString() as BottleVolumeOption) || '0.75')
     }
   }, [bottle])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleMillesimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 4)
@@ -90,6 +94,7 @@ export default function EditBottle() {
         purchase_price: purchasePrice ? parseFloat(purchasePrice.replace(',', '.')) : null,
         market_value: marketValue ? parseFloat(marketValue.replace(',', '.')) : null,
         notes: notes || null,
+        volume_l: parseFloat(volumeL),
         updated_at: new Date().toISOString(),
       })
       .eq('id', bottle.id)
@@ -262,6 +267,22 @@ export default function EditBottle() {
               onChange={setShelf}
             />
           </div>
+        </div>
+
+        <div>
+          <Label htmlFor="volume">Volume</Label>
+          <Select value={volumeL} onValueChange={(v) => setVolumeL(v as BottleVolumeOption)}>
+            <SelectTrigger id="volume">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {BOTTLE_VOLUMES.map((v) => (
+                <SelectItem key={v.value} value={v.value}>
+                  {v.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
