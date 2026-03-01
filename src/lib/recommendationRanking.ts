@@ -123,6 +123,75 @@ function scoreQueryMatch(bottle: Bottle, queryTokens: string[]): number {
   return Math.min(score, 2.5)
 }
 
+function getSeasonFromMonth(month: number): 'spring' | 'summer' | 'autumn' | 'winter' {
+  if (month >= 2 && month <= 4) return 'spring'
+  if (month >= 5 && month <= 7) return 'summer'
+  if (month >= 8 && month <= 10) return 'autumn'
+  return 'winter'
+}
+
+function scoreGenericTemporal(color: WineColor | null, season: 'spring' | 'summer' | 'autumn' | 'winter', weekend: boolean): number {
+  if (!color) return 0
+  let score = 0
+
+  if (season === 'summer') {
+    if (color === 'blanc' || color === 'rose' || color === 'bulles') score += 0.8
+    if (color === 'rouge') score -= 0.3
+  } else if (season === 'winter') {
+    if (color === 'rouge') score += 0.8
+    if (color === 'bulles') score += 0.3
+  } else if (season === 'spring') {
+    if (color === 'blanc' || color === 'rose') score += 0.4
+  } else {
+    if (color === 'rouge') score += 0.4
+    if (color === 'bulles') score += 0.2
+  }
+
+  if (weekend) {
+    if (color === 'bulles') score += 0.5
+    if (color === 'rouge') score += 0.2
+  }
+
+  return score
+}
+
+function scoreMaturityWindow(bottle: Bottle, year: number): number {
+  const from = bottle.drink_from
+  const until = bottle.drink_until
+  if (!from && !until) return 0
+
+  if (from && year < from) return -1.2
+  if (until && year > until) return -0.6
+  if (from && until && year >= from && year <= until) return 1.0
+  return 0.3
+}
+
+function scoreGenericValue(
+  bottle: Bottle,
+  averagePrice: number | null,
+  weekend: boolean,
+): number {
+  const price = bottle.purchase_price
+  if (price == null || averagePrice == null) return 0
+
+  if (!weekend && price > averagePrice * 1.35) return -0.4
+  if (price <= averagePrice * 0.85) return 0.35
+  if (price <= averagePrice * 1.1) return 0.2
+  return 0
+}
+
+function scoreExplorationBonus(bottle: Bottle, profile: TasteProfile | null): number {
+  if (!profile || !bottle.couleur) return 0
+  const dist = profile.computed.colorDistribution
+  const total = dist.rouge + dist.blanc + dist.rose + dist.bulles
+  if (total === 0) return 0
+
+  const ratio = dist[bottle.couleur] / total
+  if (ratio <= 0.1) return 0.45
+  if (ratio <= 0.2) return 0.25
+  return 0
+}
+
 export function rankCaveBottles(
   mode: Mode,
   query: string | null,
@@ -133,6 +202,16 @@ export function rankCaveBottles(
 ): RankedBottle[] {
   const colorWeights = inferColorWeights(mode, query)
   const queryTokens = tokenize(query)
+  const now = new Date()
+  const season = getSeasonFromMonth(now.getMonth())
+  const weekend = now.getDay() === 5 || now.getDay() === 6
+  const year = now.getFullYear()
+  const prices = caveBottles
+    .map((b) => b.purchase_price)
+    .filter((price): price is number => price != null && price > 0)
+  const averagePrice = prices.length > 0
+    ? prices.reduce((sum, value) => sum + value, 0) / prices.length
+    : null
 
   const ranked = caveBottles.map((bottle) => {
     let score = 0
@@ -144,6 +223,13 @@ export function rankCaveBottles(
     score += scoreProfileAffinity(bottle, profile)
     score += scoreRecencyPenalty(bottle, drunkBottles)
     score += scoreQueryMatch(bottle, queryTokens)
+
+    if (mode === 'generic') {
+      score += scoreGenericTemporal(bottle.couleur, season, weekend)
+      score += scoreMaturityWindow(bottle, year)
+      score += scoreGenericValue(bottle, averagePrice, weekend)
+      score += scoreExplorationBonus(bottle, profile)
+    }
 
     return { bottle, score }
   })

@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { serializeProfileForPrompt } from '@/lib/taste-profile'
 import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
-import { buildLocalRecommendationCards, rankCaveBottles } from '@/lib/recommendationRanking'
+import { buildLocalRecommendationCards, rankCaveBottles, type RankedBottle } from '@/lib/recommendationRanking'
 import {
   buildQueryKey,
   getCachedRecommendation,
@@ -42,15 +42,16 @@ function getDayOfWeek(): string {
   return new Date().toLocaleDateString('fr-FR', { weekday: 'long' })
 }
 
-function buildCavePayload(bottles: Bottle[]): CaveBottleSummary[] {
-  return bottles.map((b) => ({
-    id: b.id.substring(0, 8),
-    domaine: b.domaine,
-    appellation: b.appellation,
-    millesime: b.millesime,
-    couleur: b.couleur,
-    character: b.character,
-    cuvee: b.cuvee,
+function buildRankedCavePayload(ranked: RankedBottle[]): (CaveBottleSummary & { local_score: number })[] {
+  return ranked.map(({ bottle, score }) => ({
+    id: bottle.id.substring(0, 8),
+    domaine: bottle.domaine,
+    appellation: bottle.appellation,
+    millesime: bottle.millesime,
+    couleur: bottle.couleur,
+    character: bottle.character,
+    cuvee: bottle.cuvee,
+    local_score: Math.round(score * 100) / 100,
   }))
 }
 
@@ -73,12 +74,12 @@ async function callRecommendApi(
   mode: Mode,
   query: string | null,
   profile: TasteProfile | null,
-  caveBottlesForPrompt: Bottle[],
+  rankedForPrompt: RankedBottle[],
   drunkBottles: Bottle[],
   allCaveBottles: Bottle[],
 ): Promise<RecommendationCard[]> {
   const profileStr = profile ? serializeProfileForPrompt(profile) : ''
-  const cave = buildCavePayload(caveBottlesForPrompt)
+  const cave = buildRankedCavePayload(rankedForPrompt)
   const recentDrunk = drunkBottles.slice(0, 5).map(formatDrunkSummary)
 
   const { data, error } = await supabase.functions.invoke('recommend-wine', {
@@ -134,8 +135,7 @@ export async function prefetchDefaultRecommendations(): Promise<void> {
       : null
 
     const ranked = rankCaveBottles('generic', null, caveBottles, drunkBottles, profile, 24)
-    const shortlistedBottles = ranked.map((item) => item.bottle)
-    const cards = await callRecommendApi('generic', null, profile, shortlistedBottles, drunkBottles, caveBottles)
+    const cards = await callRecommendApi('generic', null, profile, ranked, drunkBottles, caveBottles)
     setCachedRecommendation(queryKey, cards)
     console.log('[prefetch] Default recommendations cached')
   } catch (err) {
@@ -200,7 +200,6 @@ export function useRecommendations(
 
     const cached = getCachedRecommendation(queryKey)
     const ranked = rankCaveBottles(mode, query, caveRef.current, drunkRef.current, profileRef.current, 24)
-    const shortlistedBottles = ranked.map((item) => item.bottle)
     const localCards = buildLocalRecommendationCards(ranked, query)
     const hasVisibleCards = cardsRef.current.length > 0 || (cached?.length ?? 0) > 0 || localCards.length > 0
     const hadPreviousCards = cardsRef.current.length > 0
@@ -226,7 +225,7 @@ export function useRecommendations(
         mode,
         query,
         profileRef.current,
-        shortlistedBottles,
+        ranked,
         drunkRef.current,
         caveRef.current,
       )

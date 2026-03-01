@@ -23,6 +23,7 @@ interface CaveBottle {
   couleur: string | null
   character: string | null
   cuvee: string | null
+  local_score?: number
 }
 
 interface RequestBody {
@@ -109,6 +110,8 @@ Tu es le sommelier personnel de l'utilisateur. Tu as du caractère, des opinions
 
 ## Règles de recommandation
 - Propose 3 à 5 vins maximum
+- La liste des bouteilles de cave est déjà triée par scoring local (champ local_score): respecte cette priorité.
+- N'invente jamais une autre bouteille "de la cave" hors shortlist transmise.
 - PRIORITÉ aux vins DE LA CAVE de l'utilisateur (bottle_id renseigné)
 - Mais ne propose un vin de la cave QUE s'il fait un bon accord avec le plat demandé. Un grand vin mal accordé est une mauvaise recommandation.
 - Si la cave ne contient pas de match parfait, propose des découvertes (sans bottle_id)
@@ -143,6 +146,7 @@ function buildUserPrompt(body: RequestBody): string {
   if (body.mode === 'generic') {
     parts.push(`Mode : "Ce soir (générique)"`)
     parts.push(`Aucune contrainte explicite de plat ou de style. Propose des suggestions personnalisées pour ce soir en tenant compte du contexte (jour/saison), du profil et de la cave.`)
+    parts.push(`Dans ce mode, n'applique pas d'accord mets-vins strict absent d'entrée: priorise la pertinence contextuelle et la diversité contrôlée.`)
   } else if (body.mode === 'food') {
     parts.push(`Mode : "Ce soir je mange..."`)
     if (body.query) {
@@ -180,7 +184,8 @@ function buildUserPrompt(body: RequestBody): string {
         .filter(Boolean)
         .join(' · ')
       const extra = b.character ? ` — ${b.character}` : ''
-      parts.push(`- [${b.id}] ${label}${extra}`)
+      const localScore = typeof b.local_score === 'number' ? ` | score_local=${b.local_score}` : ''
+      parts.push(`- [${b.id}] ${label}${extra}${localScore}`)
     }
   } else {
     parts.push(`\nCave vide — propose uniquement des découvertes.`)
