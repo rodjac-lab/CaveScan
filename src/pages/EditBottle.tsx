@@ -103,7 +103,7 @@ export default function EditBottle() {
       setError(updateError.message)
       setSaving(false)
     } else {
-      navigate(`/bottle/${bottle.id}`)
+      navigate(`/bottle/${bottle.id}`, { replace: true })
     }
   }
 
