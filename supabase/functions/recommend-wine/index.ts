@@ -26,7 +26,7 @@ interface CaveBottle {
 }
 
 interface RequestBody {
-  mode: 'food' | 'wine' | 'surprise'
+  mode: 'generic' | 'food' | 'wine' | 'surprise'
   query?: string
   profile: string
   cave: CaveBottle[]
@@ -140,7 +140,10 @@ Le champ bottle_id est l'ID tronqué d'une bouteille de la cave (8 caractères).
 function buildUserPrompt(body: RequestBody): string {
   const parts: string[] = []
 
-  if (body.mode === 'food') {
+  if (body.mode === 'generic') {
+    parts.push(`Mode : "Ce soir (générique)"`)
+    parts.push(`Aucune contrainte explicite de plat ou de style. Propose des suggestions personnalisées pour ce soir en tenant compte du contexte (jour/saison), du profil et de la cave.`)
+  } else if (body.mode === 'food') {
     parts.push(`Mode : "Ce soir je mange..."`)
     if (body.query) {
       parts.push(`Plat/ingrédient : ${body.query}`)

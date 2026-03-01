@@ -1,7 +1,7 @@
 import type { Bottle, TasteProfile, WineColor } from '@/lib/types'
 import type { RecommendationCard } from '@/lib/recommendationStore'
 
-type Mode = 'food' | 'wine' | 'surprise'
+type Mode = 'generic' | 'food' | 'wine' | 'surprise'
 
 export interface RankedBottle {
   bottle: Bottle
@@ -51,7 +51,7 @@ function inferColorWeights(mode: Mode, query: string | null): Map<WineColor, num
     ['bulles', 0],
   ])
 
-  if (!query) return weights
+  if (mode === 'generic' || !query) return weights
   const normalized = normalizeText(query)
 
   if (mode === 'wine') {

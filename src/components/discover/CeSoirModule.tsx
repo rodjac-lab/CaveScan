@@ -3,7 +3,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useRecommendations } from '@/hooks/useRecommendations'
 import type { RecommendationCard } from '@/lib/recommendationStore'
 
-type Mode = 'food' | 'wine'
+type Mode = 'generic' | 'food' | 'wine'
 
 function SearchIcon() {
   return (
@@ -151,7 +151,8 @@ function RecommendationCardItem({ card, onTap }: RecommendationCardItemProps) {
 }
 
 export default function CeSoirModule() {
-  const [mode, setMode] = useState<Mode>('food')
+  const [mode, setMode] = useState<Mode>('generic')
+  const [modeChosen, setModeChosen] = useState(false)
   const [expandedCard, setExpandedCard] = useState<RecommendationCard | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const [queryInput, setQueryInput] = useState('')
@@ -196,6 +197,7 @@ export default function CeSoirModule() {
 
   function handleModeSwitch(newMode: Mode): void {
     setMode(newMode)
+    setModeChosen(true)
     setSubmittedQuery(null)
     setQueryInput('')
     setActiveRefinement(null)
@@ -298,7 +300,7 @@ export default function CeSoirModule() {
               type="button"
               onClick={() => handleModeSwitch(value)}
               className={`h-8 inline-flex items-center justify-center rounded-full px-3 text-[11px] leading-none font-medium border whitespace-nowrap transition-colors ${
-                mode === value
+                modeChosen && mode === value
                   ? 'bg-[var(--accent-bg)] border-[var(--accent)] text-[var(--accent)]'
                   : 'bg-transparent border-[var(--border-color)] text-[var(--text-muted)]'
               }`}

@@ -12,7 +12,7 @@ import {
 } from '@/lib/recommendationStore'
 import type { Bottle, TasteProfile } from '@/lib/types'
 
-type Mode = 'food' | 'wine' | 'surprise'
+type Mode = 'generic' | 'food' | 'wine' | 'surprise'
 
 interface CaveBottleSummary {
   id: string
@@ -109,7 +109,7 @@ export async function prefetchDefaultRecommendations(): Promise<void> {
   if (prefetchStarted) return
   prefetchStarted = true
 
-  const queryKey = buildQueryKey('food', null)
+  const queryKey = buildQueryKey('generic', null)
   if (getCachedRecommendation(queryKey)) return
 
   try {
@@ -133,9 +133,9 @@ export async function prefetchDefaultRecommendations(): Promise<void> {
         }
       : null
 
-    const ranked = rankCaveBottles('food', null, caveBottles, drunkBottles, profile, 24)
+    const ranked = rankCaveBottles('generic', null, caveBottles, drunkBottles, profile, 24)
     const shortlistedBottles = ranked.map((item) => item.bottle)
-    const cards = await callRecommendApi('food', null, profile, shortlistedBottles, drunkBottles, caveBottles)
+    const cards = await callRecommendApi('generic', null, profile, shortlistedBottles, drunkBottles, caveBottles)
     setCachedRecommendation(queryKey, cards)
     console.log('[prefetch] Default recommendations cached')
   } catch (err) {
