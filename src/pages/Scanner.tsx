@@ -349,6 +349,18 @@ export default function Scanner() {
           </button>
         </div>
 
+        {/* Manual entry link */}
+        {intent === 'encaver' && !processing && (
+          <div className="flex justify-center -mt-1 pb-2">
+            <button
+              onClick={() => { stopCamera(); navigate('/add') }}
+              className="text-[11px] text-white/40 font-medium"
+            >
+              Saisie manuelle →
+            </button>
+          </div>
+        )}
+
         {/* Camera controls */}
         <div className="flex items-center justify-around px-8 pb-4">
           {/* Gallery thumbnail */}
