@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import type { Bottle, TastingTags } from '@/lib/types'
 
+type Mode = 'generic' | 'food' | 'wine' | 'surprise'
+
 // === Tag Extraction (fire-and-forget) ===
 
 function buildBottleContext(bottle: Bottle): string {
@@ -69,8 +71,7 @@ function normalizeForMatch(text: string): string {
     .trim()
 }
 
-function queryMatchesTerms(query: string, terms: string[]): number {
-  const normalizedQuery = normalizeForMatch(query)
+function countTermMatches(normalizedQuery: string, terms: string[]): number {
   let matches = 0
   for (const term of terms) {
     if (normalizedQuery.includes(normalizeForMatch(term))) {
@@ -90,7 +91,7 @@ function daysSince(dateStr: string | null): number {
  * Scores and selects the most relevant tasting memories for the sommelier prompt.
  */
 export function selectRelevantMemories(
-  mode: string,
+  mode: Mode,
   query: string | null,
   drunkBottles: Bottle[],
   limit = 5,
@@ -99,34 +100,38 @@ export function selectRelevantMemories(
   const withNotes = drunkBottles.filter((b) => b.tasting_note && b.tasting_note.trim().length > 0)
   if (withNotes.length === 0) return []
 
+  // Pre-normalize query and fallback words once (avoid re-normalizing per bottle)
+  const hasQuery = query != null && query.trim().length > 0
+  const normalizedQuery = hasQuery ? normalizeForMatch(query) : ''
+  const fallbackWords = hasQuery
+    ? query.split(/\s+/).filter((w) => w.length > 2).map(normalizeForMatch)
+    : []
+
   const scored: ScoredMemory[] = withNotes.map((bottle) => {
     let score = 0
     const tags = bottle.tasting_tags as TastingTags | null
 
     // --- Query matching ---
-    if (query && query.trim().length > 0) {
+    if (hasQuery) {
       if (tags) {
         if (mode === 'food') {
-          score += queryMatchesTerms(query, tags.plats) * 4
-          // Also check keywords for food-related terms
-          score += queryMatchesTerms(query, tags.keywords) * 2
+          score += countTermMatches(normalizedQuery, tags.plats) * 4
+          score += countTermMatches(normalizedQuery, tags.keywords) * 2
         } else if (mode === 'wine') {
-          score += queryMatchesTerms(query, tags.descripteurs) * 4
-          score += queryMatchesTerms(query, tags.keywords) * 2
+          score += countTermMatches(normalizedQuery, tags.descripteurs) * 4
+          score += countTermMatches(normalizedQuery, tags.keywords) * 2
         } else {
-          // Generic/surprise: match against all tag fields
-          score += queryMatchesTerms(query, tags.plats) * 3
-          score += queryMatchesTerms(query, tags.descripteurs) * 3
-          score += queryMatchesTerms(query, tags.keywords) * 2
+          score += countTermMatches(normalizedQuery, tags.plats) * 3
+          score += countTermMatches(normalizedQuery, tags.descripteurs) * 3
+          score += countTermMatches(normalizedQuery, tags.keywords) * 2
         }
       }
 
       // Fallback: search in raw tasting_note text if no tags or no tag matches
       if (score === 0 && bottle.tasting_note) {
-        const noteWords = query.split(/\s+/).filter((w) => w.length > 2)
         const normalizedNote = normalizeForMatch(bottle.tasting_note)
-        for (const word of noteWords) {
-          if (normalizedNote.includes(normalizeForMatch(word))) {
+        for (const word of fallbackWords) {
+          if (normalizedNote.includes(word)) {
             score += 2
           }
         }
@@ -152,14 +157,14 @@ export function selectRelevantMemories(
     return { bottle, score }
   })
 
-  // Sort by score descending, take top N
+  // Sort by score descending, collect top N with positive score
   scored.sort((a, b) => b.score - a.score)
-
-  // Only return memories with a positive score
-  return scored
-    .filter((s) => s.score > 0)
-    .slice(0, limit)
-    .map((s) => s.bottle)
+  const result: Bottle[] = []
+  for (const s of scored) {
+    if (s.score <= 0 || result.length >= limit) break
+    result.push(s.bottle)
+  }
+  return result
 }
 
 // === Serialization for Prompt ===
