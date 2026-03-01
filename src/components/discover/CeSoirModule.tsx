@@ -326,6 +326,7 @@ export default function CeSoirModule() {
               <SearchIcon />
             </div>
             <input
+              autoFocus
               value={queryInput}
               onChange={(e) => setQueryInput(e.target.value)}
               placeholder={searchPlaceholder}

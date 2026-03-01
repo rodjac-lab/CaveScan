@@ -57,7 +57,7 @@ function AppLayout() {
   return (
     <ProtectedRoute>
       <div className="flex h-screen flex-col overflow-hidden">
-        <main className="flex flex-1 flex-col min-h-0 pb-20">
+        <main className="flex flex-1 flex-col min-h-0 pb-20 pt-[env(safe-area-inset-top)]">
           <Routes>
             <Route path="/cave" element={<Home />} />
             <Route path="/add" element={<AddBottle />} />
