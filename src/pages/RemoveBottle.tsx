@@ -180,6 +180,21 @@ export default function RemoveBottle() {
     return idx >= 0 ? idx : batchSession.items.length - 1
   }, [batchSession])
 
+  // Swipe handlers for batch review (must be at top level — Rules of Hooks)
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => {
+      if (activeBatchSession && currentBatchIndex < activeBatchSession.items.length - 1) {
+        setCurrentBatchIndex(currentBatchIndex + 1)
+      }
+    },
+    onSwipedRight: () => {
+      if (currentBatchIndex > 0) setCurrentBatchIndex(currentBatchIndex - 1)
+    },
+    preventScrollOnSwipe: false,
+    trackTouch: true,
+    delta: 40,
+  })
+
   const resetToChoose = () => {
     setError(null)
     setShowAlternatives(false)
@@ -651,18 +666,6 @@ export default function RemoveBottle() {
     const unsavedCount = activeBatchSession.items.filter((it) => !it.saved && !it.ignored).length
     const totalBatchItems = activeBatchSession.items.length
 
-    const swipeHandlers = useSwipeable({
-      onSwipedLeft: () => {
-        if (currentBatchIndex < totalBatchItems - 1) setCurrentBatchIndex(currentBatchIndex + 1)
-      },
-      onSwipedRight: () => {
-        if (currentBatchIndex > 0) setCurrentBatchIndex(currentBatchIndex - 1)
-      },
-      preventScrollOnSwipe: false,
-      trackTouch: true,
-      delta: 40,
-    })
-
     return (
       <div className="flex h-full flex-col overflow-hidden">
         <div className="flex-shrink-0 px-6 pt-4 pb-2">
@@ -673,7 +676,7 @@ export default function RemoveBottle() {
         </div>
 
         <div {...swipeHandlers} className="flex-1 min-h-0 overflow-y-auto px-6 pb-3 scrollbar-hide">
-          {currentItem && (
+          {currentItem ? (
             <BatchTastingItemForm
               key={currentItem.id}
               item={currentItem}
@@ -688,6 +691,10 @@ export default function RemoveBottle() {
               onSelectAlternative={handleBatchSelectAlternative}
               onUpdateExtraction={handleUpdateBatchExtraction}
             />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-[var(--accent)]" />
+            </div>
           )}
         </div>
 
