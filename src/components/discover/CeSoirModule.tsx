@@ -87,7 +87,7 @@ const WELCOME_CHIPS: ActionChip[] = [
   { id: 'pairing', label: 'Accord mets & vin' },
 ]
 
-// --- Helpers (unchanged) ---
+// --- Helpers ---
 
 function buildRecommendationQuery(baseQuery: string | null, refinementHint: string | null): string | null {
   if (!baseQuery && !refinementHint) return null
@@ -116,7 +116,7 @@ function badgeToClass(badge: string): string {
   }
 }
 
-// --- Helpers (new) ---
+// --- Chat helpers ---
 
 function buildGreeting(): string {
   const hour = new Date().getHours()
@@ -436,42 +436,33 @@ export default function CeSoirModule() {
     activeIntentRef.current = null
   }, [])
 
+  // Append a user bubble + celestin reply, clearing any previous action chips
+  function appendChipResponse(userText: string, celestinMsg: Partial<ChatMessage> & { text: string }) {
+    setMessages(prev => [
+      ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
+      { id: genMsgId(), role: 'user' as const, text: userText },
+      { id: genMsgId(), role: 'celestin' as const, ...celestinMsg },
+    ])
+    scrollToBottom()
+  }
+
   // Handle welcome action chip click
   function handleChipClick(chip: ActionChip) {
     if (chip.id === 'open') {
-      // Use cards already in hook state (from prefetch cache) if available
-      const responseText = buildResponseText(null)
       const cachedCards = cards.length > 0 ? cards : undefined
-      setMessages(prev => [
-        ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
-        { id: genMsgId(), role: 'user' as const, text: chip.label },
-        { id: genMsgId(), role: 'celestin' as const, text: responseText, cards: cachedCards, isLoading: !cachedCards },
-      ])
-      scrollToBottom()
-      // If no cached cards, trigger the hook to fetch them
-      if (!cachedCards) {
-        setSubmittedQuery('default')
-      }
+      appendChipResponse(chip.label, {
+        text: buildResponseText(null),
+        cards: cachedCards,
+        isLoading: !cachedCards,
+      })
+      if (!cachedCards) setSubmittedQuery('default')
     } else if (chip.id === 'add') {
-      // User bubble + Celestin question → seed assistant conversation for encaver
-      conversationHistoryRef.current = [
-        { role: 'assistant', text: 'Quel vin as-tu acheté ?' },
-      ]
+      const question = 'Quel vin as-tu acheté ?'
+      conversationHistoryRef.current = [{ role: 'assistant', text: question }]
       activeIntentRef.current = 'encaver'
-      setMessages(prev => [
-        ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
-        { id: genMsgId(), role: 'user' as const, text: chip.label },
-        { id: genMsgId(), role: 'celestin' as const, text: 'Quel vin as-tu acheté ?' },
-      ])
-      scrollToBottom()
+      appendChipResponse(chip.label, { text: question })
     } else if (chip.id === 'pairing') {
-      // User bubble + Celestin question → next input goes to sommelier
-      setMessages(prev => [
-        ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
-        { id: genMsgId(), role: 'user' as const, text: chip.label },
-        { id: genMsgId(), role: 'celestin' as const, text: 'Qu\'est-ce que tu prépares ?' },
-      ])
-      scrollToBottom()
+      appendChipResponse(chip.label, { text: 'Qu\'est-ce que tu prépares ?' })
     }
   }
 
@@ -543,11 +534,16 @@ export default function CeSoirModule() {
     conversationHistoryRef.current.push({ role: 'user', text })
     activeIntentRef.current = intent
 
+    // Replace the loading bubble with the final content
+    function resolveLoadingBubble(update: Partial<ChatMessage>) {
+      setMessages(prev => prev.map(m => m.id === loadingMsgId ? { ...m, ...update } : m))
+    }
+
     try {
       const { data, error: fnError } = await supabase.functions.invoke('celestin-assistant', {
         body: {
           message: text,
-          history: conversationHistoryRef.current.slice(0, -1), // exclude current message (it's in `message`)
+          history: conversationHistoryRef.current.slice(0, -1),
           intent,
         },
       })
@@ -562,53 +558,21 @@ export default function CeSoirModule() {
       }
 
       if (response.type === 'question' && response.question) {
-        // Celestin asks a follow-up question
         conversationHistoryRef.current.push({ role: 'assistant', text: response.question })
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === loadingMsgId
-              ? { ...m, text: response.question! }
-              : m
-          )
-        )
+        resolveLoadingBubble({ text: response.question })
       } else if (response.type === 'extraction' && response.extraction) {
-        // Celestin extracted wine data — show action card
         const summary = response.summary || 'Voici ce que j\'ai compris :'
         conversationHistoryRef.current.push({ role: 'assistant', text: summary })
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === loadingMsgId
-              ? {
-                  ...m,
-                  text: summary,
-                  wineAction: {
-                    intent,
-                    extraction: response.extraction!,
-                    summary,
-                  },
-                }
-              : m
-          )
-        )
+        resolveLoadingBubble({
+          text: summary,
+          wineAction: { intent, extraction: response.extraction, summary },
+        })
       } else {
-        // Unexpected response shape — show a generic error
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === loadingMsgId
-              ? { ...m, text: "Désolé, je n'ai pas bien compris. Peux-tu reformuler ?" }
-              : m
-          )
-        )
+        resolveLoadingBubble({ text: "Désolé, je n'ai pas bien compris. Peux-tu reformuler ?" })
       }
     } catch (err) {
       console.error('Assistant error:', err)
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === loadingMsgId
-            ? { ...m, text: "Désolé, je n'ai pas pu traiter ta demande. Réessaie !" }
-            : m
-        )
-      )
+      resolveLoadingBubble({ text: "Désolé, je n'ai pas pu traiter ta demande. Réessaie !" })
     }
 
     scrollToBottom()
@@ -636,8 +600,9 @@ export default function CeSoirModule() {
       return
     }
 
-    // Sommelier flow (unchanged)
-    if (text === submittedQuery) return // same query, skip
+    // Sommelier flow
+    if (text === submittedQuery) return
+
     const responseText = buildResponseText(text)
     addLoadingResponse(text, responseText)
     setSubmittedQuery(text)
@@ -657,45 +622,13 @@ export default function CeSoirModule() {
   function handleWineValidate(action: WineActionData) {
     resetAssistantConversation()
 
-    if (action.intent === 'encaver') {
-      navigate('/add', {
-        state: {
-          prefillExtraction: {
-            domaine: action.extraction.domaine,
-            cuvee: action.extraction.cuvee,
-            appellation: action.extraction.appellation,
-            millesime: action.extraction.millesime,
-            couleur: action.extraction.couleur,
-            region: action.extraction.region,
-            grape_varieties: action.extraction.grape_varieties,
-            serving_temperature: action.extraction.serving_temperature,
-            typical_aromas: action.extraction.typical_aromas,
-            food_pairings: action.extraction.food_pairings,
-            character: action.extraction.character,
-          },
-          prefillQuantity: action.extraction.quantity,
-          prefillVolume: action.extraction.volume,
-        },
-      })
-    } else {
-      navigate('/remove', {
-        state: {
-          prefillExtraction: {
-            domaine: action.extraction.domaine,
-            cuvee: action.extraction.cuvee,
-            appellation: action.extraction.appellation,
-            millesime: action.extraction.millesime,
-            couleur: action.extraction.couleur,
-            region: action.extraction.region,
-            grape_varieties: action.extraction.grape_varieties,
-            serving_temperature: action.extraction.serving_temperature,
-            typical_aromas: action.extraction.typical_aromas,
-            food_pairings: action.extraction.food_pairings,
-            character: action.extraction.character,
-          },
-        },
-      })
-    }
+    const { quantity, volume, ...prefillExtraction } = action.extraction
+    const route = action.intent === 'encaver' ? '/add' : '/remove'
+    const state = action.intent === 'encaver'
+      ? { prefillExtraction, prefillQuantity: quantity, prefillVolume: volume }
+      : { prefillExtraction }
+
+    navigate(route, { state })
   }
 
   function handleWineModify(action: WineActionData) {
