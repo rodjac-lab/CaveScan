@@ -130,7 +130,7 @@ async function callGemini(imageBase64: string | undefined, _imageUrl: string | u
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured')
   if (!imageBase64) throw new Error('Gemini requires base64 image (no URL support in this implementation)')
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
 
   const response = await fetchWithTimeout(url, {
     method: 'POST',
@@ -153,7 +153,7 @@ async function callGemini(imageBase64: string | undefined, _imageUrl: string | u
       const parsed = JSON.parse(errorText)
       message = parsed.error?.message || errorText
     } catch { /* use raw text */ }
-    throw new Error(`Gemini 2.0 Flash (${response.status}): ${message}`)
+    throw new Error(`Gemini 2.5 Flash (${response.status}): ${message}`)
   }
 
   const result = await response.json()
@@ -163,7 +163,7 @@ async function callGemini(imageBase64: string | undefined, _imageUrl: string | u
 
   const jsonText = stripMarkdownCodeBlock(text)
   const data = JSON.parse(jsonText)
-  return { provider: 'gemini/2.0-flash', data }
+  return { provider: 'gemini/2.5-flash', data }
 }
 
 // === CROSS-PROVIDER FALLBACK ===

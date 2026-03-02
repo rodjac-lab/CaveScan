@@ -109,7 +109,7 @@ async function callClaude(imageBase64) {
 
 async function callGemini(imageBase64, prompt) {
   const start = Date.now()
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -157,14 +157,10 @@ async function run() {
     const filePath = path.join(PHOTOS_DIR, file)
     const imageBase64 = await getResizedBase64(filePath)
 
-    // Call both APIs in parallel
-    const [claude, gemini] = await Promise.all([
-      callClaude(imageBase64),
-      callGemini(imageBase64, EXTRACTION_PROMPT),
-    ])
-
-    // Delay to avoid Gemini rate limits (Tier 1)
-    await sleep(5000)
+    // Call APIs sequentially to avoid Gemini rate limits
+    const claude = await callClaude(imageBase64)
+    await sleep(10000)
+    const gemini = await callGemini(imageBase64, EXTRACTION_PROMPT)
 
     console.log(`  Claude: ${claude.time}ms ${claude.error ? '❌ ' + claude.error : '✅'}`)
     console.log(`  Gemini: ${gemini.time}ms ${gemini.error ? '❌ ' + gemini.error : '✅'}`)

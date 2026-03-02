@@ -186,7 +186,7 @@ function buildMessages(body: AssistantRequest): Array<{ role: string; content: s
 async function callGemini(systemPrompt: string, messages: Array<{ role: string; content: string }>): Promise<AssistantResponse> {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured')
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
 
   // Gemini uses a different format for multi-turn
   const contents = messages.map((m) => ({
@@ -211,7 +211,7 @@ async function callGemini(systemPrompt: string, messages: Array<{ role: string; 
       const parsed = JSON.parse(errorText)
       message = parsed.error?.message || errorText
     } catch { /* use raw text */ }
-    throw new Error(`Gemini 2.0 Flash (${response.status}): ${message}`)
+    throw new Error(`Gemini 2.5 Flash (${response.status}): ${message}`)
   }
 
   const result = await response.json()

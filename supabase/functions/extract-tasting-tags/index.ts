@@ -99,7 +99,7 @@ function parseAndValidate(text: string): TastingTags {
 async function callGemini(userPrompt: string): Promise<ProviderResult> {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured')
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
 
   const response = await fetchWithTimeout(url, {
     method: 'POST',
@@ -118,7 +118,7 @@ async function callGemini(userPrompt: string): Promise<ProviderResult> {
       const parsed = JSON.parse(errorText)
       message = parsed.error?.message || errorText
     } catch { /* use raw text */ }
-    throw new Error(`Gemini 2.0 Flash (${response.status}): ${message}`)
+    throw new Error(`Gemini 2.5 Flash (${response.status}): ${message}`)
   }
 
   const result = await response.json()
@@ -126,7 +126,7 @@ async function callGemini(userPrompt: string): Promise<ProviderResult> {
   if (!text) throw new Error('No text response from Gemini')
 
   const tags = parseAndValidate(text)
-  return { provider: 'gemini/2.0-flash', tags }
+  return { provider: 'gemini/2.5-flash', tags }
 }
 
 async function callClaude(userPrompt: string): Promise<ProviderResult> {

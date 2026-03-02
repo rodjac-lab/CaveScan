@@ -217,7 +217,7 @@ function buildUserPrompt(body: RequestBody): string {
 async function callGemini(systemPrompt: string, userPrompt: string): Promise<ProviderResult> {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured')
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
 
   const response = await fetchWithTimeout(url, {
     method: 'POST',
@@ -236,7 +236,7 @@ async function callGemini(systemPrompt: string, userPrompt: string): Promise<Pro
       const parsed = JSON.parse(errorText)
       message = parsed.error?.message || errorText
     } catch { /* use raw text */ }
-    throw new Error(`Gemini 2.0 Flash (${response.status}): ${message}`)
+    throw new Error(`Gemini 2.5 Flash (${response.status}): ${message}`)
   }
 
   const result = await response.json()
@@ -244,7 +244,7 @@ async function callGemini(systemPrompt: string, userPrompt: string): Promise<Pro
   if (!text) throw new Error('No text response from Gemini')
 
   const cards = parseAndValidate(text)
-  return { provider: 'gemini/2.0-flash', cards }
+  return { provider: 'gemini/2.5-flash', cards }
 }
 
 async function callClaude(systemPrompt: string, userPrompt: string): Promise<ProviderResult> {
