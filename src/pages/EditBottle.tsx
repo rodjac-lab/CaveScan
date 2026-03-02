@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Loader2, Check } from 'lucide-react'
+import { ArrowLeft, Loader2, Check, Camera, ImageIcon, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,6 +17,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Autocomplete } from '@/components/Autocomplete'
 import { StoragePositionPicker } from '@/components/StoragePositionPicker'
 import { supabase } from '@/lib/supabase'
+import { uploadPhoto } from '@/lib/uploadPhoto'
 import { useZones } from '@/hooks/useZones'
 import { useBottle, useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
 import { BOTTLE_VOLUMES, WINE_COLORS, type BottleVolumeOption, type WineColor } from '@/lib/types'
@@ -32,6 +33,18 @@ export default function EditBottle() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [zoomImage, setZoomImage] = useState<{ src: string; label?: string } | null>(null)
+
+  // Photo upload state
+  const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null)
+  const [localPhotoUrlBack, setLocalPhotoUrlBack] = useState<string | null>(null)
+  const [showFrontPhotoOptions, setShowFrontPhotoOptions] = useState(false)
+  const [showBackPhotoOptions, setShowBackPhotoOptions] = useState(false)
+  const [uploadingFront, setUploadingFront] = useState(false)
+  const [uploadingBack, setUploadingBack] = useState(false)
+  const frontPhotoInputRef = useRef<HTMLInputElement>(null)
+  const frontGalleryRef = useRef<HTMLInputElement>(null)
+  const backPhotoInputRef = useRef<HTMLInputElement>(null)
+  const backGalleryRef = useRef<HTMLInputElement>(null)
 
   // Form state
   const [domaine, setDomaine] = useState('')
@@ -61,6 +74,8 @@ export default function EditBottle() {
       setMarketValue(bottle.market_value?.toString() || '')
       setNotes(bottle.notes || '')
       setVolumeL((bottle.volume_l?.toString() as BottleVolumeOption) || '0.75')
+      setLocalPhotoUrl(bottle.photo_url || null)
+      setLocalPhotoUrlBack(bottle.photo_url_back || null)
     }
   }, [bottle])
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -68,6 +83,37 @@ export default function EditBottle() {
   const handleMillesimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 4)
     setMillesime(val)
+  }
+
+  const handlePhotoSelect = async (side: 'front' | 'back', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !bottle) return
+    e.target.value = ''
+
+    const isFront = side === 'front'
+    if (isFront) { setUploadingFront(true); setShowFrontPhotoOptions(false) }
+    else { setUploadingBack(true); setShowBackPhotoOptions(false) }
+
+    try {
+      const url = await uploadPhoto(file, `${Date.now()}-${side}.jpg`)
+      if (!url) throw new Error('Upload failed')
+
+      const field = isFront ? 'photo_url' : 'photo_url_back'
+      const { error: dbError } = await supabase
+        .from('bottles')
+        .update({ [field]: url })
+        .eq('id', bottle.id)
+
+      if (!dbError) {
+        if (isFront) setLocalPhotoUrl(url)
+        else setLocalPhotoUrlBack(url)
+      }
+    } catch (err) {
+      console.error('Photo upload error:', err)
+    }
+
+    if (isFront) setUploadingFront(false)
+    else setUploadingBack(false)
   }
 
   const handleSave = async () => {
@@ -145,35 +191,108 @@ export default function EditBottle() {
         </div>
       )}
 
-      {/* Photo preview */}
-      {(bottle.photo_url || bottle.photo_url_back) && (
-        <Card className="mb-4">
-          <CardContent className="p-2">
-            <div className="flex gap-2">
-              {bottle.photo_url && (
-                <div className="flex-1">
+      {/* Hidden photo inputs */}
+      <input ref={frontPhotoInputRef} type="file" accept="image/*" capture="environment" onChange={(e) => handlePhotoSelect('front', e)} className="hidden" />
+      <input ref={frontGalleryRef} type="file" accept="image/*" onChange={(e) => handlePhotoSelect('front', e)} className="hidden" />
+      <input ref={backPhotoInputRef} type="file" accept="image/*" capture="environment" onChange={(e) => handlePhotoSelect('back', e)} className="hidden" />
+      <input ref={backGalleryRef} type="file" accept="image/*" onChange={(e) => handlePhotoSelect('back', e)} className="hidden" />
+
+      {/* Photo section */}
+      <Card className="mb-4">
+        <CardContent className="p-2">
+          <div className="flex gap-2">
+            {/* Front photo */}
+            <div className="flex-1">
+              {uploadingFront ? (
+                <div className="flex h-[120px] items-center justify-center rounded bg-black/10">
+                  <Loader2 className="h-5 w-5 animate-spin text-wine-600" />
+                </div>
+              ) : showFrontPhotoOptions ? (
+                <div className="flex h-[120px] flex-col items-center justify-center gap-1.5 rounded border border-dashed border-wine-300 bg-wine-50/50">
+                  <Button variant="outline" size="sm" className="h-7 w-28 text-xs" onClick={() => { setShowFrontPhotoOptions(false); frontPhotoInputRef.current?.click() }}>
+                    <Camera className="mr-1 h-3 w-3" />Photo
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-7 w-28 text-xs" onClick={() => { setShowFrontPhotoOptions(false); frontGalleryRef.current?.click() }}>
+                    <ImageIcon className="mr-1 h-3 w-3" />Galerie
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground" onClick={() => setShowFrontPhotoOptions(false)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : localPhotoUrl ? (
+                <div className="relative">
                   <img
-                    src={bottle.photo_url}
+                    src={localPhotoUrl}
                     alt="Etiquette avant"
-                    className="max-h-24 w-full rounded object-contain bg-black/20 cursor-zoom-in"
-                    onClick={() => setZoomImage({ src: bottle.photo_url!, label: 'Avant' })}
+                    className="max-h-[120px] w-full rounded object-contain bg-black/20 cursor-zoom-in"
+                    onClick={() => setZoomImage({ src: localPhotoUrl, label: 'Avant' })}
                   />
+                  <button
+                    className="absolute bottom-1 right-1 rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white hover:bg-black/70 transition-colors"
+                    onClick={() => setShowFrontPhotoOptions(true)}
+                  >
+                    Changer
+                  </button>
                 </div>
-              )}
-              {bottle.photo_url_back && (
-                <div className="flex-1">
-                  <img
-                    src={bottle.photo_url_back}
-                    alt="Etiquette arriere"
-                    className="max-h-24 w-full rounded object-contain bg-black/20 cursor-zoom-in"
-                    onClick={() => setZoomImage({ src: bottle.photo_url_back!, label: 'Arriere' })}
-                  />
-                </div>
+              ) : (
+                <button
+                  onClick={() => setShowFrontPhotoOptions(true)}
+                  className="flex h-[120px] w-full flex-col items-center justify-center gap-1 rounded border-[1.5px] border-dashed border-wine-300 bg-wine-50/30 text-wine-400 hover:border-wine-500 hover:text-wine-600 transition-colors"
+                >
+                  <Plus className="h-6 w-6" />
+                  <span className="text-[10px]">Etiquette</span>
+                </button>
               )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+
+            {/* Back photo */}
+            <div className="flex-1">
+              {uploadingBack ? (
+                <div className="flex h-[120px] items-center justify-center rounded bg-black/10">
+                  <Loader2 className="h-5 w-5 animate-spin text-wine-600" />
+                </div>
+              ) : showBackPhotoOptions ? (
+                <div className="flex h-[120px] flex-col items-center justify-center gap-1.5 rounded border border-dashed border-wine-300 bg-wine-50/50">
+                  <Button variant="outline" size="sm" className="h-7 w-28 text-xs" onClick={() => { setShowBackPhotoOptions(false); backPhotoInputRef.current?.click() }}>
+                    <Camera className="mr-1 h-3 w-3" />Photo
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-7 w-28 text-xs" onClick={() => { setShowBackPhotoOptions(false); backGalleryRef.current?.click() }}>
+                    <ImageIcon className="mr-1 h-3 w-3" />Galerie
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground" onClick={() => setShowBackPhotoOptions(false)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : localPhotoUrlBack ? (
+                <div className="relative">
+                  <img
+                    src={localPhotoUrlBack}
+                    alt="Etiquette arriere"
+                    className="max-h-[120px] w-full rounded object-contain bg-black/20 cursor-zoom-in"
+                    onClick={() => setZoomImage({ src: localPhotoUrlBack, label: 'Arriere' })}
+                  />
+                  <button
+                    className="absolute bottom-1 right-1 rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white hover:bg-black/70 transition-colors"
+                    onClick={() => setShowBackPhotoOptions(true)}
+                  >
+                    Changer
+                  </button>
+                </div>
+              ) : localPhotoUrl ? (
+                <button
+                  onClick={() => setShowBackPhotoOptions(true)}
+                  className="flex h-[120px] w-full flex-col items-center justify-center gap-1 rounded border-[1.5px] border-dashed border-wine-300 bg-wine-50/30 text-wine-400 hover:border-wine-500 hover:text-wine-600 transition-colors"
+                >
+                  <Plus className="h-5 w-5" />
+                  <span className="text-[10px]">Contre-etiquette</span>
+                </button>
+              ) : (
+                <div />
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Form */}
       <div className="space-y-4">
