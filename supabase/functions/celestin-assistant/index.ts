@@ -200,7 +200,7 @@ async function callGemini(systemPrompt: string, messages: Array<{ role: string; 
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: systemPrompt }] },
       contents,
-      generationConfig: { temperature: 0.2, maxOutputTokens: 1500 },
+      generationConfig: { temperature: 0.2, maxOutputTokens: 1500, responseMimeType: 'application/json' },
     }),
   })
 

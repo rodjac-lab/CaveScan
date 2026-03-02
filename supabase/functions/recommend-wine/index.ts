@@ -225,7 +225,7 @@ async function callGemini(systemPrompt: string, userPrompt: string): Promise<Pro
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: systemPrompt }] },
       contents: [{ parts: [{ text: userPrompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 1500 },
+      generationConfig: { temperature: 0.7, maxOutputTokens: 1500, responseMimeType: 'application/json' },
     }),
   })
 

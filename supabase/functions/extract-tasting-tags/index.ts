@@ -107,7 +107,7 @@ async function callGemini(userPrompt: string): Promise<ProviderResult> {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: EXTRACTION_PROMPT }] },
       contents: [{ parts: [{ text: userPrompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 500 },
+      generationConfig: { temperature: 0.2, maxOutputTokens: 500, responseMimeType: 'application/json' },
     }),
   })
 

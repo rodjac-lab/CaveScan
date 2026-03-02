@@ -142,7 +142,7 @@ async function callGemini(imageBase64: string | undefined, _imageUrl: string | u
           { text: EXTRACTION_PROMPT },
         ],
       }],
-      generationConfig: { temperature: 0, maxOutputTokens: 1500 },
+      generationConfig: { temperature: 0, maxOutputTokens: 1500, responseMimeType: 'application/json' },
     }),
   })
 
