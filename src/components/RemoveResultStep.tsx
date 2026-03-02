@@ -19,8 +19,8 @@ const MATCH_BADGE_CONFIG: Record<string, { dot: string; text: string; label: str
 
 interface ScanResult {
   extraction: WineExtraction
-  photoFile: File
-  photoUri: string
+  photoFile: File | null
+  photoUri: string | null
   matchType: MatchType
   primaryMatch: BottleWithZone | null
   alternatives: BottleWithZone[]
@@ -70,7 +70,13 @@ export function RemoveResultStep({
       <div className="space-y-4 animate-in fade-in duration-200">
         <div className="rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] p-3.5 card-shadow">
           <div className="flex items-start gap-3">
-            <img src={scanResult.photoUri} alt="Bouteille scannee" className="h-[58px] w-[58px] rounded object-cover" />
+            {scanResult.photoUri ? (
+              <img src={scanResult.photoUri} alt="Bouteille scannee" className="h-[58px] w-[58px] rounded object-cover" />
+            ) : (
+              <div className="h-[58px] w-[58px] rounded bg-[var(--accent-bg)] flex items-center justify-center text-[var(--text-muted)] text-[20px]">
+                🍷
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium text-[var(--text-primary)]">{displayName}</p>
               <p className="mt-0.5 truncate text-[11px] font-normal text-[var(--text-muted)]">{detail || 'Information partielle'}</p>
@@ -141,7 +147,7 @@ export function RemoveResultStep({
                   navigate('/add', {
                     state: {
                       prefillExtraction: scanResult.extraction,
-                      prefillPhotoFile: scanResult.photoFile,
+                      prefillPhotoFile: scanResult.photoFile ?? undefined,
                     },
                   })
                 }

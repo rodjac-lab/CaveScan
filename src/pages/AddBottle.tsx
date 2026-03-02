@@ -36,6 +36,8 @@ interface AddBottleLocationState {
   prefillExtraction?: Partial<WineExtraction> | null
   prefillPhotoFile?: File | null
   prefillBatchFiles?: File[] | null
+  prefillQuantity?: number
+  prefillVolume?: BottleVolumeOption
 }
 
 export default function AddBottle() {
@@ -52,6 +54,8 @@ export default function AddBottle() {
   const prefillExtraction = locationState?.prefillExtraction ?? null
   const prefillPhotoFile = locationState?.prefillPhotoFile ?? null
   const prefillBatchFiles = locationState?.prefillBatchFiles ?? null
+  const prefillQuantity = locationState?.prefillQuantity ?? undefined
+  const prefillVolume = locationState?.prefillVolume ?? undefined
   const hasPrefill = !!(
     prefillExtraction?.domaine ||
     prefillExtraction?.cuvee ||
@@ -77,8 +81,8 @@ export default function AddBottle() {
   const [zoneId, setZoneId] = useState('')
   const [shelf, setShelf] = useState('')
   const [purchasePrice, setPurchasePrice] = useState('')
-  const [quantity, setQuantity] = useState(1)
-  const [volumeL, setVolumeL] = useState<BottleVolumeOption>('0.75')
+  const [quantity, setQuantity] = useState(prefillQuantity ?? 1)
+  const [volumeL, setVolumeL] = useState<BottleVolumeOption>(prefillVolume ?? '0.75')
   const [rawExtraction, setRawExtraction] = useState<WineExtraction | null>(
     prefillExtraction
       ? {

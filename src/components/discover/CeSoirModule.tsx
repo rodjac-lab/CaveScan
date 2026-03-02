@@ -1,16 +1,46 @@
 import { useRef, useState, useEffect, useMemo, useCallback, type PointerEvent as ReactPointerEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useRecommendations } from '@/hooks/useRecommendations'
 import type { RecommendationCard } from '@/lib/recommendationStore'
+import { detectIntent, type ChatIntent } from '@/lib/intentDetection'
+import { supabase } from '@/lib/supabase'
+import type { WineColor, BottleVolumeOption } from '@/lib/types'
 
 // --- Types ---
+
+interface WineActionData {
+  intent: 'encaver' | 'deguster'
+  extraction: {
+    domaine: string | null
+    cuvee: string | null
+    appellation: string | null
+    millesime: number | null
+    couleur: WineColor | null
+    region: string | null
+    quantity: number
+    volume: BottleVolumeOption
+    grape_varieties?: string[] | null
+    serving_temperature?: string | null
+    typical_aromas?: string[] | null
+    food_pairings?: string[] | null
+    character?: string | null
+  }
+  summary: string
+}
 
 interface ChatMessage {
   id: string
   role: 'celestin' | 'user'
   text: string
   cards?: RecommendationCard[]
+  wineAction?: WineActionData
   isLoading?: boolean
+}
+
+interface ConversationTurn {
+  role: 'user' | 'assistant'
+  text: string
 }
 
 // --- Icons ---
@@ -57,7 +87,7 @@ function buildRecommendationQuery(baseQuery: string | null, refinementHint: stri
   return `${baseQuery} | Contraintes: ${refinementHint}`
 }
 
-function colorToBarClass(color: RecommendationCard['color']): string {
+function colorToBarClass(color: string | null | undefined): string {
   switch (color) {
     case 'rouge': return 'bg-[var(--red-wine)]'
     case 'blanc': return 'bg-[var(--white-wine)]'
@@ -90,6 +120,12 @@ function buildGreeting(): string {
 function buildResponseText(query: string | null): string {
   if (query) return `Pour « ${query} », voici ce que je te recommande :`
   return `Voici mes suggestions pour ce soir :`
+}
+
+function volumeLabel(vol: string): string {
+  if (vol === '0.375') return 'demi'
+  if (vol === '1.5') return 'mag'
+  return 'btl'
 }
 
 let nextMsgId = 1
@@ -166,6 +202,59 @@ function RecommendationCardItem({ card, onTap }: { card: RecommendationCard; onT
   )
 }
 
+// --- WineActionCard (assistant mode) ---
+
+function WineActionCard({ action, onValidate, onModify }: {
+  action: WineActionData
+  onValidate: () => void
+  onModify: () => void
+}) {
+  const ext = action.extraction
+  const wineName = [ext.domaine, ext.cuvee].filter(Boolean).join(' — ') || ext.appellation || 'Vin'
+  const details = [ext.appellation, ext.millesime?.toString()].filter(Boolean).join(' ')
+  const qtyLabel = `${ext.quantity} × ${volumeLabel(ext.volume)}`
+
+  return (
+    <div className="mt-2 rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden">
+      <div className="flex">
+        <div className={`w-[4px] flex-shrink-0 ${colorToBarClass(ext.couleur)}`} />
+        <div className="flex-1 p-3">
+          <p className="font-serif text-[15px] font-bold text-[var(--text-primary)] leading-tight">
+            {wineName}
+          </p>
+          {details && (
+            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{details}</p>
+          )}
+          <p className="text-[12px] text-[var(--text-secondary)] mt-1">{qtyLabel}</p>
+
+          {ext.character && (
+            <p className="text-[11px] italic text-[var(--text-secondary)] mt-2 leading-relaxed">
+              {ext.character}
+            </p>
+          )}
+
+          <div className="flex gap-2 mt-3">
+            <button
+              type="button"
+              onClick={onValidate}
+              className="flex-1 h-8 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-light)] text-white text-[12px] font-semibold"
+            >
+              {action.intent === 'encaver' ? 'Valider' : 'Créer la fiche'}
+            </button>
+            <button
+              type="button"
+              onClick={onModify}
+              className="flex-1 h-8 rounded-full border border-[var(--border-color)] text-[var(--text-secondary)] text-[12px] font-medium"
+            >
+              Modifier
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // --- Chat sub-components ---
 
 function ChatCarousel({ cards, isLoading, onCardTap }: {
@@ -224,9 +313,11 @@ function ChatCarousel({ cards, isLoading, onCardTap }: {
   )
 }
 
-function CelestinBubble({ message, onCardTap }: {
+function CelestinBubble({ message, onCardTap, onWineValidate, onWineModify }: {
   message: ChatMessage
   onCardTap: (card: RecommendationCard) => void
+  onWineValidate?: (action: WineActionData) => void
+  onWineModify?: (action: WineActionData) => void
 }) {
   const hasCarousel = (message.cards && message.cards.length > 0) || message.isLoading
 
@@ -242,6 +333,13 @@ function CelestinBubble({ message, onCardTap }: {
               {message.text}
             </p>
           </div>
+          {message.wineAction && onWineValidate && onWineModify && (
+            <WineActionCard
+              action={message.wineAction}
+              onValidate={() => onWineValidate(message.wineAction!)}
+              onModify={() => onWineModify(message.wineAction!)}
+            />
+          )}
         </div>
       </div>
       {hasCarousel && (
@@ -268,6 +366,8 @@ function UserBubble({ message }: { message: ChatMessage }) {
 // --- Main Component ---
 
 export default function CeSoirModule() {
+  const navigate = useNavigate()
+
   // Hook state — mode is always 'generic' (user intent is expressed via free text)
   const [queryInput, setQueryInput] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState<string | null>(null)
@@ -292,6 +392,10 @@ export default function CeSoirModule() {
   ])
   const [expandedCard, setExpandedCard] = useState<RecommendationCard | null>(null)
 
+  // Assistant conversation state
+  const conversationHistoryRef = useRef<ConversationTurn[]>([])
+  const activeIntentRef = useRef<ChatIntent | null>(null)
+
   // Refs
   const threadRef = useRef<HTMLDivElement>(null)
   const isFirstLoad = useRef(true)
@@ -301,6 +405,12 @@ export default function CeSoirModule() {
     requestAnimationFrame(() => {
       threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: 'smooth' })
     })
+  }, [])
+
+  // Reset assistant conversation state
+  const resetAssistantConversation = useCallback(() => {
+    conversationHistoryRef.current = []
+    activeIntentRef.current = null
   }, [])
 
   // Helper: add user bubble + Celestin loading bubble in one batch
@@ -318,10 +428,6 @@ export default function CeSoirModule() {
   }
 
   // Bridge: hook outputs → chat messages
-  // Handlers add loading bubbles (with skeletons); this effect fills them in
-  // when the hook settles. The bridge deps [cards, loading, refreshing, error]
-  // only change when the hook updates — NOT when handlers call setMessages or
-  // setSubmittedQuery — so there is no stale-data race.
   useEffect(() => {
     // First load: attach cards to greeting message
     if (isFirstLoad.current && !loading) {
@@ -362,23 +468,183 @@ export default function CeSoirModule() {
     }
   }, [cards, loading, refreshing, error, scrollToBottom])
 
+  // --- Assistant handler ---
+
+  async function handleAssistantSubmit(text: string, intent: 'encaver' | 'deguster') {
+    // Add user bubble + loading bubble
+    const loadingMsgId = genMsgId()
+    setMessages(prev => {
+      const filtered = prev.filter(m => !m.isLoading)
+      return [
+        ...filtered,
+        { id: genMsgId(), role: 'user' as const, text },
+        { id: loadingMsgId, role: 'celestin' as const, text: 'Je regarde ça...' },
+      ]
+    })
+    scrollToBottom()
+
+    // Update conversation history
+    conversationHistoryRef.current.push({ role: 'user', text })
+    activeIntentRef.current = intent
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('celestin-assistant', {
+        body: {
+          message: text,
+          history: conversationHistoryRef.current.slice(0, -1), // exclude current message (it's in `message`)
+          intent,
+        },
+      })
+
+      if (fnError) throw fnError
+
+      const response = data as {
+        type: 'extraction' | 'question'
+        extraction?: WineActionData['extraction']
+        question?: string
+        summary?: string
+      }
+
+      if (response.type === 'question' && response.question) {
+        // Celestin asks a follow-up question
+        conversationHistoryRef.current.push({ role: 'assistant', text: response.question })
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === loadingMsgId
+              ? { ...m, text: response.question! }
+              : m
+          )
+        )
+      } else if (response.type === 'extraction' && response.extraction) {
+        // Celestin extracted wine data — show action card
+        const summary = response.summary || 'Voici ce que j\'ai compris :'
+        conversationHistoryRef.current.push({ role: 'assistant', text: summary })
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === loadingMsgId
+              ? {
+                  ...m,
+                  text: summary,
+                  wineAction: {
+                    intent,
+                    extraction: response.extraction!,
+                    summary,
+                  },
+                }
+              : m
+          )
+        )
+      } else {
+        // Unexpected response shape — show a generic error
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === loadingMsgId
+              ? { ...m, text: "Désolé, je n'ai pas bien compris. Peux-tu reformuler ?" }
+              : m
+          )
+        )
+      }
+    } catch (err) {
+      console.error('Assistant error:', err)
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === loadingMsgId
+            ? { ...m, text: "Désolé, je n'ai pas pu traiter ta demande. Réessaie !" }
+            : m
+        )
+      )
+    }
+
+    scrollToBottom()
+  }
+
   // --- Handlers ---
 
   function handleQuerySubmit() {
     const text = queryInput.trim()
     if (text.length < 2) return
+    setQueryInput('')
+
+    // If we're in an active assistant conversation, continue it
+    const activeIntent = activeIntentRef.current
+    if (conversationHistoryRef.current.length > 0 && (activeIntent === 'encaver' || activeIntent === 'deguster')) {
+      void handleAssistantSubmit(text, activeIntent)
+      return
+    }
+
+    // Detect intent
+    const intent: ChatIntent = detectIntent(text)
+
+    if (intent === 'encaver' || intent === 'deguster') {
+      void handleAssistantSubmit(text, intent)
+      return
+    }
+
+    // Sommelier flow (unchanged)
     if (text === submittedQuery) return // same query, skip
     const responseText = buildResponseText(text)
     addLoadingResponse(text, responseText)
     setSubmittedQuery(text)
-    setQueryInput('')
     setActiveRefinement(null)
   }
 
   function toggleRefinement(label: string) {
+    // Clicking a refinement chip resets assistant conversation
+    resetAssistantConversation()
     const responseText = buildResponseText(submittedQuery)
     addLoadingResponse(label, responseText)
     setActiveRefinement(prev => prev === label ? null : label)
+  }
+
+  // --- Wine action handlers ---
+
+  function handleWineValidate(action: WineActionData) {
+    resetAssistantConversation()
+
+    if (action.intent === 'encaver') {
+      navigate('/add', {
+        state: {
+          prefillExtraction: {
+            domaine: action.extraction.domaine,
+            cuvee: action.extraction.cuvee,
+            appellation: action.extraction.appellation,
+            millesime: action.extraction.millesime,
+            couleur: action.extraction.couleur,
+            region: action.extraction.region,
+            grape_varieties: action.extraction.grape_varieties,
+            serving_temperature: action.extraction.serving_temperature,
+            typical_aromas: action.extraction.typical_aromas,
+            food_pairings: action.extraction.food_pairings,
+            character: action.extraction.character,
+          },
+          prefillQuantity: action.extraction.quantity,
+          prefillVolume: action.extraction.volume,
+        },
+      })
+    } else {
+      navigate('/remove', {
+        state: {
+          prefillExtraction: {
+            domaine: action.extraction.domaine,
+            cuvee: action.extraction.cuvee,
+            appellation: action.extraction.appellation,
+            millesime: action.extraction.millesime,
+            couleur: action.extraction.couleur,
+            region: action.extraction.region,
+            grape_varieties: action.extraction.grape_varieties,
+            serving_temperature: action.extraction.serving_temperature,
+            typical_aromas: action.extraction.typical_aromas,
+            food_pairings: action.extraction.food_pairings,
+            character: action.extraction.character,
+          },
+        },
+      })
+    }
+  }
+
+  function handleWineModify(action: WineActionData) {
+    // Same navigation but user lands on the form to edit
+    handleWineValidate(action)
   }
 
   return (
@@ -388,7 +654,13 @@ export default function CeSoirModule() {
         <div className="space-y-4">
           {messages.map(msg =>
             msg.role === 'celestin' ? (
-              <CelestinBubble key={msg.id} message={msg} onCardTap={setExpandedCard} />
+              <CelestinBubble
+                key={msg.id}
+                message={msg}
+                onCardTap={setExpandedCard}
+                onWineValidate={handleWineValidate}
+                onWineModify={handleWineModify}
+              />
             ) : (
               <UserBubble key={msg.id} message={msg} />
             )
@@ -428,7 +700,7 @@ export default function CeSoirModule() {
             <input
               value={queryInput}
               onChange={(e) => setQueryInput(e.target.value)}
-              placeholder="Poulet rôti, envie de bulles, soirée zen..."
+              placeholder="Poulet rôti, j'ai acheté du vin, envie de bulles..."
               enterKeyHint="send"
               className="w-full h-10 rounded-full border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-4 text-[13px] placeholder:text-[var(--text-muted)] placeholder:italic"
             />

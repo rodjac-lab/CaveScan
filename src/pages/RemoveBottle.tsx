@@ -38,8 +38,8 @@ interface RemoveBottleLocationState {
 
 interface ScanResult {
   extraction: WineExtraction
-  photoFile: File
-  photoUri: string
+  photoFile: File | null
+  photoUri: string | null
   matchType: MatchType
   primaryMatch: BottleWithZone | null
   alternatives: BottleWithZone[]
@@ -70,8 +70,8 @@ export default function RemoveBottle() {
 
     const { prefillExtraction, prefillPhotoFile } = state
 
-    if (prefillExtraction && prefillPhotoFile) {
-      // We have both extraction and photo - go straight to matching
+    if (prefillExtraction) {
+      // We have extraction data (with or without photo) - go straight to matching
       setPrefillHandled(true)
       const extraction = {
         domaine: prefillExtraction.domaine || null,
@@ -82,6 +82,11 @@ export default function RemoveBottle() {
         region: prefillExtraction.region || null,
         cepage: prefillExtraction.cepage || null,
         confidence: prefillExtraction.confidence ?? 0,
+        grape_varieties: prefillExtraction.grape_varieties || null,
+        serving_temperature: prefillExtraction.serving_temperature || null,
+        typical_aromas: prefillExtraction.typical_aromas || null,
+        food_pairings: prefillExtraction.food_pairings || null,
+        character: prefillExtraction.character || null,
       } as WineExtraction
 
       const matched = findMatches(bottles, extraction)
@@ -89,8 +94,8 @@ export default function RemoveBottle() {
 
       setScanResult({
         extraction,
-        photoFile: prefillPhotoFile,
-        photoUri: URL.createObjectURL(prefillPhotoFile),
+        photoFile: prefillPhotoFile ?? null,
+        photoUri: prefillPhotoFile ? URL.createObjectURL(prefillPhotoFile) : null,
         matchType: primaryMatch ? 'in_cave' : 'not_in_cave',
         primaryMatch: primaryMatch ?? null,
         alternatives,
@@ -363,10 +368,12 @@ export default function RemoveBottle() {
 
     try {
       let photoUrl: string | null = null
-      try {
-        photoUrl = await uploadPhoto(result.photoFile, `${Date.now()}-front.jpg`)
-      } catch {
-        // Photo upload failed — continue without photo
+      if (result.photoFile) {
+        try {
+          photoUrl = await uploadPhoto(result.photoFile, `${Date.now()}-front.jpg`)
+        } catch {
+          // Photo upload failed — continue without photo
+        }
       }
 
       const { data, error: insertError } = await supabase
