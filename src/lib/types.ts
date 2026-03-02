@@ -196,6 +196,7 @@ export interface TastingTags {
   descripteurs: string[]
   occasion: string | null
   sentiment: 'excellent' | 'bon' | 'moyen' | 'decevant' | null
+  maturite: 'trop jeune' | 'en devenir' | 'a point' | 'passe son pic' | null
   keywords: string[]
 }
 

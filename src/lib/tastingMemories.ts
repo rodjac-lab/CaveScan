@@ -177,11 +177,17 @@ export function serializeMemoriesForPrompt(memories: Bottle[]): string {
 
   const lines = memories.map((b) => {
     const tags = b.tasting_tags as TastingTags | null
-    const identity = [b.domaine, b.appellation, b.millesime].filter(Boolean).join(' ')
+    const identity = [b.domaine, b.appellation].filter(Boolean).join(' ')
     const parts: string[] = [`- ${identity}`]
 
+    if (b.millesime) parts.push(`millésime: ${b.millesime}`)
+    if (b.drunk_at) {
+      const date = new Date(b.drunk_at)
+      parts.push(`dégusté le: ${date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`)
+    }
     if (b.rating) parts.push(`note: ${b.rating}/5`)
     if (tags?.sentiment) parts.push(`sentiment: ${tags.sentiment}`)
+    if (tags?.maturite) parts.push(`maturité: ${tags.maturite}`)
     if (tags?.plats?.length) parts.push(`plats: ${tags.plats.join(', ')}`)
     if (tags?.descripteurs?.length) parts.push(`descripteurs: ${tags.descripteurs.join(', ')}`)
     if (tags?.occasion) parts.push(`occasion: ${tags.occasion}`)

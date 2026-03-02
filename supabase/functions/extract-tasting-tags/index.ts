@@ -19,6 +19,7 @@ interface TastingTags {
   descripteurs: string[]
   occasion: string | null
   sentiment: 'excellent' | 'bon' | 'moyen' | 'decevant' | null
+  maturite: 'trop jeune' | 'en devenir' | 'a point' | 'passe son pic' | null
   keywords: string[]
 }
 
@@ -43,6 +44,7 @@ Analyse la note ci-dessous et retourne un JSON :
   "descripteurs": ["descripteur1", "descripteur2"],
   "occasion": "description courte ou null",
   "sentiment": "excellent" | "bon" | "moyen" | "decevant" | null,
+  "maturite": "trop jeune" | "en devenir" | "a point" | "passe son pic" | null,
   "keywords": ["mot-clé1", "mot-clé2"]
 }
 
@@ -75,6 +77,15 @@ Déduis le sentiment GLOBAL, même pour les notes très courtes.
 - "decevant" : clairement négatif. Mots-signaux : "mauvais", "déçu", "arf", "bof", "sans charme", "pas bon".
 IMPORTANT : "vachement bon!" = bon. "J'adore" ou "sublime" = TOUJOURS excellent, même si la note est courte.
 null UNIQUEMENT si la note est un test/placeholder sans aucun jugement.
+
+## maturite
+Évalue où en est le vin dans son évolution, INDÉPENDAMMENT du sentiment.
+Un vin peut être excellent ET trop jeune. Un vin peut être décevant ET à point (il est juste pas bon).
+- "trop jeune" : le vin n'est pas prêt, il a besoin de temps. Signaux : "pas prêt", "trop jeune", "fermé", "attendre", "besoin de temps", "austère", "tannins serrés".
+- "en devenir" : le vin progresse, il sera meilleur plus tard mais déjà intéressant. Signaux : "s'ouvre", "en progression", "prometteur", "commence à se livrer", "jeune mais bon".
+- "a point" : le vin est à son optimum ou dans une belle fenêtre. Signaux : "à boire", "à maturité", "prêt", "fondus", "épanoui", "sublime maintenant".
+- "passe son pic" : le vin décline ou est passé. Signaux : "fatigué", "sur le retour", "passé", "trop vieux", "oxydé (en négatif)", "il fallait le boire avant".
+null si la note ne donne AUCUNE indication sur l'évolution du vin.
 
 ## keywords
 Expressions clés qui enrichissent le profil de l'utilisateur :
@@ -125,6 +136,9 @@ function parseAndValidate(text: string): TastingTags {
     occasion: typeof data.occasion === 'string' ? data.occasion : null,
     sentiment: ['excellent', 'bon', 'moyen', 'decevant'].includes(data.sentiment as string)
       ? data.sentiment
+      : null,
+    maturite: ['trop jeune', 'en devenir', 'a point', 'passe son pic'].includes(data.maturite as string)
+      ? data.maturite
       : null,
     keywords: Array.isArray(data.keywords) ? data.keywords : [],
   }
