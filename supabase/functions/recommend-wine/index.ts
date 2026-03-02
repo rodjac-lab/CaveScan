@@ -153,8 +153,13 @@ function buildUserPrompt(body: RequestBody): string {
 
   if (body.mode === 'generic') {
     parts.push(`Mode : "Ce soir (générique)"`)
-    parts.push(`Aucune contrainte explicite de plat ou de style. Propose des suggestions personnalisées pour ce soir en tenant compte du contexte (jour/saison), du profil et de la cave.`)
-    parts.push(`Dans ce mode, n'applique pas d'accord mets-vins strict absent d'entrée: priorise la pertinence contextuelle et la diversité contrôlée.`)
+    if (body.query) {
+      parts.push(`Demande de l'utilisateur : ${body.query}`)
+      parts.push(`Respecte cette demande en priorité. Si la demande mentionne un plat ou un ingrédient, applique les règles d'accord mets-vins du Wine Codex. Si c'est une envie de style de vin, adapte tes recommandations en conséquence.`)
+    } else {
+      parts.push(`Aucune contrainte explicite de plat ou de style. Propose des suggestions personnalisées pour ce soir en tenant compte du contexte (jour/saison), du profil et de la cave.`)
+      parts.push(`Pas d'accord mets-vins à appliquer ici: priorise la pertinence contextuelle et la diversité contrôlée.`)
+    }
   } else if (body.mode === 'food') {
     parts.push(`Mode : "Ce soir je mange..."`)
     if (body.query) {

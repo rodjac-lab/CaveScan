@@ -1,9 +1,19 @@
-import { useRef, useState, useEffect, useMemo, type PointerEvent as ReactPointerEvent } from 'react'
+import { useRef, useState, useEffect, useMemo, useCallback, type PointerEvent as ReactPointerEvent } from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useRecommendations } from '@/hooks/useRecommendations'
 import type { RecommendationCard } from '@/lib/recommendationStore'
 
-type Mode = 'generic' | 'food' | 'wine'
+// --- Types ---
+
+interface ChatMessage {
+  id: string
+  role: 'celestin' | 'user'
+  text: string
+  cards?: RecommendationCard[]
+  isLoading?: boolean
+}
+
+// --- Icons ---
 
 function SearchIcon() {
   return (
@@ -14,10 +24,10 @@ function SearchIcon() {
   )
 }
 
-function ChevronIcon() {
+function SendIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-      <polyline points="9 18 15 12 9 6" />
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+      <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
     </svg>
   )
 }
@@ -30,16 +40,15 @@ function SparkleIcon() {
   )
 }
 
-const MODE_OPTIONS: { value: Mode; label: string }[] = [
-  { value: 'food', label: 'Ce soir je mange...' },
-  { value: 'wine', label: 'Ce soir je bois...' },
-]
+// --- Constants ---
 
 const PRIMARY_ACTIONS: Array<{ label: string; hint: string }> = [
   { label: 'Plus audacieux', hint: 'style plus audacieux, accords originaux' },
   { label: 'Plus classique', hint: 'style plus classique, valeur sure' },
   { label: 'Moins cher', hint: 'budget plus accessible, meilleur rapport qualite-prix' },
 ]
+
+// --- Helpers (unchanged) ---
 
 function buildRecommendationQuery(baseQuery: string | null, refinementHint: string | null): string | null {
   if (!baseQuery && !refinementHint) return null
@@ -68,13 +77,37 @@ function badgeToClass(badge: string): string {
   }
 }
 
+// --- Helpers (new) ---
+
+function buildGreeting(): string {
+  const hour = new Date().getHours()
+  const day = new Date().toLocaleDateString('fr-FR', { weekday: 'long' })
+  if (hour < 12) return `Bonjour ! C'est ${day}, qu'est-ce qui te ferait plaisir ce soir ?`
+  if (hour < 18) return `Bon après-midi ! Envie de préparer quelque chose pour ce soir ?`
+  return `Bonsoir ! Qu'est-ce qu'on ouvre ce soir ?`
+}
+
+function buildResponseText(query: string | null): string {
+  if (query) return `Pour « ${query} », voici ce que je te recommande :`
+  return `Voici mes suggestions pour ce soir :`
+}
+
+let nextMsgId = 1
+function genMsgId(): string {
+  return `msg-${nextMsgId++}`
+}
+
+// --- Card sub-components ---
+
+const TAP_THRESHOLD = 10
+
 function LoadingCardSkeleton({ index }: { index: number }) {
   return (
     <div
       className="flex-shrink-0 w-[220px] h-[188px] rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden animate-pulse"
       style={{ animationDelay: `${index * 80}ms` }}
     >
-      <div className="flex">
+      <div className="flex h-full">
         <div className="w-[4px] bg-[var(--border-color)]" />
         <div className="flex-1 p-3">
           <div className="h-4 w-20 rounded-full bg-[var(--border-color)] mb-2" />
@@ -88,24 +121,7 @@ function LoadingCardSkeleton({ index }: { index: number }) {
   )
 }
 
-function InitialLoadingSkeleton() {
-  return (
-    <>
-      <LoadingCardSkeleton index={0} />
-      <LoadingCardSkeleton index={1} />
-      <LoadingCardSkeleton index={2} />
-    </>
-  )
-}
-
-const TAP_THRESHOLD = 10
-
-interface RecommendationCardItemProps {
-  card: RecommendationCard
-  onTap: () => void
-}
-
-function RecommendationCardItem({ card, onTap }: RecommendationCardItemProps) {
+function RecommendationCardItem({ card, onTap }: { card: RecommendationCard; onTap: () => void }) {
   const pointerStart = useRef<{ x: number; y: number } | null>(null)
 
   function handlePointerDown(e: ReactPointerEvent) {
@@ -131,7 +147,7 @@ function RecommendationCardItem({ card, onTap }: RecommendationCardItemProps) {
       onKeyDown={(e) => { if (e.key === 'Enter') onTap() }}
       className="flex-shrink-0 w-[220px] h-[188px] rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden cursor-pointer select-none"
     >
-      <div className="flex">
+      <div className="flex h-full">
         <div className={`w-[4px] ${colorToBarClass(card.color)}`} />
         <div className="flex-1 p-3">
           <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ${badgeToClass(card.badge)} mb-2`}>
@@ -150,16 +166,112 @@ function RecommendationCardItem({ card, onTap }: RecommendationCardItemProps) {
   )
 }
 
-export default function CeSoirModule() {
-  const [mode, setMode] = useState<Mode>('generic')
-  const [modeChosen, setModeChosen] = useState(false)
-  const [expandedCard, setExpandedCard] = useState<RecommendationCard | null>(null)
+// --- Chat sub-components ---
+
+function ChatCarousel({ cards, isLoading, onCardTap }: {
+  cards?: RecommendationCard[]
+  isLoading?: boolean
+  onCardTap: (card: RecommendationCard) => void
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null)
   const [activeIndex, setActiveIndex] = useState(0)
+  const items = cards ?? []
+
+  useEffect(() => {
+    const node = scrollRef.current
+    if (!node) return
+    function handleScroll() {
+      const cardWidth = 220 + 12
+      const index = Math.round(node!.scrollLeft / cardWidth)
+      setActiveIndex(Math.min(index, Math.max(items.length - 1, 0)))
+    }
+    node.addEventListener('scroll', handleScroll, { passive: true })
+    return () => node.removeEventListener('scroll', handleScroll)
+  }, [items.length])
+
+  return (
+    <div className="mt-2 -mx-6 px-6">
+      <div ref={scrollRef} className="flex gap-3 overflow-x-auto scrollbar-hide">
+        {isLoading ? (
+          <>
+            <LoadingCardSkeleton index={0} />
+            <LoadingCardSkeleton index={1} />
+            <LoadingCardSkeleton index={2} />
+          </>
+        ) : (
+          items.map((card, i) => (
+            <RecommendationCardItem
+              key={card.bottle_id ?? `reco-${i}`}
+              card={card}
+              onTap={() => onCardTap(card)}
+            />
+          ))
+        )}
+      </div>
+      {!isLoading && items.length > 1 && (
+        <div className="flex items-center justify-center gap-1.5 mt-2">
+          {items.map((card, i) => (
+            <div
+              key={card.bottle_id ?? `dot-${i}`}
+              className={`transition-all duration-200 ${
+                i === activeIndex ? 'discover-dot-active' : 'discover-dot-inactive'
+              }`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CelestinBubble({ message, onCardTap }: {
+  message: ChatMessage
+  onCardTap: (card: RecommendationCard) => void
+}) {
+  const hasCarousel = (message.cards && message.cards.length > 0) || message.isLoading
+
+  return (
+    <div>
+      <div className="flex gap-2 items-start">
+        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-light)] flex items-center justify-center text-white mt-0.5">
+          <SparkleIcon />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm rounded-[14px] rounded-tl-[4px] px-3.5 py-2.5 inline-block max-w-full">
+            <p className="font-serif italic text-[13px] text-[var(--text-primary)] leading-relaxed">
+              {message.text}
+            </p>
+          </div>
+        </div>
+      </div>
+      {hasCarousel && (
+        <ChatCarousel
+          cards={message.cards}
+          isLoading={message.isLoading}
+          onCardTap={onCardTap}
+        />
+      )}
+    </div>
+  )
+}
+
+function UserBubble({ message }: { message: ChatMessage }) {
+  return (
+    <div className="flex justify-end">
+      <div className="bg-[var(--accent-bg)] border border-[var(--border-color)] rounded-[14px] rounded-tr-[4px] px-3.5 py-2.5 max-w-[80%]">
+        <p className="text-[13px] text-[var(--text-primary)]">{message.text}</p>
+      </div>
+    </div>
+  )
+}
+
+// --- Main Component ---
+
+export default function CeSoirModule() {
+  // Hook state — mode is always 'generic' (user intent is expressed via free text)
   const [queryInput, setQueryInput] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState<string | null>(null)
   const [activeRefinement, setActiveRefinement] = useState<string | null>(null)
-  const [showQueryInput, setShowQueryInput] = useState(false)
-  const scrollRef = useRef<HTMLDivElement>(null)
 
   const refinementHint = useMemo(
     () => PRIMARY_ACTIONS.find((item) => item.label === activeRefinement)?.hint ?? activeRefinement,
@@ -171,118 +283,129 @@ export default function CeSoirModule() {
     [submittedQuery, refinementHint]
   )
 
-  const { cards, loading, refreshing, error } = useRecommendations(mode, effectiveQuery)
+  const { cards, loading, refreshing, error } = useRecommendations('generic', effectiveQuery)
 
-  const searchPlaceholder = mode === 'food'
-    ? 'Ex: filet de boeuf, sans tanins, 20-30EUR'
-    : 'Ex: rouge leger, pas boise, 20-30EUR'
+  // Chat state
+  const greeting = useMemo(() => buildGreeting(), [])
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
+    { id: genMsgId(), role: 'celestin', text: greeting, isLoading: true }
+  ])
+  const [expandedCard, setExpandedCard] = useState<RecommendationCard | null>(null)
 
+  // Refs
+  const threadRef = useRef<HTMLDivElement>(null)
+  const isFirstLoad = useRef(true)
+
+  // Auto-scroll to bottom of thread
+  const scrollToBottom = useCallback(() => {
+    requestAnimationFrame(() => {
+      threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: 'smooth' })
+    })
+  }, [])
+
+  // Helper: add user bubble + Celestin loading bubble in one batch
+  function addLoadingResponse(userText: string, responseText: string) {
+    setMessages(prev => {
+      // Remove any existing loading bubbles (user changed their mind)
+      const filtered = prev.filter(m => !m.isLoading)
+      return [
+        ...filtered,
+        { id: genMsgId(), role: 'user' as const, text: userText },
+        { id: genMsgId(), role: 'celestin' as const, text: responseText, isLoading: true },
+      ]
+    })
+    scrollToBottom()
+  }
+
+  // Bridge: hook outputs → chat messages
+  // Handlers add loading bubbles (with skeletons); this effect fills them in
+  // when the hook settles. The bridge deps [cards, loading, refreshing, error]
+  // only change when the hook updates — NOT when handlers call setMessages or
+  // setSubmittedQuery — so there is no stale-data race.
   useEffect(() => {
-    const node = scrollRef.current
-    if (!node) return
-    function handleScroll() {
-      const cardWidth = 220 + 12
-      const index = Math.round(node!.scrollLeft / cardWidth)
-      setActiveIndex(Math.min(index, Math.max(cards.length - 1, 0)))
+    // First load: attach cards to greeting message
+    if (isFirstLoad.current && !loading) {
+      isFirstLoad.current = false
+      setMessages(prev => prev.map((msg, i) =>
+        i === 0
+          ? { ...msg, cards: cards.length > 0 ? cards : undefined, isLoading: false }
+          : msg
+      ))
+      scrollToBottom()
+      return
     }
-    node.addEventListener('scroll', handleScroll, { passive: true })
-    return () => node.removeEventListener('scroll', handleScroll)
-  }, [cards.length])
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' })
+    // Still loading initial data
+    if (isFirstLoad.current) return
+
+    // When the hook has settled, replace any loading bubble with real cards
+    if (!loading && !refreshing) {
+      setMessages(prev => {
+        const hasLoading = prev.some(m => m.isLoading)
+        if (!hasLoading) return prev // no-op: avoids unnecessary re-render
+
+        if (cards.length > 0) {
+          return prev.map(m =>
+            m.isLoading ? { ...m, cards, isLoading: false } : m
+          )
+        }
+        if (error) {
+          return prev.map(m =>
+            m.isLoading
+              ? { ...m, text: 'Le sommelier est momentanément indisponible. Réessaie dans quelques instants !', isLoading: false }
+              : m
+          )
+        }
+        return prev
+      })
+      scrollToBottom()
     }
-  }, [effectiveQuery])
+  }, [cards, loading, refreshing, error, scrollToBottom])
 
-  function handleModeSwitch(newMode: Mode): void {
-    setMode(newMode)
-    setModeChosen(true)
-    setSubmittedQuery(null)
+  // --- Handlers ---
+
+  function handleQuerySubmit() {
+    const text = queryInput.trim()
+    if (text.length < 2) return
+    if (text === submittedQuery) return // same query, skip
+    const responseText = buildResponseText(text)
+    addLoadingResponse(text, responseText)
+    setSubmittedQuery(text)
     setQueryInput('')
     setActiveRefinement(null)
-    setShowQueryInput(true)
   }
 
-  function handleQuerySubmit(): void {
-    const next = queryInput.trim()
-    setSubmittedQuery(next.length >= 2 ? next : null)
+  function toggleRefinement(label: string) {
+    const responseText = buildResponseText(submittedQuery)
+    addLoadingResponse(label, responseText)
+    setActiveRefinement(prev => prev === label ? null : label)
   }
-
-  function toggleRefinement(label: string): void {
-    setActiveRefinement((prev) => (prev === label ? null : label))
-  }
-
-  const showCards = !loading && cards.length > 0
 
   return (
-    <div>
-      <div className="flex items-center gap-2.5 mb-3">
-        <div className="flex-1 h-px bg-[var(--border-color)]" />
-        <div className="flex items-center gap-1.5">
-          <SparkleIcon />
-          <span className="section-divider-label">Ce soir</span>
+    <div className="flex flex-1 flex-col min-h-0">
+      {/* Thread */}
+      <div ref={threadRef} className="flex-1 overflow-y-auto overscroll-contain px-6 pb-4 pt-3 scrollbar-hide">
+        <div className="space-y-4">
+          {messages.map(msg =>
+            msg.role === 'celestin' ? (
+              <CelestinBubble key={msg.id} message={msg} onCardTap={setExpandedCard} />
+            ) : (
+              <UserBubble key={msg.id} message={msg} />
+            )
+          )}
         </div>
-        <div className="flex-1 h-px bg-[var(--border-color)]" />
       </div>
 
-      <div ref={scrollRef} className="flex gap-3 overflow-x-auto discover-carousel scrollbar-hide -mx-6 px-6 mb-1">
-        {loading ? (
-          <InitialLoadingSkeleton />
-        ) : (
-          <>
-            {cards.map((card, i) => (
-              <RecommendationCardItem
-                key={card.bottle_id ?? `reco-${i}`}
-                card={card}
-                onTap={() => setExpandedCard(card)}
-              />
-            ))}
-            {refreshing && (
-              <>
-                <LoadingCardSkeleton index={0} />
-                <LoadingCardSkeleton index={1} />
-              </>
-            )}
-          </>
-        )}
-      </div>
-
-      {refreshing && !loading && (
-        <p className="text-[11px] text-[var(--text-muted)] italic mb-2 text-center">
-          Le sommelier affine les recommandations...
-        </p>
-      )}
-
-      {showCards && (
-        <div className="flex items-center justify-center gap-1.5 mb-3">
-          {cards.map((card, i) => (
-            <div
-              key={card.bottle_id ?? `dot-${i}`}
-              className={`transition-all duration-200 ${
-                i === activeIndex ? 'discover-dot-active' : 'discover-dot-inactive'
-              }`}
-            />
-          ))}
-        </div>
-      )}
-
-      {error && !loading && (
-        <div className="rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] p-3 card-shadow mb-3 text-center">
-          <p className="text-[11px] text-[var(--text-muted)]">
-            Le sommelier est momentanement indisponible. Suggestions par defaut affichees.
-          </p>
-        </div>
-      )}
-
-      <div className="rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] p-3 card-shadow mt-3 mb-2">
+      {/* Bottom bar */}
+      <div className="flex-shrink-0 border-t border-[var(--border-color)] bg-[var(--background)] px-4 pt-2 pb-2">
+        {/* Refinement chips */}
         <div className="flex items-center gap-1.5 mb-2 overflow-x-auto scrollbar-hide">
-          {PRIMARY_ACTIONS.map((action) => (
+          {PRIMARY_ACTIONS.map(action => (
             <button
               key={action.label}
               type="button"
               onClick={() => toggleRefinement(action.label)}
-              className={`h-8 inline-flex items-center justify-center rounded-full px-3 text-[11px] leading-none font-medium border whitespace-nowrap transition-colors ${
+              className={`h-7 inline-flex items-center justify-center rounded-full px-3 text-[11px] leading-none font-medium border whitespace-nowrap transition-colors ${
                 activeRefinement === action.label
                   ? 'bg-[var(--accent-bg)] border-[var(--accent)] text-[var(--accent)]'
                   : 'bg-transparent border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--accent)]'
@@ -293,56 +416,33 @@ export default function CeSoirModule() {
           ))}
         </div>
 
-        <div className="flex items-center gap-1.5 mb-2 overflow-x-auto scrollbar-hide">
-          {MODE_OPTIONS.map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => handleModeSwitch(value)}
-              className={`h-8 inline-flex items-center justify-center rounded-full px-3 text-[11px] leading-none font-medium border whitespace-nowrap transition-colors ${
-                modeChosen && mode === value
-                  ? 'bg-[var(--accent-bg)] border-[var(--accent)] text-[var(--accent)]'
-                  : 'bg-transparent border-[var(--border-color)] text-[var(--text-muted)]'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setShowQueryInput((prev) => !prev)}
-            className="h-8 inline-flex items-center justify-center rounded-full px-3 text-[11px] leading-none font-medium border border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--accent)] whitespace-nowrap"
-          >
-            {showQueryInput ? 'Fermer' : 'Preciser'}
-          </button>
-        </div>
-
-        {showQueryInput && (
-          <form
-            onSubmit={(e) => { e.preventDefault(); handleQuerySubmit() }}
-            className="relative"
-          >
+        {/* Input row */}
+        <form
+          onSubmit={(e) => { e.preventDefault(); handleQuerySubmit() }}
+          className="flex items-center gap-2"
+        >
+          <div className="relative flex-1">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
               <SearchIcon />
             </div>
             <input
-              autoFocus
               value={queryInput}
               onChange={(e) => setQueryInput(e.target.value)}
-              placeholder={searchPlaceholder}
-              enterKeyHint="search"
-              className="w-full h-9 rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-10 text-[12px] placeholder:text-[var(--text-muted)] placeholder:italic"
+              placeholder="Poulet rôti, envie de bulles, soirée zen..."
+              enterKeyHint="send"
+              className="w-full h-10 rounded-full border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-4 text-[13px] placeholder:text-[var(--text-muted)] placeholder:italic"
             />
-            <button
-              type="submit"
-              className="absolute right-2 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-white"
-            >
-              <ChevronIcon />
-            </button>
-          </form>
-        )}
+          </div>
+          <button
+            type="submit"
+            className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-light)] text-white shadow-sm"
+          >
+            <SendIcon />
+          </button>
+        </form>
       </div>
 
+      {/* Expanded card dialog (unchanged) */}
       <Dialog open={!!expandedCard} onOpenChange={() => setExpandedCard(null)}>
         <DialogContent className="max-w-[340px] rounded-[var(--radius)] p-0 overflow-hidden">
           {expandedCard && (
