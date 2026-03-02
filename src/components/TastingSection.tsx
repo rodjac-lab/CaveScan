@@ -51,20 +51,22 @@ export function TastingSection({
 
   const handleSaveTastingNote = async () => {
     setSaving(true)
+    const noteValue = tastingNote || null
     const { error } = await supabase
       .from('bottles')
       .update({
-        tasting_note: tastingNote || null,
+        tasting_note: noteValue,
         rating,
         rebuy,
         qpr,
+        ...(!noteValue ? { tasting_tags: null } : {}),
       })
       .eq('id', bottle.id)
 
     if (!error) {
       track('tasting_saved')
       triggerProfileRecompute()
-      extractAndSaveTags({ ...bottle, tasting_note: tastingNote || null, rating, rebuy, qpr })
+      extractAndSaveTags({ ...bottle, tasting_note: noteValue, rating, rebuy, qpr })
       await onRefetch()
     }
     setSaving(false)
@@ -200,16 +202,18 @@ export function TastingSection({
       qpr !== (bottle.qpr ?? null)
 
     if (hasChanges) {
+      const noteVal = tastingNote || null
       await supabase
         .from('bottles')
         .update({
-          tasting_note: tastingNote || null,
+          tasting_note: noteVal,
           rating,
           rebuy,
           qpr,
+          ...(!noteVal ? { tasting_tags: null } : {}),
         })
         .eq('id', bottle.id)
-      extractAndSaveTags({ ...bottle, tasting_note: tastingNote || null, rating, rebuy, qpr })
+      extractAndSaveTags({ ...bottle, tasting_note: noteVal, rating, rebuy, qpr })
     }
 
     setSaving(false)

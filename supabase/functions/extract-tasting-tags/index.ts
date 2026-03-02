@@ -34,26 +34,62 @@ interface ProviderResult {
 
 // === PROMPT ===
 
-const EXTRACTION_PROMPT = `Tu es un assistant qui extrait des tags structurés depuis des notes de dégustation de vin.
+const EXTRACTION_PROMPT = `Tu es un expert en dégustation de vin. Tu extrais des tags structurés depuis des notes de dégustation.
 
-Analyse la note de dégustation ci-dessous et extrais les informations au format JSON :
+Analyse la note ci-dessous et retourne un JSON :
 
 {
   "plats": ["plat1", "plat2"],
   "descripteurs": ["descripteur1", "descripteur2"],
-  "occasion": "description courte de l'occasion ou null",
+  "occasion": "description courte ou null",
   "sentiment": "excellent" | "bon" | "moyen" | "decevant" | null,
   "keywords": ["mot-clé1", "mot-clé2"]
 }
 
-Règles :
-- "plats" : tous les plats, ingrédients ou types de cuisine mentionnés (ex: "spaghetti", "poisson grillé", "fromage")
-- "descripteurs" : adjectifs et descriptions du vin (ex: "fruité", "tannique", "léger", "boisé", "minéral")
-- "occasion" : le contexte si mentionné (ex: "restaurant à Rome", "anniversaire", "apéro entre amis"), sinon null
-- "sentiment" : déduis le sentiment global de la note. "excellent" = enthousiaste/coup de coeur, "bon" = positif, "moyen" = mitigé, "decevant" = négatif. null si impossible à déterminer.
-- "keywords" : expressions clés qui résument l'expérience (ex: "accord parfait", "bon rapport qualité-prix", "à regoûter")
-- Si un champ n'a aucune donnée, utilise un tableau vide [] ou null selon le type
-- Réponds UNIQUEMENT avec le JSON, sans texte avant ou après`
+# Règles par champ
+
+## plats
+UNIQUEMENT les plats/aliments que l'utilisateur dit AVOIR MANGÉ avec le vin.
+Ex: "servi avec un poulet rôti" → ["poulet rôti"]. "Sur un fromage" → ["fromage"].
+RÈGLES STRICTES :
+- Ne JAMAIS inventer de plats. Si la note ne mentionne pas explicitement ce qui a été mangé, laisser le tableau VIDE [].
+- Ne JAMAIS suggérer des accords mets-vin. Ce champ capture des souvenirs réels, pas des recommandations.
+- "Pomme au four", "poire", "cerise", "framboise", "kirsch", "chocolat", "lard fumé", "pâte à pain" = arômes du vin → vont dans descripteurs, PAS dans plats.
+- Seul test : est-ce que l'utilisateur a RÉELLEMENT mangé cet aliment ? Si oui → plats. Si c'est un arôme ou une suggestion → NON.
+
+## descripteurs
+Tout ce qui décrit le vin : arômes (nez), saveurs (bouche), texture, structure.
+Ex: "fruité", "tannique", "soyeux", "cerise noire", "minéral", "long", "boisé".
+Inclure aussi les arômes de fruits, épices, fleurs même s'ils ressemblent à des aliments.
+
+## occasion
+Le contexte de dégustation s'il est mentionné.
+Ex: "restaurant à Rome", "anniversaire de mariage", "apéro entre amis", "soirée vin", "au verre au restaurant".
+Capturer le lieu, l'événement ou les personnes. null si rien n'est mentionné.
+
+## sentiment
+Déduis le sentiment GLOBAL, même pour les notes très courtes.
+- "excellent" : enthousiasme marqué. Mots-signaux : "j'adore", "sublime", "superbe", "incroyable", "quel vin!", "exceptionnel", "grand vin", "coup de coeur", "magnifique", "extraordinaire".
+- "bon" : positif sans enthousiasme excessif. Mots-signaux : "très bon", "bon", "c'était bien", "agréable", "plaisant", "sympa".
+- "moyen" : mitigé ou déception modérée. Mots-signaux : "pas mal", "correct", "mitigé", "j'en attendais plus", "pas exceptionnel", "simple".
+- "decevant" : clairement négatif. Mots-signaux : "mauvais", "déçu", "arf", "bof", "sans charme", "pas bon".
+IMPORTANT : "vachement bon!" = bon. "J'adore" ou "sublime" = TOUJOURS excellent, même si la note est courte.
+null UNIQUEMENT si la note est un test/placeholder sans aucun jugement.
+
+## keywords
+Expressions clés qui enrichissent le profil de l'utilisateur :
+- Jugements comparatifs : "en dessous d'un Ramonet", "meilleur que le 2015"
+- Conseil de garde/maturité : "à boire maintenant", "encore trop jeune", "à garder"
+- Rapport qualité-prix : "bon rapport Q/P", "cher pour ce que c'est", "super valeur"
+- Style/caractère : "vin de garde", "glou glou", "vin de gastronomie"
+- Intention future : "à regoûter", "j'en rachète"
+Ne PAS répéter le nom du domaine ou de l'appellation comme keyword.
+
+# Notes courtes
+Même une note d'un mot contient de l'information. "Superbe!" → sentiment excellent. "Arf" → sentiment decevant.
+Ne laisse pas les champs vides si tu peux en déduire quelque chose du ton ou du contexte.
+
+Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
 
 // === UTILS ===
 

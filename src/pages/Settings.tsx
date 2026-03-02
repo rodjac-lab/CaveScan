@@ -22,6 +22,8 @@ export default function Settings() {
   const { zones, loading, error, refetch } = useZones()
   const { session, isAnonymous, signOut } = useAuth()
   const [loggingOut, setLoggingOut] = useState(false)
+  const [backfillStatus, setBackfillStatus] = useState<string | null>(null)
+  const [backfillRunning, setBackfillRunning] = useState(false)
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -252,6 +254,53 @@ export default function Settings() {
         <p className="mb-8 text-center text-[11px] text-[var(--text-muted)]">
           CaveScan v1.0.0 · Reconnaissance d'étiquettes
         </p>
+
+        {/* Backfill tasting tags (temporary) */}
+        <section className="mb-4">
+          <button
+            onClick={async () => {
+              setBackfillRunning(true)
+              setBackfillStatus('Chargement des notes...')
+              try {
+                const { data: bottles } = await supabase
+                  .from('bottles')
+                  .select('id, domaine, cuvee, appellation, millesime, couleur, tasting_note')
+                  .not('tasting_note', 'is', null)
+                if (!bottles || bottles.length === 0) {
+                  setBackfillStatus('Aucune note à traiter')
+                  setBackfillRunning(false)
+                  return
+                }
+                let done = 0
+                let errors = 0
+                for (const b of bottles) {
+                  setBackfillStatus(`${done}/${bottles.length} — ${b.domaine || 'vin'}...`)
+                  const context = [b.domaine, b.cuvee, b.appellation, b.millesime, b.couleur].filter(Boolean).join(', ')
+                  const { data: tags, error: fnErr } = await supabase.functions.invoke('extract-tasting-tags', {
+                    body: { tasting_note: b.tasting_note, bottle_context: context },
+                  })
+                  if (fnErr || !tags) { errors++; done++; continue }
+                  await supabase.from('bottles').update({ tasting_tags: tags }).eq('id', b.id)
+                  done++
+                }
+                setBackfillStatus(`Terminé ! ${done - errors} OK, ${errors} erreurs`)
+              } catch (err) {
+                setBackfillStatus(`Erreur: ${err instanceof Error ? err.message : 'inconnue'}`)
+              }
+              setBackfillRunning(false)
+            }}
+            disabled={backfillRunning}
+            className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-3 text-[12px] font-medium text-[var(--text-muted)]"
+          >
+            {backfillRunning ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : null}
+            Re-extraire les tags de dégustation
+          </button>
+          {backfillStatus && (
+            <p className="mt-1.5 text-center text-[11px] text-[var(--text-muted)]">{backfillStatus}</p>
+          )}
+        </section>
 
         {/* 4. Logout at bottom */}
         <section className="mb-4">
