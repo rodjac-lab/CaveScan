@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Wine, Calendar, Euro, MapPin } from 'lucide-react'
 import { formatBottleVolume, getWineColorLabel, type BottleWithZone } from '@/lib/types'
 
@@ -10,12 +11,14 @@ function formatDateShort(dateStr: string) {
 interface BottleIdentityCardProps {
   bottle: BottleWithZone
   onZoom: (src: string, label?: string) => void
+  onDateChange?: (newDate: string) => void
 }
 
-export function BottleIdentityCard({ bottle, onZoom }: BottleIdentityCardProps) {
+export function BottleIdentityCard({ bottle, onZoom, onDateChange }: BottleIdentityCardProps) {
   const isDrunk = bottle.status === 'drunk'
   const displayDateStr = (isDrunk && bottle.drunk_at) || bottle.added_at
   const displayDate = displayDateStr ? formatDateShort(displayDateStr) : '—'
+  const dateInputRef = useRef<HTMLInputElement>(null)
 
   return (
     <div className="identity-card-anim mx-4 mt-3 rounded-[var(--radius)] bg-[var(--bg-card)] shadow-[var(--shadow-md)] overflow-hidden">
@@ -71,12 +74,26 @@ export function BottleIdentityCard({ bottle, onZoom }: BottleIdentityCardProps) 
 
       {/* Identity Details bar */}
       <div className="flex items-center border-t border-[var(--border-color)]">
-        {/* Date */}
-        <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 border-r border-[var(--border-color)]">
+        {/* Date — clickable for drunk bottles */}
+        <div
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 border-r border-[var(--border-color)] relative ${isDrunk && onDateChange ? 'cursor-pointer active:bg-[var(--accent-bg)]' : ''}`}
+          onClick={() => isDrunk && onDateChange && dateInputRef.current?.showPicker()}
+        >
           <Calendar className="h-3.5 w-3.5 text-[var(--text-muted)] shrink-0" />
           <span className="text-[11px] font-medium text-[var(--text-secondary)] truncate">
             {displayDate}
           </span>
+          {isDrunk && onDateChange && (
+            <input
+              ref={dateInputRef}
+              type="date"
+              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+              value={bottle.drunk_at ? new Date(bottle.drunk_at).toISOString().split('T')[0] : ''}
+              onChange={(e) => {
+                if (e.target.value) onDateChange(e.target.value)
+              }}
+            />
+          )}
         </div>
         {/* Prix */}
         <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 border-r border-[var(--border-color)]">
