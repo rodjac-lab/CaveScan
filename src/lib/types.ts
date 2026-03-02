@@ -101,6 +101,13 @@ export function formatBottleVolume(volume: number | null | undefined): string {
   return '0,75L'
 }
 
+/** Short label for bottle size: "demi" (0.375L), "btl" (0.75L), "mag" (1.5L) */
+export function volumeLabel(volume: number | null | undefined): string {
+  if (volume != null && Math.abs(volume - 0.375) < 0.001) return 'demi'
+  if (volume != null && Math.abs(volume - 1.5) < 0.001) return 'mag'
+  return 'btl'
+}
+
 // ── Taste Profile types ──
 
 export interface AppellationStat {

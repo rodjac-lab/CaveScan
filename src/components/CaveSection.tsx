@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Calendar, Euro, Loader2, Plus, Minus, Wine, Tag, Grid2x2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { type BottleWithZone } from '@/lib/types'
+import { type BottleWithZone, volumeLabel } from '@/lib/types'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
 import { openBottle } from '@/lib/bottleActions'
 
@@ -173,7 +173,7 @@ export function CaveSection({ bottle, onRefetch, groupBottleIds }: CaveSectionPr
               >
                 <Plus className="h-3.5 w-3.5" />
               </button>
-              <span className="text-[11px] text-[var(--text-muted)]">btl</span>
+              <span className="text-[11px] text-[var(--text-muted)]">{volumeLabel(bottle.volume_l)}</span>
             </div>
           </div>
           {/* Emplacement */}

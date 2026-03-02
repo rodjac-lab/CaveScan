@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useBottles } from '@/hooks/useBottles'
 import { useZones } from '@/hooks/useZones'
-import { type WineColor, type BottleWithZone } from '@/lib/types'
+import { type WineColor, type BottleWithZone, volumeLabel } from '@/lib/types'
 
 type FilterType = WineColor | null
 
@@ -336,7 +336,7 @@ export default function Home() {
                     {/* Quantity */}
                     <div className="flex-shrink-0 text-right">
                       <span className="font-serif text-[15px] font-semibold text-[var(--text-primary)]">{group.quantity}</span>
-                      <span className="ml-0.5 text-[10px] text-[var(--text-muted)]">btl</span>
+                      <span className="ml-0.5 text-[10px] text-[var(--text-muted)]">{volumeLabel(group.volumeL)}</span>
                     </div>
                   </div>
                 </Link>
