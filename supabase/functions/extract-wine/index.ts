@@ -22,13 +22,63 @@ const EXTRACTION_PROMPT = `Analyse cette photo d'étiquette de vin et extrais le
   "serving_temperature": "16-18°C" ou null,
   "typical_aromas": ["arôme1", "arôme2", "arôme3"] ou null,
   "food_pairings": ["accord1", "accord2"] ou null,
-  "character": "description courte du caractère du vin (1-2 phrases)" ou null
+  "character": "commentaire sommelier (1-2 phrases)" ou null
 }
 
 Si une information n'est pas visible sur l'étiquette, utilise null.
 La cuvée est le nom spécifique du vin, distinct du domaine et de l'appellation. Par exemple pour "Chartogne Taillet Orizeaux Champagne", le domaine est "Chartogne Taillet", la cuvée est "Orizeaux", et l'appellation est "Champagne".
 Pour la couleur, déduis-la de l'appellation si elle n'est pas explicite.
-Pour grape_varieties, serving_temperature, typical_aromas, food_pairings et character : déduis ces informations à partir de tes connaissances sur ce vin, son appellation et son cépage, même si elles ne sont pas sur l'étiquette.
+
+# Champs enrichis — Repères de dégustation
+
+Déduis les champs suivants à partir de tes connaissances œnologiques.
+La PRÉCISION est prioritaire sur l'originalité.
+
+## Niveau de connaissance
+- Si tu connais CE DOMAINE spécifiquement, base tes réponses sur son style propre et précise-le dans character.
+- Si tu ne connais que l'appellation, donne les infos typiques de l'appellation. Ne fais PAS semblant de connaître le domaine.
+
+## grape_varieties
+Cépages réels de cette appellation (ou de ce domaine si tu le connais).
+Ne jamais inventer. En cas de doute, donne les cépages typiques de l'appellation.
+
+## serving_temperature
+Température de service adaptée au type de vin :
+- Rouges légers (Beaujolais, Pinot Noir léger) : 14-15°C
+- Rouges moyens (Bourgogne, Loire rouge) : 15-16°C
+- Rouges charpentés (Bordeaux, Rhône, Madiran) : 16-18°C
+- Blancs légers/vifs (Muscadet, Picpoul, Entre-deux-Mers) : 8-10°C
+- Blancs secs aromatiques (Savoie, Alsace, Loire, Chablis) : 10-12°C
+- Blancs amples/boisés (Meursault, Condrieu, Hermitage blanc) : 12-14°C
+- Rosés : 10-12°C
+- Champagne/Bulles : 8-10°C
+- Liquoreux (Sauternes, Banyuls) : 8-10°C
+
+## typical_aromas
+Arômes typiques du vin. Sois PRÉCIS et DESCRIPTIF :
+- Utilise des familles aromatiques détaillées : "fruits à chair blanche" plutôt que juste "fruité", "agrumes (citron, pamplemousse)" plutôt que juste "agrumes".
+- Donne 3-5 descripteurs qui permettent vraiment d'imaginer le vin.
+- Tiens compte du MILLÉSIME si présent :
+  - Vin jeune (< 5 ans) : arômes primaires (fruits frais, fleurs, herbes)
+  - Vin en développement (5-10 ans) : arômes secondaires (fruits confits, épices douces, miel)
+  - Vin mature (> 10 ans) : arômes tertiaires (cuir, truffe, tabac, terre humide)
+
+## food_pairings
+2-3 accords mets pertinents. Règles strictes :
+- JAMAIS de rouge tannique sur poisson (tanins = goût métallique)
+- Champagne/bulles = joker universel (huîtres, poulet, pizza, apéro)
+- Privilégie les accords régionaux (Tartiflette + Roussette de Savoie, Magret + Madiran)
+- Ose un accord créatif si pertinent (Curry thaï + Gewurztraminer)
+
+## character
+Commentaire de sommelier en 1-2 phrases avec du CARACTÈRE.
+Parle comme un ami sommelier : direct, opinioné, utile.
+- Si tu connais le domaine : parle de son style.
+- Si tu ne le connais pas : commente l'appellation/millésime avec honnêteté.
+- Mentionne si le vin gagne à être carafé ou s'il est prêt à boire.
+- NE JAMAIS inventer un style de domaine que tu ne connais pas.
+- Reste FACTUEL sur le potentiel de garde. Ne promets pas qu'un vin "gagnera en complexité" sauf si tu es CERTAIN que ce type de vin vieillit bien (Grands Bourgognes, Bordeaux classés, etc.). Un vin simple ou de consommation rapide, dis-le franchement : "à boire dans sa jeunesse", "profite de sa fraîcheur maintenant".
+
 Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
 
 const CORS_HEADERS = {
