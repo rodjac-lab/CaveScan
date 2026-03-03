@@ -172,6 +172,11 @@ export function selectRelevantMemories(
 /**
  * Formats selected memories into a compact text block for the sommelier prompt.
  */
+function ratingStars(rating: number | null): string {
+  if (!rating) return ''
+  return '★'.repeat(rating) + '☆'.repeat(5 - rating)
+}
+
 export function serializeMemoriesForPrompt(memories: Bottle[]): string {
   if (memories.length === 0) return ''
 
@@ -185,12 +190,20 @@ export function serializeMemoriesForPrompt(memories: Bottle[]): string {
       const date = new Date(b.drunk_at)
       parts.push(`dégusté le: ${date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`)
     }
-    if (b.rating) parts.push(`note: ${b.rating}/5`)
+    if (b.rating) parts.push(`${ratingStars(b.rating)}`)
     if (tags?.sentiment) parts.push(`sentiment: ${tags.sentiment}`)
     if (tags?.maturite) parts.push(`maturité: ${tags.maturite}`)
-    if (tags?.plats?.length) parts.push(`plats: ${tags.plats.join(', ')}`)
+
+    // Accord vécu : plat + note + occasion en un bloc lisible
+    if (tags?.plats?.length) {
+      const stars = b.rating ? ` ${ratingStars(b.rating)}` : ''
+      const occasion = tags.occasion ? ` (${tags.occasion})` : ''
+      parts.push(`accord vécu : ${tags.plats.join(', ')}${stars}${occasion}`)
+    } else if (tags?.occasion) {
+      parts.push(`occasion: ${tags.occasion}`)
+    }
+
     if (tags?.descripteurs?.length) parts.push(`descripteurs: ${tags.descripteurs.join(', ')}`)
-    if (tags?.occasion) parts.push(`occasion: ${tags.occasion}`)
     if (tags?.keywords?.length) parts.push(`mots-clés: ${tags.keywords.join(', ')}`)
 
     // Fallback: include raw note snippet if no tags
