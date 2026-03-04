@@ -50,6 +50,7 @@ interface RecommendationCard {
 
 interface ProviderResult {
   provider: string
+  text: string
   cards: RecommendationCard[]
 }
 
@@ -78,13 +79,15 @@ function stripMarkdownCodeBlock(text: string): string {
   return result
 }
 
-function parseAndValidate(text: string): RecommendationCard[] {
-  const jsonText = stripMarkdownCodeBlock(text)
-  const data = JSON.parse(jsonText) as { cards: RecommendationCard[] }
-  if (!data.cards || !Array.isArray(data.cards)) {
-    throw new Error('Invalid response structure: missing cards array')
+function parseAndValidate(raw: string): { text: string; cards: RecommendationCard[] } {
+  const jsonText = stripMarkdownCodeBlock(raw)
+  const data = JSON.parse(jsonText) as { text?: string; cards?: RecommendationCard[] }
+  const text = typeof data.text === 'string' ? data.text : ''
+  const cards = Array.isArray(data.cards) ? data.cards : []
+  if (!text && cards.length === 0) {
+    throw new Error('Invalid response: neither text nor cards present')
   }
-  return data.cards
+  return { text, cards }
 }
 
 // === PROMPT BUILDERS ===
@@ -131,6 +134,27 @@ Tu es le sommelier personnel de l'utilisateur. Tu as du caractère, des opinions
 ## Format de sortie
 Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après :
 {
+  "text": "Ta réponse conversationnelle (TOUJOURS présent). Court (1 phrase) quand des cards suivent. Plus développé (2-4 phrases) pour les réponses texte seul.",
+  "cards": [...]  // UNIQUEMENT si tu recommandes des vins concrets. null ou absent sinon.
+}
+
+Quand mettre des cards :
+- L'utilisateur demande une recommandation → text d'intro + cards
+- L'utilisateur demande "ce soir", un accord mets/vin, un style → text + cards
+
+Quand répondre en texte seul (pas de cards) :
+- Question sur le vin (cépage, conservation, température...) → text explicatif
+- Question sur ce que tu peux faire → text de présentation
+- Sujet hors-vin (météo, recette...) → text poli de refus : "Je suis ton sommelier, je m'occupe du vin et de ta cave !"
+- Question vague sans besoin de recommandation → text conversationnel
+
+Le champ "text" sert d'INTRODUCTION aux cards quand il y en a (1 phrase max, va droit au but).
+Le champ "text" porte la RÉPONSE COMPLÈTE quand il n'y a pas de cards.
+Pas d'exclamation inutile ("Ah !", "Oh !") en début de réponse. Commence directement par le contenu.
+
+Exemple avec cards :
+{
+  "text": "Pour du poulet rôti, je te propose ces accords :",
   "cards": [
     {
       "bottle_id": "abc12345",
@@ -141,6 +165,11 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après :
       "color": "rouge"
     }
   ]
+}
+
+Exemple sans cards :
+{
+  "text": "Un cépage, c'est la variété de raisin utilisée pour faire le vin. Le Pinot Noir, le Chardonnay, le Merlot sont des cépages. Chacun donne au vin son caractère unique !"
 }
 
 Valeurs possibles pour badge : "De ta cave", "Découverte", "Accord parfait", "Audacieux"
@@ -243,8 +272,8 @@ async function callGemini(systemPrompt: string, userPrompt: string): Promise<Pro
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text
   if (!text) throw new Error('No text response from Gemini')
 
-  const cards = parseAndValidate(text)
-  return { provider: 'gemini/2.5-flash', cards }
+  const parsed = parseAndValidate(text)
+  return { provider: 'gemini/2.5-flash', text: parsed.text, cards: parsed.cards }
 }
 
 async function callClaude(systemPrompt: string, userPrompt: string): Promise<ProviderResult> {
@@ -279,8 +308,8 @@ async function callClaude(systemPrompt: string, userPrompt: string): Promise<Pro
   const textContent = result.content?.find((c: { type: string; text?: string }) => c.type === 'text')
   if (!textContent?.text) throw new Error('No text response from Claude')
 
-  const cards = parseAndValidate(textContent.text)
-  return { provider: `claude/${CLAUDE_MODEL}`, cards }
+  const parsed = parseAndValidate(textContent.text)
+  return { provider: `claude/${CLAUDE_MODEL}`, text: parsed.text, cards: parsed.cards }
 }
 
 // === FALLBACK ===
@@ -328,10 +357,10 @@ Deno.serve(async (req) => {
     const systemPrompt = buildSystemPrompt()
     const userPrompt = buildUserPrompt(body)
 
-    const { provider, cards } = await recommendWithFallback(systemPrompt, userPrompt)
-    console.log(`[recommend-wine] Done by ${provider}`)
+    const result = await recommendWithFallback(systemPrompt, userPrompt)
+    console.log(`[recommend-wine] Done by ${result.provider}: ${result.cards.length} cards, text=${result.text.length}ch`)
 
-    return new Response(JSON.stringify({ cards }), {
+    return new Response(JSON.stringify({ text: result.text, cards: result.cards }), {
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     })
   } catch (error) {

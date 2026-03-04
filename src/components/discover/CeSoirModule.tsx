@@ -73,6 +73,22 @@ function SparkleIcon() {
   )
 }
 
+// --- Typing indicator ---
+
+function TypingDots() {
+  return (
+    <span className="inline-flex items-center gap-[3px]">
+      {[0, 0.15, 0.3].map((delay, i) => (
+        <span
+          key={i}
+          className="w-[5px] h-[5px] rounded-full bg-[var(--text-muted)]"
+          style={{ animation: `typingDot 1.4s ease-in-out ${delay}s infinite` }}
+        />
+      ))}
+    </span>
+  )
+}
+
 // --- Constants ---
 
 const PRIMARY_ACTIONS: Array<{ label: string; hint: string }> = [
@@ -123,11 +139,6 @@ function buildGreeting(): string {
   if (hour < 12) return 'Bonjour ! Comment puis-je t\'aider ?'
   if (hour < 18) return 'Bon après-midi ! Comment puis-je t\'aider ?'
   return 'Bonsoir ! Comment puis-je t\'aider ?'
-}
-
-function buildResponseText(query: string | null): string {
-  if (query) return `Pour « ${query} », voici ce que je te recommande :`
-  return `Voici mes suggestions pour ce soir :`
 }
 
 function volumeLabel(vol: string): string {
@@ -328,7 +339,7 @@ function CelestinBubble({ message, onCardTap, onWineValidate, onWineModify, onCh
   onWineModify?: (action: WineActionData) => void
   onChipClick?: (chip: ActionChip) => void
 }) {
-  const hasCarousel = (message.cards && message.cards.length > 0) || message.isLoading
+  const hasCarousel = message.cards && message.cards.length > 0
 
   return (
     <div>
@@ -339,7 +350,7 @@ function CelestinBubble({ message, onCardTap, onWineValidate, onWineModify, onCh
         <div className="flex-1 min-w-0">
           <div className="bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm rounded-[14px] rounded-tl-[4px] px-3.5 py-2.5 inline-block max-w-full">
             <p className="font-serif italic text-[13px] text-[var(--text-primary)] leading-relaxed">
-              {message.text}
+              {message.isLoading ? <TypingDots /> : message.text}
             </p>
           </div>
           {message.actionChips && message.actionChips.length > 0 && onChipClick && (
@@ -406,7 +417,7 @@ export default function CeSoirModule() {
     [submittedQuery, refinementHint]
   )
 
-  const { cards, loading, refreshing, error } = useRecommendations('generic', effectiveQuery)
+  const { cards, text: llmText, loading, refreshing, error } = useRecommendations('generic', effectiveQuery)
 
   // Chat state
   const greeting = useMemo(() => buildGreeting(), [])
@@ -451,7 +462,7 @@ export default function CeSoirModule() {
     if (chip.id === 'open') {
       const cachedCards = cards.length > 0 ? cards : undefined
       appendChipResponse(chip.label, {
-        text: buildResponseText(null),
+        text: cachedCards ? (llmText || 'Voici mes suggestions\u00a0:') : '\u2026',
         cards: cachedCards,
         isLoading: !cachedCards,
       })
@@ -467,14 +478,14 @@ export default function CeSoirModule() {
   }
 
   // Helper: add user bubble + Celestin loading bubble in one batch
-  function addLoadingResponse(userText: string, responseText: string) {
+  function addLoadingResponse(userText: string) {
     setMessages(prev => {
       // Remove any existing loading bubbles (user changed their mind)
       const filtered = prev.filter(m => !m.isLoading)
       return [
         ...filtered,
         { id: genMsgId(), role: 'user' as const, text: userText },
-        { id: genMsgId(), role: 'celestin' as const, text: responseText, isLoading: true },
+        { id: genMsgId(), role: 'celestin' as const, text: '\u2026', isLoading: true },
       ]
     })
     scrollToBottom()
@@ -491,17 +502,12 @@ export default function CeSoirModule() {
     // Still loading initial data
     if (isFirstLoad.current) return
 
-    // When the hook has settled, replace any loading bubble with real cards
+    // When the hook has settled, replace any loading bubble with real content
     if (!loading && !refreshing) {
       setMessages(prev => {
         const hasLoading = prev.some(m => m.isLoading)
         if (!hasLoading) return prev // no-op: avoids unnecessary re-render
 
-        if (cards.length > 0) {
-          return prev.map(m =>
-            m.isLoading ? { ...m, cards, isLoading: false } : m
-          )
-        }
         if (error) {
           return prev.map(m =>
             m.isLoading
@@ -509,11 +515,28 @@ export default function CeSoirModule() {
               : m
           )
         }
+
+        // LLM responded: use its text + optional cards
+        const resolvedText = llmText || undefined
+        const resolvedCards = cards.length > 0 ? cards : undefined
+
+        if (resolvedText || resolvedCards) {
+          return prev.map(m =>
+            m.isLoading
+              ? {
+                  ...m,
+                  text: resolvedText || m.text,
+                  cards: resolvedCards,
+                  isLoading: false,
+                }
+              : m
+          )
+        }
         return prev
       })
       scrollToBottom()
     }
-  }, [cards, loading, refreshing, error, scrollToBottom])
+  }, [cards, llmText, loading, refreshing, error, scrollToBottom])
 
   // --- Assistant handler ---
 
@@ -603,8 +626,7 @@ export default function CeSoirModule() {
     // Sommelier flow
     if (text === submittedQuery) return
 
-    const responseText = buildResponseText(text)
-    addLoadingResponse(text, responseText)
+    addLoadingResponse(text)
     setSubmittedQuery(text)
     setActiveRefinement(null)
   }
@@ -612,8 +634,7 @@ export default function CeSoirModule() {
   function toggleRefinement(label: string) {
     // Clicking a refinement chip resets assistant conversation
     resetAssistantConversation()
-    const responseText = buildResponseText(submittedQuery)
-    addLoadingResponse(label, responseText)
+    addLoadingResponse(label)
     setActiveRefinement(prev => prev === label ? null : label)
   }
 
@@ -636,7 +657,7 @@ export default function CeSoirModule() {
     handleWineValidate(action)
   }
 
-  // Show refinement chips only when the latest Celestin message has recommendation cards
+  // Show refinement chips only when the latest Celestin message has recommendation cards (not text-only)
   const lastCelestinMsg = [...messages].reverse().find(m => m.role === 'celestin')
   const showRefinements = !!(lastCelestinMsg && (lastCelestinMsg.cards?.length || lastCelestinMsg.isLoading))
 

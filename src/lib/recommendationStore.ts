@@ -9,7 +9,13 @@ export interface RecommendationCard {
   color: WineColor
 }
 
+export interface RecommendationResponse {
+  text: string | null
+  cards: RecommendationCard[]
+}
+
 interface CacheEntry {
+  text: string | null
   cards: RecommendationCard[]
   fetchedAt: number
 }
@@ -22,18 +28,18 @@ export function buildQueryKey(mode: string, query: string | null): string {
   return `${mode}:${query || 'default'}`
 }
 
-export function getCachedRecommendation(key: string): RecommendationCard[] | null {
+export function getCachedRecommendation(key: string): RecommendationResponse | null {
   const entry = cache[key]
   if (!entry) return null
   if (Date.now() - entry.fetchedAt > TTL_MS) {
     delete cache[key]
     return null
   }
-  return entry.cards
+  return { text: entry.text, cards: entry.cards }
 }
 
-export function setCachedRecommendation(key: string, cards: RecommendationCard[]): void {
-  cache[key] = { cards, fetchedAt: Date.now() }
+export function setCachedRecommendation(key: string, response: RecommendationResponse): void {
+  cache[key] = { text: response.text, cards: response.cards, fetchedAt: Date.now() }
 }
 
 export function clearRecommendationCache(): void {

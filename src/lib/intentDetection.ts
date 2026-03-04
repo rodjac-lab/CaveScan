@@ -15,11 +15,10 @@ const ENCAVER_KEYWORDS = [
 
 const DEGUSTER_KEYWORDS = [
   'dégusté', 'dégustée', 'déguster',
-  'bu', 'bue', 'boire',
-  'ouvert', 'ouverte', 'ouvrir',
-  'goûté', 'goûtée', 'goûter',
-  'hier soir', 'ce midi', 'ce soir',
-  'dîner', 'déjeuner',
+  'bu', 'bue',
+  'ouvert', 'ouverte',
+  'goûté', 'goûtée',
+  'hier soir',
   'on a bu', 'on a ouvert',
   'j\'ai bu', 'j\'ai ouvert',
 ]

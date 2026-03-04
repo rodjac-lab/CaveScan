@@ -9,6 +9,7 @@ import {
   getCachedRecommendation,
   setCachedRecommendation,
   type RecommendationCard,
+  type RecommendationResponse,
 } from '@/lib/recommendationStore'
 import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
 import type { Bottle, TasteProfile } from '@/lib/types'
@@ -78,7 +79,7 @@ async function callRecommendApi(
   rankedForPrompt: RankedBottle[],
   drunkBottles: Bottle[],
   allCaveBottles: Bottle[],
-): Promise<RecommendationCard[]> {
+): Promise<RecommendationResponse> {
   const profileStr = profile ? serializeProfileForPrompt(profile) : ''
   const cave = buildRankedCavePayload(rankedForPrompt)
   const recentDrunk = drunkBottles.slice(0, 5).map(formatDrunkSummary)
@@ -105,7 +106,9 @@ async function callRecommendApi(
   if (error) throw error
   if (data?.error) throw new Error(data.error)
 
-  return resolveBottleIds(data.cards ?? [], allCaveBottles)
+  const cards = resolveBottleIds(data.cards ?? [], allCaveBottles)
+  const text: string | null = typeof data.text === 'string' ? data.text : null
+  return { text, cards }
 }
 
 // === Prefetch (fire-and-forget, called from AppLayout) ===
@@ -141,8 +144,8 @@ export async function prefetchDefaultRecommendations(): Promise<void> {
       : null
 
     const ranked = rankCaveBottles('generic', null, caveBottles, drunkBottles, profile, 24)
-    const cards = await callRecommendApi('generic', null, profile, ranked, drunkBottles, caveBottles)
-    setCachedRecommendation(queryKey, cards)
+    const response = await callRecommendApi('generic', null, profile, ranked, drunkBottles, caveBottles)
+    setCachedRecommendation(queryKey, response)
     console.log('[prefetch] Default recommendations cached')
   } catch (err) {
     // Fire-and-forget: don't crash, the hook will retry on page visit
@@ -158,11 +161,13 @@ export function useRecommendations(
   query: string | null
 ): {
   cards: RecommendationCard[]
+  text: string | null
   loading: boolean
   refreshing: boolean
   error: string | null
 } {
   const [cards, setCards] = useState<RecommendationCard[]>([])
+  const [text, setText] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -198,7 +203,8 @@ export function useRecommendations(
 
     // --- Cache hit → display and STOP ---
     if (cached) {
-      setCards(cached)
+      setCards(cached.cards)
+      setText(cached.text)
       setLoading(false)
       setRefreshing(false)
       setError(null)
@@ -214,6 +220,7 @@ export function useRecommendations(
     const localCards = buildLocalRecommendationCards(ranked, query)
 
     setCards(localCards.length > 0 ? localCards : FALLBACK_CARDS)
+    setText(null) // No LLM text for local cards
     setLoading(false)
     setError(null)
 
@@ -229,10 +236,11 @@ export function useRecommendations(
     const currentRequestId = ++requestIdRef.current
 
     callRecommendApi(mode, query, prof, ranked, drunk, cave)
-      .then((resolved) => {
+      .then((response) => {
         if (currentRequestId !== requestIdRef.current) return
-        setCachedRecommendation(queryKey, resolved)
-        setCards(resolved)
+        setCachedRecommendation(queryKey, response)
+        setCards(response.cards)
+        setText(response.text)
         setError(null)
       })
       .catch((err) => {
@@ -247,5 +255,5 @@ export function useRecommendations(
       })
   }, [baseDataReady, mode, query])
 
-  return { cards, loading, refreshing, error }
+  return { cards, text, loading, refreshing, error }
 }
