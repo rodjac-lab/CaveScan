@@ -357,26 +357,29 @@ const RESPONSE_SCHEMA = {
 
 // === PROVIDERS ===
 
-function buildGeminiContents(history: ConversationTurn[], message: string): Array<{ role: string; parts: Array<{ text: string }> }> {
-  const contents: Array<{ role: string; parts: Array<{ text: string }> }> = []
-  for (const turn of history) {
-    contents.push({
-      role: turn.role === 'user' ? 'user' : 'model',
-      parts: [{ text: turn.text }],
-    })
+function extractErrorMessage(errorText: string): string {
+  try {
+    const parsed = JSON.parse(errorText)
+    return parsed.error?.message || errorText
+  } catch {
+    return errorText
   }
+}
+
+function buildGeminiContents(history: ConversationTurn[], message: string): Array<{ role: string; parts: Array<{ text: string }> }> {
+  const contents: Array<{ role: string; parts: Array<{ text: string }> }> = history.map((turn) => ({
+    role: turn.role === 'user' ? 'user' : 'model',
+    parts: [{ text: turn.text }],
+  }))
   contents.push({ role: 'user', parts: [{ text: message }] })
   return contents
 }
 
 function buildClaudeMessages(history: ConversationTurn[], message: string): Array<{ role: string; content: string }> {
-  const messages: Array<{ role: string; content: string }> = []
-  for (const turn of history) {
-    messages.push({
-      role: turn.role === 'user' ? 'user' : 'assistant',
-      content: turn.text,
-    })
-  }
+  const messages: Array<{ role: string; content: string }> = history.map((turn) => ({
+    role: turn.role === 'user' ? 'user' : 'assistant',
+    content: turn.text,
+  }))
   messages.push({ role: 'user', content: message })
   return messages
 }
@@ -408,13 +411,7 @@ async function callGemini(systemPrompt: string, userPrompt: string, history: Con
   })
 
   if (!response.ok) {
-    const errorText = await response.text()
-    let message = errorText
-    try {
-      const parsed = JSON.parse(errorText)
-      message = parsed.error?.message || errorText
-    } catch { /* use raw text */ }
-    throw new Error(`Gemini 2.5 Flash (${response.status}): ${message}`)
+    throw new Error(`Gemini 2.5 Flash (${response.status}): ${extractErrorMessage(await response.text())}`)
   }
 
   const result = await response.json()
@@ -447,13 +444,7 @@ async function callClaude(systemPrompt: string, userPrompt: string, history: Con
   })
 
   if (!response.ok) {
-    const errorText = await response.text()
-    let message = errorText
-    try {
-      const parsed = JSON.parse(errorText)
-      message = parsed.error?.message || errorText
-    } catch { /* use raw text */ }
-    throw new Error(`Claude ${CLAUDE_MODEL} (${response.status}): ${message}`)
+    throw new Error(`Claude ${CLAUDE_MODEL} (${response.status}): ${extractErrorMessage(await response.text())}`)
   }
 
   const result = await response.json()

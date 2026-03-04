@@ -6,24 +6,10 @@ import {
   getCachedRecommendation,
   setCachedRecommendation,
 } from '@/lib/recommendationStore'
+import type { RecommendationCard } from '@/lib/recommendationStore'
 import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
+import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
 import type { Bottle, TasteProfile } from '@/lib/types'
-
-function getSeason(): string {
-  const month = new Date().getMonth()
-  if (month >= 2 && month <= 4) return 'printemps'
-  if (month >= 5 && month <= 7) return 'été'
-  if (month >= 8 && month <= 10) return 'automne'
-  return 'hiver'
-}
-
-function getDayOfWeek(): string {
-  return new Date().toLocaleDateString('fr-FR', { weekday: 'long' })
-}
-
-function formatDrunkSummary(b: Bottle): string {
-  return [b.domaine, b.appellation, b.millesime].filter(Boolean).join(' ')
-}
 
 // === Prefetch (fire-and-forget, called from AppLayout) ===
 
@@ -91,12 +77,8 @@ export async function prefetchDefaultRecommendations(): Promise<void> {
     if (error) throw error
     if (data?.error) throw new Error(data.error)
 
-    // Resolve bottle IDs
-    const cards = (data.cards ?? []).map((card: { bottle_id?: string; name: string; appellation: string; badge: string; reason: string; color: string }) => {
-      if (!card.bottle_id) return card
-      const match = caveBottles.find((b) => b.id.startsWith(card.bottle_id!))
-      return match ? { ...card, bottle_id: match.id } : card
-    })
+    // Resolve bottle IDs (short 8-char → full UUID)
+    const cards = resolveBottleIds((data.cards ?? []) as RecommendationCard[], caveBottles)
 
     const text: string | null = typeof data.text === 'string' ? data.text : null
     setCachedRecommendation(queryKey, { text, cards })

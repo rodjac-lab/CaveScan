@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useMemo, useCallback, type PointerEvent as ReactPointerEvent } from 'react'
+import { useRef, useState, useEffect, useCallback, type PointerEvent as ReactPointerEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
@@ -8,6 +8,7 @@ import { serializeProfileForPrompt } from '@/lib/taste-profile'
 import { rankCaveBottles } from '@/lib/recommendationRanking'
 import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
 import { getCachedRecommendation, buildQueryKey } from '@/lib/recommendationStore'
+import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
 import type { RecommendationCard } from '@/lib/recommendationStore'
 import type { WineColor, BottleVolumeOption } from '@/lib/types'
 
@@ -52,17 +53,6 @@ interface CelestinResponse {
   cards?: RecommendationCard[] | null
   extraction?: WineActionData['extraction'] | null
   intent_hint?: 'add' | 'log' | null
-}
-
-interface CaveBottleSummary {
-  id: string
-  domaine: string | null
-  appellation: string | null
-  millesime: number | null
-  couleur: string | null
-  character: string | null
-  cuvee: string | null
-  local_score: number
 }
 
 // --- Icons ---
@@ -162,21 +152,6 @@ function genMsgId(): string {
   return `msg-${nextMsgId++}`
 }
 
-function getSeason(): string {
-  const month = new Date().getMonth()
-  if (month >= 2 && month <= 4) return 'printemps'
-  if (month >= 5 && month <= 7) return 'été'
-  if (month >= 8 && month <= 10) return 'automne'
-  return 'hiver'
-}
-
-function getDayOfWeek(): string {
-  return new Date().toLocaleDateString('fr-FR', { weekday: 'long' })
-}
-
-function formatDrunkSummary(b: { domaine: string | null; appellation: string | null; millesime: number | null }): string {
-  return [b.domaine, b.appellation, b.millesime].filter(Boolean).join(' ')
-}
 
 // --- Card sub-components ---
 
@@ -423,30 +398,19 @@ function UserBubble({ message }: { message: ChatMessage }) {
   )
 }
 
-// --- Bottle ID resolution ---
-
-function resolveBottleIds(cards: RecommendationCard[], bottles: { id: string }[]): RecommendationCard[] {
-  return cards.map((card) => {
-    if (!card.bottle_id) return card
-    const match = bottles.find((b) => b.id.startsWith(card.bottle_id!))
-    return match ? { ...card, bottle_id: match.id } : card
-  })
-}
-
 // --- Main Component ---
 
 export default function CeSoirModule() {
   const navigate = useNavigate()
 
   // Data hooks
-  const { bottles: caveBottles, loading: cavesLoading } = useBottles()
-  const { bottles: drunkBottles, loading: drunkLoading } = useRecentlyDrunk()
+  const { bottles: caveBottles } = useBottles()
+  const { bottles: drunkBottles } = useRecentlyDrunk()
   const { profile } = useTasteProfile()
 
   // Chat state — single source of truth
-  const greeting = useMemo(() => buildGreeting(), [])
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    { id: genMsgId(), role: 'celestin', text: greeting, actionChips: WELCOME_CHIPS }
+    { id: genMsgId(), role: 'celestin', text: buildGreeting(), actionChips: WELCOME_CHIPS }
   ])
   const [queryInput, setQueryInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -468,16 +432,6 @@ export default function CeSoirModule() {
     })
   }, [])
 
-  // Show prefetched cards on first load (if available)
-  const prefetchApplied = useRef(false)
-  useEffect(() => {
-    if (prefetchApplied.current || cavesLoading || drunkLoading) return
-    prefetchApplied.current = true
-
-    // Check if prefetch has cards ready — don't show them proactively
-    // They'll be shown when user clicks "Ouvrir une bouteille" or asks
-  }, [cavesLoading, drunkLoading])
-
   // --- Build context for the edge function ---
 
   function buildRequestBody(message: string) {
@@ -487,7 +441,7 @@ export default function CeSoirModule() {
 
     // Rank cave bottles locally for the LLM
     const ranked = rankCaveBottles('generic', null, cave, drunk, prof, 24)
-    const caveSummary: CaveBottleSummary[] = ranked.map(({ bottle, score }) => ({
+    const caveSummary = ranked.map(({ bottle, score }) => ({
       id: bottle.id.substring(0, 8),
       domaine: bottle.domaine,
       appellation: bottle.appellation,
@@ -676,10 +630,6 @@ export default function CeSoirModule() {
     navigate(route, { state })
   }
 
-  function handleWineModify(action: WineActionData) {
-    handleWineValidate(action)
-  }
-
   // Show refinement chips only when the latest Celestin message has recommendation cards
   const lastCelestinMsg = [...messages].reverse().find(m => m.role === 'celestin')
   const showRefinements = !!(lastCelestinMsg && (lastCelestinMsg.cards?.length || lastCelestinMsg.isLoading))
@@ -696,7 +646,7 @@ export default function CeSoirModule() {
                 message={msg}
                 onCardTap={setExpandedCard}
                 onWineValidate={handleWineValidate}
-                onWineModify={handleWineModify}
+                onWineModify={handleWineValidate}
                 onChipClick={handleChipClick}
               />
             ) : (
