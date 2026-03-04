@@ -439,8 +439,8 @@ export default function CeSoirModule() {
     const drunk = drunkRef.current
     const prof = profileRef.current
 
-    // Rank cave bottles locally for the LLM
-    const ranked = rankCaveBottles('generic', null, cave, drunk, prof, 24)
+    // Rank cave bottles locally for the LLM (send all, ranked by relevance to message)
+    const ranked = rankCaveBottles('generic', message, cave, drunk, prof, cave.length)
     const caveSummary = ranked.map(({ bottle, score }) => ({
       id: bottle.id.substring(0, 8),
       domaine: bottle.domaine,
