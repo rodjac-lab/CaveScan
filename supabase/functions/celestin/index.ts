@@ -28,6 +28,8 @@ interface CaveBottle {
   couleur: string | null
   character: string | null
   cuvee: string | null
+  quantity?: number
+  volume?: string
   local_score?: number
 }
 
@@ -293,9 +295,12 @@ function buildUserPrompt(body: RequestBody): string {
       const label = [b.domaine, b.cuvee, b.appellation, b.millesime, b.couleur]
         .filter(Boolean)
         .join(' · ')
+      const qty = b.quantity ?? 1
+      const vol = b.volume === '0.375' ? 'demi' : b.volume === '1.5' ? 'magnum' : 'btl'
+      const qtyStr = `${qty}× ${vol}`
       const extra = b.character ? ` — ${b.character}` : ''
       const localScore = typeof b.local_score === 'number' ? ` | score_local=${b.local_score}` : ''
-      parts.push(`- [${b.id}] ${label}${extra}${localScore}`)
+      parts.push(`- [${b.id}] ${label} | ${qtyStr}${extra}${localScore}`)
     }
   } else {
     parts.push('\nCave vide — propose uniquement des decouvertes.')

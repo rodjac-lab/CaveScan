@@ -449,6 +449,8 @@ export default function CeSoirModule() {
       couleur: bottle.couleur,
       character: bottle.character,
       cuvee: bottle.cuvee,
+      quantity: bottle.quantity ?? 1,
+      volume: bottle.volume_l ?? '0.75',
       local_score: Math.round(score * 100) / 100,
     }))
 
