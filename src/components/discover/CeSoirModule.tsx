@@ -398,6 +398,9 @@ function UserBubble({ message }: { message: ChatMessage }) {
   )
 }
 
+// --- Conversation persistence across tab switches ---
+let persistedMessages: ChatMessage[] | null = null
+
 // --- Main Component ---
 
 export default function CeSoirModule() {
@@ -408,10 +411,11 @@ export default function CeSoirModule() {
   const { bottles: drunkBottles } = useRecentlyDrunk()
   const { profile } = useTasteProfile()
 
-  // Chat state — single source of truth
-  const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    { id: genMsgId(), role: 'celestin', text: buildGreeting(), actionChips: WELCOME_CHIPS }
-  ])
+  // Chat state — single source of truth, survives tab navigation
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    persistedMessages ?? [{ id: genMsgId(), role: 'celestin', text: buildGreeting(), actionChips: WELCOME_CHIPS }]
+  )
+  useEffect(() => { persistedMessages = messages }, [messages])
   const [queryInput, setQueryInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [expandedCard, setExpandedCard] = useState<RecommendationCard | null>(null)
