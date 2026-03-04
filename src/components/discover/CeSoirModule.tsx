@@ -1,10 +1,14 @@
 import { useRef, useState, useEffect, useMemo, useCallback, type PointerEvent as ReactPointerEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { useRecommendations } from '@/hooks/useRecommendations'
-import type { RecommendationCard } from '@/lib/recommendationStore'
-import { detectIntent, type ChatIntent } from '@/lib/intentDetection'
 import { supabase } from '@/lib/supabase'
+import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
+import { useTasteProfile } from '@/hooks/useTasteProfile'
+import { serializeProfileForPrompt } from '@/lib/taste-profile'
+import { rankCaveBottles } from '@/lib/recommendationRanking'
+import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
+import { getCachedRecommendation, buildQueryKey } from '@/lib/recommendationStore'
+import type { RecommendationCard } from '@/lib/recommendationStore'
 import type { WineColor, BottleVolumeOption } from '@/lib/types'
 
 // --- Types ---
@@ -41,9 +45,24 @@ interface ChatMessage {
   actionChips?: ActionChip[]
 }
 
-interface ConversationTurn {
-  role: 'user' | 'assistant'
+// Response from the unified celestin edge function
+interface CelestinResponse {
+  type: 'recommend' | 'add_wine' | 'log_tasting' | 'question' | 'conversation'
   text: string
+  cards?: RecommendationCard[] | null
+  extraction?: WineActionData['extraction'] | null
+  intent_hint?: 'add' | 'log' | null
+}
+
+interface CaveBottleSummary {
+  id: string
+  domaine: string | null
+  appellation: string | null
+  millesime: number | null
+  couleur: string | null
+  character: string | null
+  cuvee: string | null
+  local_score: number
 }
 
 // --- Icons ---
@@ -105,13 +124,6 @@ const WELCOME_CHIPS: ActionChip[] = [
 
 // --- Helpers ---
 
-function buildRecommendationQuery(baseQuery: string | null, refinementHint: string | null): string | null {
-  if (!baseQuery && !refinementHint) return null
-  if (!baseQuery && refinementHint) return `Affinage sommelier: ${refinementHint}`
-  if (!refinementHint) return baseQuery
-  return `${baseQuery} | Contraintes: ${refinementHint}`
-}
-
 function colorToBarClass(color: string | null | undefined): string {
   switch (color) {
     case 'rouge': return 'bg-[var(--red-wine)]'
@@ -132,8 +144,6 @@ function badgeToClass(badge: string): string {
   }
 }
 
-// --- Chat helpers ---
-
 function buildGreeting(): string {
   const hour = new Date().getHours()
   if (hour < 12) return 'Bonjour ! Comment puis-je t\'aider ?'
@@ -150,6 +160,22 @@ function volumeLabel(vol: string): string {
 let nextMsgId = 1
 function genMsgId(): string {
   return `msg-${nextMsgId++}`
+}
+
+function getSeason(): string {
+  const month = new Date().getMonth()
+  if (month >= 2 && month <= 4) return 'printemps'
+  if (month >= 5 && month <= 7) return 'été'
+  if (month >= 8 && month <= 10) return 'automne'
+  return 'hiver'
+}
+
+function getDayOfWeek(): string {
+  return new Date().toLocaleDateString('fr-FR', { weekday: 'long' })
+}
+
+function formatDrunkSummary(b: { domaine: string | null; appellation: string | null; millesime: number | null }): string {
+  return [b.domaine, b.appellation, b.millesime].filter(Boolean).join(' ')
 }
 
 // --- Card sub-components ---
@@ -221,7 +247,7 @@ function RecommendationCardItem({ card, onTap }: { card: RecommendationCard; onT
   )
 }
 
-// --- WineActionCard (assistant mode) ---
+// --- WineActionCard (extraction mode) ---
 
 function WineActionCard({ action, onValidate, onModify }: {
   action: WineActionData
@@ -397,267 +423,264 @@ function UserBubble({ message }: { message: ChatMessage }) {
   )
 }
 
+// --- Bottle ID resolution ---
+
+function resolveBottleIds(cards: RecommendationCard[], bottles: { id: string }[]): RecommendationCard[] {
+  return cards.map((card) => {
+    if (!card.bottle_id) return card
+    const match = bottles.find((b) => b.id.startsWith(card.bottle_id!))
+    return match ? { ...card, bottle_id: match.id } : card
+  })
+}
+
 // --- Main Component ---
 
 export default function CeSoirModule() {
   const navigate = useNavigate()
 
-  // Hook state — mode is always 'generic' (user intent is expressed via free text)
-  const [queryInput, setQueryInput] = useState('')
-  const [submittedQuery, setSubmittedQuery] = useState<string | null>(null)
-  const [activeRefinement, setActiveRefinement] = useState<string | null>(null)
+  // Data hooks
+  const { bottles: caveBottles, loading: cavesLoading } = useBottles()
+  const { bottles: drunkBottles, loading: drunkLoading } = useRecentlyDrunk()
+  const { profile } = useTasteProfile()
 
-  const refinementHint = useMemo(
-    () => PRIMARY_ACTIONS.find((item) => item.label === activeRefinement)?.hint ?? activeRefinement,
-    [activeRefinement]
-  )
-
-  const effectiveQuery = useMemo(
-    () => buildRecommendationQuery(submittedQuery, refinementHint ?? null),
-    [submittedQuery, refinementHint]
-  )
-
-  const { cards, text: llmText, loading, refreshing, error } = useRecommendations('generic', effectiveQuery)
-
-  // Chat state
+  // Chat state — single source of truth
   const greeting = useMemo(() => buildGreeting(), [])
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     { id: genMsgId(), role: 'celestin', text: greeting, actionChips: WELCOME_CHIPS }
   ])
+  const [queryInput, setQueryInput] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
   const [expandedCard, setExpandedCard] = useState<RecommendationCard | null>(null)
-
-  // Assistant conversation state
-  const conversationHistoryRef = useRef<ConversationTurn[]>([])
-  const activeIntentRef = useRef<ChatIntent | null>(null)
 
   // Refs
   const threadRef = useRef<HTMLDivElement>(null)
-  const isFirstLoad = useRef(true)
+  const caveRef = useRef(caveBottles)
+  const drunkRef = useRef(drunkBottles)
+  const profileRef = useRef(profile)
+  caveRef.current = caveBottles
+  drunkRef.current = drunkBottles
+  profileRef.current = profile
 
-  // Auto-scroll to bottom of thread
+  // Auto-scroll to bottom
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
       threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: 'smooth' })
     })
   }, [])
 
-  // Reset assistant conversation state
-  const resetAssistantConversation = useCallback(() => {
-    conversationHistoryRef.current = []
-    activeIntentRef.current = null
-  }, [])
-
-  // Append a user bubble + celestin reply, clearing any previous action chips
-  function appendChipResponse(userText: string, celestinMsg: Partial<ChatMessage> & { text: string }) {
-    setMessages(prev => [
-      ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
-      { id: genMsgId(), role: 'user' as const, text: userText },
-      { id: genMsgId(), role: 'celestin' as const, ...celestinMsg },
-    ])
-    scrollToBottom()
-  }
-
-  // Handle welcome action chip click
-  function handleChipClick(chip: ActionChip) {
-    if (chip.id === 'open') {
-      const cachedCards = cards.length > 0 ? cards : undefined
-      appendChipResponse(chip.label, {
-        text: cachedCards ? (llmText || 'Voici mes suggestions\u00a0:') : '\u2026',
-        cards: cachedCards,
-        isLoading: !cachedCards,
-      })
-      if (!cachedCards) setSubmittedQuery('default')
-    } else if (chip.id === 'add') {
-      const question = 'Quel vin as-tu acheté ?'
-      conversationHistoryRef.current = [{ role: 'assistant', text: question }]
-      activeIntentRef.current = 'encaver'
-      appendChipResponse(chip.label, { text: question })
-    } else if (chip.id === 'pairing') {
-      appendChipResponse(chip.label, { text: 'Qu\'est-ce que tu prépares ?' })
-    }
-  }
-
-  // Helper: add user bubble + Celestin loading bubble in one batch
-  function addLoadingResponse(userText: string) {
-    setMessages(prev => {
-      // Remove any existing loading bubbles (user changed their mind)
-      const filtered = prev.filter(m => !m.isLoading)
-      return [
-        ...filtered,
-        { id: genMsgId(), role: 'user' as const, text: userText },
-        { id: genMsgId(), role: 'celestin' as const, text: '\u2026', isLoading: true },
-      ]
-    })
-    scrollToBottom()
-  }
-
-  // Bridge: hook outputs → chat messages
+  // Show prefetched cards on first load (if available)
+  const prefetchApplied = useRef(false)
   useEffect(() => {
-    // First load: prefetch runs in background, don't attach to greeting
-    if (isFirstLoad.current && !loading) {
-      isFirstLoad.current = false
-      return
+    if (prefetchApplied.current || cavesLoading || drunkLoading) return
+    prefetchApplied.current = true
+
+    // Check if prefetch has cards ready — don't show them proactively
+    // They'll be shown when user clicks "Ouvrir une bouteille" or asks
+  }, [cavesLoading, drunkLoading])
+
+  // --- Build context for the edge function ---
+
+  function buildRequestBody(message: string) {
+    const cave = caveRef.current
+    const drunk = drunkRef.current
+    const prof = profileRef.current
+
+    // Rank cave bottles locally for the LLM
+    const ranked = rankCaveBottles('generic', null, cave, drunk, prof, 24)
+    const caveSummary: CaveBottleSummary[] = ranked.map(({ bottle, score }) => ({
+      id: bottle.id.substring(0, 8),
+      domaine: bottle.domaine,
+      appellation: bottle.appellation,
+      millesime: bottle.millesime,
+      couleur: bottle.couleur,
+      character: bottle.character,
+      cuvee: bottle.cuvee,
+      local_score: Math.round(score * 100) / 100,
+    }))
+
+    // Build conversation history from messages
+    const history = messages
+      .filter(m => !m.isLoading && !m.actionChips)
+      .map(m => ({
+        role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+        text: m.text,
+      }))
+
+    // Profile
+    const profileStr = prof ? serializeProfileForPrompt(prof) : undefined
+
+    // Memories
+    const memories = selectRelevantMemories('generic', message, drunk)
+    const memoriesStr = serializeMemoriesForPrompt(memories) || undefined
+
+    // Context
+    const recentDrunk = drunk.slice(0, 5).map(formatDrunkSummary)
+    const context = {
+      dayOfWeek: getDayOfWeek(),
+      season: getSeason(),
+      recentDrunk: recentDrunk.length > 0 ? recentDrunk : undefined,
     }
 
-    // Still loading initial data
-    if (isFirstLoad.current) return
+    return {
+      message,
+      history,
+      cave: caveSummary,
+      profile: profileStr,
+      memories: memoriesStr,
+      context,
+    }
+  }
 
-    // When the hook has settled, replace any loading bubble with real content
-    if (!loading && !refreshing) {
-      setMessages(prev => {
-        const hasLoading = prev.some(m => m.isLoading)
-        if (!hasLoading) return prev // no-op: avoids unnecessary re-render
+  // --- Core submit handler ---
 
-        if (error) {
-          return prev.map(m =>
-            m.isLoading
-              ? { ...m, text: 'Le sommelier est momentanément indisponible. Réessaie dans quelques instants !', isLoading: false }
-              : m
-          )
+  async function callCelestin(message: string, loadingMsgId: string) {
+    try {
+      const body = buildRequestBody(message)
+      const { data, error } = await supabase.functions.invoke('celestin', { body })
+
+      if (error) throw error
+
+      const response = data as CelestinResponse
+
+      // Resolve bottle IDs (short → full)
+      const resolvedCards = response.cards
+        ? resolveBottleIds(response.cards, caveRef.current)
+        : undefined
+
+      // Build the update for the loading bubble
+      const update: Partial<ChatMessage> = { text: response.text, isLoading: false }
+
+      if (response.type === 'recommend' && resolvedCards && resolvedCards.length > 0) {
+        update.cards = resolvedCards
+      } else if ((response.type === 'add_wine' || response.type === 'log_tasting') && response.extraction) {
+        update.wineAction = {
+          intent: response.type === 'add_wine' ? 'encaver' : 'deguster',
+          extraction: response.extraction,
+          summary: response.text,
         }
+      }
+      // question and conversation types: just text, already set
 
-        // LLM responded: use its text + optional cards
-        const resolvedText = llmText ?? undefined
-        const resolvedCards = cards.length > 0 ? cards : undefined
-
-        if (resolvedText || resolvedCards) {
-          return prev.map(m =>
-            m.isLoading
-              ? {
-                  ...m,
-                  text: resolvedText || m.text,
-                  cards: resolvedCards,
-                  isLoading: false,
-                }
-              : m
-          )
-        }
-        return prev
-      })
+      setMessages(prev => prev.map(m => m.id === loadingMsgId ? { ...m, ...update } : m))
+    } catch (err) {
+      console.error('[CeSoirModule] celestin error:', err)
+      setMessages(prev => prev.map(m =>
+        m.id === loadingMsgId
+          ? { ...m, text: 'Désolé, je suis momentanément indisponible. Réessaie !', isLoading: false }
+          : m
+      ))
+    } finally {
+      setIsLoading(false)
       scrollToBottom()
     }
-  }, [cards, llmText, loading, refreshing, error, scrollToBottom])
-
-  // --- Assistant handler ---
-
-  async function handleAssistantSubmit(text: string, intent: 'encaver' | 'deguster') {
-    // Add user bubble + loading bubble
-    const loadingMsgId = genMsgId()
-    setMessages(prev => {
-      const filtered = prev.filter(m => !m.isLoading)
-      return [
-        ...filtered,
-        { id: genMsgId(), role: 'user' as const, text },
-        { id: loadingMsgId, role: 'celestin' as const, text: '\u2026' },
-      ]
-    })
-    scrollToBottom()
-
-    // Update conversation history
-    conversationHistoryRef.current.push({ role: 'user', text })
-    activeIntentRef.current = intent
-
-    // Replace the loading bubble with the final content
-    function resolveLoadingBubble(update: Partial<ChatMessage>) {
-      setMessages(prev => prev.map(m => m.id === loadingMsgId ? { ...m, ...update } : m))
-    }
-
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('celestin-assistant', {
-        body: {
-          message: text,
-          history: conversationHistoryRef.current.slice(0, -1),
-          intent,
-        },
-      })
-
-      if (fnError) throw fnError
-
-      const response = data as {
-        type: 'extraction' | 'question'
-        extraction?: WineActionData['extraction']
-        question?: string
-        summary?: string
-      }
-
-      if (response.type === 'question' && response.question) {
-        conversationHistoryRef.current.push({ role: 'assistant', text: response.question })
-        resolveLoadingBubble({ text: response.question })
-      } else if (response.type === 'extraction' && response.extraction) {
-        const summary = response.summary || 'Voici ce que j\'ai compris :'
-        conversationHistoryRef.current.push({ role: 'assistant', text: summary })
-        resolveLoadingBubble({
-          text: summary,
-          wineAction: { intent, extraction: response.extraction, summary },
-        })
-      } else {
-        resolveLoadingBubble({ text: "Désolé, je n'ai pas bien compris. Peux-tu reformuler ?" })
-      }
-    } catch (err) {
-      console.error('Assistant error:', err)
-      resolveLoadingBubble({ text: "Désolé, je n'ai pas pu traiter ta demande. Réessaie !" })
-    }
-
-    scrollToBottom()
   }
-
-  // --- Handlers ---
 
   function handleQuerySubmit() {
     const text = queryInput.trim()
-    if (text.length < 2) return
+    if (text.length < 2 || isLoading) return
     setQueryInput('')
+    setIsLoading(true)
 
-    // If we're in an active assistant conversation, continue it
-    const activeIntent = activeIntentRef.current
-    if (conversationHistoryRef.current.length > 0 && (activeIntent === 'encaver' || activeIntent === 'deguster')) {
-      void handleAssistantSubmit(text, activeIntent)
-      return
-    }
+    const loadingMsgId = genMsgId()
+    setMessages(prev => {
+      // Remove any existing loading bubbles
+      const filtered = prev.filter(m => !m.isLoading)
+      return [
+        ...filtered.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
+        { id: genMsgId(), role: 'user' as const, text },
+        { id: loadingMsgId, role: 'celestin' as const, text: '\u2026', isLoading: true },
+      ]
+    })
+    scrollToBottom()
 
-    // Detect intent
-    const intent: ChatIntent = detectIntent(text)
-
-    if (intent === 'encaver' || intent === 'deguster') {
-      void handleAssistantSubmit(text, intent)
-      return
-    }
-
-    // Sommelier flow
-    if (text === submittedQuery) return
-
-    addLoadingResponse(text)
-    setSubmittedQuery(text)
-    setActiveRefinement(null)
+    void callCelestin(text, loadingMsgId)
   }
 
-  function toggleRefinement(label: string) {
-    // Clicking a refinement chip resets assistant conversation
-    resetAssistantConversation()
-    addLoadingResponse(label)
-    setActiveRefinement(prev => prev === label ? null : label)
+  // --- Welcome chip handler ---
+
+  function handleChipClick(chip: ActionChip) {
+    if (isLoading) return
+
+    if (chip.id === 'open') {
+      // Try to show prefetched cards immediately
+      const cached = getCachedRecommendation(buildQueryKey('generic', null))
+      const cachedCards = cached?.cards
+      const cachedText = cached?.text
+
+      if (cachedCards && cachedCards.length > 0) {
+        setMessages(prev => [
+          ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
+          { id: genMsgId(), role: 'user' as const, text: chip.label },
+          { id: genMsgId(), role: 'celestin' as const, text: cachedText || 'Voici mes suggestions\u00a0:', cards: cachedCards },
+        ])
+        scrollToBottom()
+      } else {
+        // No cache — ask Celestin
+        setIsLoading(true)
+        const loadingMsgId = genMsgId()
+        setMessages(prev => [
+          ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
+          { id: genMsgId(), role: 'user' as const, text: chip.label },
+          { id: loadingMsgId, role: 'celestin' as const, text: '\u2026', isLoading: true },
+        ])
+        scrollToBottom()
+        void callCelestin('Qu\'est-ce que j\'ouvre ce soir ?', loadingMsgId)
+      }
+    } else if (chip.id === 'add') {
+      // Seed the conversation with encaver context
+      setIsLoading(true)
+      const loadingMsgId = genMsgId()
+      setMessages(prev => [
+        ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
+        { id: genMsgId(), role: 'user' as const, text: chip.label },
+        { id: loadingMsgId, role: 'celestin' as const, text: '\u2026', isLoading: true },
+      ])
+      scrollToBottom()
+      void callCelestin('Je veux ajouter du vin à ma cave', loadingMsgId)
+    } else if (chip.id === 'pairing') {
+      // Ask for the dish
+      setMessages(prev => [
+        ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
+        { id: genMsgId(), role: 'user' as const, text: chip.label },
+        { id: genMsgId(), role: 'celestin' as const, text: 'Qu\'est-ce que tu prépares ?' },
+      ])
+      scrollToBottom()
+    }
+  }
+
+  // --- Refinement chips ---
+
+  function handleRefinement(label: string) {
+    if (isLoading) return
+
+    const hint = PRIMARY_ACTIONS.find(a => a.label === label)?.hint ?? label
+    setIsLoading(true)
+    const loadingMsgId = genMsgId()
+    setMessages(prev => [
+      ...prev.filter(m => !m.isLoading),
+      { id: genMsgId(), role: 'user' as const, text: label },
+      { id: loadingMsgId, role: 'celestin' as const, text: '\u2026', isLoading: true },
+    ])
+    scrollToBottom()
+    void callCelestin(`Affinage sommelier: ${hint}`, loadingMsgId)
   }
 
   // --- Wine action handlers ---
 
   function handleWineValidate(action: WineActionData) {
-    resetAssistantConversation()
-
     const { quantity, volume, ...prefillExtraction } = action.extraction
     const route = action.intent === 'encaver' ? '/add' : '/remove'
     const state = action.intent === 'encaver'
       ? { prefillExtraction, prefillQuantity: quantity, prefillVolume: volume }
       : { prefillExtraction }
-
     navigate(route, { state })
   }
 
   function handleWineModify(action: WineActionData) {
-    // Same navigation but user lands on the form to edit
     handleWineValidate(action)
   }
 
-  // Show refinement chips only when the latest Celestin message has recommendation cards (not text-only)
+  // Show refinement chips only when the latest Celestin message has recommendation cards
   const lastCelestinMsg = [...messages].reverse().find(m => m.role === 'celestin')
   const showRefinements = !!(lastCelestinMsg && (lastCelestinMsg.cards?.length || lastCelestinMsg.isLoading))
 
@@ -685,19 +708,15 @@ export default function CeSoirModule() {
 
       {/* Bottom bar */}
       <div className="flex-shrink-0 border-t border-[var(--border-color)] bg-[var(--background)] px-4 pt-2 pb-2">
-        {/* Refinement chips — only when recommendation cards are visible */}
+        {/* Refinement chips */}
         {showRefinements && (
           <div className="flex items-center gap-1.5 mb-2 overflow-x-auto scrollbar-hide">
             {PRIMARY_ACTIONS.map(action => (
               <button
                 key={action.label}
                 type="button"
-                onClick={() => toggleRefinement(action.label)}
-                className={`h-7 inline-flex items-center justify-center rounded-full px-3 text-[11px] leading-none font-medium border whitespace-nowrap transition-colors ${
-                  activeRefinement === action.label
-                    ? 'bg-[var(--accent-bg)] border-[var(--accent)] text-[var(--accent)]'
-                    : 'bg-transparent border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--accent)]'
-                }`}
+                onClick={() => handleRefinement(action.label)}
+                className="h-7 inline-flex items-center justify-center rounded-full px-3 text-[11px] leading-none font-medium border whitespace-nowrap transition-colors bg-transparent border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--accent)]"
               >
                 {action.label}
               </button>
@@ -724,14 +743,15 @@ export default function CeSoirModule() {
           </div>
           <button
             type="submit"
-            className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-light)] text-white shadow-sm"
+            disabled={isLoading}
+            className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-light)] text-white shadow-sm disabled:opacity-50"
           >
             <SendIcon />
           </button>
         </form>
       </div>
 
-      {/* Expanded card dialog (unchanged) */}
+      {/* Expanded card dialog */}
       <Dialog open={!!expandedCard} onOpenChange={() => setExpandedCard(null)}>
         <DialogContent className="max-w-[340px] rounded-[var(--radius)] p-0 overflow-hidden">
           {expandedCard && (
