@@ -262,6 +262,10 @@ textarea:focus {
   30% { opacity: 1; transform: translateY(-3px); }
 }
 
+.typing-dot {
+  animation: typingDot 1.4s ease-in-out infinite;
+}
+
 /* ===== Scanner Screen ===== */
 
 .scanner-frame-corner {

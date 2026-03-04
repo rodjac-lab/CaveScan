@@ -80,7 +80,9 @@ function stripMarkdownCodeBlock(text: string): string {
 }
 
 function parseAndValidate(raw: string): { text: string; cards: RecommendationCard[] } {
-  const jsonText = stripMarkdownCodeBlock(raw)
+  // Gemini sometimes outputs literal newlines inside JSON string values → invalid JSON.
+  // Replacing all literal newlines with spaces makes the JSON parseable without losing meaning.
+  const jsonText = stripMarkdownCodeBlock(raw).replace(/[\r\n]/g, ' ')
   const data = JSON.parse(jsonText) as { text?: string; cards?: RecommendationCard[] }
   const text = typeof data.text === 'string' ? data.text : ''
   const cards = Array.isArray(data.cards) ? data.cards : []
@@ -254,7 +256,35 @@ async function callGemini(systemPrompt: string, userPrompt: string): Promise<Pro
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: systemPrompt }] },
       contents: [{ parts: [{ text: userPrompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 1500, responseMimeType: 'application/json' },
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 4096,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'OBJECT',
+          properties: {
+            text: { type: 'STRING', description: 'Réponse conversationnelle' },
+            cards: {
+              type: 'ARRAY',
+              nullable: true,
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  bottle_id: { type: 'STRING', nullable: true },
+                  name: { type: 'STRING' },
+                  appellation: { type: 'STRING' },
+                  badge: { type: 'STRING' },
+                  reason: { type: 'STRING' },
+                  color: { type: 'STRING' },
+                },
+                required: ['name', 'appellation', 'badge', 'reason', 'color'],
+              },
+            },
+          },
+          required: ['text'],
+        },
+        thinkingConfig: { thinkingBudget: 0 },
+      },
     }),
   })
 

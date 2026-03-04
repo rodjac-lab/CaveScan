@@ -81,8 +81,8 @@ function TypingDots() {
       {[0, 0.15, 0.3].map((delay, i) => (
         <span
           key={i}
-          className="w-[5px] h-[5px] rounded-full bg-[var(--text-muted)]"
-          style={{ animation: `typingDot 1.4s ease-in-out ${delay}s infinite` }}
+          className="typing-dot w-[5px] h-[5px] rounded-full bg-[var(--text-muted)]"
+          style={{ animationDelay: `${delay}s` }}
         />
       ))}
     </span>
@@ -127,7 +127,7 @@ function badgeToClass(badge: string): string {
     case 'De ta cave': return 'bg-[var(--accent)]'
     case 'Accord parfait': return 'bg-[var(--red-wine)]'
     case 'Audacieux': return 'bg-[var(--champagne)]'
-    case 'Decouverte': return 'bg-[var(--text-muted)]'
+    case 'Découverte': return 'bg-[var(--text-muted)]'
     default: return 'bg-[var(--accent)]'
   }
 }
@@ -517,7 +517,7 @@ export default function CeSoirModule() {
         }
 
         // LLM responded: use its text + optional cards
-        const resolvedText = llmText || undefined
+        const resolvedText = llmText ?? undefined
         const resolvedCards = cards.length > 0 ? cards : undefined
 
         if (resolvedText || resolvedCards) {
