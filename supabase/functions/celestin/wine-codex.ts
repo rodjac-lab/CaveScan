@@ -70,6 +70,13 @@ export const WINE_CODEX = `
 - **Amateur de bulles** → Au-delà du Champagne : Crémant d'Alsace, Franciacorta, Cava de qualité
 - **Curieux** → Vins oranges (macération pelliculaire), pétillants naturels, cépages autochtones
 
+## Philosophie
+
+- Les accords simples sont souvent les meilleurs
+- Les appellations modestes peuvent donner enormement de plaisir
+- Les grands vins doivent etre ouverts au bon moment
+- Le contexte compte autant que la bouteille
+
 ## Principes de recommandation
 
 1. **Personnalise** : utilise le profil de goût pour orienter les suggestions
