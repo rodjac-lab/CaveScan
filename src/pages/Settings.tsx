@@ -266,7 +266,7 @@ export default function Settings() {
               try {
                 const { data: bottles } = await supabase
                   .from('bottles')
-                  .select('id, domaine, cuvee, appellation, millesime, couleur, typical_aromas')
+                  .select('id, domaine, cuvee, appellation, millesime, couleur, grape_varieties, serving_temperature, typical_aromas, food_pairings, character')
                   .is('typical_aromas', null)
                 if (!bottles || bottles.length === 0) {
                   setEnrichStatus('Toutes les bouteilles sont déjà enrichies !')
@@ -281,13 +281,15 @@ export default function Settings() {
                     body: { domaine: b.domaine, cuvee: b.cuvee, appellation: b.appellation, millesime: b.millesime, couleur: b.couleur },
                   })
                   if (fnErr || !data || data.error) { errors++; done++; continue }
-                  await supabase.from('bottles').update({
-                    grape_varieties: data.grape_varieties || null,
-                    serving_temperature: data.serving_temperature || null,
-                    typical_aromas: data.typical_aromas || null,
-                    food_pairings: data.food_pairings || null,
-                    character: data.character || null,
-                  }).eq('id', b.id)
+                  const updates: Record<string, unknown> = {}
+                  if (!b.grape_varieties) updates.grape_varieties = data.grape_varieties || null
+                  if (!b.serving_temperature) updates.serving_temperature = data.serving_temperature || null
+                  if (!b.typical_aromas) updates.typical_aromas = data.typical_aromas || null
+                  if (!b.food_pairings) updates.food_pairings = data.food_pairings || null
+                  if (!b.character) updates.character = data.character || null
+                  if (Object.keys(updates).length > 0) {
+                    await supabase.from('bottles').update(updates).eq('id', b.id)
+                  }
                   done++
                 }
                 setEnrichStatus(`Terminé ! ${done - errors} enrichies, ${errors} erreurs`)
