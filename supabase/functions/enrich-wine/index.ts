@@ -23,15 +23,23 @@ const CORS_HEADERS = {
 }
 
 const RESPONSE_SCHEMA = {
-  type: 'OBJECT',
+  type: 'OBJECT' as const,
   properties: {
-    grape_varieties: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
-    serving_temperature: { type: 'STRING', nullable: true },
-    typical_aromas: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
-    food_pairings: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
-    character: { type: 'STRING', nullable: true },
+    grape_varieties: { type: 'ARRAY' as const, items: { type: 'STRING' as const } },
+    serving_temperature: { type: 'STRING' as const },
+    typical_aromas: { type: 'ARRAY' as const, items: { type: 'STRING' as const } },
+    food_pairings: { type: 'ARRAY' as const, items: { type: 'STRING' as const } },
+    character: { type: 'STRING' as const },
   },
   required: ['grape_varieties', 'serving_temperature', 'typical_aromas', 'food_pairings', 'character'],
+}
+
+function stripMarkdownCodeBlock(text: string): string {
+  let result = text.trim()
+  if (result.startsWith('```')) {
+    result = result.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+  }
+  return result
 }
 
 Deno.serve(async (req) => {
@@ -47,32 +55,39 @@ Deno.serve(async (req) => {
     const description = [domaine, cuvee, appellation, millesime, couleur].filter(Boolean).join(', ')
     if (!description) throw new Error('At least one wine field is required')
 
+    console.log(`Enriching: ${description}`)
+
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
 
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `${ENRICHMENT_PROMPT}\n\nBouteille : ${description}` }] }],
+        contents: [{ parts: [{ text: `${ENRICHMENT_PROMPT}\n\nBouteille : ${description}\n\nRéponds avec ce format JSON exact :\n{"grape_varieties": ["..."], "serving_temperature": "...", "typical_aromas": ["..."], "food_pairings": ["..."], "character": "..."}` }] }],
         generationConfig: {
           temperature: 0,
-          maxOutputTokens: 500,
-          responseMimeType: 'application/json',
-          responseSchema: RESPONSE_SCHEMA,
+          maxOutputTokens: 1500,
         },
       }),
     })
 
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`Gemini (${response.status}): ${errorText}`)
+      console.error(`Gemini error: ${errorText}`)
+      throw new Error(`Gemini (${response.status}): ${errorText.substring(0, 200)}`)
     }
 
     const result = await response.json()
     const text = result.candidates?.[0]?.content?.parts?.[0]?.text
     if (!text) throw new Error('No response from Gemini')
 
-    const data = JSON.parse(text)
+    let jsonText = stripMarkdownCodeBlock(text)
+    // Fix Gemini's unescaped newlines in JSON strings
+    jsonText = jsonText.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ')
+    const data = JSON.parse(jsonText)
+
+    console.log(`Success: ${Object.keys(data).join(', ')}`)
+
     return new Response(JSON.stringify(data), {
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     })
