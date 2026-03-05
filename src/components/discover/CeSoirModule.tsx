@@ -686,15 +686,26 @@ export default function CeSoirModule() {
           className="flex items-center gap-2"
         >
           <div className="relative flex-1">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
+            <div className="absolute left-3 top-2.5 text-[var(--text-muted)]">
               <SearchIcon />
             </div>
-            <input
+            <textarea
               value={queryInput}
-              onChange={(e) => setQueryInput(e.target.value)}
+              onChange={(e) => {
+                setQueryInput(e.target.value)
+                e.target.style.height = 'auto'
+                e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleQuerySubmit()
+                }
+              }}
               placeholder="Poulet rôti, j'ai acheté du vin, envie de bulles..."
               enterKeyHint="send"
-              className="w-full h-10 rounded-full border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-4 text-[13px] placeholder:text-[var(--text-muted)] placeholder:italic"
+              rows={1}
+              className="w-full min-h-10 rounded-[20px] border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-4 py-2.5 text-[13px] placeholder:text-[var(--text-muted)] placeholder:italic resize-none leading-tight"
             />
           </div>
           <button
