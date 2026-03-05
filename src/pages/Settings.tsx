@@ -24,6 +24,8 @@ export default function Settings() {
   const [loggingOut, setLoggingOut] = useState(false)
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null)
   const [backfillRunning, setBackfillRunning] = useState(false)
+  const [enrichStatus, setEnrichStatus] = useState<string | null>(null)
+  const [enrichRunning, setEnrichRunning] = useState(false)
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -254,6 +256,58 @@ export default function Settings() {
         <p className="mb-8 text-center text-[11px] text-[var(--text-muted)]">
           CaveScan v1.0.0 · Reconnaissance d'étiquettes
         </p>
+
+        {/* Backfill enriched wine fields (temporary) */}
+        <section className="mb-4">
+          <button
+            onClick={async () => {
+              setEnrichRunning(true)
+              setEnrichStatus('Chargement des bouteilles...')
+              try {
+                const { data: bottles } = await supabase
+                  .from('bottles')
+                  .select('id, domaine, cuvee, appellation, millesime, couleur, typical_aromas')
+                  .is('typical_aromas', null)
+                if (!bottles || bottles.length === 0) {
+                  setEnrichStatus('Toutes les bouteilles sont déjà enrichies !')
+                  setEnrichRunning(false)
+                  return
+                }
+                let done = 0
+                let errors = 0
+                for (const b of bottles) {
+                  setEnrichStatus(`${done}/${bottles.length} — ${b.domaine || b.appellation || 'vin'}...`)
+                  const { data, error: fnErr } = await supabase.functions.invoke('enrich-wine', {
+                    body: { domaine: b.domaine, cuvee: b.cuvee, appellation: b.appellation, millesime: b.millesime, couleur: b.couleur },
+                  })
+                  if (fnErr || !data || data.error) { errors++; done++; continue }
+                  await supabase.from('bottles').update({
+                    grape_varieties: data.grape_varieties || null,
+                    serving_temperature: data.serving_temperature || null,
+                    typical_aromas: data.typical_aromas || null,
+                    food_pairings: data.food_pairings || null,
+                    character: data.character || null,
+                  }).eq('id', b.id)
+                  done++
+                }
+                setEnrichStatus(`Terminé ! ${done - errors} enrichies, ${errors} erreurs`)
+              } catch (err) {
+                setEnrichStatus(`Erreur: ${err instanceof Error ? err.message : 'inconnue'}`)
+              }
+              setEnrichRunning(false)
+            }}
+            disabled={enrichRunning}
+            className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-3 text-[12px] font-medium text-[var(--text-muted)]"
+          >
+            {enrichRunning ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : null}
+            Enrichir les fiches vin (arômes, accords, température)
+          </button>
+          {enrichStatus && (
+            <p className="mt-1.5 text-center text-[11px] text-[var(--text-muted)]">{enrichStatus}</p>
+          )}
+        </section>
 
         {/* Backfill tasting tags (temporary) */}
         <section className="mb-4">
