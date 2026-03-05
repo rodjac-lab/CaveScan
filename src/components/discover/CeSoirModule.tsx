@@ -694,7 +694,7 @@ export default function CeSoirModule() {
               onChange={(e) => {
                 setQueryInput(e.target.value)
                 e.target.style.height = 'auto'
-                e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`
+                e.target.style.height = `${e.target.scrollHeight}px`
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
