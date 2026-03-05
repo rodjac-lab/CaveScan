@@ -91,9 +91,14 @@ export default function AddBottle() {
           appellation: prefillExtraction.appellation || null,
           millesime: prefillExtraction.millesime || null,
           couleur: normalizeWineColor(prefillExtraction.couleur || null),
-          region: null,
-          cepage: null,
+          region: prefillExtraction.region || null,
+          cepage: prefillExtraction.cepage || null,
           confidence: 0,
+          grape_varieties: prefillExtraction.grape_varieties || null,
+          serving_temperature: prefillExtraction.serving_temperature || null,
+          typical_aromas: prefillExtraction.typical_aromas || null,
+          food_pairings: prefillExtraction.food_pairings || null,
+          character: prefillExtraction.character || null,
         }
       : null,
   )

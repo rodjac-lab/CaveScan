@@ -192,7 +192,30 @@ async function callGemini(imageBase64: string | undefined, _imageUrl: string | u
           { text: EXTRACTION_PROMPT },
         ],
       }],
-      generationConfig: { temperature: 0, maxOutputTokens: 1500, responseMimeType: 'application/json' },
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens: 1500,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'OBJECT',
+          properties: {
+            domaine: { type: 'STRING', nullable: true },
+            cuvee: { type: 'STRING', nullable: true },
+            appellation: { type: 'STRING', nullable: true },
+            millesime: { type: 'INTEGER', nullable: true },
+            couleur: { type: 'STRING', nullable: true },
+            region: { type: 'STRING', nullable: true },
+            cepage: { type: 'STRING', nullable: true },
+            confidence: { type: 'NUMBER' },
+            grape_varieties: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
+            serving_temperature: { type: 'STRING', nullable: true },
+            typical_aromas: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
+            food_pairings: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
+            character: { type: 'STRING', nullable: true },
+          },
+          required: ['domaine', 'appellation', 'couleur', 'confidence'],
+        },
+      },
     }),
   })
 
