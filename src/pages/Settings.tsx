@@ -17,6 +17,53 @@ import { supabase } from '@/lib/supabase'
 import { track } from '@/lib/track'
 import type { Zone } from '@/lib/types'
 
+// Module-level state so backfill survives page navigation
+let enrichPromise: Promise<void> | null = null
+let enrichState = { status: null as string | null, running: false }
+
+async function runEnrichBackfill(onUpdate: (s: { status: string | null; running: boolean }) => void) {
+  if (enrichState.running) return
+  enrichState = { status: 'Chargement des bouteilles...', running: true }
+  onUpdate(enrichState)
+
+  try {
+    const { data: bottles } = await supabase
+      .from('bottles')
+      .select('id, domaine, cuvee, appellation, millesime, couleur, grape_varieties, serving_temperature, typical_aromas, food_pairings, character')
+      .is('typical_aromas', null)
+    if (!bottles || bottles.length === 0) {
+      enrichState = { status: 'Toutes les bouteilles sont déjà enrichies !', running: false }
+      onUpdate(enrichState)
+      return
+    }
+    let done = 0
+    let errors = 0
+    for (const b of bottles) {
+      enrichState = { status: `${done}/${bottles.length} — ${b.domaine || b.appellation || 'vin'}...`, running: true }
+      onUpdate(enrichState)
+      const { data, error: fnErr } = await supabase.functions.invoke('enrich-wine', {
+        body: { domaine: b.domaine, cuvee: b.cuvee, appellation: b.appellation, millesime: b.millesime, couleur: b.couleur },
+      })
+      if (fnErr || !data || data.error) { errors++; done++; continue }
+      const updates: Record<string, unknown> = {}
+      if (!b.grape_varieties) updates.grape_varieties = data.grape_varieties || null
+      if (!b.serving_temperature) updates.serving_temperature = data.serving_temperature || null
+      if (!b.typical_aromas) updates.typical_aromas = data.typical_aromas || null
+      if (!b.food_pairings) updates.food_pairings = data.food_pairings || null
+      if (!b.character) updates.character = data.character || null
+      if (Object.keys(updates).length > 0) {
+        await supabase.from('bottles').update(updates).eq('id', b.id)
+      }
+      done++
+    }
+    enrichState = { status: `Terminé ! ${done - errors} enrichies, ${errors} erreurs`, running: false }
+  } catch (err) {
+    enrichState = { status: `Erreur: ${err instanceof Error ? err.message : 'inconnue'}`, running: false }
+  }
+  onUpdate(enrichState)
+  enrichPromise = null
+}
+
 export default function Settings() {
   const navigate = useNavigate()
   const { zones, loading, error, refetch } = useZones()
@@ -24,8 +71,14 @@ export default function Settings() {
   const [loggingOut, setLoggingOut] = useState(false)
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null)
   const [backfillRunning, setBackfillRunning] = useState(false)
-  const [enrichStatus, setEnrichStatus] = useState<string | null>(null)
-  const [enrichRunning, setEnrichRunning] = useState(false)
+  const [enrichStatus, setEnrichStatus] = useState<string | null>(enrichState.status)
+  const [enrichRunning, setEnrichRunning] = useState(enrichState.running)
+
+  // Sync module-level state back to component when remounting
+  const enrichUpdater = (s: { status: string | null; running: boolean }) => {
+    setEnrichStatus(s.status)
+    setEnrichRunning(s.running)
+  }
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -260,43 +313,10 @@ export default function Settings() {
         {/* Backfill enriched wine fields (temporary) */}
         <section className="mb-4">
           <button
-            onClick={async () => {
-              setEnrichRunning(true)
-              setEnrichStatus('Chargement des bouteilles...')
-              try {
-                const { data: bottles } = await supabase
-                  .from('bottles')
-                  .select('id, domaine, cuvee, appellation, millesime, couleur, grape_varieties, serving_temperature, typical_aromas, food_pairings, character')
-                  .is('typical_aromas', null)
-                if (!bottles || bottles.length === 0) {
-                  setEnrichStatus('Toutes les bouteilles sont déjà enrichies !')
-                  setEnrichRunning(false)
-                  return
-                }
-                let done = 0
-                let errors = 0
-                for (const b of bottles) {
-                  setEnrichStatus(`${done}/${bottles.length} — ${b.domaine || b.appellation || 'vin'}...`)
-                  const { data, error: fnErr } = await supabase.functions.invoke('enrich-wine', {
-                    body: { domaine: b.domaine, cuvee: b.cuvee, appellation: b.appellation, millesime: b.millesime, couleur: b.couleur },
-                  })
-                  if (fnErr || !data || data.error) { errors++; done++; continue }
-                  const updates: Record<string, unknown> = {}
-                  if (!b.grape_varieties) updates.grape_varieties = data.grape_varieties || null
-                  if (!b.serving_temperature) updates.serving_temperature = data.serving_temperature || null
-                  if (!b.typical_aromas) updates.typical_aromas = data.typical_aromas || null
-                  if (!b.food_pairings) updates.food_pairings = data.food_pairings || null
-                  if (!b.character) updates.character = data.character || null
-                  if (Object.keys(updates).length > 0) {
-                    await supabase.from('bottles').update(updates).eq('id', b.id)
-                  }
-                  done++
-                }
-                setEnrichStatus(`Terminé ! ${done - errors} enrichies, ${errors} erreurs`)
-              } catch (err) {
-                setEnrichStatus(`Erreur: ${err instanceof Error ? err.message : 'inconnue'}`)
+            onClick={() => {
+              if (!enrichPromise) {
+                enrichPromise = runEnrichBackfill(enrichUpdater)
               }
-              setEnrichRunning(false)
             }}
             disabled={enrichRunning}
             className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-3 text-[12px] font-medium text-[var(--text-muted)]"
