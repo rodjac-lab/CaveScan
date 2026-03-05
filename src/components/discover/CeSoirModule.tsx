@@ -663,7 +663,7 @@ export default function CeSoirModule() {
       </div>
 
       {/* Bottom bar */}
-      <div className="flex-shrink-0 border-t border-[var(--border-color)] bg-[var(--background)] px-4 pt-2 pb-2">
+      <div className="flex-shrink-0 border-t border-[var(--border-color)] bg-[var(--background)] px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         {/* Refinement chips */}
         {showRefinements && (
           <div className="flex items-center gap-1.5 mb-2 overflow-x-auto scrollbar-hide">
