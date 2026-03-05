@@ -18,7 +18,6 @@ import { track } from '@/lib/track'
 import type { Zone } from '@/lib/types'
 
 // Module-level state so backfill survives page navigation
-let enrichPromise: Promise<void> | null = null
 let enrichState = { status: null as string | null, running: false }
 
 async function runEnrichBackfill(onUpdate: (s: { status: string | null; running: boolean }) => void) {
@@ -66,7 +65,6 @@ async function runEnrichBackfill(onUpdate: (s: { status: string | null; running:
     enrichState = { status: `Erreur: ${err instanceof Error ? err.message : 'inconnue'}`, running: false }
   }
   onUpdate(enrichState)
-  enrichPromise = null
 }
 
 export default function Settings() {
@@ -318,11 +316,7 @@ export default function Settings() {
         {/* Backfill enriched wine fields (temporary) */}
         <section className="mb-4">
           <button
-            onClick={() => {
-              if (!enrichPromise) {
-                enrichPromise = runEnrichBackfill(enrichUpdater)
-              }
-            }}
+            onClick={() => runEnrichBackfill(enrichUpdater)}
             disabled={enrichRunning}
             className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-3 text-[12px] font-medium text-[var(--text-muted)]"
           >

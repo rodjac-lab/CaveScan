@@ -22,18 +22,6 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const RESPONSE_SCHEMA = {
-  type: 'OBJECT' as const,
-  properties: {
-    grape_varieties: { type: 'ARRAY' as const, items: { type: 'STRING' as const } },
-    serving_temperature: { type: 'STRING' as const },
-    typical_aromas: { type: 'ARRAY' as const, items: { type: 'STRING' as const } },
-    food_pairings: { type: 'ARRAY' as const, items: { type: 'STRING' as const } },
-    character: { type: 'STRING' as const },
-  },
-  required: ['grape_varieties', 'serving_temperature', 'typical_aromas', 'food_pairings', 'character'],
-}
-
 function stripMarkdownCodeBlock(text: string): string {
   let result = text.trim()
   if (result.startsWith('```')) {
