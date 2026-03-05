@@ -44,7 +44,12 @@ async function runEnrichBackfill(onUpdate: (s: { status: string | null; running:
       const { data, error: fnErr } = await supabase.functions.invoke('enrich-wine', {
         body: { domaine: b.domaine, cuvee: b.cuvee, appellation: b.appellation, millesime: b.millesime, couleur: b.couleur },
       })
-      if (fnErr || !data || data.error) { errors++; done++; continue }
+      if (fnErr || !data || data.error) {
+        errors++; done++
+        // Wait 2s before retry to avoid rate limiting
+        await new Promise(r => setTimeout(r, 2000))
+        continue
+      }
       const updates: Record<string, unknown> = {}
       if (!b.grape_varieties) updates.grape_varieties = data.grape_varieties || null
       if (!b.serving_temperature) updates.serving_temperature = data.serving_temperature || null
