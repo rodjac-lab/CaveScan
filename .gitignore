@@ -36,3 +36,14 @@ Photo tests API/
 
 # Hosting
 .vercel
+
+# Local debug screenshots
+public/Capture d*.png
+public/Iphone Pro *.jpg
+public/Screenshot_*.png
+public/screenshot_*.png
+
+# Local UI mockups and working docs artifacts
+docs/celestin_img*.png
+docs/mockup-*.html
+docs/Redesign de Fevrier 2026/Celestin interaction/
