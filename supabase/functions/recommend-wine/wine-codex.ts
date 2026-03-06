@@ -1,80 +1,72 @@
 /**
- * Wine Codex — Base de connaissances œnologiques opinionated
- * Injecté dans le system prompt du sommelier IA.
+ * Wine Codex - Base de connaissances oenologiques.
+ * Cette couche sert au jugement vin, pas a la personnalite.
  */
 
 export const WINE_CODEX = `
-# Wine Codex — Guide du Sommelier
+# Wine Codex
 
-## Accords classiques revisités
+## Fondamentaux d'accords
 
-- **Blanc sur fromage** : oui, absolument. Un Brillat-Savarin avec un Meursault est un accord de rêve. Le mythe "rouge = fromage" est paresseux.
-- **Rouge tannique sur poisson** : NON. Les tanins rendent le poisson métallique et amer. Si tu veux du rouge, choisis un Pinot Noir léger.
-- **Sauternes + Roquefort** : l'accord sucré-salé le plus parfait qui existe. Ne laisse personne te convaincre du contraire.
-- **Champagne + tout** : le Champagne est le vin le plus polyvalent. Il va avec les huîtres, le poulet rôti, les frites, et même la pizza. C'est le joker universel.
+- Rouge tannique ou puissant sur poisson : non. Les tanins rendent le poisson metallique et amer.
+- Fruits de mer, crustaces, sushi : privilegie blanc sec, bulles, ou rouge tres leger seulement.
+- Fromages : pense d'abord au blanc. C'est souvent l'accord le plus juste, surtout avec les fromages creux, gras ou persilles. Le rouge peut marcher, mais il demande plus de precision.
+- Champagne : l'un des vins les plus polyvalents a table. Il marche sur l'iode, le frit, le sale et beaucoup d'entrees.
+- Vins sucres : pense contraste ou echo. Sauternes et Roquefort reste un grand classique.
 
-## Accords créatifs (le sommelier qui ose)
+## Accords utiles et souvent justes
 
-- **Chips artisanales + Champagne** : bulles + sel + croustillant = perfection d'apéritif
-- **Pizza + Lambrusco** : un pétillant rouge italien légèrement sucré qui est né pour la pizza
-- **Sushi + Chablis** : la minéralité du Chablis et l'iode du poisson cru, accord millimétré
-- **Burger + Côtes du Rhône** : la générosité du Grenache/Syrah tient tête au gras du burger
-- **Curry thaï + Gewurztraminer** : les épices demandent de l'aromatique et un soupçon de sucre résiduel
-- **Magret de canard + Madiran** : le Tannat est taillé pour le canard, accord du terroir
-- **Charcuterie + Beaujolais** : le Gamay fruité et léger, c'est l'ami fidèle du saucisson
-- **Tartiflette + Roussette de Savoie** : accord régional parfait, le vin local avec le plat local
-- **Couscous + Rosé de Provence** : fraîcheur et épices douces, un accord sous-estimé
+- Sushi ou poisson cru -> Chablis, Muscadet, Champagne, Riesling sec
+- Poulet roti -> Chardonnay de Bourgogne, Chenin sec, Pinot Noir souple, Champagne
+- Charcuterie -> Beaujolais, Pinot Noir leger, bulles de gastronomie
+- Burger -> Cotes du Rhone, Syrah souple, Lambrusco sec, rosé structure
+- Curry thai ou cuisine epicee -> Gewurztraminer, Riesling avec un peu de souplesse, Chenin demi-sec
+- Pizza tomate -> Chianti, Barbera, Lambrusco, rouges italiens acidules
+- Tartiflette et cuisine savoyarde -> Roussette de Savoie, Jacquere, Mondeuse legere
+- Magret de canard -> Pinot Noir mur, Madiran, Bordeaux rive gauche pas trop austere
 
-## Règles de température et saison
+## Service
 
-### Été
-- Rouges légers servis frais (14-15°C) : Beaujolais, Pinot Noir d'Alsace, Bourgueil
-- Rosés : température de cave, jamais glacés (ça tue les arômes)
-- Blancs secs et vifs : Muscadet, Picpoul, Vermentino
-- Bulles : toujours bienvenues
+- Un rouge trop chaud est pire qu'un rouge un peu frais.
+- Rouges legers : souvent meilleurs vers 14-16C.
+- Rouges structures : souvent meilleurs vers 16-18C.
+- Blancs secs et vifs : 8-10C.
+- Blancs amples : 10-12C.
+- Roses : frais mais pas glaces.
+- Bulles : bien fraiches, sans anesthesier totalement les aromes.
 
-### Hiver
-- Rouges charpentés : Cahors, Madiran, Châteauneuf-du-Pape, Bordeaux
-- Blancs texturés et amples : Bourgogne élevé en fût, Condrieu, Hermitage blanc
-- Vins doux naturels : Banyuls sur le chocolat, Maury sur le café
+## Aeration
 
-### Printemps / Automne
-- Saisons de transition : rouges moyens (Côtes du Rhône, Languedoc), blancs aromatiques (Vouvray, Riesling)
+- Jeunes rouges tanniques : une carafe peut aider.
+- Vieux vins : prudence. Ouvrir doucement vaut souvent mieux que carafer.
+- En cas de doute : observer d'abord dans le verre avant de decider.
 
-## Opinions fortes (le sommelier a du caractère)
+## Saisons et moments
 
-- "Un Muscadet sur des huîtres bat n'importe quel Chablis premier cru. Le Muscadet a l'humilité de s'effacer devant l'huître."
-- "Le rosé de Provence n'est pas un vin de second choix. Un bon Bandol rosé a plus de complexité que beaucoup de rouges."
-- "Les vins nature ne sont pas tous bons. Certains sont extraordinaires, d'autres sont du vinaigre avec un joli marketing."
-- "Le Champagne le plus cher n'est pas toujours le meilleur. Un bon grower Champagne à 30€ peut éclipser un Dom Pérignon."
-- "Le Beaujolais nouveau est une fête, pas un grand vin. Et c'est très bien comme ça."
-- "Si tu ne connais pas les vins du Jura, tu rates quelque chose. Le Savagnin et le vin jaune sont des expériences uniques."
+- Ete : blancs secs, roses de table, bulles, rouges legers servis frais.
+- Hiver : rouges structures, blancs amples, vins de table plus profonds.
+- Printemps et automne : saisons de transition, souvent favorables aux rouges moyens et aux blancs aromatiques.
 
-## Principes de service
+## Garde et moment d'ouverture
 
-- **Température** : un rouge trop chaud est pire qu'un blanc trop froid. En cas de doute, sers plus frais.
-- **Aération** : les jeunes rouges tanniques (Bordeaux, Madiran) gagnent à être carafés 1h. Les vieux vins : ouverture délicate, pas de carafe.
-- **Verrerie** : un bon verre change tout. Large et tulipé pour les rouges, plus étroit pour les blancs, flûte pour les bulles (ou coupe pour le style).
+- Beaucoup de vins simples sont faits pour etre bus jeunes.
+- Certaines appellations gagnent vraiment avec quelques annees de cave.
+- Mieux vaut souvent ouvrir un vin un peu tot qu'un peu trop tard.
+- Un grand vin mal ouvert ou ouvert trop vieux est une occasion manquee.
 
-## Maturité — Quand ouvrir ?
+## Styles adjacents a explorer
 
-- **Vins à boire jeunes** (1-3 ans) : Muscadet, Beaujolais, rosés, Côtes du Rhône basique
-- **Garde moyenne** (3-8 ans) : Bourgogne village, Bordeaux Supérieur, Crozes-Hermitage, Languedoc haut de gamme
-- **Longue garde** (8-20+ ans) : Grands Bourgognes, Bordeaux classés, Hermitage, Barolo, Châteauneuf-du-Pape
-- **Règle d'or** : mieux vaut ouvrir un vin un peu tôt que trop tard. Un vin passé n'a pas de seconde chance.
+- Amateur de Bourgogne rouge -> Jura rouge, Beaujolais de terroir, Pinot d'Oregon
+- Amateur de Bordeaux structure -> Ribera del Duero, Priorat, Barossa nuancee
+- Amateur de blanc sec tendu -> Assyrtiko, Albarino, Gruner Veltliner
+- Amateur de bulles -> Cremant, Franciacorta, bons Cava, Champagne de vigneron
+- Amateur curieux -> vins du Jura, Chenin de terroir, cepages autochtones italiens, quelques vins oranges bien faits
 
-## Styles et profils
+## Convictions fortes mais utiles
 
-- **Amateur de rouge puissant** → Propose aussi : Barossa Shiraz, Priorat, Ribera del Duero
-- **Amateur de blanc sec** → Explore : Assyrtiko (Grèce), Albariño (Espagne), Grüner Veltliner (Autriche)
-- **Amateur de bulles** → Au-delà du Champagne : Crémant d'Alsace, Franciacorta, Cava de qualité
-- **Curieux** → Vins oranges (macération pelliculaire), pétillants naturels, cépages autochtones
-
-## Principes de recommandation
-
-1. **Personnalise** : utilise le profil de goût pour orienter les suggestions
-2. **Propose depuis la cave** : priorité aux bouteilles que l'utilisateur possède déjà
-3. **Explore les adjacences** : si quelqu'un aime le Bourgogne, propose du Jura ou du Beaujolais
-4. **Aie une opinion** : ne dis pas "c'est selon vos goûts", dis "je recommande X parce que Y"
-5. **Varie les badges** : mélange "De ta cave", "Découverte", "Accord parfait", "Audacieux"
+- Avec le fromage, la bonne intuition est souvent de penser d'abord au blanc.
+- Un bon Muscadet peut etre plus juste sur des huitres qu'un grand blanc plus prestigieux.
+- Le rose n'est pas un sous-vin : un grand rose de table peut etre remarquable.
+- Les appellations modestes peuvent donner enormement de plaisir si le moment et le plat sont justes.
+- Le contexte compte presque autant que la bouteille.
 `

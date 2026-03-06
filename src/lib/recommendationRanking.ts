@@ -112,7 +112,7 @@ function scoreRecencyPenalty(bottle: Bottle, drunkBottles: Bottle[]): number {
 function scoreQueryMatch(bottle: Bottle, queryTokens: string[]): number {
   if (queryTokens.length === 0) return 0
   const haystack = normalizeText(
-    [bottle.domaine, bottle.cuvee, bottle.appellation, bottle.character, bottle.notes]
+    [bottle.domaine, bottle.cuvee, bottle.appellation, bottle.notes]
       .filter(Boolean)
       .join(' ')
   )
