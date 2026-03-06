@@ -521,14 +521,15 @@ export default function CeSoirModule() {
       // question and conversation types: just text, already set
 
       setMessages(prev => prev.map(m => m.id === loadingMsgId ? { ...m, ...update } : m))
-    } catch (err) {
-      console.error('[CeSoirModule] celestin error:', err)
-      setMessages(prev => prev.map(m =>
-        m.id === loadingMsgId
-          ? { ...m, text: 'Désolé, je suis momentanément indisponible. Réessaie !', isLoading: false }
-          : m
-      ))
-    } finally {
+      } catch (err) {
+        console.error('[CeSoirModule] celestin error:', err)
+        const debugMessage = err instanceof Error ? err.message : String(err)
+        setMessages(prev => prev.map(m =>
+          m.id === loadingMsgId
+            ? { ...m, text: `Debug Celestin UI: ${debugMessage}`, isLoading: false }
+            : m
+        ))
+      } finally {
       setIsLoading(false)
       scrollToBottom()
     }
