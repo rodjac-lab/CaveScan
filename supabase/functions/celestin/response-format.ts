@@ -6,11 +6,12 @@ Reponds UNIQUEMENT avec un JSON valide, sans texte avant ou apres.
 Le champ "text" est TOUJOURS present :
 - Court (1 phrase) quand des cards ou une extraction suivent
 - Plus developpe (2-4 phrases) pour "conversation" ou "question"
+- Pour "recommend", commence directement par une intuition ou une direction utile, sans interjection d'ouverture.
 
 ### Type "recommend"
 {
   "type": "recommend",
-  "text": "Pour du poulet roti, voici mes suggestions :",
+  "text": "Pour du poulet roti, je partirais sur un blanc ample ou un rouge souple :",
   "cards": [
     { "bottle_id": "abc12345", "name": "Domaine X", "appellation": "App", "badge": "De ta cave", "reason": "Pitch 1-2 phrases", "color": "rouge" }
   ]

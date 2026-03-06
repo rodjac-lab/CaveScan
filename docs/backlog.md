@@ -16,8 +16,14 @@ Liste vivante des travaux produit/tech, priorisÃ©e pour les prochaines itÃ©r
 - [ ] Celestin: rendre les intros de recommandation plus naturelles, moins ecrites et moins repetitives.
 - [ ] Celestin: durcir l'usage des souvenirs. Ne citer une memoire que si le lien est vraiment evident et non artificiel.
 - [ ] Celestin: permettre une relance conversationnelle simple quand le contexte mets/vin n'est pas assez clair, au lieu de sur-prescrire.
+- [ ] Celestin memoire: mieux exploiter la richesse des notes de degustation et des photos de plats. Apprentissage actuel: le pipeline envoie surtout des souvenirs resumes via tags, ce qui peut perdre des nuances importantes de la note brute.
 - [ ] Recommendations: ajouter le millesime comme champ explicite des cartes pour eviter qu'il disparaisse selon la formulation du modele.
 - [ ] Recommendations: definir plus tard un signal de style bouteille structure et fiable en remplacement du champ libre `character`.
+- [ ] Celestin profile V2: enrichir le profil avec des preferences de style utiles (tendu vs ample, aerien vs dense, boise vs peu boise, etc.).
+- [ ] Celestin profile V2: capturer aussi les aversions et limites de gout pour mieux filtrer les mauvais accords.
+- [ ] Celestin profile V2: mieux exploiter les accords vecus et marquants, pas seulement les stats de cave.
+- [ ] Celestin profile V2: integrer le contexte d'usage (semaine, diner, occasion, envie de decouverte vs valeur sure).
+- [ ] Celestin profile V2: ajouter une notion de confiance du signal pour eviter de surinterpreter des preferences faibles.
 - [x] ~~Clarifier lâ€™UX de la sortie~~ â†’ Flow Cheers! (single + batch) en place.
 
 ## Plus tard (P2)

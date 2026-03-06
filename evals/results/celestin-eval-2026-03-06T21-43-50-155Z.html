@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Celestin Eval Report</title>
+  <style>
+    body { font-family: Georgia, serif; background: #f5f1ea; color: #1c1a17; margin: 0; padding: 24px; }
+    .page { max-width: 1100px; margin: 0 auto; }
+    h1 { margin: 0 0 8px; font-size: 36px; }
+    .meta { color: #6a625b; margin-bottom: 24px; }
+    .scenario { background: #fffdf9; border: 1px solid #e2d8ca; border-radius: 16px; padding: 18px; margin-bottom: 18px; box-shadow: 0 8px 24px rgba(0,0,0,0.04); }
+    .scenario-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    .scenario h2 { margin: 0 0 10px; font-size: 24px; }
+    .timing { color: #8a7e73; font-size: 14px; }
+    .question, .notes, .intro { margin: 8px 0; line-height: 1.45; }
+    .summary { display: flex; gap: 16px; flex-wrap: wrap; margin: 12px 0; color: #5c534b; font-size: 14px; }
+    .warnings { margin: 12px 0; }
+    .warning { display: inline-block; margin: 4px 6px 0 0; padding: 6px 10px; border-radius: 999px; background: #f8e1dc; color: #7b3226; font-size: 13px; }
+    .ok { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #e4efe2; color: #275d2e; font-size: 13px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 14px; }
+    .card { background: #fff; border: 1px solid #eadfce; border-radius: 14px; padding: 12px; }
+    .badge { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #9b7b1f; margin-bottom: 6px; }
+    .name { font-weight: 700; margin-bottom: 4px; }
+    .appellation { color: #7b746e; font-size: 14px; margin-bottom: 6px; }
+    .meta { font-size: 12px; color: #8a7e73; }
+    .reason { margin-top: 8px; font-size: 14px; line-height: 1.45; }
+    .empty { color: #8a7e73; font-style: italic; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Celestin Eval Report</h1>
+    <div class="meta">Fixture: celestin-fixture | Scenarios: 6</div>
+    
+      <section class="scenario">
+        <div class="scenario-head">
+          <h2>generic_tonight</h2>
+          <div class="timing">null ms</div>
+        </div>
+        <div class="question"><strong>Question:</strong> Qu'est-ce que j'ouvre ce soir ?</div>
+        <div class="notes"><strong>Notes:</strong> Reco ouverte sans plat explicite.</div>
+        <div class="intro"><strong>Intro:</strong> HTTP 401</div>
+        <div class="summary">
+          <span>Type: error</span>
+          <span>Cards: 0</span>
+          <span>Memory: no</span>
+        </div>
+        <div class="warnings">
+          <div class="ok">No automatic warning</div>
+        </div>
+        <div class="cards"><div class="empty">No cards</div></div>
+      </section>
+    
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <h2>sushi</h2>
+          <div class="timing">null ms</div>
+        </div>
+        <div class="question"><strong>Question:</strong> Ce soir sushi</div>
+        <div class="notes"><strong>Notes:</strong> Verifier les garde-fous sur poisson cru.</div>
+        <div class="intro"><strong>Intro:</strong> HTTP 401</div>
+        <div class="summary">
+          <span>Type: error</span>
+          <span>Cards: 0</span>
+          <span>Memory: no</span>
+        </div>
+        <div class="warnings">
+          <div class="ok">No automatic warning</div>
+        </div>
+        <div class="cards"><div class="empty">No cards</div></div>
+      </section>
+    
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <h2>cheese_board</h2>
+          <div class="timing">null ms</div>
+        </div>
+        <div class="question"><strong>Question:</strong> Je fais un plateau de fromages</div>
+        <div class="notes"><strong>Notes:</strong> Verifier la priorite au blanc et la qualite des alternatives.</div>
+        <div class="intro"><strong>Intro:</strong> HTTP 401</div>
+        <div class="summary">
+          <span>Type: error</span>
+          <span>Cards: 0</span>
+          <span>Memory: no</span>
+        </div>
+        <div class="warnings">
+          <div class="ok">No automatic warning</div>
+        </div>
+        <div class="cards"><div class="empty">No cards</div></div>
+      </section>
+    
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <h2>paella</h2>
+          <div class="timing">null ms</div>
+        </div>
+        <div class="question"><strong>Question:</strong> Ce soir paella</div>
+        <div class="notes"><strong>Notes:</strong> Verifier si les rouges restent secondaires et prudents.</div>
+        <div class="intro"><strong>Intro:</strong> HTTP 401</div>
+        <div class="summary">
+          <span>Type: error</span>
+          <span>Cards: 0</span>
+          <span>Memory: no</span>
+        </div>
+        <div class="warnings">
+          <div class="ok">No automatic warning</div>
+        </div>
+        <div class="cards"><div class="empty">No cards</div></div>
+      </section>
+    
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <h2>memory_rome</h2>
+          <div class="timing">null ms</div>
+        </div>
+        <div class="question"><strong>Question:</strong> Tu te souviens du chianti qu'on avait adore avec des spaghetti a Rome ?</div>
+        <div class="notes"><strong>Notes:</strong> Tester la qualite relationnelle et l'usage de la memoire.</div>
+        <div class="intro"><strong>Intro:</strong> HTTP 401</div>
+        <div class="summary">
+          <span>Type: error</span>
+          <span>Cards: 0</span>
+          <span>Memory: no</span>
+        </div>
+        <div class="warnings">
+          <div class="ok">No automatic warning</div>
+        </div>
+        <div class="cards"><div class="empty">No cards</div></div>
+      </section>
+    
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <h2>encave_chianti</h2>
+          <div class="timing">null ms</div>
+        </div>
+        <div class="question"><strong>Question:</strong> J'ai achete 6 bouteilles de Chianti Classico 2021</div>
+        <div class="notes"><strong>Notes:</strong> Verifier que Celestin reste naturel en mode encavage.</div>
+        <div class="intro"><strong>Intro:</strong> HTTP 401</div>
+        <div class="summary">
+          <span>Type: error</span>
+          <span>Cards: 0</span>
+          <span>Memory: no</span>
+        </div>
+        <div class="warnings">
+          <div class="ok">No automatic warning</div>
+        </div>
+        <div class="cards"><div class="empty">No cards</div></div>
+      </section>
+    
+  </div>
+</body>
+</html>

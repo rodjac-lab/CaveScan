@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Celestin Eval Report</title>
+  <style>
+    body { font-family: Georgia, serif; background: #f5f1ea; color: #1c1a17; margin: 0; padding: 24px; }
+    .page { max-width: 1100px; margin: 0 auto; }
+    h1 { margin: 0 0 8px; font-size: 36px; }
+    .meta { color: #6a625b; margin-bottom: 24px; }
+    .scenario { background: #fffdf9; border: 1px solid #e2d8ca; border-radius: 16px; padding: 18px; margin-bottom: 18px; box-shadow: 0 8px 24px rgba(0,0,0,0.04); }
+    .scenario-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    .scenario h2 { margin: 0 0 10px; font-size: 24px; }
+    .timing { color: #8a7e73; font-size: 14px; }
+    .question, .notes, .intro { margin: 8px 0; line-height: 1.45; }
+    .summary { display: flex; gap: 16px; flex-wrap: wrap; margin: 12px 0; color: #5c534b; font-size: 14px; }
+    .warnings { margin: 12px 0; }
+    .warning { display: inline-block; margin: 4px 6px 0 0; padding: 6px 10px; border-radius: 999px; background: #f8e1dc; color: #7b3226; font-size: 13px; }
+    .ok { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #e4efe2; color: #275d2e; font-size: 13px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 14px; }
+    .card { background: #fff; border: 1px solid #eadfce; border-radius: 14px; padding: 12px; }
+    .badge { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #9b7b1f; margin-bottom: 6px; }
+    .name { font-weight: 700; margin-bottom: 4px; }
+    .appellation { color: #7b746e; font-size: 14px; margin-bottom: 6px; }
+    .meta { font-size: 12px; color: #8a7e73; }
+    .reason { margin-top: 8px; font-size: 14px; line-height: 1.45; }
+    .empty { color: #8a7e73; font-style: italic; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Celestin Eval Report</h1>
+    <div class="meta">Fixture: celestin-fixture | Scenarios: 6</div>
+    
+      <section class="scenario">
+        <div class="scenario-head">
+          <h2>generic_tonight</h2>
+          <div class="timing">4368 ms</div>
+        </div>
+        <div class="question"><strong>Question:</strong> Qu'est-ce que j'ouvre ce soir ?</div>
+        <div class="notes"><strong>Notes:</strong> Reco ouverte sans plat explicite.</div>
+        <div class="intro"><strong>Intro:</strong> Ah, le vendredi soir, c'est le moment parfait pour se faire plaisir ! Sans savoir ce que tu manges, je te propose quelques pistes pour un beau moment, en privilégiant des choses prêtes à boire et pleines de charme pour le printemps.</div>
+        <div class="summary">
+          <span>Type: recommend</span>
+          <span>Cards: 4</span>
+          <span>Memory: no</span>
+        </div>
+        <div class="warnings">
+          <div class="warning">Intro flags: ah</div>
+        </div>
+        <div class="cards">
+    <div class="card">
+      <div class="badge">De ta cave</div>
+      <div class="name">Jean Foillard</div>
+      <div class="appellation">Morgon</div>
+      <div class="meta">color=rouge | bottle=d98c0e1b</div>
+      <div class="reason">Un Morgon de Jean Foillard, c'est toujours une valeur sûre. C'est frais, fruité, avec juste ce qu'il faut de structure pour accompagner plein de choses, ou juste pour le plaisir.</div>
+    </div>
+  
+    <div class="card">
+      <div class="badge">De ta cave</div>
+      <div class="name">Frederic Savart</div>
+      <div class="appellation">Champagne 1er Cru</div>
+      <div class="meta">color=bulles | bottle=248aaff4</div>
+      <div class="reason">Un beau champagne de vigneron, ça ne déçoit jamais. C'est vif, élégant, parfait pour lancer la soirée ou sur des petites choses à grignoter. On avait adoré le Jacques Selosse, ça c'est dans un autre style, plus sur la pureté.</div>
+    </div>
+  
+    <div class="card">
+      <div class="badge">De ta cave</div>
+      <div class="name">Château des Rontets</div>
+      <div class="appellation">Pouilly-Fuissé</div>
+      <div class="meta">color=blanc | bottle=a57eb883</div>
+      <div class="reason">Un bon Pouilly-Fuissé, c'est un blanc qui a de la matière et de la fraîcheur. Idéal si tu as envie d'un poisson ou d'une volaille en sauce légère. C'est un peu un classique que tu apprécies.</div>
+    </div>
+  
+    <div class="card">
+      <div class="badge">De ta cave</div>
+      <div class="name">Domaine de la Grange des Pères</div>
+      <div class="appellation">Pays d'Hérault IGP</div>
+      <div class="meta">color=rouge | bottle=04d2df36</div>
+      <div class="reason">Si tu as envie de quelque chose de plus charpenté mais avec une belle patine, ce Languedoc est un grand vin. Il a encore de la jeunesse mais commence à s'ouvrir. Je me souviens d'une Grange des Pères 2008 qui était déjà étonnante, même si un peu jeune.</div>
+    </div>
+  </div>
+      </section>
+    
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <h2>sushi</h2>
+          <div class="timing">3510 ms</div>
+        </div>
+        <div class="question"><strong>Question:</strong> Ce soir sushi</div>
+        <div class="notes"><strong>Notes:</strong> Verifier les garde-fous sur poisson cru.</div>
+        <div class="intro"><strong>Intro:</strong> Ah, les sushis ! Un grand classique qui appelle souvent la fraîcheur et la vivacité. Voici quelques pistes pour te faire plaisir ce soir :</div>
+        <div class="summary">
+          <span>Type: recommend</span>
+          <span>Cards: 4</span>
+          <span>Memory: no</span>
+        </div>
+        <div class="warnings">
+          <div class="warning">Intro flags: ah</div>
+        </div>
+        <div class="cards">
+    <div class="card">
+      <div class="badge">De ta cave</div>
+      <div class="name">Frederic Savart</div>
+      <div class="appellation">Champagne 1er Cru</div>
+      <div class="meta">color=bulles | bottle=248aaff4</div>
+      <div class="reason">Un Champagne de vigneron, avec une belle complexité et une bulle fine, parfait pour accompagner la délicatesse du poisson cru et la salinité de l'algue. C'est un accord qui marche toujours, tu sais.</div>
+    </div>
+  
+    <div class="card">
+      <div class="badge">De ta cave</div>
+      <div class="name">Caillez Lemaire</div>
+      <div class="appellation">Champagne</div>
+      <div class="meta">color=bulles | bottle=7e0caa3e</div>
+      <div class="reason">Si tu préfères un format plus petit, ces demis de Champagne sont idéaux. Ils apporteront la même vivacité et la même élégance pour nettoyer le palais entre chaque bouchée de sushi.</div>
+    </div>
+  
+    <div class="card">
+      <div class="badge">De ta cave</div>
+      <div class="name">Château des Rontets · Pierrefolle</div>
+      <div class="appellation">Pouilly-Fuissé</div>
+      <div class="meta">color=blanc | bottle=a57eb883</div>
+      <div class="reason">Un Pouilly-Fuissé, c'est un chardonnay avec de la matière mais aussi une belle tension. Il tiendra bien sur les sushis plus riches, comme ceux au thon ou au saumon, sans jamais écraser le plat.</div>
+    </div>
+  
+    <div class="card">
+      <div class="badge">Accord parfait</div>
+      <div class="name">Domaine Leflaive</div>
+      <div class="appellation">Puligny-Montrachet Premier Cru</div>
+      <div class="meta">color=blanc</div>
+      <div class="reason">Si tu veux te faire vraiment plaisir, un grand Puligny-Montrachet, c'est un accord sublime. Je me souviens d'un Leflaive 2014, une pureté cristalline, une minéralité saline percutante... ça irait divinement bien avec la finesse du poisson.</div>
+    </div>
+  </div>
+      </section>
+    
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <h2>cheese_board</h2>
+          <div class="timing">3083 ms</div>
+        </div>
+        <div class="question"><strong>Question:</strong> Je fais un plateau de fromages</div>
+        <div class="notes"><strong>Notes:</strong> Verifier la priorite au blanc et la qualite des alternatives.</div>
+        <div class="intro"><strong>Intro:</strong> Ah, un plateau de fromages, c'est toujours un moment de plaisir ! Pour ça, je pense d'abord aux blancs, ils sont souvent plus justes, surtout si tu as des fromages un peu gras ou persillés. Mais on peut aussi trouver de jolis rouges légers.</div>
+        <div class="summary">
+          <span>Type: recommend</span>
+          <span>Cards: 4</span>
+          <span>Memory: yes</span>
+        </div>
+        <div class="warnings">
+          <div class="warning">Intro flags: ah</div><div class="warning">Memory mention detected</div>
+        </div>
+        <div class="cards">
+    <div class="card">
+      <div class="badge">De ta cave</div>
+      <div class="name">Château des Rontets · Pierrefolle</div>
+      <div class="appellation">Pouilly-Fuissé</div>
+      <div class="meta">color=blanc | bottle=a57eb883</div>
+      <div class="reason">Un Pouilly-Fuissé, c'est un classique qui marche très bien avec une belle variété de fromages. Sa rondeur et sa minéralité vont enrober les saveurs sans les écraser.</div>
+    </div>
+  
+    <div class="card">
+      <div class="badge">De ta cave</div>
+      <div class="name">Frederic Savart · L'Accomplie</div>
+      <div class="appellation">Champagne 1er Cru</div>
+      <div class="meta">color=bulles | bottle=248aaff4</div>
+      <div class="reason">Un beau Champagne comme celui-ci, avec sa bulle fine et sa complexité, peut être un accord surprenant et délicieux, surtout avec des fromages à pâte molle ou des chèvres frais.</div>
+    </div>
+  
+    <div class="card">
+      <div class="badge">Decouverte</div>
+      <div class="name">Domaine Berthet-Bondet</div>
+      <div class="appellation">Côtes du Jura</div>
+      <div class="meta">color=blanc</div>
+      <div class="reason">Je sais que tu as déjà bu un Côtes du Jura récemment, mais un blanc du Jura, surtout s'il est un peu oxydatif, est un accord magique avec les fromages, notamment les comtés et autres pâtes pressées cuites.</div>
+    </div>
+  
+    <div class="card">
+      <div class="badge">De ta cave</div>
+      <div class="name">Jean Foillard · Côte du Py</div>
+      <div class="appellation">Morgon</div>
+      <div class="meta">color=rouge | bottle=d98c0e1b</div>
+      <div class="reason">Si tu veux un rouge, un Morgon de Jean Foillard, servi un peu frais, sera parfait. Ses tanins sont soyeux et ses arômes de fruits rouges s'accorderont bien avec des fromages à pâte fleurie ou quelques chèvres.</div>
+    </div>
+  </div>
+      </section>
+    
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <h2>paella</h2>
+          <div class="timing">3323 ms</div>
+        </div>
+        <div class="question"><strong>Question:</strong> Ce soir paella</div>
+        <div class="notes"><strong>Notes:</strong> Verifier si les rouges restent secondaires et prudents.</div>
+        <div class="intro"><strong>Intro:</strong> Ah, la paella ! Un plat convivial et plein de saveurs. Pour l'accompagner, il nous faut quelque chose qui tienne la route sans écraser les fruits de mer et le riz safrané. Voici quelques pistes pour toi :</div>
+        <div class="summary">
+          <span>Type: recommend</span>
+          <span>Cards: 4</span>
+          <span>Memory: no</span>
+        </div>
+        <div class="warnings">
+          <div class="warning">Intro flags: ah</div>
+        </div>
+        <div class="cards">
+    <div class="card">
+      <div class="badge">De ta cave</div>
+      <div class="name">Jean Foillard</div>
+      <div class="appellation">Morgon</div>
+      <div class="meta">color=rouge | bottle=d98c0e1b</div>
+      <div class="reason">Un Morgon de Foillard, c'est la gourmandise et la fraîcheur. Ses tanins sont soyeux, ses arômes de fruits rouges et d'épices douces iront à merveille avec la richesse de la paella, sans masquer les fruits de mer.</div>
+    </div>
+  
+    <div class="card">
+      <div class="badge">De ta cave</div>
+      <div class="name">Château des Rontets</div>
+      <div class="appellation">Pouilly-Fuissé</div>
+      <div class="meta">color=blanc | bottle=a57eb883</div>
+      <div class="reason">Un Pouilly-Fuissé est un excellent choix pour la paella. Ce blanc ample et minéral, avec ses notes d'agrumes et de noisette, apportera de la vivacité et de l'élégance pour équilibrer le plat.</div>
+    </div>
+  
+    <div class="card">
+      <div class="badge">De ta cave</div>
+      <div class="name">Caillez Lemaire</div>
+      <div class="appellation">Champagne</div>
+      <div class="meta">color=bulles | bottle=7e0caa3e</div>
+      <div class="reason">Tu as des demis de ce Champagne en cave, et c'est une super idée pour la paella ! Les bulles, la fraîcheur et la complexité de ce Champagne 'Reflets' nettoieront le palais et mettront en valeur les saveurs iodées et épicées.</div>
+    </div>
+  
+    <div class="card">
+      <div class="badge">Audacieux</div>
+      <div class="name">Domaine de la Grange des Pères</div>
+      <div class="appellation">Pays d'Hérault IGP</div>
+      <div class="meta">color=rouge | bottle=04d2df36</div>
+      <div class="reason">Je sais que tu aimes la Grange des Pères ! C'est un choix plus audacieux, mais un millésime jeune comme 2022, servi un peu frais, pourrait apporter une belle complexité aromatique et une structure élégante qui s'accordera avec le côté terre-mer de la paella.</div>
+    </div>
+  </div>
+      </section>
+    
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <h2>memory_rome</h2>
+          <div class="timing">1796 ms</div>
+        </div>
+        <div class="question"><strong>Question:</strong> Tu te souviens du chianti qu'on avait adore avec des spaghetti a Rome ?</div>
+        <div class="notes"><strong>Notes:</strong> Tester la qualite relationnelle et l'usage de la memoire.</div>
+        <div class="intro"><strong>Intro:</strong> Ah, le Chianti de Rome ! Un excellent souvenir, j'en ai l'eau à la bouche rien que d'y penser. Pour retrouver ces saveurs avec des spaghetti, il faut un rouge avec une belle acidité et des tanins souples. Je te propose de regarder du côté de l'Italie encore, c'est une valeur sûre pour les pâtes.</div>
+        <div class="summary">
+          <span>Type: conversation</span>
+          <span>Cards: 0</span>
+          <span>Memory: no</span>
+        </div>
+        <div class="warnings">
+          <div class="warning">Intro flags: ah</div>
+        </div>
+        <div class="cards"><div class="empty">No cards</div></div>
+      </section>
+    
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <h2>encave_chianti</h2>
+          <div class="timing">3390 ms</div>
+        </div>
+        <div class="question"><strong>Question:</strong> J'ai achete 6 bouteilles de Chianti Classico 2021</div>
+        <div class="notes"><strong>Notes:</strong> Verifier que Celestin reste naturel en mode encavage.</div>
+        <div class="intro"><strong>Intro:</strong> Ah, une belle pioche que ce Chianti Classico 2021 ! Je te l'ajoute en cave.</div>
+        <div class="summary">
+          <span>Type: add_wine</span>
+          <span>Cards: 0</span>
+          <span>Memory: no</span>
+        </div>
+        <div class="warnings">
+          <div class="warning">Intro flags: ah</div>
+        </div>
+        <div class="cards"><div class="empty">No cards</div></div>
+      </section>
+    
+  </div>
+</body>
+</html>

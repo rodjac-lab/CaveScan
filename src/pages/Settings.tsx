@@ -15,10 +15,33 @@ import { useZones } from '@/hooks/useZones'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { track } from '@/lib/track'
-import type { Zone } from '@/lib/types'
+import { serializeProfileForPrompt } from '@/lib/taste-profile'
+import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
+import { formatDrunkSummary, getDayOfWeek, getSeason } from '@/lib/contextHelpers'
+import {
+  analyzeCelestinEvalResult,
+  buildCelestinEvalRequest,
+  CELESTIN_EVAL_SCENARIOS,
+  renderCelestinEvalHtmlReport,
+  type CelestinEvalFixture,
+  type CelestinEvalResult,
+} from '@/lib/celestinEval'
+import type { Bottle, TasteProfile, Zone } from '@/lib/types'
 
 // Module-level state so backfill survives page navigation
 let enrichState = { status: null as string | null, running: false }
+
+type PickerWindow = Window & {
+  showOpenFilePicker?: (options?: {
+    multiple?: boolean
+    types?: Array<{
+      description?: string
+      accept: Record<string, string[]>
+    }>
+    excludeAcceptAllOption?: boolean
+  }) => Promise<FileSystemFileHandle[]>
+  showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>
+}
 
 async function runEnrichBackfill(onUpdate: (s: { status: string | null; running: boolean }) => void) {
   if (enrichState.running) return
@@ -97,6 +120,14 @@ export default function Settings() {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [showCopiedToast, setShowCopiedToast] = useState(false)
+  const [exportingFixture, setExportingFixture] = useState(false)
+  const [fixtureStatus, setFixtureStatus] = useState<string | null>(null)
+  const [fixtureHandle, setFixtureHandle] = useState<FileSystemFileHandle | null>(null)
+  const [resultsDirHandle, setResultsDirHandle] = useState<FileSystemDirectoryHandle | null>(null)
+  const [runningEval, setRunningEval] = useState(false)
+  const [evalStatus, setEvalStatus] = useState<string | null>(null)
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
   const handleOpenAdd = () => {
     setZoneName('')
@@ -202,6 +233,233 @@ export default function Settings() {
       track('invite_sent')
       setShowCopiedToast(true)
       setTimeout(() => setShowCopiedToast(false), 2000)
+    }
+  }
+
+  const handleExportCelestinFixture = async () => {
+    setExportingFixture(true)
+    setFixtureStatus('Preparation de la fixture...')
+
+    try {
+      const [{ data: cave, error: caveError }, { data: drunk, error: drunkError }, { data: profileRow, error: profileError }] = await Promise.all([
+        supabase
+          .from('bottles')
+          .select('id, domaine, cuvee, appellation, millesime, couleur, quantity, volume_l')
+          .eq('status', 'in_stock')
+          .order('added_at', { ascending: false }),
+        supabase
+          .from('bottles')
+          .select('id, domaine, cuvee, appellation, millesime, couleur, tasting_note, tasting_tags, rating, drunk_at')
+          .eq('status', 'drunk')
+          .order('drunk_at', { ascending: false })
+          .limit(30),
+        supabase
+          .from('user_taste_profiles')
+          .select('computed_profile, explicit_preferences, computed_at')
+          .maybeSingle(),
+      ])
+
+      if (caveError) throw caveError
+      if (drunkError) throw drunkError
+      if (profileError) throw profileError
+
+      const profile: TasteProfile | null = profileRow?.computed_profile
+        ? {
+            computed: profileRow.computed_profile,
+            explicit: profileRow.explicit_preferences ?? {},
+            computedAt: profileRow.computed_at ?? '',
+          }
+        : null
+
+      const drunkBottles = (drunk ?? []) as Bottle[]
+      const memories = selectRelevantMemories('generic', null, drunkBottles)
+      const fixture = {
+        name: 'celestin-fixture',
+        description: 'Export de fixture depuis la session authentifiee de CaveScan',
+        exportedAt: new Date().toISOString(),
+        history: [],
+        cave: (cave ?? []).map((bottle) => ({
+          id: String(bottle.id).substring(0, 8),
+          domaine: bottle.domaine,
+          cuvee: bottle.cuvee,
+          appellation: bottle.appellation,
+          millesime: bottle.millesime,
+          couleur: bottle.couleur,
+          quantity: bottle.quantity ?? 1,
+          volume: bottle.volume_l?.toString() ?? '0.75',
+          local_score: 0,
+        })),
+        profile: profile ? serializeProfileForPrompt(profile) : null,
+        memories: serializeMemoriesForPrompt(memories) || null,
+        context: {
+          dayOfWeek: getDayOfWeek(),
+          season: getSeason(),
+          recentDrunk: drunkBottles.slice(0, 5).map(formatDrunkSummary),
+        },
+      }
+
+      const blob = new Blob([JSON.stringify(fixture, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      const date = new Date().toISOString().slice(0, 10)
+      anchor.href = url
+      anchor.download = `celestin-fixture-${date}.json`
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+      URL.revokeObjectURL(url)
+
+      setFixtureStatus(`Fixture exportee (${fixture.cave.length} bouteilles en cave)`)
+    } catch (err) {
+      setFixtureStatus(`Erreur export fixture: ${err instanceof Error ? err.message : 'inconnue'}`)
+    } finally {
+      setExportingFixture(false)
+    }
+  }
+
+  const handlePickEvalFixture = async () => {
+    const picker = window as PickerWindow
+    if (!picker.showOpenFilePicker) {
+      setEvalStatus('Choix de fichier non supporte dans ce navigateur. Utilise Chrome desktop.')
+      return
+    }
+
+    try {
+      const [handle] = await picker.showOpenFilePicker({
+        multiple: false,
+        excludeAcceptAllOption: true,
+        types: [
+          {
+            description: 'Fixture Celestin',
+            accept: { 'application/json': ['.json'] },
+          },
+        ],
+      })
+
+      if (!handle) return
+      setFixtureHandle(handle)
+      setEvalStatus(`Fixture selectionnee: ${handle.name}`)
+    } catch {
+      // User cancelled
+    }
+  }
+
+  const handlePickEvalResultsDir = async () => {
+    const picker = window as PickerWindow
+    if (!picker.showDirectoryPicker) {
+      setEvalStatus('Choix de dossier non supporte dans ce navigateur. Utilise Chrome desktop.')
+      return
+    }
+
+    try {
+      const handle = await picker.showDirectoryPicker()
+      setResultsDirHandle(handle)
+      setEvalStatus(`Dossier des resultats: ${handle.name}`)
+    } catch {
+      // User cancelled
+    }
+  }
+
+  const handleRunCelestinEval = async () => {
+    if (!fixtureHandle) {
+      setEvalStatus('Choisis d abord une fixture JSON.')
+      return
+    }
+    if (!resultsDirHandle) {
+      setEvalStatus('Choisis d abord le dossier evals/results.')
+      return
+    }
+
+    setRunningEval(true)
+    setEvalStatus('Lecture de la fixture...')
+
+    try {
+      if (!session?.access_token) {
+        throw new Error('Session utilisateur absente pour lancer l eval.')
+      }
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Configuration Supabase manquante.')
+      }
+
+      const fixtureFile = await fixtureHandle.getFile()
+      const fixture = JSON.parse(await fixtureFile.text()) as CelestinEvalFixture
+      const results: CelestinEvalResult[] = []
+
+      for (const scenario of CELESTIN_EVAL_SCENARIOS) {
+        setEvalStatus(`Evaluation ${scenario.id}...`)
+        const body = buildCelestinEvalRequest(fixture, scenario)
+        const startedAt = Date.now()
+        const response = await fetch(`${supabaseUrl}/functions/v1/celestin`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: supabaseAnonKey,
+          },
+          body: JSON.stringify(body),
+        })
+        const elapsedMs = Date.now() - startedAt
+        const rawText = await response.text()
+
+        let data: Record<string, unknown> | null = null
+        try {
+          data = rawText ? JSON.parse(rawText) as Record<string, unknown> : null
+        } catch {
+          data = null
+        }
+
+        if (!response.ok || !data || data.error) {
+          const errorResponse = {
+            type: 'error',
+            text: !response.ok
+              ? `HTTP ${response.status}${rawText ? `: ${rawText}` : ''}`
+              : typeof data?.error === 'string'
+                ? data.error
+                : rawText || 'Erreur inconnue',
+            cards: [],
+          }
+          results.push({
+            id: scenario.id,
+            elapsedMs: null,
+            request: body,
+            response: errorResponse,
+            analysis: analyzeCelestinEvalResult(scenario, errorResponse),
+          })
+          continue
+        }
+
+        results.push({
+          id: scenario.id,
+          elapsedMs,
+          request: body,
+          response: data,
+          analysis: analyzeCelestinEvalResult(scenario, data),
+        })
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const report = {
+        fixture,
+        scenarios: CELESTIN_EVAL_SCENARIOS,
+        results,
+      }
+      const html = renderCelestinEvalHtmlReport(results, fixture, CELESTIN_EVAL_SCENARIOS)
+
+      const jsonHandle = await resultsDirHandle.getFileHandle(`celestin-eval-${timestamp}.json`, { create: true })
+      const jsonWritable = await jsonHandle.createWritable()
+      await jsonWritable.write(JSON.stringify(report, null, 2))
+      await jsonWritable.close()
+
+      const htmlHandle = await resultsDirHandle.getFileHandle(`celestin-eval-${timestamp}.html`, { create: true })
+      const htmlWritable = await htmlHandle.createWritable()
+      await htmlWritable.write(html)
+      await htmlWritable.close()
+
+      setEvalStatus(`Rapports ecrits dans ${resultsDirHandle.name}`)
+    } catch (err) {
+      setEvalStatus(`Erreur eval Celestin: ${err instanceof Error ? err.message : 'inconnue'}`)
+    } finally {
+      setRunningEval(false)
     }
   }
 
@@ -315,6 +573,50 @@ export default function Settings() {
 
         {/* Backfill enriched wine fields (temporary) */}
         <section className="mb-4">
+          <button
+            onClick={handleExportCelestinFixture}
+            disabled={exportingFixture}
+            className="mb-2 flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-3 text-[12px] font-medium text-[var(--text-muted)]"
+          >
+            {exportingFixture ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : null}
+            Exporter la fixture Celestin
+          </button>
+          {fixtureStatus && (
+            <p className="mb-2 text-center text-[11px] text-[var(--text-muted)]">{fixtureStatus}</p>
+          )}
+
+          <button
+            onClick={handlePickEvalFixture}
+            disabled={runningEval}
+            className="mb-2 flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-3 text-[12px] font-medium text-[var(--text-muted)]"
+          >
+            Choisir une fixture pour l'eval
+          </button>
+
+          <button
+            onClick={handlePickEvalResultsDir}
+            disabled={runningEval}
+            className="mb-2 flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-3 text-[12px] font-medium text-[var(--text-muted)]"
+          >
+            Choisir le dossier evals/results
+          </button>
+
+          <button
+            onClick={handleRunCelestinEval}
+            disabled={runningEval}
+            className="mb-2 flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-3 text-[12px] font-medium text-[var(--text-muted)]"
+          >
+            {runningEval ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : null}
+            Lancer l'eval Celestin
+          </button>
+          {evalStatus && (
+            <p className="mb-2 text-center text-[11px] text-[var(--text-muted)]">{evalStatus}</p>
+          )}
+
           <button
             onClick={() => runEnrichBackfill(enrichUpdater)}
             disabled={enrichRunning}

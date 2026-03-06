@@ -1,0 +1,35 @@
+[
+  {
+    "id": "generic_tonight",
+    "message": "Qu'est-ce que j'ouvre ce soir ?",
+    "notes": "Reco ouverte sans plat explicite."
+  },
+  {
+    "id": "sushi",
+    "message": "Ce soir sushi",
+    "notes": "Verifier les garde-fous sur poisson cru.",
+    "expectations": {
+      "avoidColors": ["rouge"]
+    }
+  },
+  {
+    "id": "cheese_board",
+    "message": "Je fais un plateau de fromages",
+    "notes": "Verifier la priorite au blanc et la qualite des alternatives."
+  },
+  {
+    "id": "paella",
+    "message": "Ce soir paella",
+    "notes": "Verifier si les rouges restent secondaires et prudents."
+  },
+  {
+    "id": "memory_rome",
+    "message": "Tu te souviens du chianti qu'on avait adore avec des spaghetti a Rome ?",
+    "notes": "Tester la qualite relationnelle et l'usage de la memoire."
+  },
+  {
+    "id": "encave_chianti",
+    "message": "J'ai achete 6 bouteilles de Chianti Classico 2021",
+    "notes": "Verifier que Celestin reste naturel en mode encavage."
+  }
+]

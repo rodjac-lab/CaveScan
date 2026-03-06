@@ -1,0 +1,27 @@
+{
+  "name": "template-fixture",
+  "description": "Copy this file and replace with a real cave/profile fixture for Celestin evaluation.",
+  "history": [],
+  "cave": [
+    {
+      "id": "abc12345",
+      "domaine": "Exemple Domaine",
+      "cuvee": "Exemple Cuvee",
+      "appellation": "Exemple Appellation",
+      "millesime": 2020,
+      "couleur": "rouge",
+      "quantity": 1,
+      "volume": "0.75",
+      "local_score": 1.25
+    }
+  ],
+  "profile": "Prefere les rouges souples et les blancs tendus. Aime la Bourgogne, la Loire et les champagnes de vigneron.",
+  "memories": "Tu avais adore un Chianti Classico sur des pates a Rome. Tu as aime un Berthet-Bondet 2021 avec du comte.",
+  "context": {
+    "dayOfWeek": "vendredi",
+    "season": "printemps",
+    "recentDrunk": [
+      "Berthet-Bondet Cotes du Jura 2021"
+    ]
+  }
+}
