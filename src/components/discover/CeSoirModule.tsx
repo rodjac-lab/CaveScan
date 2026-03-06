@@ -523,7 +523,18 @@ export default function CeSoirModule() {
       setMessages(prev => prev.map(m => m.id === loadingMsgId ? { ...m, ...update } : m))
       } catch (err) {
         console.error('[CeSoirModule] celestin error:', err)
-        const debugMessage = err instanceof Error ? err.message : String(err)
+        let debugMessage = err instanceof Error ? err.message : String(err)
+
+        const maybeContext = (err as { context?: Response } | null)?.context
+        if (maybeContext instanceof Response) {
+          try {
+            const raw = await maybeContext.text()
+            debugMessage = `HTTP ${maybeContext.status}${raw ? `: ${raw}` : ''}`
+          } catch {
+            debugMessage = `HTTP ${maybeContext.status}`
+          }
+        }
+
         setMessages(prev => prev.map(m =>
           m.id === loadingMsgId
             ? { ...m, text: `Debug Celestin UI: ${debugMessage}`, isLoading: false }
