@@ -15,6 +15,7 @@ const EXTRACTION_PROMPT = `Analyse cette photo d'étiquette de vin et extrais le
   "appellation": "appellation d'origine (AOC/AOP/DOC/DOCG...)",
   "millesime": année (nombre entier ou null si non visible),
   "couleur": "rouge" | "blanc" | "rose" | "bulles",
+  "country": "pays de production",
   "region": "région viticole",
   "cepage": "cépage principal si mentionné",
   "confidence": 0.0-1.0,
@@ -176,7 +177,7 @@ async function callClaude(imageBase64: string | undefined, imageUrl: string | un
 
 // === GEMINI PROVIDER ===
 
-async function callGemini(imageBase64: string | undefined, _imageUrl: string | undefined): Promise<ExtractionResult> {
+async function callGemini(imageBase64: string | undefined): Promise<ExtractionResult> {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured')
   if (!imageBase64) throw new Error('Gemini requires base64 image (no URL support in this implementation)')
 
@@ -204,6 +205,7 @@ async function callGemini(imageBase64: string | undefined, _imageUrl: string | u
             appellation: { type: 'STRING', nullable: true },
             millesime: { type: 'INTEGER', nullable: true },
             couleur: { type: 'STRING', nullable: true },
+            country: { type: 'STRING', nullable: true },
             region: { type: 'STRING', nullable: true },
             cepage: { type: 'STRING', nullable: true },
             confidence: { type: 'NUMBER' },

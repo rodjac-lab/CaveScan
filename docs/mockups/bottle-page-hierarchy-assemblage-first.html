@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>CaveScan - Proposition A - Assemblage d'abord</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #F7F4EF;
+      --bg-card: #FFFFFF;
+      --accent-bg: #FAF6ED;
+      --text-primary: #1A1A1A;
+      --text-secondary: #6B6560;
+      --text-muted: #A09A93;
+      --accent: #B8860B;
+      --accent-light: #D4A843;
+      --border: #E8E3DA;
+      --red-wine: #722F37;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+      --radius: 14px;
+      --radius-sm: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      max-width: 430px;
+      margin: 0 auto;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      padding: 14px 16px 36px;
+    }
+
+    .brand {
+      font-family: 'Playfair Display', serif;
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+
+    .screen-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 30px;
+      line-height: 1.05;
+      margin-bottom: 4px;
+    }
+
+    .screen-subtitle {
+      font-size: 13px;
+      font-weight: 300;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 96px 1fr;
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .bottle {
+      width: 96px;
+      height: 132px;
+      border-radius: 12px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.58), rgba(255,255,255,0.02)),
+        linear-gradient(145deg, #e2ddd4, #f4eee6);
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bottle::before {
+      content: "";
+      position: absolute;
+      left: 11px;
+      right: 11px;
+      top: 12px;
+      height: 78px;
+      border-radius: 9px;
+      background: linear-gradient(180deg, #f7f0e7, #efe5d6);
+      border: 1px solid rgba(114, 47, 55, 0.08);
+    }
+
+    .color-bar {
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      bottom: 10px;
+      width: 4px;
+      border-radius: 999px;
+      background: var(--red-wine);
+    }
+
+    .eyebrow {
+      font-size: 10px;
+      letter-spacing: 1.6px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    .wine-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      line-height: 1.04;
+      margin-bottom: 5px;
+    }
+
+    .wine-subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+    }
+
+    .vintage-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(184,134,11,0.08);
+      background: var(--accent-bg);
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .pill.vintage {
+      font-family: 'Playfair Display', serif;
+      color: var(--text-primary);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .blend-block {
+      margin-top: 2px;
+      padding: 10px 11px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(180deg, #fbf8f1, #f7f1e6);
+      border: 1px solid rgba(184,134,11,0.12);
+    }
+
+    .blend-label {
+      font-size: 10px;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .blend-text {
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--text-primary);
+    }
+
+    .meta-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border-top: 1px solid var(--border);
+    }
+
+    .meta-cell {
+      padding: 11px 10px;
+      border-right: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .meta-cell:last-child { border-right: none; }
+
+    .meta-kicker {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .meta-value {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    .section-card {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .section-copy {
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+    }
+
+    .ranked-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .ranked-item {
+      display: grid;
+      grid-template-columns: 54px 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .rank {
+      font-size: 10px;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding-top: 2px;
+    }
+
+    .value {
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--text-primary);
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="brand">CaveScan</div>
+    <h1 class="screen-title">Proposition A</h1>
+    <p class="screen-subtitle">L'assemblage devient l'information secondaire la plus visible. Le pays disparait de la lecture rapide.</p>
+
+    <section class="card">
+      <div class="hero">
+        <div class="bottle">
+          <div class="color-bar"></div>
+        </div>
+        <div>
+          <div class="eyebrow">Lecture immediate</div>
+          <div class="wine-name">Billecart-Salmon<br>Brut Reserve</div>
+          <div class="wine-subtitle">Champagne · Base cave de reference</div>
+          <div class="vintage-row">
+            <span class="pill">Bulles</span>
+            <span class="pill">0,75L</span>
+            <span class="pill">Pret a ouvrir</span>
+          </div>
+          <div class="blend-block">
+            <div class="blend-label">Assemblage</div>
+            <div class="blend-text">Pinot Meunier, Chardonnay, Pinot Noir</div>
+          </div>
+        </div>
+      </div>
+      <div class="meta-row">
+        <div class="meta-cell">
+          <div class="meta-kicker">Appellation</div>
+          <div class="meta-value">Champagne</div>
+        </div>
+        <div class="meta-cell">
+          <div class="meta-kicker">Region</div>
+          <div class="meta-value">Montagne de Reims</div>
+        </div>
+        <div class="meta-cell">
+          <div class="meta-kicker">Cave</div>
+          <div class="meta-value">Reserve B2</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-card">
+      <h2 class="section-title">Pourquoi cette hierarchie</h2>
+      <p class="section-copy">
+        Ici, la fiche répond d'abord a la question d'un amateur: "quel vin est-ce, et comment est-il compose ?".
+        Le pays n'est pas supprime, il est juste sorti de la lecture principale parce qu'il aide rarement a la decision quand l'appellation est deja connue.
+      </p>
+    </section>
+
+    <section class="section-card">
+      <h2 class="section-title">Ordre de lecture</h2>
+      <div class="ranked-list">
+        <div class="ranked-item">
+          <div class="rank">1er</div>
+          <div class="value">Nom du vin, appellation, couleur, format, etat de maturite.</div>
+        </div>
+        <div class="ranked-item">
+          <div class="rank">2e</div>
+          <div class="value">Assemblage complet, parce qu'il aide a anticiper le style et la table.</div>
+        </div>
+        <div class="ranked-item">
+          <div class="rank">3e</div>
+          <div class="value">Region et contexte de cave, relus seulement si l'utilisateur veut aller plus loin.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

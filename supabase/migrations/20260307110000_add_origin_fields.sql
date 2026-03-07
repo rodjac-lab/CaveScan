@@ -1,0 +1,2 @@
+ALTER TABLE bottles ADD COLUMN IF NOT EXISTS country text;
+ALTER TABLE bottles ADD COLUMN IF NOT EXISTS region text;

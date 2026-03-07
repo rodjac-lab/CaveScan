@@ -3,3 +3,6 @@ verify_jwt = false
 
 [functions.extract-wine]
 verify_jwt = false
+
+[functions.enrich-wine]
+verify_jwt = false

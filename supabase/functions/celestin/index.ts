@@ -54,6 +54,7 @@ interface WineExtraction {
   appellation: string | null
   millesime: number | null
   couleur: 'rouge' | 'blanc' | 'rose' | 'bulles' | null
+  country: string | null
   region: string | null
   quantity: number
   volume: '0.375' | '0.75' | '1.5'

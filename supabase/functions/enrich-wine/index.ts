@@ -8,6 +8,8 @@ Complète les champs enrichis en te basant sur tes connaissances œnologiques.
 RÈGLES :
 - Si tu connais CE DOMAINE spécifiquement, base tes réponses sur son style propre.
 - Si tu ne connais que l'appellation, donne les infos typiques de l'appellation. Ne fais PAS semblant de connaître le domaine.
+- country : pays de production le plus probable. Ne jamais inventer si tu n'es pas sûr.
+- region : région viticole la plus pertinente pour ce vin. Ne jamais inventer si tu n'es pas sûr.
 - grape_varieties : cépages réels de cette appellation (ou du domaine si connu). Ne jamais inventer.
 - serving_temperature : adaptée au type de vin (ex: "16-18°C" pour rouge charpenté, "10-12°C" pour blanc sec)
 - typical_aromas : 3-5 descripteurs précis. Tiens compte du millésime si présent (jeune = fruits frais, mature = cuir/truffe).
@@ -51,7 +53,7 @@ Deno.serve(async (req) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `${ENRICHMENT_PROMPT}\n\nBouteille : ${description}\n\nRéponds avec ce format JSON exact :\n{"grape_varieties": ["..."], "serving_temperature": "...", "typical_aromas": ["..."], "food_pairings": ["..."], "character": "..."}` }] }],
+        contents: [{ parts: [{ text: `${ENRICHMENT_PROMPT}\n\nBouteille : ${description}\n\nRéponds avec ce format JSON exact :\n{"country": "...", "region": "...", "grape_varieties": ["..."], "serving_temperature": "...", "typical_aromas": ["..."], "food_pairings": ["..."], "character": "..."}` }] }],
         generationConfig: {
           temperature: 0,
           maxOutputTokens: 1500,

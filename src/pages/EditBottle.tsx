@@ -52,6 +52,9 @@ export default function EditBottle() {
   const [appellation, setAppellation] = useState('')
   const [millesime, setMillesime] = useState('')
   const [couleur, setCouleur] = useState<WineColor | ''>('')
+  const [country, setCountry] = useState('')
+  const [region, setRegion] = useState('')
+  const [grapeVarietiesInput, setGrapeVarietiesInput] = useState('')
   const [zoneId, setZoneId] = useState('none')
   const [shelf, setShelf] = useState('')
   const [purchasePrice, setPurchasePrice] = useState('')
@@ -60,7 +63,6 @@ export default function EditBottle() {
   const [volumeL, setVolumeL] = useState<BottleVolumeOption>('0.75')
 
   // Populate form when bottle data loads
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (bottle) {
       setDomaine(bottle.domaine || '')
@@ -68,6 +70,9 @@ export default function EditBottle() {
       setAppellation(bottle.appellation || '')
       setMillesime(bottle.millesime?.toString() || '')
       setCouleur(bottle.couleur || '')
+      setCountry(bottle.country || '')
+      setRegion(bottle.region || '')
+      setGrapeVarietiesInput((bottle.grape_varieties || []).join(', '))
       setZoneId(bottle.zone_id || 'none')
       setShelf(bottle.shelf || '')
       setPurchasePrice(bottle.purchase_price?.toString() || '')
@@ -78,8 +83,6 @@ export default function EditBottle() {
       setLocalPhotoUrlBack(bottle.photo_url_back || null)
     }
   }, [bottle])
-  /* eslint-enable react-hooks/set-state-in-effect */
-
   const handleMillesimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 4)
     setMillesime(val)
@@ -126,6 +129,10 @@ export default function EditBottle() {
 
     setSaving(true)
     setError(null)
+    const grapeVarieties = grapeVarietiesInput
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
 
     const { error: updateError } = await supabase
       .from('bottles')
@@ -135,6 +142,9 @@ export default function EditBottle() {
         appellation: appellation || null,
         millesime: millesime ? parseInt(millesime) : null,
         couleur: couleur || null,
+        country: country || null,
+        region: region || null,
+        grape_varieties: grapeVarieties.length > 0 ? grapeVarieties : null,
         zone_id: zoneId === 'none' ? null : zoneId,
         shelf: shelf || null,
         purchase_price: purchasePrice ? parseFloat(purchasePrice.replace(',', '.')) : null,
@@ -357,6 +367,42 @@ export default function EditBottle() {
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="country">Pays</Label>
+            <Input
+              id="country"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              placeholder="ex: France"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="region">Region</Label>
+            <Input
+              id="region"
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              placeholder="ex: Bordeaux"
+            />
+          </div>
+
+        </div>
+
+        <div>
+          <Label htmlFor="grape-varieties">Cépages</Label>
+          <Input
+            id="grape-varieties"
+            value={grapeVarietiesInput}
+            onChange={(e) => setGrapeVarietiesInput(e.target.value)}
+            placeholder="ex: Cabernet Sauvignon, Merlot"
+          />
+          <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+            Séparez les cépages par des virgules.
+          </p>
         </div>
 
         <div>

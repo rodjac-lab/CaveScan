@@ -51,18 +51,28 @@ async function runEnrichBackfill(onUpdate: (s: { status: string | null; running:
   try {
     const { data: bottles } = await supabase
       .from('bottles')
-      .select('id, domaine, cuvee, appellation, millesime, couleur, grape_varieties, serving_temperature, typical_aromas, food_pairings, character')
-      .is('typical_aromas', null)
+      .select('id, domaine, cuvee, appellation, millesime, couleur, country, region, raw_extraction, grape_varieties, serving_temperature, typical_aromas, food_pairings, character')
     if (!bottles || bottles.length === 0) {
       enrichState = { status: 'Toutes les bouteilles sont déjà enrichies !', running: false }
       onUpdate(enrichState)
       return
     }
+    const bottlesToProcess = bottles.filter((b) => {
+      const rawExtraction = b.raw_extraction as { country?: string | null; region?: string | null } | null
+      const hasRawOrigin = Boolean(rawExtraction?.country || rawExtraction?.region)
+      return !b.country || !b.region || !b.grape_varieties || !b.serving_temperature || !b.typical_aromas || !b.food_pairings || !b.character || hasRawOrigin
+    })
+    if (bottlesToProcess.length === 0) {
+      enrichState = { status: 'Toutes les bouteilles ont déjà pays, région et enrichissement.', running: false }
+      onUpdate(enrichState)
+      return
+    }
     let done = 0
     let errors = 0
-    for (const b of bottles) {
-      enrichState = { status: `${done}/${bottles.length} — ${b.domaine || b.appellation || 'vin'}...`, running: true }
+    for (const b of bottlesToProcess) {
+      enrichState = { status: `${done}/${bottlesToProcess.length} — ${b.domaine || b.appellation || 'vin'}...`, running: true }
       onUpdate(enrichState)
+      const rawExtraction = b.raw_extraction as { country?: string | null; region?: string | null } | null
       const { data, error: fnErr } = await supabase.functions.invoke('enrich-wine', {
         body: { domaine: b.domaine, cuvee: b.cuvee, appellation: b.appellation, millesime: b.millesime, couleur: b.couleur },
       })
@@ -73,6 +83,8 @@ async function runEnrichBackfill(onUpdate: (s: { status: string | null; running:
         continue
       }
       const updates: Record<string, unknown> = {}
+      if (!b.country) updates.country = rawExtraction?.country || data.country || null
+      if (!b.region) updates.region = rawExtraction?.region || data.region || null
       if (!b.grape_varieties) updates.grape_varieties = data.grape_varieties || null
       if (!b.serving_temperature) updates.serving_temperature = data.serving_temperature || null
       if (!b.typical_aromas) updates.typical_aromas = data.typical_aromas || null
@@ -625,7 +637,7 @@ export default function Settings() {
             {enrichRunning ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : null}
-            Enrichir les fiches vin (arômes, accords, température)
+            Enrichir les fiches vin (pays, région, arômes, accords, température)
           </button>
           {enrichStatus && (
             <p className="mt-1.5 text-center text-[11px] text-[var(--text-muted)]">{enrichStatus}</p>

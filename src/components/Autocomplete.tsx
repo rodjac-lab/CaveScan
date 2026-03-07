@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Input } from '@/components/ui/input'
 
@@ -25,30 +25,22 @@ export function Autocomplete({
   id,
   className,
 }: AutocompleteProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([])
+  const [hasFocus, setHasFocus] = useState(false)
   const [dropdownPosition, setDropdownPosition] = useState<DropdownPosition>({ top: 0, left: 0, width: 0 })
   const wrapperRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const isFocused = useRef(false)
-
-  useEffect(() => {
-    if (value.length >= 2) {
-      const filtered = suggestions.filter((s) =>
-        s.toLowerCase().includes(value.toLowerCase())
-      )
-      setFilteredSuggestions(filtered.slice(0, 5))
-      setIsOpen(filtered.length > 0 && isFocused.current)
-    } else {
-      setFilteredSuggestions([])
-      setIsOpen(false)
-    }
-  }, [value, suggestions])
+  const filteredSuggestions = useMemo(() => {
+    if (value.length < 2) return []
+    return suggestions
+      .filter((suggestion) => suggestion.toLowerCase().includes(value.toLowerCase()))
+      .slice(0, 5)
+  }, [suggestions, value])
+  const isOpen = hasFocus && filteredSuggestions.length > 0
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
+        setHasFocus(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -72,7 +64,7 @@ export function Autocomplete({
 
     // Close dropdown on scroll (standard mobile UX)
     function handleScroll() {
-      setIsOpen(false)
+      setHasFocus(false)
     }
 
     if (isOpen) {
@@ -87,7 +79,7 @@ export function Autocomplete({
 
   function handleSelect(suggestion: string): void {
     onChange(suggestion)
-    setIsOpen(false)
+    setHasFocus(false)
   }
 
   const dropdown = isOpen && filteredSuggestions.length > 0 && (
@@ -119,11 +111,10 @@ export function Autocomplete({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => {
-          isFocused.current = true
-          if (filteredSuggestions.length > 0) setIsOpen(true)
+          setHasFocus(true)
         }}
         onBlur={() => {
-          isFocused.current = false
+          setHasFocus(false)
         }}
         placeholder={placeholder}
         className={className}

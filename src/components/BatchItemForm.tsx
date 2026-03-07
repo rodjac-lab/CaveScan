@@ -31,6 +31,8 @@ export interface BatchItemData {
   appellation: string
   millesime: string
   couleur: WineColor | ''
+  country: string
+  region: string
   zoneId: string
   shelf: string
   purchasePrice: string
@@ -270,6 +272,29 @@ export function BatchItemForm({
             value={item.quantity}
             onChange={(v) => onUpdate({ quantity: v })}
           />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="country">Pays</Label>
+            <Input
+              id="country"
+              value={item.country}
+              onChange={(e) => onUpdate({ country: e.target.value })}
+              placeholder="ex: France"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="region">Region</Label>
+            <Input
+              id="region"
+              value={item.region}
+              onChange={(e) => onUpdate({ region: e.target.value })}
+              placeholder="ex: Bordeaux"
+            />
+          </div>
+
         </div>
 
         <div>

@@ -78,6 +78,8 @@ export default function AddBottle() {
   const [appellation, setAppellation] = useState(prefillExtraction?.appellation || '')
   const [millesime, setMillesime] = useState(prefillExtraction?.millesime ? String(prefillExtraction.millesime) : '')
   const [couleur, setCouleur] = useState<WineColor | ''>(normalizeWineColor(prefillExtraction?.couleur || null) || '')
+  const [country, setCountry] = useState(prefillExtraction?.country || '')
+  const [region, setRegion] = useState(prefillExtraction?.region || '')
   const [zoneId, setZoneId] = useState('')
   const [shelf, setShelf] = useState('')
   const [purchasePrice, setPurchasePrice] = useState('')
@@ -91,6 +93,7 @@ export default function AddBottle() {
           appellation: prefillExtraction.appellation || null,
           millesime: prefillExtraction.millesime || null,
           couleur: normalizeWineColor(prefillExtraction.couleur || null),
+          country: prefillExtraction.country || null,
           region: prefillExtraction.region || null,
           cepage: prefillExtraction.cepage || null,
           confidence: 0,
@@ -128,6 +131,8 @@ export default function AddBottle() {
       appellation: '',
       millesime: '',
       couleur: '' as const,
+      country: '',
+      region: '',
       zoneId: '',
       shelf: '',
       purchasePrice: '',
@@ -171,6 +176,8 @@ export default function AddBottle() {
       setAppellation(data.appellation || '')
       setMillesime(data.millesime?.toString() || '')
       setCouleur(normalizeWineColor(data.couleur) || '')
+      setCountry(data.country || '')
+      setRegion(data.region || '')
       track('scan_single', { provider: 'claude' })
       setStep('confirm')
     } catch (err) {
@@ -205,6 +212,8 @@ export default function AddBottle() {
       appellation: '',
       millesime: '',
       couleur: '' as const,
+      country: '',
+      region: '',
       zoneId: '',
       shelf: '',
       purchasePrice: '',
@@ -250,6 +259,8 @@ export default function AddBottle() {
           appellation: data.appellation || '',
           millesime: data.millesime?.toString() || '',
           couleur: normalizeWineColor(data.couleur) || '',
+          country: data.country || '',
+          region: data.region || '',
           rawExtraction: data,
         }
       } catch (err) {
@@ -291,6 +302,8 @@ export default function AddBottle() {
           if (!appellation && data.appellation) setAppellation(data.appellation)
           if (!millesime && data.millesime) setMillesime(data.millesime.toString())
           if (!couleur && data.couleur) setCouleur(normalizeWineColor(data.couleur) || '')
+          if (!country && data.country) setCountry(data.country)
+          if (!region && data.region) setRegion(data.region)
         }
       } catch (err) {
         console.error('Back extraction error:', err)
@@ -327,7 +340,8 @@ export default function AddBottle() {
           if (!currentItem.appellation && data.appellation) updates.appellation = data.appellation
           if (!currentItem.millesime && data.millesime) updates.millesime = data.millesime.toString()
           if (!currentItem.couleur && data.couleur) updates.couleur = normalizeWineColor(data.couleur) || ''
-
+          if (!currentItem.country && data.country) updates.country = data.country
+          if (!currentItem.region && data.region) updates.region = data.region
           if (Object.keys(updates).length > 0) {
             updatedItems[currentBatchIndex] = {
               ...updatedItems[currentBatchIndex],
@@ -372,6 +386,8 @@ export default function AddBottle() {
         appellation: appellation || null,
         millesime: millesime ? parseInt(millesime) : null,
         couleur: couleur || null,
+        country: country || null,
+        region: region || null,
         zone_id: zoneId || null,
         shelf: shelf || null,
         purchase_price: purchasePrice ? parseFloat(purchasePrice.replace(',', '.')) : null,
@@ -428,6 +444,8 @@ export default function AddBottle() {
         appellation: item.appellation || null,
         millesime: item.millesime ? parseInt(item.millesime) : null,
         couleur: item.couleur || null,
+        country: item.country || null,
+        region: item.region || null,
         zone_id: item.zoneId || null,
         shelf: item.shelf || null,
         purchase_price: item.purchasePrice ? parseFloat(item.purchasePrice.replace(',', '.')) : null,
@@ -500,6 +518,8 @@ export default function AddBottle() {
     setAppellation('')
     setMillesime('')
     setCouleur('')
+    setCountry('')
+    setRegion('')
     setZoneId('')
     setShelf('')
     setPurchasePrice('')
@@ -684,11 +704,15 @@ export default function AddBottle() {
               appellation={appellation}
               millesime={millesime}
               couleur={couleur}
+              country={country}
+              region={region}
               onDomaineChange={setDomaine}
               onCuveeChange={setCuvee}
               onAppellationChange={setAppellation}
               onMillesimeChange={setMillesime}
               onCouleurChange={setCouleur}
+              onCountryChange={setCountry}
+              onRegionChange={setRegion}
               volumeL={volumeL}
               onVolumeChange={setVolumeL}
               domainesSuggestions={domainesSuggestions}

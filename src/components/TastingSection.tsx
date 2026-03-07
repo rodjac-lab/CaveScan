@@ -10,6 +10,10 @@ import { extractAndSaveTags } from '@/lib/tastingMemories'
 
 const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Plat', 'Ambiance', 'Autre']
 
+function buildTastingPhotoFilename(): string {
+  return `${crypto.randomUUID()}-tasting.jpg`
+}
+
 interface TastingSectionProps {
   bottle: BottleWithZone
   onRefetch: () => Promise<void>
@@ -89,7 +93,7 @@ export function TastingSection({
     setUploadingPhoto(true)
 
     try {
-      const photoUrl = await uploadPhoto(pendingFile, `${Date.now()}-tasting.jpg`)
+      const photoUrl = await uploadPhoto(pendingFile, buildTastingPhotoFilename())
 
       const newPhoto: TastingPhoto = {
         url: photoUrl!,

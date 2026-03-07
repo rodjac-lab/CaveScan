@@ -27,6 +27,8 @@ export interface Bottle {
   appellation: string | null
   millesime: number | null
   couleur: WineColor | null
+  country: string | null
+  region: string | null
   raw_extraction: Record<string, unknown> | null
   zone_id: string | null
   shelf: string | null
@@ -208,6 +210,7 @@ export interface WineExtraction {
   appellation: string | null
   millesime: number | null
   couleur: WineColor | null
+  country: string | null
   region: string | null
   cepage: string | null
   confidence: number

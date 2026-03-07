@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>CaveScan - Proposition D - Lecture + Edition</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #F7F4EF;
+      --bg-card: #FFFFFF;
+      --accent-bg: #FAF6ED;
+      --text-primary: #1A1A1A;
+      --text-secondary: #6B6560;
+      --text-muted: #A09A93;
+      --accent: #B8860B;
+      --accent-light: #D4A843;
+      --border: #E8E3DA;
+      --red-wine: #722F37;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+      --radius: 14px;
+      --radius-sm: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      max-width: 920px;
+      margin: 0 auto;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      padding: 18px;
+    }
+
+    .compare {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
+
+    .phone {
+      background: linear-gradient(180deg, #fbf7f1, #f4efe8);
+      border: 1px solid #ddd4c7;
+      border-radius: 28px;
+      padding: 14px;
+      box-shadow: 0 14px 40px rgba(36, 30, 20, 0.08);
+    }
+
+    .page {
+      background: var(--bg);
+      border-radius: 22px;
+      min-height: 860px;
+      overflow: hidden;
+      padding: 14px 16px 28px;
+    }
+
+    .brand {
+      font-family: 'Playfair Display', serif;
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+
+    .panel-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 26px;
+      line-height: 1.05;
+      margin-bottom: 4px;
+    }
+
+    .panel-subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 86px 1fr;
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .bottle {
+      width: 86px;
+      height: 124px;
+      border-radius: 10px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.56), rgba(255,255,255,0.02)),
+        linear-gradient(145deg, #e3ddd4, #f3ede5);
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bottle::before {
+      content: "";
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      top: 12px;
+      height: 72px;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #f7f1e8, #efe5d7);
+      border: 1px solid rgba(114,47,55,0.08);
+    }
+
+    .color-bar {
+      position: absolute;
+      left: 9px;
+      top: 9px;
+      bottom: 9px;
+      width: 4px;
+      border-radius: 999px;
+      background: var(--red-wine);
+    }
+
+    .wine-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      line-height: 1.04;
+      margin-bottom: 4px;
+    }
+
+    .wine-subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+    }
+
+    .hero-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .tag {
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--accent-bg);
+      border: 1px solid rgba(184,134,11,0.08);
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .tag.vintage {
+      font-family: 'Playfair Display', serif;
+      color: var(--text-primary);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .grape-line {
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .grape-line strong {
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-right: 6px;
+    }
+
+    .editorial-note {
+      margin-top: 2px;
+      padding: 10px 11px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(180deg, #fbf8f1, #f7f1e6);
+      border: 1px solid rgba(184,134,11,0.12);
+    }
+
+    .editorial-kicker {
+      font-size: 10px;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .editorial-copy {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-primary);
+    }
+
+    .footer-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border-top: 1px solid var(--border);
+    }
+
+    .footer-cell {
+      text-align: center;
+      padding: 11px 9px;
+      border-right: 1px solid var(--border);
+    }
+
+    .footer-cell:last-child { border-right: none; }
+
+    .footer-kicker {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .footer-value {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 16px;
+      margin-bottom: 9px;
+    }
+
+    .section-copy {
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+    }
+
+    .two-up {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .mini {
+      border-radius: var(--radius-sm);
+      background: #fcfaf6;
+      border: 1px solid var(--border);
+      padding: 11px 12px;
+    }
+
+    .mini-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+    }
+
+    .mini-value {
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--text-primary);
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .divider span {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .form-card {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-md);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .field-group {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .field {
+      display: grid;
+      gap: 5px;
+    }
+
+    .field label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .input,
+    .textarea {
+      width: 100%;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      padding: 10px 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      color: var(--text-primary);
+      line-height: 1.45;
+    }
+
+    .textarea {
+      min-height: 104px;
+      resize: none;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .btn {
+      flex: 1;
+      border-radius: var(--radius-sm);
+      padding: 11px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-secondary);
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .logic-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      padding: 14px;
+    }
+
+    .logic-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .logic-item {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-secondary);
+    }
+
+    .logic-item strong {
+      color: var(--text-primary);
+    }
+
+    @media (max-width: 860px) {
+      body { padding: 12px; }
+      .compare { grid-template-columns: 1fr; }
+      .page { min-height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="compare">
+    <section class="phone">
+      <div class="page">
+        <div class="brand">CaveScan</div>
+        <h1 class="panel-title">Vue lecture</h1>
+        <p class="panel-subtitle">Un seul texte editorial visible, plus les notes personnelles si elles existent.</p>
+
+        <section class="card">
+          <div class="hero">
+            <div class="bottle">
+              <div class="color-bar"></div>
+            </div>
+            <div>
+              <div class="wine-name">Chateau Canon<br>2020</div>
+              <div class="wine-subtitle">Saint-Emilion Grand Cru</div>
+
+              <div class="hero-tags">
+                <span class="tag vintage">2020</span>
+                <span class="tag">Rouge</span>
+                <span class="tag">A attendre 2-3 ans</span>
+              </div>
+
+              <div class="grape-line">
+                <strong>Cepages</strong>
+                Merlot, Cabernet Franc
+              </div>
+
+              <div class="editorial-note">
+                <div class="editorial-kicker">Ce qu'il faut comprendre</div>
+                <div class="editorial-copy">Canon joue ici la finesse plus que la force brute : bouche droite, texture crayeuse, fruit noir net. Un rouge de precision, plus noble que demonstratif.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="footer-row">
+            <div class="footer-cell">
+              <div class="footer-kicker">Region</div>
+              <div class="footer-value">Bordeaux rive droite</div>
+            </div>
+            <div class="footer-cell">
+              <div class="footer-kicker">Service</div>
+              <div class="footer-value">16-17C</div>
+            </div>
+            <div class="footer-cell">
+              <div class="footer-kicker">Cave</div>
+              <div class="footer-value">Casier A3</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="divider"><span>Mes notes</span></div>
+          <p class="section-copy">Beaucoup plus reserve que le 2019 a ce stade. A regouter apres carafage long. Gros potentiel mais encore compact.</p>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">Lecture utile</h2>
+          <div class="two-up">
+            <div class="mini">
+              <div class="mini-label">A table</div>
+              <div class="mini-value">Canard roti, boeuf en croute, cepes poeles</div>
+            </div>
+            <div class="mini">
+              <div class="mini-label">A surveiller</div>
+              <div class="mini-value">Encore reserve aujourd'hui, plus harmonieux a moyen terme</div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="phone">
+      <div class="page">
+        <div class="brand">CaveScan</div>
+        <h1 class="panel-title">Vue edition</h1>
+        <p class="panel-subtitle">Un texte editorial corrigeable, et un champ distinct pour la voix personnelle de l'utilisateur.</p>
+
+        <section class="form-card">
+          <div class="divider"><span>Identite</span></div>
+          <div class="field-group">
+            <div class="field">
+              <label>Domaine / Cuvee</label>
+              <input class="input" value="Chateau Canon">
+            </div>
+            <div class="field">
+              <label>Appellation</label>
+              <input class="input" value="Saint-Emilion Grand Cru">
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Millesime</label>
+                <input class="input" value="2020">
+              </div>
+              <div class="field">
+                <label>Region</label>
+                <input class="input" value="Bordeaux rive droite">
+              </div>
+            </div>
+            <div class="field">
+              <label>Cepages</label>
+              <input class="input" value="Merlot, Cabernet Franc">
+            </div>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <div class="divider"><span>Lecture du vin</span></div>
+          <div class="field-group">
+            <div class="field">
+              <label>Ce qu'il faut comprendre</label>
+              <textarea class="textarea">Canon joue ici la finesse plus que la force brute : bouche droite, texture crayeuse, fruit noir net. Un rouge de precision, plus noble que demonstratif.</textarea>
+            </div>
+            <p class="hint">Texte editorial principal visible sur la fiche. Il peut venir de Celestin mais doit rester corrigeable par l'utilisateur.</p>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <div class="divider"><span>Personnel</span></div>
+          <div class="field-group">
+            <div class="field">
+              <label>Mes notes</label>
+              <textarea class="textarea">Beaucoup plus reserve que le 2019 a ce stade. A regouter apres carafage long. Gros potentiel mais encore compact.</textarea>
+            </div>
+            <p class="hint">Champ libre, prive, personnel. Visible ensuite sur la fiche si non vide, mais toujours distinct du texte editorial.</p>
+          </div>
+        </section>
+
+        <div class="actions">
+          <button class="btn">Annuler</button>
+          <button class="btn primary">Enregistrer</button>
+        </div>
+
+        <section class="logic-card" style="margin-top: 14px;">
+          <div class="logic-list">
+            <div class="logic-item"><strong>Un seul texte principal visible :</strong> le texte editorial remplace le flou autour de `character`.</div>
+            <div class="logic-item"><strong>Les notes perso restent :</strong> elles existent seulement comme complement, jamais comme doublon du texte principal.</div>
+            <div class="logic-item"><strong>Les deux champs sont editables :</strong> l'utilisateur peut corriger l'IA sans perdre sa propre voix.</div>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

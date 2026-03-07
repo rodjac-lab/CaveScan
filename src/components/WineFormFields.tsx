@@ -16,12 +16,16 @@ interface WineFormFieldsProps {
   appellation: string
   millesime: string
   couleur: WineColor | ''
+  country: string
+  region: string
   volumeL: BottleVolumeOption
   onDomaineChange: (v: string) => void
   onCuveeChange: (v: string) => void
   onAppellationChange: (v: string) => void
   onMillesimeChange: (v: string) => void
   onCouleurChange: (v: WineColor) => void
+  onCountryChange: (v: string) => void
+  onRegionChange: (v: string) => void
   onVolumeChange: (v: BottleVolumeOption) => void
   domainesSuggestions: string[]
   appellationsSuggestions: string[]
@@ -33,12 +37,16 @@ export function WineFormFields({
   appellation,
   millesime,
   couleur,
+  country,
+  region,
   volumeL,
   onDomaineChange,
   onCuveeChange,
   onAppellationChange,
   onMillesimeChange,
   onCouleurChange,
+  onCountryChange,
+  onRegionChange,
   onVolumeChange,
   domainesSuggestions,
   appellationsSuggestions,
@@ -111,6 +119,29 @@ export function WineFormFields({
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="country">Pays</Label>
+          <Input
+            id="country"
+            value={country}
+            onChange={(e) => onCountryChange(e.target.value)}
+            placeholder="ex: France"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="region">Region</Label>
+          <Input
+            id="region"
+            value={region}
+            onChange={(e) => onRegionChange(e.target.value)}
+            placeholder="ex: Bordeaux"
+          />
+        </div>
+
       </div>
 
       <div>

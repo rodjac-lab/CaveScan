@@ -130,9 +130,6 @@ export default function BottlePage() {
       {/* ===== IDENTITY CARD ===== */}
       <BottleIdentityCard bottle={bottle} onZoom={handleZoom} onDateChange={isDrunk ? handleDateChange : undefined} />
 
-      {/* ===== TASTING GUIDE ===== */}
-      <TastingGuideCard bottle={bottle} />
-
       {/* ===== TASTING SECTION (drunk bottles) ===== */}
       {isDrunk && (
         <TastingSection
@@ -146,9 +143,15 @@ export default function BottlePage() {
         />
       )}
 
+      {/* ===== TASTING GUIDE ===== */}
+      {isDrunk && <TastingGuideCard bottle={bottle} />}
+
       {/* ===== CAVE SECTIONS (in_stock bottles) ===== */}
       {!isDrunk && (
-        <CaveSection bottle={bottle} onRefetch={refetch} groupBottleIds={batchState?.groupBottleIds} />
+        <>
+          <TastingGuideCard bottle={bottle} />
+          <CaveSection bottle={bottle} onRefetch={refetch} groupBottleIds={batchState?.groupBottleIds} />
+        </>
       )}
 
       {/* ===== DELETE ===== */}

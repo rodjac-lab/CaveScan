@@ -4,6 +4,32 @@ import type { BottleWithZone } from '@/lib/types'
 
 const BOTTLES_SELECT_QUERY = `*, zone:zones(*)`
 
+async function loadBottles(): Promise<{ data: BottleWithZone[]; error: string | null }> {
+  const { data, error } = await supabase
+    .from('bottles')
+    .select(BOTTLES_SELECT_QUERY)
+    .eq('status', 'in_stock')
+    .order('added_at', { ascending: false })
+
+  return {
+    data: data || [],
+    error: error?.message || null,
+  }
+}
+
+async function loadBottle(id: string): Promise<{ data: BottleWithZone | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from('bottles')
+    .select(BOTTLES_SELECT_QUERY)
+    .eq('id', id)
+    .single()
+
+  return {
+    data,
+    error: error?.message || null,
+  }
+}
+
 export function useBottles(): {
   bottles: BottleWithZone[]
   loading: boolean
@@ -16,24 +42,30 @@ export function useBottles(): {
 
   const fetchBottles = useCallback(async () => {
     setLoading(true)
-    const { data, error: fetchError } = await supabase
-      .from('bottles')
-      .select(BOTTLES_SELECT_QUERY)
-      .eq('status', 'in_stock')
-      .order('added_at', { ascending: false })
-
-    if (fetchError) {
-      setError(fetchError.message)
-    } else {
-      setBottles(data || [])
-      setError(null)
-    }
+    const result = await loadBottles()
+    setBottles(result.data)
+    setError(result.error)
     setLoading(false)
   }, [])
 
   useEffect(() => {
-    fetchBottles()
-  }, [fetchBottles])
+    let isCancelled = false
+
+    async function fetchInitialBottles(): Promise<void> {
+      const result = await loadBottles()
+      if (isCancelled) return
+
+      setBottles(result.data)
+      setError(result.error)
+      setLoading(false)
+    }
+
+    void fetchInitialBottles()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [])
 
   return { bottles, loading, error, refetch: fetchBottles }
 }
@@ -126,24 +158,35 @@ export function useBottle(id: string | undefined): {
     }
 
     setLoading(true)
-    const { data, error: fetchError } = await supabase
-      .from('bottles')
-      .select(BOTTLES_SELECT_QUERY)
-      .eq('id', id)
-      .single()
-
-    if (fetchError) {
-      setError(fetchError.message)
-    } else {
-      setBottle(data)
-      setError(null)
-    }
+    const result = await loadBottle(id)
+    setBottle(result.data)
+    setError(result.error)
     setLoading(false)
   }, [id])
 
   useEffect(() => {
-    fetchBottle()
-  }, [fetchBottle])
+    let isCancelled = false
+
+    async function fetchInitialBottle(): Promise<void> {
+      if (!id) {
+        setLoading(false)
+        return
+      }
+
+      const result = await loadBottle(id)
+      if (isCancelled) return
+
+      setBottle(result.data)
+      setError(result.error)
+      setLoading(false)
+    }
+
+    void fetchInitialBottle()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [id])
 
   return { bottle, loading, error, refetch: fetchBottle }
 }

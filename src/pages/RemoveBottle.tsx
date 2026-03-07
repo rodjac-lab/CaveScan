@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useSwipeable } from 'react-swipeable'
@@ -60,53 +60,6 @@ export default function RemoveBottle() {
   const [error, setError] = useState<string | null>(null)
   const [prefillHandled, setPrefillHandled] = useState(false)
   const [currentBatchIndex, setCurrentBatchIndex] = useState(0)
-
-  // Handle prefill from Scanner
-  useEffect(() => {
-    if (prefillHandled) return
-    if (bottlesLoading) return // Wait until bottles are loaded before matching
-    const state = location.state as RemoveBottleLocationState | null
-    if (!state) return
-
-    const { prefillExtraction, prefillPhotoFile } = state
-
-    if (prefillExtraction) {
-      // We have extraction data (with or without photo) - go straight to matching
-      setPrefillHandled(true)
-      const extraction = {
-        domaine: prefillExtraction.domaine || null,
-        cuvee: prefillExtraction.cuvee || null,
-        appellation: prefillExtraction.appellation || null,
-        millesime: prefillExtraction.millesime || null,
-        couleur: normalizeWineColor(prefillExtraction.couleur || null),
-        region: prefillExtraction.region || null,
-        cepage: prefillExtraction.cepage || null,
-        confidence: prefillExtraction.confidence ?? 0,
-        grape_varieties: prefillExtraction.grape_varieties || null,
-        serving_temperature: prefillExtraction.serving_temperature || null,
-        typical_aromas: prefillExtraction.typical_aromas || null,
-        food_pairings: prefillExtraction.food_pairings || null,
-        character: prefillExtraction.character || null,
-      } as WineExtraction
-
-      const matched = findMatches(bottles, extraction)
-      const [primaryMatch, ...alternatives] = matched
-
-      setScanResult({
-        extraction,
-        photoFile: prefillPhotoFile ?? null,
-        photoUri: prefillPhotoFile ? URL.createObjectURL(prefillPhotoFile) : null,
-        matchType: primaryMatch ? 'in_cave' : 'not_in_cave',
-        primaryMatch: primaryMatch ?? null,
-        alternatives,
-      })
-      setStep('result')
-    } else if (prefillPhotoFile) {
-      // Only photo, need to run OCR
-      setPrefillHandled(true)
-      void processSingleFile(prefillPhotoFile)
-    }
-  }, [location.state, bottles, bottlesLoading, prefillHandled])
 
   useEffect(() => {
     return () => {
@@ -214,7 +167,7 @@ export default function RemoveBottle() {
     resetToChoose()
   }
 
-  const processSingleFile = async (file: File) => {
+  const processSingleFile = useCallback(async (file: File) => {
     setError(null)
     setShowAlternatives(false)
     setStep('processing')
@@ -254,7 +207,54 @@ export default function RemoveBottle() {
         },
       })
     }
-  }
+  }, [bottles, navigate, scanResult?.photoUri])
+
+  // Handle prefill from Scanner
+  useEffect(() => {
+    if (prefillHandled) return
+    if (bottlesLoading) return // Wait until bottles are loaded before matching
+    const state = location.state as RemoveBottleLocationState | null
+    if (!state) return
+
+    const { prefillExtraction, prefillPhotoFile } = state
+
+    if (prefillExtraction) {
+      // We have extraction data (with or without photo) - go straight to matching
+      setPrefillHandled(true)
+      const extraction = {
+        domaine: prefillExtraction.domaine || null,
+        cuvee: prefillExtraction.cuvee || null,
+        appellation: prefillExtraction.appellation || null,
+        millesime: prefillExtraction.millesime || null,
+        couleur: normalizeWineColor(prefillExtraction.couleur || null),
+        country: prefillExtraction.country || null,
+        region: prefillExtraction.region || null,
+        confidence: prefillExtraction.confidence ?? 0,
+        grape_varieties: prefillExtraction.grape_varieties || null,
+        serving_temperature: prefillExtraction.serving_temperature || null,
+        typical_aromas: prefillExtraction.typical_aromas || null,
+        food_pairings: prefillExtraction.food_pairings || null,
+        character: prefillExtraction.character || null,
+      } as WineExtraction
+
+      const matched = findMatches(bottles, extraction)
+      const [primaryMatch, ...alternatives] = matched
+
+      setScanResult({
+        extraction,
+        photoFile: prefillPhotoFile ?? null,
+        photoUri: prefillPhotoFile ? URL.createObjectURL(prefillPhotoFile) : null,
+        matchType: primaryMatch ? 'in_cave' : 'not_in_cave',
+        primaryMatch: primaryMatch ?? null,
+        alternatives,
+      })
+      setStep('result')
+    } else if (prefillPhotoFile) {
+      // Only photo, need to run OCR
+      setPrefillHandled(true)
+      void processSingleFile(prefillPhotoFile)
+    }
+  }, [location.state, bottles, bottlesLoading, prefillHandled, processSingleFile])
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -384,6 +384,8 @@ export default function RemoveBottle() {
           appellation: result.extraction.appellation || null,
           millesime: result.extraction.millesime || null,
           couleur: normalizeWineColor(result.extraction.couleur) || null,
+          country: result.extraction.country || null,
+          region: result.extraction.region || null,
           photo_url: photoUrl,
           raw_extraction: result.extraction,
           status: 'drunk',
@@ -455,6 +457,8 @@ export default function RemoveBottle() {
           appellation: item.extraction?.appellation || null,
           millesime: item.extraction?.millesime || null,
           couleur: normalizeWineColor(item.extraction?.couleur) || null,
+          country: item.extraction?.country || null,
+          region: item.extraction?.region || null,
           photo_url: photoUrl,
           raw_extraction: item.extraction,
           status: 'drunk',
@@ -563,6 +567,8 @@ export default function RemoveBottle() {
             appellation: item.extraction.appellation || null,
             millesime: item.extraction.millesime || null,
             couleur: normalizeWineColor(item.extraction.couleur) || null,
+            country: item.extraction.country || null,
+            region: item.extraction.region || null,
             photo_url: photoUrl,
             raw_extraction: item.extraction,
             status: 'drunk',

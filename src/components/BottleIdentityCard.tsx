@@ -4,7 +4,7 @@ import { formatBottleVolume, getWineColorLabel, type BottleWithZone } from '@/li
 
 function formatDateShort(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('fr-FR', {
-    day: 'numeric', month: 'short', year: 'numeric'
+    day: 'numeric', month: 'short', year: 'numeric',
   })
 }
 
@@ -17,34 +17,33 @@ interface BottleIdentityCardProps {
 export function BottleIdentityCard({ bottle, onZoom, onDateChange }: BottleIdentityCardProps) {
   const isDrunk = bottle.status === 'drunk'
   const displayDateStr = (isDrunk && bottle.drunk_at) || bottle.added_at
-  const displayDate = displayDateStr ? formatDateShort(displayDateStr) : '—'
+  const displayDate = displayDateStr ? formatDateShort(displayDateStr) : '-'
   const dateInputRef = useRef<HTMLInputElement>(null)
+  const grapeDetails = bottle.grape_varieties?.filter(Boolean).join(', ') || ''
+  const originDetails = [bottle.country, bottle.region, grapeDetails].filter(Boolean).join(' · ')
 
   return (
-    <div className="identity-card-anim mx-4 mt-3 rounded-[var(--radius)] bg-[var(--bg-card)] shadow-[var(--shadow-md)] overflow-hidden">
-      {/* Identity Top: photo + info */}
+    <div className="identity-card-anim mx-4 mt-3 overflow-hidden rounded-[var(--radius)] bg-[var(--bg-card)] shadow-[var(--shadow-md)]">
       <div className="flex gap-[14px] p-[14px]">
-        {/* Photo thumbnail */}
         {bottle.photo_url ? (
           <img
             src={bottle.photo_url}
-            alt="Étiquette"
-            className="w-[90px] h-[120px] rounded-lg object-cover shrink-0 cursor-pointer bg-[#e8e3da] hover:scale-[1.02] transition-transform"
+            alt="Etiquette"
+            className="h-[120px] w-[90px] shrink-0 cursor-pointer rounded-lg bg-[#e8e3da] object-cover transition-transform hover:scale-[1.02]"
             onClick={() => onZoom(bottle.photo_url!, 'Avant')}
           />
         ) : (
-          <div className="w-[90px] h-[120px] rounded-lg shrink-0 bg-[#e8e3da] flex items-center justify-center">
+          <div className="flex h-[120px] w-[90px] shrink-0 items-center justify-center rounded-lg bg-[#e8e3da]">
             <Wine className="h-6 w-6 text-[var(--text-muted)]" />
           </div>
         )}
 
-        {/* Info zone */}
-        <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
           <div className="font-serif text-[20px] font-bold leading-tight text-[var(--text-primary)]">
             {bottle.domaine || bottle.cuvee || bottle.appellation || 'Vin'}
           </div>
           {bottle.appellation && (
-            <div className="text-[13px] text-[var(--text-secondary)] mt-px">
+            <div className="mt-px text-[13px] text-[var(--text-secondary)]">
               {bottle.appellation}
             </div>
           )}
@@ -53,18 +52,22 @@ export function BottleIdentityCard({ bottle, onZoom, onDateChange }: BottleIdent
               {bottle.cuvee}
             </div>
           )}
-          {/* Tags: millesime + couleur */}
-          <div className="flex flex-wrap gap-1.5 mt-2">
+          {originDetails && (
+            <div className="mt-1 text-[12px] text-[var(--text-muted)]">
+              {originDetails}
+            </div>
+          )}
+          <div className="mt-2 flex flex-wrap gap-1.5">
             {bottle.millesime && (
-              <span className="font-serif text-xs font-semibold text-[var(--text-primary)] bg-[var(--accent-bg)] border border-[rgba(184,134,11,0.06)] rounded-full px-2.5 py-0.5">
+              <span className="rounded-full border border-[rgba(184,134,11,0.06)] bg-[var(--accent-bg)] px-2.5 py-0.5 font-serif text-xs font-semibold text-[var(--text-primary)]">
                 {bottle.millesime}
               </span>
             )}
-            <span className="text-[11px] font-medium text-[var(--text-secondary)] bg-[var(--accent-bg)] border border-[rgba(184,134,11,0.06)] rounded-full px-2.5 py-0.5">
+            <span className="rounded-full border border-[rgba(184,134,11,0.06)] bg-[var(--accent-bg)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
               {formatBottleVolume(bottle.volume_l)}
             </span>
             {bottle.couleur && (
-              <span className="text-[11px] font-medium text-[var(--text-secondary)] bg-[var(--accent-bg)] border border-[rgba(184,134,11,0.06)] rounded-full px-2.5 py-0.5">
+              <span className="rounded-full border border-[rgba(184,134,11,0.06)] bg-[var(--accent-bg)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
                 {getWineColorLabel(bottle.couleur)}
               </span>
             )}
@@ -72,22 +75,20 @@ export function BottleIdentityCard({ bottle, onZoom, onDateChange }: BottleIdent
         </div>
       </div>
 
-      {/* Identity Details bar */}
       <div className="flex items-center border-t border-[var(--border-color)]">
-        {/* Date — clickable for drunk bottles */}
         <div
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 border-r border-[var(--border-color)] relative ${isDrunk && onDateChange ? 'cursor-pointer active:bg-[var(--accent-bg)]' : ''}`}
+          className={`relative flex flex-1 items-center justify-center gap-1.5 border-r border-[var(--border-color)] px-2 py-2.5 ${isDrunk && onDateChange ? 'cursor-pointer active:bg-[var(--accent-bg)]' : ''}`}
           onClick={() => isDrunk && onDateChange && dateInputRef.current?.showPicker()}
         >
-          <Calendar className="h-3.5 w-3.5 text-[var(--text-muted)] shrink-0" />
-          <span className="text-[11px] font-medium text-[var(--text-secondary)] truncate">
+          <Calendar className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
+          <span className="truncate text-[11px] font-medium text-[var(--text-secondary)]">
             {displayDate}
           </span>
           {isDrunk && onDateChange && (
             <input
               ref={dateInputRef}
               type="date"
-              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
               value={bottle.drunk_at ? new Date(bottle.drunk_at).toISOString().split('T')[0] : ''}
               onChange={(e) => {
                 if (e.target.value) onDateChange(e.target.value)
@@ -95,17 +96,15 @@ export function BottleIdentityCard({ bottle, onZoom, onDateChange }: BottleIdent
             />
           )}
         </div>
-        {/* Prix */}
-        <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 border-r border-[var(--border-color)]">
-          <Euro className="h-3.5 w-3.5 text-[var(--text-muted)] shrink-0" />
-          <span className="text-[11px] font-medium text-[var(--text-secondary)] truncate">
-            {bottle.purchase_price ? `${bottle.purchase_price.toFixed(2)} €` : '—'}
+        <div className="flex flex-1 items-center justify-center gap-1.5 border-r border-[var(--border-color)] px-2 py-2.5">
+          <Euro className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
+          <span className="truncate text-[11px] font-medium text-[var(--text-secondary)]">
+            {bottle.purchase_price ? `${bottle.purchase_price.toFixed(2)} EUR` : '-'}
           </span>
         </div>
-        {/* Lieu */}
-        <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2">
-          <MapPin className="h-3.5 w-3.5 text-[var(--text-muted)] shrink-0" />
-          <span className="text-[11px] font-medium text-[var(--text-secondary)] truncate">
+        <div className="flex flex-1 items-center justify-center gap-1.5 px-2 py-2.5">
+          <MapPin className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
+          <span className="truncate text-[11px] font-medium text-[var(--text-secondary)]">
             {bottle.zone?.name || 'Cave'}
           </span>
         </div>
