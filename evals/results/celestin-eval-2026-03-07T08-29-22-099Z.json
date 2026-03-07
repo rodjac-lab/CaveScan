@@ -1,0 +1,5393 @@
+{
+  "fixture": {
+    "name": "celestin-fixture",
+    "description": "Export de fixture depuis la session authentifiee de CaveScan",
+    "exportedAt": "2026-03-06T20:39:51.773Z",
+    "history": [],
+    "cave": [
+      {
+        "id": "61318105",
+        "domaine": "Thillardon",
+        "cuvee": "Les Carrières",
+        "appellation": "Chenas",
+        "millesime": 2018,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "1.5",
+        "local_score": 0
+      },
+      {
+        "id": "658ec003",
+        "domaine": "Domaine de la Grange des Pères",
+        "cuvee": null,
+        "appellation": "Pays d'Hérault IGP",
+        "millesime": 2022,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "1.5",
+        "local_score": 0
+      },
+      {
+        "id": "04d2df36",
+        "domaine": "Domaine de la Grange des Pères",
+        "cuvee": null,
+        "appellation": "Vin du Pays d'Hérault",
+        "millesime": 2022,
+        "couleur": "rouge",
+        "quantity": 10,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "248aaff4",
+        "domaine": "Frederic Savart",
+        "cuvee": "L'Accomplie",
+        "appellation": "Champagne 1er Cru",
+        "millesime": null,
+        "couleur": "bulles",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "7e0caa3e",
+        "domaine": "Caillez Lemaire",
+        "cuvee": "Reflets",
+        "appellation": "Champagne",
+        "millesime": null,
+        "couleur": "bulles",
+        "quantity": 12,
+        "volume": "0.375",
+        "local_score": 0
+      },
+      {
+        "id": "f70a098b",
+        "domaine": "Jean-Marc Burgaud",
+        "cuvee": null,
+        "appellation": "Morgon Côte du Py",
+        "millesime": 2011,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "1.5",
+        "local_score": 0
+      },
+      {
+        "id": "30c82ce3",
+        "domaine": "Louis Claude Desvignes",
+        "cuvee": "Côte du Py",
+        "appellation": "Morgon",
+        "millesime": 2011,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "1.5",
+        "local_score": 0
+      },
+      {
+        "id": "3f17f0b8",
+        "domaine": "Jean-Marc Burgaud",
+        "cuvee": "James",
+        "appellation": "Morgon",
+        "millesime": 2017,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "1.5",
+        "local_score": 0
+      },
+      {
+        "id": "4b826e23",
+        "domaine": "Jean Foilliard",
+        "cuvee": "Cuvée Corcelette",
+        "appellation": "Appellation d'Origine Protégée",
+        "millesime": 2020,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "d98c0e1b",
+        "domaine": "Jean Foillard",
+        "cuvee": "Côte du Py",
+        "appellation": "Morgon",
+        "millesime": 2020,
+        "couleur": "rouge",
+        "quantity": 2,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "5c7a7e2d",
+        "domaine": "Jean Foillard",
+        "cuvee": "Morgon",
+        "appellation": "Appellation d'Origine Protégée Morgon",
+        "millesime": 2020,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "2849f85e",
+        "domaine": "Jean Foillard",
+        "cuvee": "Fleurie",
+        "appellation": "Appellation Fleurie Contrôlée",
+        "millesime": 2019,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "610bc646",
+        "domaine": "Domaine Coudert",
+        "cuvee": null,
+        "appellation": "Brouilly",
+        "millesime": 2021,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "b6866e57",
+        "domaine": "Jules Desjourneys",
+        "cuvee": "Le Jugement Dernier",
+        "appellation": "Chénas",
+        "millesime": 2016,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "ccb0d887",
+        "domaine": "Domaine Thillardon",
+        "cuvee": "Chassignol",
+        "appellation": "Appellation Chénas Contrôlée",
+        "millesime": 2020,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "784c236b",
+        "domaine": "Domaine Thillardon",
+        "cuvee": "Alizés",
+        "appellation": "Moulin à Vent",
+        "millesime": 2020,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "1f255e51",
+        "domaine": "Domaine Thillardon",
+        "cuvee": "Chassignol",
+        "appellation": "Appellation Chénas Contrôlée",
+        "millesime": 2019,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "74d577f2",
+        "domaine": "Domaine Thillardon",
+        "cuvee": "Les Blemonts",
+        "appellation": "Appellation Chénas Contrôlée",
+        "millesime": 2018,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "13683d79",
+        "domaine": "Sandlands Vineyards",
+        "cuvee": "Trousseau",
+        "appellation": "Sonoma County Wine",
+        "millesime": 2017,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "ac62ff59",
+        "domaine": "Birichiino",
+        "cuvee": "Cinsault",
+        "appellation": "Bechthold Vineyard",
+        "millesime": 2023,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "352da4d5",
+        "domaine": "Birichino",
+        "cuvee": "Saint Georges",
+        "appellation": "Central Coast",
+        "millesime": 2022,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "ffe6e7a6",
+        "domaine": "Jean-Claude Ramonet",
+        "cuvee": null,
+        "appellation": "Bourgogne Appellation d'Origine Contrôlée",
+        "millesime": 2020,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "fc32d670",
+        "domaine": "Jean-Claude Ramonet",
+        "cuvee": null,
+        "appellation": "Bourgogne Appellation d'Origine Contrôlée",
+        "millesime": 2021,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "e70bc273",
+        "domaine": "Domaine Pierre Amiot et Fils",
+        "cuvee": "Morey-Saint-Denis",
+        "appellation": "Morey-Saint-Denis",
+        "millesime": 2018,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "efe212e9",
+        "domaine": "Pacqueson",
+        "cuvee": "La Barre",
+        "appellation": "Rully",
+        "millesime": 2022,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "fbec1030",
+        "domaine": "Domaine G. Roumier",
+        "cuvee": "Chambolle-Musigny",
+        "appellation": "Chambolle-Musigny",
+        "millesime": 2008,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "d4490350",
+        "domaine": "Jean-Marc Burgaud",
+        "cuvee": "Réserve",
+        "appellation": "Morgon côté du Py",
+        "millesime": 2009,
+        "couleur": "rouge",
+        "quantity": 3,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "7f82a4c8",
+        "domaine": "Jean-Marc Burgaud",
+        "cuvee": "James",
+        "appellation": "Morgon côte du Py",
+        "millesime": 2009,
+        "couleur": "rouge",
+        "quantity": 2,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "1fe67c33",
+        "domaine": "Jean-Marc Burgaud",
+        "cuvee": "Javernieres",
+        "appellation": "Morgon côte du Py",
+        "millesime": 2009,
+        "couleur": "rouge",
+        "quantity": 2,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "a7665e88",
+        "domaine": "Claude Dugat",
+        "cuvee": "Gevrey-Chambertin",
+        "appellation": "Gevrey-Chambertin",
+        "millesime": 2017,
+        "couleur": "rouge",
+        "quantity": 2,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "12fa81ea",
+        "domaine": "Domaine Dureuil-Janthial",
+        "cuvee": "Chapître",
+        "appellation": "Rully 1er Cru",
+        "millesime": 2021,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "e459d6fd",
+        "domaine": "Domaine Confuron-Cotetidot",
+        "cuvee": "Petite Chapelle",
+        "appellation": "Gevrey-Chambertin 1er Cru",
+        "millesime": 2013,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "6a7f3295",
+        "domaine": "Domaine Confuron-Cotetidot",
+        "cuvee": "Les Suchots",
+        "appellation": "Vosne-Romanée 1er Cru",
+        "millesime": 2013,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "cf384ec9",
+        "domaine": "Georges Noëllat",
+        "cuvee": "Nuits-Saint-Georges",
+        "appellation": "Appellation Nuits-Saint-Georges Contrôlée",
+        "millesime": 2015,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "8c076fe7",
+        "domaine": "Laurent Roumier",
+        "cuvee": "Chambolle-Musigny",
+        "appellation": "Appellation Contrôlée Chambolle-Musigny",
+        "millesime": 2017,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "1da682b2",
+        "domaine": "Claude Dugat",
+        "cuvee": null,
+        "appellation": "Gevrey-Chambertin",
+        "millesime": 2018,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "ae41aee6",
+        "domaine": "Domaine Denis Mortet",
+        "cuvee": "Les Longeroies",
+        "appellation": "Marsannay",
+        "millesime": 2016,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "c15fcab7",
+        "domaine": "Domaine de la Vougeraie",
+        "cuvee": "Les Damodes Premier Cru",
+        "appellation": "Nuits-St-Georges",
+        "millesime": 2018,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "1d7af5e8",
+        "domaine": "Domaine de la Vougeraie",
+        "cuvee": "Chambolle-Musigny",
+        "appellation": "Chambolle-Musigny",
+        "millesime": 2019,
+        "couleur": "rouge",
+        "quantity": 2,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "ec4a3aa8",
+        "domaine": "Domaine Confuron-Cotetidot",
+        "cuvee": null,
+        "appellation": "Gevrey-Chambertin",
+        "millesime": 2013,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "9a324cb8",
+        "domaine": "Sylvie Esmonin",
+        "cuvee": "Cuvée Vieilles Vignes",
+        "appellation": "Gevrey-Chambertin",
+        "millesime": 2020,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "6da8ace7",
+        "domaine": "Domaine Henri Gouges",
+        "cuvee": "Clos des Porrets St-Georges",
+        "appellation": "Nuits-Saint-Georges Premier Cru",
+        "millesime": 2019,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "26642745",
+        "domaine": "Domaine de la Vougeraie",
+        "cuvee": "Les Cras",
+        "appellation": "Vougeot Premier Cru",
+        "millesime": 2017,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "f55e9007",
+        "domaine": "Claude Dugat",
+        "cuvee": "Lavaux St Jacques",
+        "appellation": "Gevrey-Chambertin",
+        "millesime": 2017,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "d1a452fd",
+        "domaine": "Domaine Léchenault",
+        "cuvee": "Les Damodes",
+        "appellation": "Nuits-Saint-Georges Premier Cru",
+        "millesime": 2017,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "7584f420",
+        "domaine": "Domaine Armand Rousseau",
+        "cuvee": "Les Cazetiers",
+        "appellation": "Gevrey-Chambertin 1er Cru",
+        "millesime": 2017,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "87b98d02",
+        "domaine": "Jean-Claude Ramonet",
+        "cuvee": "Clos de la Boudriotte",
+        "appellation": "Chassagne-Montrachet Premier Cru",
+        "millesime": 2016,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "d9e9f35b",
+        "domaine": "Comte Armand",
+        "cuvee": "Clos des Epeneaux",
+        "appellation": "Appellation Pommard 1er Cru Contrôlée",
+        "millesime": 2016,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "9dd7e27c",
+        "domaine": "Jacques-Frédéric Mucnier",
+        "cuvee": "Clos de la Maréchale",
+        "appellation": "Nuits-Saint-Georges Premier Cru",
+        "millesime": 2016,
+        "couleur": "rouge",
+        "quantity": 2,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "0d5f4afa",
+        "domaine": "Domaine Denis Mortet",
+        "cuvee": "Lavaux St Jacques",
+        "appellation": "Gevrey-Chambertin Premier Cru",
+        "millesime": 2016,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "d99fcfe8",
+        "domaine": "Georges Noëllat",
+        "cuvee": "Nuits-Saint-Georges",
+        "appellation": "Nuits-Saint-Georges",
+        "millesime": 2015,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "657e9de3",
+        "domaine": "Domaine de la Vougeraie",
+        "cuvee": "Les Damodes",
+        "appellation": "Nuits-Saint-Georges Premier Cru",
+        "millesime": 2018,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "be675b04",
+        "domaine": "Jean-Claude Ramonet",
+        "cuvee": "Clos de la Boudriotte",
+        "appellation": "Chassagne-Montrachet Premier Cru",
+        "millesime": 2015,
+        "couleur": "rouge",
+        "quantity": 2,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "39fc1b48",
+        "domaine": "Sylvie Esmonin",
+        "cuvee": "Clos Saint-Jacques",
+        "appellation": "Gevrey-Chambertin",
+        "millesime": 2006,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "10a39096",
+        "domaine": "Domaine Méo-Camuzet",
+        "cuvee": "Clos de Vougeot",
+        "appellation": "Clos de Vougeot",
+        "millesime": 2015,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "29f00dbc",
+        "domaine": "Domaine Pierre Amiot et Fils",
+        "cuvee": "Clos de la Roche",
+        "appellation": "Clos de la Roche Grand Cru",
+        "millesime": 2015,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "618723ad",
+        "domaine": "Domaine Castagnier",
+        "cuvee": "Charmes Chambertin",
+        "appellation": "Charmes Chambertin Grand Cru",
+        "millesime": 2015,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "15f32a3a",
+        "domaine": "Domaine Denis Mortet",
+        "cuvee": "Clos de Vougeot",
+        "appellation": "Clos de Vougeot Grand Cru",
+        "millesime": 2015,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "6646f4dd",
+        "domaine": "Domaine Castagnier",
+        "cuvee": "Charmes Chambertin",
+        "appellation": "Charmes Chambertin Grand Cru",
+        "millesime": 2016,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "ff8b641d",
+        "domaine": "Domaine Anne Gros",
+        "cuvee": "Les Loachausses",
+        "appellation": "Echezeaux Grand Cru",
+        "millesime": 2017,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "7bb0ea3c",
+        "domaine": "Domaine Latour",
+        "cuvee": "Corton Grand Cru",
+        "appellation": "Appellation Corton Contrôlée",
+        "millesime": 2017,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "84d93907",
+        "domaine": "Domaine Méo-Camuzet",
+        "cuvee": "Clos de Vougeot",
+        "appellation": "Clos de Vougeot",
+        "millesime": 2019,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "49b779b8",
+        "domaine": "Domaine Armand Rousseau",
+        "cuvee": "Charmes-Chambertin",
+        "appellation": "Charmes-Chambertin Grand Cru",
+        "millesime": 2004,
+        "couleur": "rouge",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      },
+      {
+        "id": "a57eb883",
+        "domaine": "Château des Rontets",
+        "cuvee": "Pierrefolle",
+        "appellation": "Pouilly-Fuissé",
+        "millesime": 2017,
+        "couleur": "blanc",
+        "quantity": 1,
+        "volume": "0.75",
+        "local_score": 0
+      }
+    ],
+    "profile": "Cave: 93 bouteilles en stock, 57 dégustées.\nNote moyenne: 3.4/5.\nTaux de rachat: 100%.\nAppellations préférées: Champagne (11), Gevrey-Chambertin (7), Chassagne-Montrachet Premier Cru (4), Pouilly-Fuissé (5), Bourgogne (3).\nDomaines préférés: Domaine de la Grange des Pères (4), Jean-Claude Ramonet (5), Jean-Marc Burgaud (5), Domaine Paul Pillot (3), Champagne Chartogne-Taillet (3).\nRépartition couleurs: rouge 69%, bulles 17%, blanc 15%.\nBudget: 58-58€ (moy. 58€).\nQPR: 1 pépites, 2 corrects, 3 chers.\nDernières dégustations: Domaine Dupraz Apremont  2025 (2/5); Domaine des Ardoisières IGP Vin des Allobroges 2023 (3/5); Champagne Chartogne-Taillet Champagne (3/5); Domaine Berthet-Bondet Côtes du Jura 2021 (3/5); Pierre-Yves Colin-Morey Chassagne-Montrachet Premier Cru 2014 (4/5).\nSaisons de dégustation: winter (54), spring (3).",
+    "memories": "- Domaine Leflaive Puligny-Montrachet Premier Cru | millésime: 2014 | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: superbe nez, longueur incroyable, texture légèrement huileuse, finale croquante, pureté cristalline, fleurs blanches, noisette fraîche, minéralité saline percutante, bouche droite, élégante, persistance aromatique remarquable | mots-clés: vin d'une grande pureté, persistance aromatique remarquable\n- Jacques Selosse Champagne | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: couleur ambre, pomme au four, poire, craie, oxydatif, finesse, bulle crémeuse, minéral, tendu, long, vineux | mots-clés: grand champagne, signature oxydative noble, finesse extrême\n- Gangloff Côté Rôtie  | millésime: 2010 | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: sombre, profond, amorces violette, violette, lard fumé, poivre noir, tendu, gourmand, tanins fondus, structure linéaire, croquant, noble | mots-clés: grand millésime, Syrah noble, 19/20, totalement polishé\n- Château Rayas Châteauneuf-du-Pape | millésime: 1998 | dégusté le: 26 février 2026 | ★★★★☆ | sentiment: excellent | maturité: trop jeune | descripteurs: fraise écrasée, framboise, orange sanguine, épices, concentration, tannins fondus, kirsch, finale interminable | mots-clés: grand vin, en dessous de ses meilleures cuvées, à garder, signature reconnaissable, comparaison 1997 et 1993\n- Domaine de la Grange des Pères Vin de Pays de l'Hérault | millésime: 2008 | dégusté le: 26 février 2026 | ★★★★☆ | sentiment: excellent | maturité: trop jeune | occasion: soirée vin | descripteurs: jeune, étonnant | mots-clés: deuxième vin de la soirée, en dessous d'un Gangloff Sereine Noire 2010",
+    "context": {
+      "dayOfWeek": "vendredi",
+      "season": "printemps",
+      "recentDrunk": [
+        "Domaine Dupraz Apremont  2025",
+        "Domaine des Ardoisières IGP Vin des Allobroges 2023",
+        "Champagne Chartogne-Taillet Champagne",
+        "Domaine Berthet-Bondet Côtes du Jura 2021",
+        "Pierre-Yves Colin-Morey Chassagne-Montrachet Premier Cru 2014"
+      ]
+    }
+  },
+  "scenarios": [
+    {
+      "id": "generic_tonight",
+      "message": "Qu'est-ce que j'ouvre ce soir ?",
+      "notes": "Reco ouverte sans plat explicite."
+    },
+    {
+      "id": "sushi",
+      "message": "Ce soir sushi",
+      "notes": "Verifier les garde-fous sur poisson cru.",
+      "expectations": {
+        "avoidColors": [
+          "rouge"
+        ]
+      }
+    },
+    {
+      "id": "cheese_board",
+      "message": "Je fais un plateau de fromages",
+      "notes": "Verifier la priorite au blanc et la qualite des alternatives."
+    },
+    {
+      "id": "paella",
+      "message": "Ce soir paella",
+      "notes": "Verifier si les rouges restent secondaires et prudents."
+    },
+    {
+      "id": "memory_rome",
+      "message": "Tu te souviens du chianti qu'on avait adore avec des spaghetti a Rome ?",
+      "notes": "Tester la qualite relationnelle et l'usage de la memoire."
+    },
+    {
+      "id": "encave_chianti",
+      "message": "J'ai achete 6 bouteilles de Chianti Classico 2021",
+      "notes": "Verifier que Celestin reste naturel en mode encavage."
+    }
+  ],
+  "results": [
+    {
+      "id": "generic_tonight",
+      "elapsedMs": 3983,
+      "request": {
+        "message": "Qu'est-ce que j'ouvre ce soir ?",
+        "history": [],
+        "cave": [
+          {
+            "id": "61318105",
+            "domaine": "Thillardon",
+            "cuvee": "Les Carrières",
+            "appellation": "Chenas",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "658ec003",
+            "domaine": "Domaine de la Grange des Pères",
+            "cuvee": null,
+            "appellation": "Pays d'Hérault IGP",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "04d2df36",
+            "domaine": "Domaine de la Grange des Pères",
+            "cuvee": null,
+            "appellation": "Vin du Pays d'Hérault",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 10,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "248aaff4",
+            "domaine": "Frederic Savart",
+            "cuvee": "L'Accomplie",
+            "appellation": "Champagne 1er Cru",
+            "millesime": null,
+            "couleur": "bulles",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7e0caa3e",
+            "domaine": "Caillez Lemaire",
+            "cuvee": "Reflets",
+            "appellation": "Champagne",
+            "millesime": null,
+            "couleur": "bulles",
+            "quantity": 12,
+            "volume": "0.375",
+            "local_score": 0
+          },
+          {
+            "id": "f70a098b",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": null,
+            "appellation": "Morgon Côte du Py",
+            "millesime": 2011,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "30c82ce3",
+            "domaine": "Louis Claude Desvignes",
+            "cuvee": "Côte du Py",
+            "appellation": "Morgon",
+            "millesime": 2011,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "3f17f0b8",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "James",
+            "appellation": "Morgon",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "4b826e23",
+            "domaine": "Jean Foilliard",
+            "cuvee": "Cuvée Corcelette",
+            "appellation": "Appellation d'Origine Protégée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d98c0e1b",
+            "domaine": "Jean Foillard",
+            "cuvee": "Côte du Py",
+            "appellation": "Morgon",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "5c7a7e2d",
+            "domaine": "Jean Foillard",
+            "cuvee": "Morgon",
+            "appellation": "Appellation d'Origine Protégée Morgon",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "2849f85e",
+            "domaine": "Jean Foillard",
+            "cuvee": "Fleurie",
+            "appellation": "Appellation Fleurie Contrôlée",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "610bc646",
+            "domaine": "Domaine Coudert",
+            "cuvee": null,
+            "appellation": "Brouilly",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "b6866e57",
+            "domaine": "Jules Desjourneys",
+            "cuvee": "Le Jugement Dernier",
+            "appellation": "Chénas",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ccb0d887",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Chassignol",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "784c236b",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Alizés",
+            "appellation": "Moulin à Vent",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1f255e51",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Chassignol",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "74d577f2",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Les Blemonts",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "13683d79",
+            "domaine": "Sandlands Vineyards",
+            "cuvee": "Trousseau",
+            "appellation": "Sonoma County Wine",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ac62ff59",
+            "domaine": "Birichiino",
+            "cuvee": "Cinsault",
+            "appellation": "Bechthold Vineyard",
+            "millesime": 2023,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "352da4d5",
+            "domaine": "Birichino",
+            "cuvee": "Saint Georges",
+            "appellation": "Central Coast",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ffe6e7a6",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": null,
+            "appellation": "Bourgogne Appellation d'Origine Contrôlée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "fc32d670",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": null,
+            "appellation": "Bourgogne Appellation d'Origine Contrôlée",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "e70bc273",
+            "domaine": "Domaine Pierre Amiot et Fils",
+            "cuvee": "Morey-Saint-Denis",
+            "appellation": "Morey-Saint-Denis",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "efe212e9",
+            "domaine": "Pacqueson",
+            "cuvee": "La Barre",
+            "appellation": "Rully",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "fbec1030",
+            "domaine": "Domaine G. Roumier",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Chambolle-Musigny",
+            "millesime": 2008,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d4490350",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "Réserve",
+            "appellation": "Morgon côté du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 3,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7f82a4c8",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "James",
+            "appellation": "Morgon côte du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1fe67c33",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "Javernieres",
+            "appellation": "Morgon côte du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "a7665e88",
+            "domaine": "Claude Dugat",
+            "cuvee": "Gevrey-Chambertin",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "12fa81ea",
+            "domaine": "Domaine Dureuil-Janthial",
+            "cuvee": "Chapître",
+            "appellation": "Rully 1er Cru",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "e459d6fd",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": "Petite Chapelle",
+            "appellation": "Gevrey-Chambertin 1er Cru",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6a7f3295",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": "Les Suchots",
+            "appellation": "Vosne-Romanée 1er Cru",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "cf384ec9",
+            "domaine": "Georges Noëllat",
+            "cuvee": "Nuits-Saint-Georges",
+            "appellation": "Appellation Nuits-Saint-Georges Contrôlée",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "8c076fe7",
+            "domaine": "Laurent Roumier",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Appellation Contrôlée Chambolle-Musigny",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1da682b2",
+            "domaine": "Claude Dugat",
+            "cuvee": null,
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ae41aee6",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Les Longeroies",
+            "appellation": "Marsannay",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "c15fcab7",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Damodes Premier Cru",
+            "appellation": "Nuits-St-Georges",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1d7af5e8",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Chambolle-Musigny",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ec4a3aa8",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": null,
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "9a324cb8",
+            "domaine": "Sylvie Esmonin",
+            "cuvee": "Cuvée Vieilles Vignes",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6da8ace7",
+            "domaine": "Domaine Henri Gouges",
+            "cuvee": "Clos des Porrets St-Georges",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "26642745",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Cras",
+            "appellation": "Vougeot Premier Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "f55e9007",
+            "domaine": "Claude Dugat",
+            "cuvee": "Lavaux St Jacques",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d1a452fd",
+            "domaine": "Domaine Léchenault",
+            "cuvee": "Les Damodes",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7584f420",
+            "domaine": "Domaine Armand Rousseau",
+            "cuvee": "Les Cazetiers",
+            "appellation": "Gevrey-Chambertin 1er Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "87b98d02",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": "Clos de la Boudriotte",
+            "appellation": "Chassagne-Montrachet Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d9e9f35b",
+            "domaine": "Comte Armand",
+            "cuvee": "Clos des Epeneaux",
+            "appellation": "Appellation Pommard 1er Cru Contrôlée",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "9dd7e27c",
+            "domaine": "Jacques-Frédéric Mucnier",
+            "cuvee": "Clos de la Maréchale",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "0d5f4afa",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Lavaux St Jacques",
+            "appellation": "Gevrey-Chambertin Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d99fcfe8",
+            "domaine": "Georges Noëllat",
+            "cuvee": "Nuits-Saint-Georges",
+            "appellation": "Nuits-Saint-Georges",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "657e9de3",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Damodes",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "be675b04",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": "Clos de la Boudriotte",
+            "appellation": "Chassagne-Montrachet Premier Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "39fc1b48",
+            "domaine": "Sylvie Esmonin",
+            "cuvee": "Clos Saint-Jacques",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2006,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "10a39096",
+            "domaine": "Domaine Méo-Camuzet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "29f00dbc",
+            "domaine": "Domaine Pierre Amiot et Fils",
+            "cuvee": "Clos de la Roche",
+            "appellation": "Clos de la Roche Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "618723ad",
+            "domaine": "Domaine Castagnier",
+            "cuvee": "Charmes Chambertin",
+            "appellation": "Charmes Chambertin Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "15f32a3a",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6646f4dd",
+            "domaine": "Domaine Castagnier",
+            "cuvee": "Charmes Chambertin",
+            "appellation": "Charmes Chambertin Grand Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ff8b641d",
+            "domaine": "Domaine Anne Gros",
+            "cuvee": "Les Loachausses",
+            "appellation": "Echezeaux Grand Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7bb0ea3c",
+            "domaine": "Domaine Latour",
+            "cuvee": "Corton Grand Cru",
+            "appellation": "Appellation Corton Contrôlée",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "84d93907",
+            "domaine": "Domaine Méo-Camuzet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "49b779b8",
+            "domaine": "Domaine Armand Rousseau",
+            "cuvee": "Charmes-Chambertin",
+            "appellation": "Charmes-Chambertin Grand Cru",
+            "millesime": 2004,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "a57eb883",
+            "domaine": "Château des Rontets",
+            "cuvee": "Pierrefolle",
+            "appellation": "Pouilly-Fuissé",
+            "millesime": 2017,
+            "couleur": "blanc",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          }
+        ],
+        "profile": "Cave: 93 bouteilles en stock, 57 dégustées.\nNote moyenne: 3.4/5.\nTaux de rachat: 100%.\nAppellations préférées: Champagne (11), Gevrey-Chambertin (7), Chassagne-Montrachet Premier Cru (4), Pouilly-Fuissé (5), Bourgogne (3).\nDomaines préférés: Domaine de la Grange des Pères (4), Jean-Claude Ramonet (5), Jean-Marc Burgaud (5), Domaine Paul Pillot (3), Champagne Chartogne-Taillet (3).\nRépartition couleurs: rouge 69%, bulles 17%, blanc 15%.\nBudget: 58-58€ (moy. 58€).\nQPR: 1 pépites, 2 corrects, 3 chers.\nDernières dégustations: Domaine Dupraz Apremont  2025 (2/5); Domaine des Ardoisières IGP Vin des Allobroges 2023 (3/5); Champagne Chartogne-Taillet Champagne (3/5); Domaine Berthet-Bondet Côtes du Jura 2021 (3/5); Pierre-Yves Colin-Morey Chassagne-Montrachet Premier Cru 2014 (4/5).\nSaisons de dégustation: winter (54), spring (3).",
+        "memories": "- Domaine Leflaive Puligny-Montrachet Premier Cru | millésime: 2014 | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: superbe nez, longueur incroyable, texture légèrement huileuse, finale croquante, pureté cristalline, fleurs blanches, noisette fraîche, minéralité saline percutante, bouche droite, élégante, persistance aromatique remarquable | mots-clés: vin d'une grande pureté, persistance aromatique remarquable\n- Jacques Selosse Champagne | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: couleur ambre, pomme au four, poire, craie, oxydatif, finesse, bulle crémeuse, minéral, tendu, long, vineux | mots-clés: grand champagne, signature oxydative noble, finesse extrême\n- Gangloff Côté Rôtie  | millésime: 2010 | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: sombre, profond, amorces violette, violette, lard fumé, poivre noir, tendu, gourmand, tanins fondus, structure linéaire, croquant, noble | mots-clés: grand millésime, Syrah noble, 19/20, totalement polishé\n- Château Rayas Châteauneuf-du-Pape | millésime: 1998 | dégusté le: 26 février 2026 | ★★★★☆ | sentiment: excellent | maturité: trop jeune | descripteurs: fraise écrasée, framboise, orange sanguine, épices, concentration, tannins fondus, kirsch, finale interminable | mots-clés: grand vin, en dessous de ses meilleures cuvées, à garder, signature reconnaissable, comparaison 1997 et 1993\n- Domaine de la Grange des Pères Vin de Pays de l'Hérault | millésime: 2008 | dégusté le: 26 février 2026 | ★★★★☆ | sentiment: excellent | maturité: trop jeune | occasion: soirée vin | descripteurs: jeune, étonnant | mots-clés: deuxième vin de la soirée, en dessous d'un Gangloff Sereine Noire 2010",
+        "context": {
+          "dayOfWeek": "vendredi",
+          "season": "printemps",
+          "recentDrunk": [
+            "Domaine Dupraz Apremont  2025",
+            "Domaine des Ardoisières IGP Vin des Allobroges 2023",
+            "Champagne Chartogne-Taillet Champagne",
+            "Domaine Berthet-Bondet Côtes du Jura 2021",
+            "Pierre-Yves Colin-Morey Chassagne-Montrachet Premier Cru 2014"
+          ]
+        }
+      },
+      "response": {
+        "type": "recommend",
+        "text": "Vendredi soir, au printemps, on peut partir sur un vin qui a de la finesse et de la gourmandise. Je te propose ces quelques pistes :",
+        "cards": [
+          {
+            "name": "Jean-Marc Burgaud",
+            "appellation": "Morgon Côte du Py",
+            "badge": "De ta cave",
+            "reason": "Un Morgon de Jean-Marc Burgaud, c'est toujours un plaisir. Celui-ci, avec quelques années, aura des tanins fondus et de jolis arômes de fruits rouges, parfait pour un dîner décontracté.",
+            "color": "rouge",
+            "bottle_id": "f70a098b"
+          },
+          {
+            "name": "Jean Foillard",
+            "appellation": "Morgon",
+            "badge": "De ta cave",
+            "reason": "Un autre grand nom du Morgon, Jean Foillard. Ses vins sont d'une pureté incroyable, avec un fruit éclatant. C'est le genre de bouteille qui met tout le monde d'accord.",
+            "color": "rouge",
+            "bottle_id": "5c7a7e2d"
+          },
+          {
+            "name": "Château des Rontets",
+            "appellation": "Pouilly-Fuissé",
+            "badge": "De ta cave",
+            "reason": "Si tu as envie d'un blanc, ce Pouilly-Fuissé de Château des Rontets est une valeur sûre. Il aura de la richesse et une belle minéralité, idéal avec un poisson ou des légumes de saison.",
+            "color": "blanc",
+            "bottle_id": "a57eb883"
+          },
+          {
+            "name": "Frederic Savart",
+            "appellation": "Champagne 1er Cru",
+            "badge": "De ta cave",
+            "reason": "Pour un apéritif ou pour accompagner tout le repas, un Champagne de Frederic Savart, c'est l'élégance assurée. Ses bulles sont fines, et le vin a une belle vinosité.",
+            "color": "bulles",
+            "bottle_id": "248aaff4"
+          }
+        ]
+      },
+      "analysis": {
+        "cardCount": 4,
+        "memoryUsed": false,
+        "introFlags": {
+          "hasTiens": false,
+          "hasPepites": false,
+          "hasAhLead": false
+        },
+        "avoidColorHits": []
+      }
+    },
+    {
+      "id": "sushi",
+      "elapsedMs": 3362,
+      "request": {
+        "message": "Ce soir sushi",
+        "history": [],
+        "cave": [
+          {
+            "id": "61318105",
+            "domaine": "Thillardon",
+            "cuvee": "Les Carrières",
+            "appellation": "Chenas",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "658ec003",
+            "domaine": "Domaine de la Grange des Pères",
+            "cuvee": null,
+            "appellation": "Pays d'Hérault IGP",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "04d2df36",
+            "domaine": "Domaine de la Grange des Pères",
+            "cuvee": null,
+            "appellation": "Vin du Pays d'Hérault",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 10,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "248aaff4",
+            "domaine": "Frederic Savart",
+            "cuvee": "L'Accomplie",
+            "appellation": "Champagne 1er Cru",
+            "millesime": null,
+            "couleur": "bulles",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7e0caa3e",
+            "domaine": "Caillez Lemaire",
+            "cuvee": "Reflets",
+            "appellation": "Champagne",
+            "millesime": null,
+            "couleur": "bulles",
+            "quantity": 12,
+            "volume": "0.375",
+            "local_score": 0
+          },
+          {
+            "id": "f70a098b",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": null,
+            "appellation": "Morgon Côte du Py",
+            "millesime": 2011,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "30c82ce3",
+            "domaine": "Louis Claude Desvignes",
+            "cuvee": "Côte du Py",
+            "appellation": "Morgon",
+            "millesime": 2011,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "3f17f0b8",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "James",
+            "appellation": "Morgon",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "4b826e23",
+            "domaine": "Jean Foilliard",
+            "cuvee": "Cuvée Corcelette",
+            "appellation": "Appellation d'Origine Protégée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d98c0e1b",
+            "domaine": "Jean Foillard",
+            "cuvee": "Côte du Py",
+            "appellation": "Morgon",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "5c7a7e2d",
+            "domaine": "Jean Foillard",
+            "cuvee": "Morgon",
+            "appellation": "Appellation d'Origine Protégée Morgon",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "2849f85e",
+            "domaine": "Jean Foillard",
+            "cuvee": "Fleurie",
+            "appellation": "Appellation Fleurie Contrôlée",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "610bc646",
+            "domaine": "Domaine Coudert",
+            "cuvee": null,
+            "appellation": "Brouilly",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "b6866e57",
+            "domaine": "Jules Desjourneys",
+            "cuvee": "Le Jugement Dernier",
+            "appellation": "Chénas",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ccb0d887",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Chassignol",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "784c236b",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Alizés",
+            "appellation": "Moulin à Vent",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1f255e51",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Chassignol",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "74d577f2",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Les Blemonts",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "13683d79",
+            "domaine": "Sandlands Vineyards",
+            "cuvee": "Trousseau",
+            "appellation": "Sonoma County Wine",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ac62ff59",
+            "domaine": "Birichiino",
+            "cuvee": "Cinsault",
+            "appellation": "Bechthold Vineyard",
+            "millesime": 2023,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "352da4d5",
+            "domaine": "Birichino",
+            "cuvee": "Saint Georges",
+            "appellation": "Central Coast",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ffe6e7a6",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": null,
+            "appellation": "Bourgogne Appellation d'Origine Contrôlée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "fc32d670",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": null,
+            "appellation": "Bourgogne Appellation d'Origine Contrôlée",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "e70bc273",
+            "domaine": "Domaine Pierre Amiot et Fils",
+            "cuvee": "Morey-Saint-Denis",
+            "appellation": "Morey-Saint-Denis",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "efe212e9",
+            "domaine": "Pacqueson",
+            "cuvee": "La Barre",
+            "appellation": "Rully",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "fbec1030",
+            "domaine": "Domaine G. Roumier",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Chambolle-Musigny",
+            "millesime": 2008,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d4490350",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "Réserve",
+            "appellation": "Morgon côté du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 3,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7f82a4c8",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "James",
+            "appellation": "Morgon côte du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1fe67c33",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "Javernieres",
+            "appellation": "Morgon côte du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "a7665e88",
+            "domaine": "Claude Dugat",
+            "cuvee": "Gevrey-Chambertin",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "12fa81ea",
+            "domaine": "Domaine Dureuil-Janthial",
+            "cuvee": "Chapître",
+            "appellation": "Rully 1er Cru",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "e459d6fd",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": "Petite Chapelle",
+            "appellation": "Gevrey-Chambertin 1er Cru",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6a7f3295",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": "Les Suchots",
+            "appellation": "Vosne-Romanée 1er Cru",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "cf384ec9",
+            "domaine": "Georges Noëllat",
+            "cuvee": "Nuits-Saint-Georges",
+            "appellation": "Appellation Nuits-Saint-Georges Contrôlée",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "8c076fe7",
+            "domaine": "Laurent Roumier",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Appellation Contrôlée Chambolle-Musigny",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1da682b2",
+            "domaine": "Claude Dugat",
+            "cuvee": null,
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ae41aee6",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Les Longeroies",
+            "appellation": "Marsannay",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "c15fcab7",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Damodes Premier Cru",
+            "appellation": "Nuits-St-Georges",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1d7af5e8",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Chambolle-Musigny",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ec4a3aa8",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": null,
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "9a324cb8",
+            "domaine": "Sylvie Esmonin",
+            "cuvee": "Cuvée Vieilles Vignes",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6da8ace7",
+            "domaine": "Domaine Henri Gouges",
+            "cuvee": "Clos des Porrets St-Georges",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "26642745",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Cras",
+            "appellation": "Vougeot Premier Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "f55e9007",
+            "domaine": "Claude Dugat",
+            "cuvee": "Lavaux St Jacques",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d1a452fd",
+            "domaine": "Domaine Léchenault",
+            "cuvee": "Les Damodes",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7584f420",
+            "domaine": "Domaine Armand Rousseau",
+            "cuvee": "Les Cazetiers",
+            "appellation": "Gevrey-Chambertin 1er Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "87b98d02",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": "Clos de la Boudriotte",
+            "appellation": "Chassagne-Montrachet Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d9e9f35b",
+            "domaine": "Comte Armand",
+            "cuvee": "Clos des Epeneaux",
+            "appellation": "Appellation Pommard 1er Cru Contrôlée",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "9dd7e27c",
+            "domaine": "Jacques-Frédéric Mucnier",
+            "cuvee": "Clos de la Maréchale",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "0d5f4afa",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Lavaux St Jacques",
+            "appellation": "Gevrey-Chambertin Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d99fcfe8",
+            "domaine": "Georges Noëllat",
+            "cuvee": "Nuits-Saint-Georges",
+            "appellation": "Nuits-Saint-Georges",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "657e9de3",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Damodes",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "be675b04",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": "Clos de la Boudriotte",
+            "appellation": "Chassagne-Montrachet Premier Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "39fc1b48",
+            "domaine": "Sylvie Esmonin",
+            "cuvee": "Clos Saint-Jacques",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2006,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "10a39096",
+            "domaine": "Domaine Méo-Camuzet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "29f00dbc",
+            "domaine": "Domaine Pierre Amiot et Fils",
+            "cuvee": "Clos de la Roche",
+            "appellation": "Clos de la Roche Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "618723ad",
+            "domaine": "Domaine Castagnier",
+            "cuvee": "Charmes Chambertin",
+            "appellation": "Charmes Chambertin Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "15f32a3a",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6646f4dd",
+            "domaine": "Domaine Castagnier",
+            "cuvee": "Charmes Chambertin",
+            "appellation": "Charmes Chambertin Grand Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ff8b641d",
+            "domaine": "Domaine Anne Gros",
+            "cuvee": "Les Loachausses",
+            "appellation": "Echezeaux Grand Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7bb0ea3c",
+            "domaine": "Domaine Latour",
+            "cuvee": "Corton Grand Cru",
+            "appellation": "Appellation Corton Contrôlée",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "84d93907",
+            "domaine": "Domaine Méo-Camuzet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "49b779b8",
+            "domaine": "Domaine Armand Rousseau",
+            "cuvee": "Charmes-Chambertin",
+            "appellation": "Charmes-Chambertin Grand Cru",
+            "millesime": 2004,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "a57eb883",
+            "domaine": "Château des Rontets",
+            "cuvee": "Pierrefolle",
+            "appellation": "Pouilly-Fuissé",
+            "millesime": 2017,
+            "couleur": "blanc",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          }
+        ],
+        "profile": "Cave: 93 bouteilles en stock, 57 dégustées.\nNote moyenne: 3.4/5.\nTaux de rachat: 100%.\nAppellations préférées: Champagne (11), Gevrey-Chambertin (7), Chassagne-Montrachet Premier Cru (4), Pouilly-Fuissé (5), Bourgogne (3).\nDomaines préférés: Domaine de la Grange des Pères (4), Jean-Claude Ramonet (5), Jean-Marc Burgaud (5), Domaine Paul Pillot (3), Champagne Chartogne-Taillet (3).\nRépartition couleurs: rouge 69%, bulles 17%, blanc 15%.\nBudget: 58-58€ (moy. 58€).\nQPR: 1 pépites, 2 corrects, 3 chers.\nDernières dégustations: Domaine Dupraz Apremont  2025 (2/5); Domaine des Ardoisières IGP Vin des Allobroges 2023 (3/5); Champagne Chartogne-Taillet Champagne (3/5); Domaine Berthet-Bondet Côtes du Jura 2021 (3/5); Pierre-Yves Colin-Morey Chassagne-Montrachet Premier Cru 2014 (4/5).\nSaisons de dégustation: winter (54), spring (3).",
+        "memories": "- Domaine Leflaive Puligny-Montrachet Premier Cru | millésime: 2014 | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: superbe nez, longueur incroyable, texture légèrement huileuse, finale croquante, pureté cristalline, fleurs blanches, noisette fraîche, minéralité saline percutante, bouche droite, élégante, persistance aromatique remarquable | mots-clés: vin d'une grande pureté, persistance aromatique remarquable\n- Jacques Selosse Champagne | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: couleur ambre, pomme au four, poire, craie, oxydatif, finesse, bulle crémeuse, minéral, tendu, long, vineux | mots-clés: grand champagne, signature oxydative noble, finesse extrême\n- Gangloff Côté Rôtie  | millésime: 2010 | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: sombre, profond, amorces violette, violette, lard fumé, poivre noir, tendu, gourmand, tanins fondus, structure linéaire, croquant, noble | mots-clés: grand millésime, Syrah noble, 19/20, totalement polishé\n- Château Rayas Châteauneuf-du-Pape | millésime: 1998 | dégusté le: 26 février 2026 | ★★★★☆ | sentiment: excellent | maturité: trop jeune | descripteurs: fraise écrasée, framboise, orange sanguine, épices, concentration, tannins fondus, kirsch, finale interminable | mots-clés: grand vin, en dessous de ses meilleures cuvées, à garder, signature reconnaissable, comparaison 1997 et 1993\n- Domaine de la Grange des Pères Vin de Pays de l'Hérault | millésime: 2008 | dégusté le: 26 février 2026 | ★★★★☆ | sentiment: excellent | maturité: trop jeune | occasion: soirée vin | descripteurs: jeune, étonnant | mots-clés: deuxième vin de la soirée, en dessous d'un Gangloff Sereine Noire 2010",
+        "context": {
+          "dayOfWeek": "vendredi",
+          "season": "printemps",
+          "recentDrunk": [
+            "Domaine Dupraz Apremont  2025",
+            "Domaine des Ardoisières IGP Vin des Allobroges 2023",
+            "Champagne Chartogne-Taillet Champagne",
+            "Domaine Berthet-Bondet Côtes du Jura 2021",
+            "Pierre-Yves Colin-Morey Chassagne-Montrachet Premier Cru 2014"
+          ]
+        }
+      },
+      "response": {
+        "type": "recommend",
+        "text": "Pour des sushis ce soir, il nous faut de la fraicheur et de la vivacite pour accompagner le poisson cru. Je te propose quelques pistes :",
+        "cards": [
+          {
+            "name": "Frederic Savart",
+            "appellation": "Champagne 1er Cru",
+            "badge": "De ta cave",
+            "reason": "Un Champagne 1er Cru de Frederic Savart, c'est toujours une valeur sure. Sa finesse et sa tension iront parfaitement avec le poisson cru et le riz vinaigre. On evite le Chartogne-Taillet que tu as bu recemment.",
+            "color": "bulles",
+            "bottle_id": "248aaff4"
+          },
+          {
+            "name": "Caillez Lemaire",
+            "appellation": "Champagne",
+            "badge": "De ta cave",
+            "reason": "Si tu veux quelque chose de plus accessible mais toujours dans l'esprit, ces demies-bouteilles de Caillez Lemaire sont parfaites. Elles apporteront une belle vivacite sans ecraser les saveurs delicates des sushis.",
+            "color": "bulles",
+            "bottle_id": "7e0caa3e"
+          },
+          {
+            "name": "Château des Rontets · Pierrefolle",
+            "appellation": "Pouilly-Fuissé",
+            "badge": "De ta cave",
+            "reason": "Un Pouilly-Fuissé comme celui-ci, avec sa belle mineralite et sa touche de gras, sera un excellent compagnon pour les sushis, surtout si tu as des pieces un peu plus riches comme le thon gras.",
+            "color": "blanc",
+            "bottle_id": "a57eb883"
+          },
+          {
+            "name": "Domaine William Fevre",
+            "appellation": "Chablis",
+            "badge": "Decouverte",
+            "reason": "Un Chablis, c'est l'accord classique et souvent le plus juste avec les fruits de mer et le poisson cru. Sa purete et sa mineralite sont impeccables pour ce type de plat. Je me souviens d'un Chablis du Domaine Fevre, une purete cristalline, parfait pour l'iode.",
+            "color": "blanc"
+          },
+          {
+            "name": "Domaine Huet",
+            "appellation": "Vouvray Sec",
+            "badge": "Audacieux",
+            "reason": "Si tu veux sortir un peu des sentiers battus, un Vouvray sec de Huet serait une superbe surprise. La tension et la complexite du Chenin, avec une belle acidite, peuvent vraiment sublimer les sushis.",
+            "color": "blanc"
+          }
+        ]
+      },
+      "analysis": {
+        "cardCount": 5,
+        "memoryUsed": true,
+        "introFlags": {
+          "hasTiens": false,
+          "hasPepites": false,
+          "hasAhLead": false
+        },
+        "avoidColorHits": []
+      }
+    },
+    {
+      "id": "cheese_board",
+      "elapsedMs": 2763,
+      "request": {
+        "message": "Je fais un plateau de fromages",
+        "history": [],
+        "cave": [
+          {
+            "id": "61318105",
+            "domaine": "Thillardon",
+            "cuvee": "Les Carrières",
+            "appellation": "Chenas",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "658ec003",
+            "domaine": "Domaine de la Grange des Pères",
+            "cuvee": null,
+            "appellation": "Pays d'Hérault IGP",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "04d2df36",
+            "domaine": "Domaine de la Grange des Pères",
+            "cuvee": null,
+            "appellation": "Vin du Pays d'Hérault",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 10,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "248aaff4",
+            "domaine": "Frederic Savart",
+            "cuvee": "L'Accomplie",
+            "appellation": "Champagne 1er Cru",
+            "millesime": null,
+            "couleur": "bulles",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7e0caa3e",
+            "domaine": "Caillez Lemaire",
+            "cuvee": "Reflets",
+            "appellation": "Champagne",
+            "millesime": null,
+            "couleur": "bulles",
+            "quantity": 12,
+            "volume": "0.375",
+            "local_score": 0
+          },
+          {
+            "id": "f70a098b",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": null,
+            "appellation": "Morgon Côte du Py",
+            "millesime": 2011,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "30c82ce3",
+            "domaine": "Louis Claude Desvignes",
+            "cuvee": "Côte du Py",
+            "appellation": "Morgon",
+            "millesime": 2011,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "3f17f0b8",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "James",
+            "appellation": "Morgon",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "4b826e23",
+            "domaine": "Jean Foilliard",
+            "cuvee": "Cuvée Corcelette",
+            "appellation": "Appellation d'Origine Protégée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d98c0e1b",
+            "domaine": "Jean Foillard",
+            "cuvee": "Côte du Py",
+            "appellation": "Morgon",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "5c7a7e2d",
+            "domaine": "Jean Foillard",
+            "cuvee": "Morgon",
+            "appellation": "Appellation d'Origine Protégée Morgon",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "2849f85e",
+            "domaine": "Jean Foillard",
+            "cuvee": "Fleurie",
+            "appellation": "Appellation Fleurie Contrôlée",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "610bc646",
+            "domaine": "Domaine Coudert",
+            "cuvee": null,
+            "appellation": "Brouilly",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "b6866e57",
+            "domaine": "Jules Desjourneys",
+            "cuvee": "Le Jugement Dernier",
+            "appellation": "Chénas",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ccb0d887",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Chassignol",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "784c236b",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Alizés",
+            "appellation": "Moulin à Vent",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1f255e51",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Chassignol",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "74d577f2",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Les Blemonts",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "13683d79",
+            "domaine": "Sandlands Vineyards",
+            "cuvee": "Trousseau",
+            "appellation": "Sonoma County Wine",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ac62ff59",
+            "domaine": "Birichiino",
+            "cuvee": "Cinsault",
+            "appellation": "Bechthold Vineyard",
+            "millesime": 2023,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "352da4d5",
+            "domaine": "Birichino",
+            "cuvee": "Saint Georges",
+            "appellation": "Central Coast",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ffe6e7a6",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": null,
+            "appellation": "Bourgogne Appellation d'Origine Contrôlée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "fc32d670",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": null,
+            "appellation": "Bourgogne Appellation d'Origine Contrôlée",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "e70bc273",
+            "domaine": "Domaine Pierre Amiot et Fils",
+            "cuvee": "Morey-Saint-Denis",
+            "appellation": "Morey-Saint-Denis",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "efe212e9",
+            "domaine": "Pacqueson",
+            "cuvee": "La Barre",
+            "appellation": "Rully",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "fbec1030",
+            "domaine": "Domaine G. Roumier",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Chambolle-Musigny",
+            "millesime": 2008,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d4490350",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "Réserve",
+            "appellation": "Morgon côté du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 3,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7f82a4c8",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "James",
+            "appellation": "Morgon côte du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1fe67c33",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "Javernieres",
+            "appellation": "Morgon côte du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "a7665e88",
+            "domaine": "Claude Dugat",
+            "cuvee": "Gevrey-Chambertin",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "12fa81ea",
+            "domaine": "Domaine Dureuil-Janthial",
+            "cuvee": "Chapître",
+            "appellation": "Rully 1er Cru",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "e459d6fd",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": "Petite Chapelle",
+            "appellation": "Gevrey-Chambertin 1er Cru",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6a7f3295",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": "Les Suchots",
+            "appellation": "Vosne-Romanée 1er Cru",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "cf384ec9",
+            "domaine": "Georges Noëllat",
+            "cuvee": "Nuits-Saint-Georges",
+            "appellation": "Appellation Nuits-Saint-Georges Contrôlée",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "8c076fe7",
+            "domaine": "Laurent Roumier",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Appellation Contrôlée Chambolle-Musigny",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1da682b2",
+            "domaine": "Claude Dugat",
+            "cuvee": null,
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ae41aee6",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Les Longeroies",
+            "appellation": "Marsannay",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "c15fcab7",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Damodes Premier Cru",
+            "appellation": "Nuits-St-Georges",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1d7af5e8",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Chambolle-Musigny",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ec4a3aa8",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": null,
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "9a324cb8",
+            "domaine": "Sylvie Esmonin",
+            "cuvee": "Cuvée Vieilles Vignes",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6da8ace7",
+            "domaine": "Domaine Henri Gouges",
+            "cuvee": "Clos des Porrets St-Georges",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "26642745",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Cras",
+            "appellation": "Vougeot Premier Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "f55e9007",
+            "domaine": "Claude Dugat",
+            "cuvee": "Lavaux St Jacques",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d1a452fd",
+            "domaine": "Domaine Léchenault",
+            "cuvee": "Les Damodes",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7584f420",
+            "domaine": "Domaine Armand Rousseau",
+            "cuvee": "Les Cazetiers",
+            "appellation": "Gevrey-Chambertin 1er Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "87b98d02",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": "Clos de la Boudriotte",
+            "appellation": "Chassagne-Montrachet Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d9e9f35b",
+            "domaine": "Comte Armand",
+            "cuvee": "Clos des Epeneaux",
+            "appellation": "Appellation Pommard 1er Cru Contrôlée",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "9dd7e27c",
+            "domaine": "Jacques-Frédéric Mucnier",
+            "cuvee": "Clos de la Maréchale",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "0d5f4afa",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Lavaux St Jacques",
+            "appellation": "Gevrey-Chambertin Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d99fcfe8",
+            "domaine": "Georges Noëllat",
+            "cuvee": "Nuits-Saint-Georges",
+            "appellation": "Nuits-Saint-Georges",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "657e9de3",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Damodes",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "be675b04",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": "Clos de la Boudriotte",
+            "appellation": "Chassagne-Montrachet Premier Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "39fc1b48",
+            "domaine": "Sylvie Esmonin",
+            "cuvee": "Clos Saint-Jacques",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2006,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "10a39096",
+            "domaine": "Domaine Méo-Camuzet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "29f00dbc",
+            "domaine": "Domaine Pierre Amiot et Fils",
+            "cuvee": "Clos de la Roche",
+            "appellation": "Clos de la Roche Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "618723ad",
+            "domaine": "Domaine Castagnier",
+            "cuvee": "Charmes Chambertin",
+            "appellation": "Charmes Chambertin Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "15f32a3a",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6646f4dd",
+            "domaine": "Domaine Castagnier",
+            "cuvee": "Charmes Chambertin",
+            "appellation": "Charmes Chambertin Grand Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ff8b641d",
+            "domaine": "Domaine Anne Gros",
+            "cuvee": "Les Loachausses",
+            "appellation": "Echezeaux Grand Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7bb0ea3c",
+            "domaine": "Domaine Latour",
+            "cuvee": "Corton Grand Cru",
+            "appellation": "Appellation Corton Contrôlée",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "84d93907",
+            "domaine": "Domaine Méo-Camuzet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "49b779b8",
+            "domaine": "Domaine Armand Rousseau",
+            "cuvee": "Charmes-Chambertin",
+            "appellation": "Charmes-Chambertin Grand Cru",
+            "millesime": 2004,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "a57eb883",
+            "domaine": "Château des Rontets",
+            "cuvee": "Pierrefolle",
+            "appellation": "Pouilly-Fuissé",
+            "millesime": 2017,
+            "couleur": "blanc",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          }
+        ],
+        "profile": "Cave: 93 bouteilles en stock, 57 dégustées.\nNote moyenne: 3.4/5.\nTaux de rachat: 100%.\nAppellations préférées: Champagne (11), Gevrey-Chambertin (7), Chassagne-Montrachet Premier Cru (4), Pouilly-Fuissé (5), Bourgogne (3).\nDomaines préférés: Domaine de la Grange des Pères (4), Jean-Claude Ramonet (5), Jean-Marc Burgaud (5), Domaine Paul Pillot (3), Champagne Chartogne-Taillet (3).\nRépartition couleurs: rouge 69%, bulles 17%, blanc 15%.\nBudget: 58-58€ (moy. 58€).\nQPR: 1 pépites, 2 corrects, 3 chers.\nDernières dégustations: Domaine Dupraz Apremont  2025 (2/5); Domaine des Ardoisières IGP Vin des Allobroges 2023 (3/5); Champagne Chartogne-Taillet Champagne (3/5); Domaine Berthet-Bondet Côtes du Jura 2021 (3/5); Pierre-Yves Colin-Morey Chassagne-Montrachet Premier Cru 2014 (4/5).\nSaisons de dégustation: winter (54), spring (3).",
+        "memories": "- Domaine Leflaive Puligny-Montrachet Premier Cru | millésime: 2014 | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: superbe nez, longueur incroyable, texture légèrement huileuse, finale croquante, pureté cristalline, fleurs blanches, noisette fraîche, minéralité saline percutante, bouche droite, élégante, persistance aromatique remarquable | mots-clés: vin d'une grande pureté, persistance aromatique remarquable\n- Jacques Selosse Champagne | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: couleur ambre, pomme au four, poire, craie, oxydatif, finesse, bulle crémeuse, minéral, tendu, long, vineux | mots-clés: grand champagne, signature oxydative noble, finesse extrême\n- Gangloff Côté Rôtie  | millésime: 2010 | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: sombre, profond, amorces violette, violette, lard fumé, poivre noir, tendu, gourmand, tanins fondus, structure linéaire, croquant, noble | mots-clés: grand millésime, Syrah noble, 19/20, totalement polishé\n- Château Rayas Châteauneuf-du-Pape | millésime: 1998 | dégusté le: 26 février 2026 | ★★★★☆ | sentiment: excellent | maturité: trop jeune | descripteurs: fraise écrasée, framboise, orange sanguine, épices, concentration, tannins fondus, kirsch, finale interminable | mots-clés: grand vin, en dessous de ses meilleures cuvées, à garder, signature reconnaissable, comparaison 1997 et 1993\n- Domaine de la Grange des Pères Vin de Pays de l'Hérault | millésime: 2008 | dégusté le: 26 février 2026 | ★★★★☆ | sentiment: excellent | maturité: trop jeune | occasion: soirée vin | descripteurs: jeune, étonnant | mots-clés: deuxième vin de la soirée, en dessous d'un Gangloff Sereine Noire 2010",
+        "context": {
+          "dayOfWeek": "vendredi",
+          "season": "printemps",
+          "recentDrunk": [
+            "Domaine Dupraz Apremont  2025",
+            "Domaine des Ardoisières IGP Vin des Allobroges 2023",
+            "Champagne Chartogne-Taillet Champagne",
+            "Domaine Berthet-Bondet Côtes du Jura 2021",
+            "Pierre-Yves Colin-Morey Chassagne-Montrachet Premier Cru 2014"
+          ]
+        }
+      },
+      "response": {
+        "type": "recommend",
+        "text": "Pour un plateau de fromages, je privilégie souvent les blancs, surtout si tu as des chèvres ou des pâtes persillées. Mais un rouge léger peut aussi faire l'affaire, selon les fromages.",
+        "cards": [
+          {
+            "name": "Château des Rontets",
+            "appellation": "Pouilly-Fuissé",
+            "badge": "De ta cave",
+            "reason": "Un Pouilly-Fuissé comme celui-ci, avec sa belle tension et ses notes beurrées, fera des merveilles avec des fromages de chèvre frais ou des pâtes pressées cuites.",
+            "color": "blanc",
+            "bottle_id": "a57eb883"
+          },
+          {
+            "name": "Frederic Savart",
+            "appellation": "Champagne 1er Cru",
+            "badge": "De ta cave",
+            "reason": "Ce Champagne est parfait pour sa polyvalence. Ses bulles et sa fraîcheur nettoient le palais, idéal avec des fromages crémeux ou des pâtes fleuries.",
+            "color": "bulles",
+            "bottle_id": "248aaff4"
+          },
+          {
+            "name": "Domaine Berthet-Bondet",
+            "appellation": "Côtes du Jura",
+            "badge": "Découverte",
+            "reason": "Si tu aimes l'aventure, un vin jaune du Jura, avec ses notes de noix et d'épices, est un accord sublime avec un vieux Comté ou un Morbier. C'est un accord que j'ai en tête avec des fromages affinés.",
+            "color": "blanc"
+          },
+          {
+            "name": "Jean-Marc Burgaud",
+            "appellation": "Morgon Côte du Py",
+            "badge": "De ta cave",
+            "reason": "Si tu préfères un rouge, ce Morgon, avec ses tanins souples et ses arômes fruités, sera parfait avec des fromages à pâte molle et croûte lavée, sans les écraser.",
+            "color": "rouge",
+            "bottle_id": "f70a098b"
+          }
+        ]
+      },
+      "analysis": {
+        "cardCount": 4,
+        "memoryUsed": false,
+        "introFlags": {
+          "hasTiens": false,
+          "hasPepites": false,
+          "hasAhLead": false
+        },
+        "avoidColorHits": []
+      }
+    },
+    {
+      "id": "paella",
+      "elapsedMs": 3066,
+      "request": {
+        "message": "Ce soir paella",
+        "history": [],
+        "cave": [
+          {
+            "id": "61318105",
+            "domaine": "Thillardon",
+            "cuvee": "Les Carrières",
+            "appellation": "Chenas",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "658ec003",
+            "domaine": "Domaine de la Grange des Pères",
+            "cuvee": null,
+            "appellation": "Pays d'Hérault IGP",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "04d2df36",
+            "domaine": "Domaine de la Grange des Pères",
+            "cuvee": null,
+            "appellation": "Vin du Pays d'Hérault",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 10,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "248aaff4",
+            "domaine": "Frederic Savart",
+            "cuvee": "L'Accomplie",
+            "appellation": "Champagne 1er Cru",
+            "millesime": null,
+            "couleur": "bulles",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7e0caa3e",
+            "domaine": "Caillez Lemaire",
+            "cuvee": "Reflets",
+            "appellation": "Champagne",
+            "millesime": null,
+            "couleur": "bulles",
+            "quantity": 12,
+            "volume": "0.375",
+            "local_score": 0
+          },
+          {
+            "id": "f70a098b",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": null,
+            "appellation": "Morgon Côte du Py",
+            "millesime": 2011,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "30c82ce3",
+            "domaine": "Louis Claude Desvignes",
+            "cuvee": "Côte du Py",
+            "appellation": "Morgon",
+            "millesime": 2011,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "3f17f0b8",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "James",
+            "appellation": "Morgon",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "4b826e23",
+            "domaine": "Jean Foilliard",
+            "cuvee": "Cuvée Corcelette",
+            "appellation": "Appellation d'Origine Protégée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d98c0e1b",
+            "domaine": "Jean Foillard",
+            "cuvee": "Côte du Py",
+            "appellation": "Morgon",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "5c7a7e2d",
+            "domaine": "Jean Foillard",
+            "cuvee": "Morgon",
+            "appellation": "Appellation d'Origine Protégée Morgon",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "2849f85e",
+            "domaine": "Jean Foillard",
+            "cuvee": "Fleurie",
+            "appellation": "Appellation Fleurie Contrôlée",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "610bc646",
+            "domaine": "Domaine Coudert",
+            "cuvee": null,
+            "appellation": "Brouilly",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "b6866e57",
+            "domaine": "Jules Desjourneys",
+            "cuvee": "Le Jugement Dernier",
+            "appellation": "Chénas",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ccb0d887",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Chassignol",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "784c236b",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Alizés",
+            "appellation": "Moulin à Vent",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1f255e51",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Chassignol",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "74d577f2",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Les Blemonts",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "13683d79",
+            "domaine": "Sandlands Vineyards",
+            "cuvee": "Trousseau",
+            "appellation": "Sonoma County Wine",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ac62ff59",
+            "domaine": "Birichiino",
+            "cuvee": "Cinsault",
+            "appellation": "Bechthold Vineyard",
+            "millesime": 2023,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "352da4d5",
+            "domaine": "Birichino",
+            "cuvee": "Saint Georges",
+            "appellation": "Central Coast",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ffe6e7a6",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": null,
+            "appellation": "Bourgogne Appellation d'Origine Contrôlée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "fc32d670",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": null,
+            "appellation": "Bourgogne Appellation d'Origine Contrôlée",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "e70bc273",
+            "domaine": "Domaine Pierre Amiot et Fils",
+            "cuvee": "Morey-Saint-Denis",
+            "appellation": "Morey-Saint-Denis",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "efe212e9",
+            "domaine": "Pacqueson",
+            "cuvee": "La Barre",
+            "appellation": "Rully",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "fbec1030",
+            "domaine": "Domaine G. Roumier",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Chambolle-Musigny",
+            "millesime": 2008,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d4490350",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "Réserve",
+            "appellation": "Morgon côté du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 3,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7f82a4c8",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "James",
+            "appellation": "Morgon côte du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1fe67c33",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "Javernieres",
+            "appellation": "Morgon côte du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "a7665e88",
+            "domaine": "Claude Dugat",
+            "cuvee": "Gevrey-Chambertin",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "12fa81ea",
+            "domaine": "Domaine Dureuil-Janthial",
+            "cuvee": "Chapître",
+            "appellation": "Rully 1er Cru",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "e459d6fd",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": "Petite Chapelle",
+            "appellation": "Gevrey-Chambertin 1er Cru",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6a7f3295",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": "Les Suchots",
+            "appellation": "Vosne-Romanée 1er Cru",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "cf384ec9",
+            "domaine": "Georges Noëllat",
+            "cuvee": "Nuits-Saint-Georges",
+            "appellation": "Appellation Nuits-Saint-Georges Contrôlée",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "8c076fe7",
+            "domaine": "Laurent Roumier",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Appellation Contrôlée Chambolle-Musigny",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1da682b2",
+            "domaine": "Claude Dugat",
+            "cuvee": null,
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ae41aee6",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Les Longeroies",
+            "appellation": "Marsannay",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "c15fcab7",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Damodes Premier Cru",
+            "appellation": "Nuits-St-Georges",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1d7af5e8",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Chambolle-Musigny",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ec4a3aa8",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": null,
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "9a324cb8",
+            "domaine": "Sylvie Esmonin",
+            "cuvee": "Cuvée Vieilles Vignes",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6da8ace7",
+            "domaine": "Domaine Henri Gouges",
+            "cuvee": "Clos des Porrets St-Georges",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "26642745",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Cras",
+            "appellation": "Vougeot Premier Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "f55e9007",
+            "domaine": "Claude Dugat",
+            "cuvee": "Lavaux St Jacques",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d1a452fd",
+            "domaine": "Domaine Léchenault",
+            "cuvee": "Les Damodes",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7584f420",
+            "domaine": "Domaine Armand Rousseau",
+            "cuvee": "Les Cazetiers",
+            "appellation": "Gevrey-Chambertin 1er Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "87b98d02",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": "Clos de la Boudriotte",
+            "appellation": "Chassagne-Montrachet Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d9e9f35b",
+            "domaine": "Comte Armand",
+            "cuvee": "Clos des Epeneaux",
+            "appellation": "Appellation Pommard 1er Cru Contrôlée",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "9dd7e27c",
+            "domaine": "Jacques-Frédéric Mucnier",
+            "cuvee": "Clos de la Maréchale",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "0d5f4afa",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Lavaux St Jacques",
+            "appellation": "Gevrey-Chambertin Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d99fcfe8",
+            "domaine": "Georges Noëllat",
+            "cuvee": "Nuits-Saint-Georges",
+            "appellation": "Nuits-Saint-Georges",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "657e9de3",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Damodes",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "be675b04",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": "Clos de la Boudriotte",
+            "appellation": "Chassagne-Montrachet Premier Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "39fc1b48",
+            "domaine": "Sylvie Esmonin",
+            "cuvee": "Clos Saint-Jacques",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2006,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "10a39096",
+            "domaine": "Domaine Méo-Camuzet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "29f00dbc",
+            "domaine": "Domaine Pierre Amiot et Fils",
+            "cuvee": "Clos de la Roche",
+            "appellation": "Clos de la Roche Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "618723ad",
+            "domaine": "Domaine Castagnier",
+            "cuvee": "Charmes Chambertin",
+            "appellation": "Charmes Chambertin Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "15f32a3a",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6646f4dd",
+            "domaine": "Domaine Castagnier",
+            "cuvee": "Charmes Chambertin",
+            "appellation": "Charmes Chambertin Grand Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ff8b641d",
+            "domaine": "Domaine Anne Gros",
+            "cuvee": "Les Loachausses",
+            "appellation": "Echezeaux Grand Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7bb0ea3c",
+            "domaine": "Domaine Latour",
+            "cuvee": "Corton Grand Cru",
+            "appellation": "Appellation Corton Contrôlée",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "84d93907",
+            "domaine": "Domaine Méo-Camuzet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "49b779b8",
+            "domaine": "Domaine Armand Rousseau",
+            "cuvee": "Charmes-Chambertin",
+            "appellation": "Charmes-Chambertin Grand Cru",
+            "millesime": 2004,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "a57eb883",
+            "domaine": "Château des Rontets",
+            "cuvee": "Pierrefolle",
+            "appellation": "Pouilly-Fuissé",
+            "millesime": 2017,
+            "couleur": "blanc",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          }
+        ],
+        "profile": "Cave: 93 bouteilles en stock, 57 dégustées.\nNote moyenne: 3.4/5.\nTaux de rachat: 100%.\nAppellations préférées: Champagne (11), Gevrey-Chambertin (7), Chassagne-Montrachet Premier Cru (4), Pouilly-Fuissé (5), Bourgogne (3).\nDomaines préférés: Domaine de la Grange des Pères (4), Jean-Claude Ramonet (5), Jean-Marc Burgaud (5), Domaine Paul Pillot (3), Champagne Chartogne-Taillet (3).\nRépartition couleurs: rouge 69%, bulles 17%, blanc 15%.\nBudget: 58-58€ (moy. 58€).\nQPR: 1 pépites, 2 corrects, 3 chers.\nDernières dégustations: Domaine Dupraz Apremont  2025 (2/5); Domaine des Ardoisières IGP Vin des Allobroges 2023 (3/5); Champagne Chartogne-Taillet Champagne (3/5); Domaine Berthet-Bondet Côtes du Jura 2021 (3/5); Pierre-Yves Colin-Morey Chassagne-Montrachet Premier Cru 2014 (4/5).\nSaisons de dégustation: winter (54), spring (3).",
+        "memories": "- Domaine Leflaive Puligny-Montrachet Premier Cru | millésime: 2014 | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: superbe nez, longueur incroyable, texture légèrement huileuse, finale croquante, pureté cristalline, fleurs blanches, noisette fraîche, minéralité saline percutante, bouche droite, élégante, persistance aromatique remarquable | mots-clés: vin d'une grande pureté, persistance aromatique remarquable\n- Jacques Selosse Champagne | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: couleur ambre, pomme au four, poire, craie, oxydatif, finesse, bulle crémeuse, minéral, tendu, long, vineux | mots-clés: grand champagne, signature oxydative noble, finesse extrême\n- Gangloff Côté Rôtie  | millésime: 2010 | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: sombre, profond, amorces violette, violette, lard fumé, poivre noir, tendu, gourmand, tanins fondus, structure linéaire, croquant, noble | mots-clés: grand millésime, Syrah noble, 19/20, totalement polishé\n- Château Rayas Châteauneuf-du-Pape | millésime: 1998 | dégusté le: 26 février 2026 | ★★★★☆ | sentiment: excellent | maturité: trop jeune | descripteurs: fraise écrasée, framboise, orange sanguine, épices, concentration, tannins fondus, kirsch, finale interminable | mots-clés: grand vin, en dessous de ses meilleures cuvées, à garder, signature reconnaissable, comparaison 1997 et 1993\n- Domaine de la Grange des Pères Vin de Pays de l'Hérault | millésime: 2008 | dégusté le: 26 février 2026 | ★★★★☆ | sentiment: excellent | maturité: trop jeune | occasion: soirée vin | descripteurs: jeune, étonnant | mots-clés: deuxième vin de la soirée, en dessous d'un Gangloff Sereine Noire 2010",
+        "context": {
+          "dayOfWeek": "vendredi",
+          "season": "printemps",
+          "recentDrunk": [
+            "Domaine Dupraz Apremont  2025",
+            "Domaine des Ardoisières IGP Vin des Allobroges 2023",
+            "Champagne Chartogne-Taillet Champagne",
+            "Domaine Berthet-Bondet Côtes du Jura 2021",
+            "Pierre-Yves Colin-Morey Chassagne-Montrachet Premier Cru 2014"
+          ]
+        }
+      },
+      "response": {
+        "type": "recommend",
+        "text": "Pour une paella, il faut un vin qui tienne tête aux saveurs riches sans les écraser. Je te propose quelques options, avec une préférence pour les blancs ou les rosés structurés :",
+        "cards": [
+          {
+            "name": "Château des Rontets · Pierrefolle",
+            "appellation": "Pouilly-Fuissé",
+            "badge": "De ta cave",
+            "reason": "Un Pouilly-Fuissé avec un peu d'âge comme celui-ci aura la rondeur et la complexité pour matcher les fruits de mer et le riz safrané, avec une belle fraîcheur en finale.",
+            "color": "blanc",
+            "bottle_id": "a57eb883"
+          },
+          {
+            "name": "Domaine de la Grange des Pères · Pays d'Hérault IGP",
+            "appellation": "Pays d'Hérault IGP",
+            "badge": "De ta cave",
+            "reason": "Si tu veux un rouge, celui-ci est une valeur sûre. Sa structure et ses arômes méditerranéens feront écho aux épices de la paella sans être trop tannique.",
+            "color": "rouge",
+            "bottle_id": "658ec003"
+          },
+          {
+            "name": "Domaine Tempier · Bandol Rosé",
+            "appellation": "Bandol",
+            "badge": "Découverte",
+            "reason": "Un Bandol rosé, c'est un accord classique avec la cuisine méditerranéenne. Il a de la structure, de la fraîcheur et des notes d'épices qui iront parfaitement avec ta paella.",
+            "color": "rose"
+          }
+        ]
+      },
+      "analysis": {
+        "cardCount": 3,
+        "memoryUsed": false,
+        "introFlags": {
+          "hasTiens": false,
+          "hasPepites": false,
+          "hasAhLead": false
+        },
+        "avoidColorHits": []
+      }
+    },
+    {
+      "id": "memory_rome",
+      "elapsedMs": 2765,
+      "request": {
+        "message": "Tu te souviens du chianti qu'on avait adore avec des spaghetti a Rome ?",
+        "history": [],
+        "cave": [
+          {
+            "id": "61318105",
+            "domaine": "Thillardon",
+            "cuvee": "Les Carrières",
+            "appellation": "Chenas",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "658ec003",
+            "domaine": "Domaine de la Grange des Pères",
+            "cuvee": null,
+            "appellation": "Pays d'Hérault IGP",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "04d2df36",
+            "domaine": "Domaine de la Grange des Pères",
+            "cuvee": null,
+            "appellation": "Vin du Pays d'Hérault",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 10,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "248aaff4",
+            "domaine": "Frederic Savart",
+            "cuvee": "L'Accomplie",
+            "appellation": "Champagne 1er Cru",
+            "millesime": null,
+            "couleur": "bulles",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7e0caa3e",
+            "domaine": "Caillez Lemaire",
+            "cuvee": "Reflets",
+            "appellation": "Champagne",
+            "millesime": null,
+            "couleur": "bulles",
+            "quantity": 12,
+            "volume": "0.375",
+            "local_score": 0
+          },
+          {
+            "id": "f70a098b",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": null,
+            "appellation": "Morgon Côte du Py",
+            "millesime": 2011,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "30c82ce3",
+            "domaine": "Louis Claude Desvignes",
+            "cuvee": "Côte du Py",
+            "appellation": "Morgon",
+            "millesime": 2011,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "3f17f0b8",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "James",
+            "appellation": "Morgon",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "4b826e23",
+            "domaine": "Jean Foilliard",
+            "cuvee": "Cuvée Corcelette",
+            "appellation": "Appellation d'Origine Protégée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d98c0e1b",
+            "domaine": "Jean Foillard",
+            "cuvee": "Côte du Py",
+            "appellation": "Morgon",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "5c7a7e2d",
+            "domaine": "Jean Foillard",
+            "cuvee": "Morgon",
+            "appellation": "Appellation d'Origine Protégée Morgon",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "2849f85e",
+            "domaine": "Jean Foillard",
+            "cuvee": "Fleurie",
+            "appellation": "Appellation Fleurie Contrôlée",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "610bc646",
+            "domaine": "Domaine Coudert",
+            "cuvee": null,
+            "appellation": "Brouilly",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "b6866e57",
+            "domaine": "Jules Desjourneys",
+            "cuvee": "Le Jugement Dernier",
+            "appellation": "Chénas",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ccb0d887",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Chassignol",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "784c236b",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Alizés",
+            "appellation": "Moulin à Vent",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1f255e51",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Chassignol",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "74d577f2",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Les Blemonts",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "13683d79",
+            "domaine": "Sandlands Vineyards",
+            "cuvee": "Trousseau",
+            "appellation": "Sonoma County Wine",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ac62ff59",
+            "domaine": "Birichiino",
+            "cuvee": "Cinsault",
+            "appellation": "Bechthold Vineyard",
+            "millesime": 2023,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "352da4d5",
+            "domaine": "Birichino",
+            "cuvee": "Saint Georges",
+            "appellation": "Central Coast",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ffe6e7a6",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": null,
+            "appellation": "Bourgogne Appellation d'Origine Contrôlée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "fc32d670",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": null,
+            "appellation": "Bourgogne Appellation d'Origine Contrôlée",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "e70bc273",
+            "domaine": "Domaine Pierre Amiot et Fils",
+            "cuvee": "Morey-Saint-Denis",
+            "appellation": "Morey-Saint-Denis",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "efe212e9",
+            "domaine": "Pacqueson",
+            "cuvee": "La Barre",
+            "appellation": "Rully",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "fbec1030",
+            "domaine": "Domaine G. Roumier",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Chambolle-Musigny",
+            "millesime": 2008,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d4490350",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "Réserve",
+            "appellation": "Morgon côté du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 3,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7f82a4c8",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "James",
+            "appellation": "Morgon côte du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1fe67c33",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "Javernieres",
+            "appellation": "Morgon côte du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "a7665e88",
+            "domaine": "Claude Dugat",
+            "cuvee": "Gevrey-Chambertin",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "12fa81ea",
+            "domaine": "Domaine Dureuil-Janthial",
+            "cuvee": "Chapître",
+            "appellation": "Rully 1er Cru",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "e459d6fd",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": "Petite Chapelle",
+            "appellation": "Gevrey-Chambertin 1er Cru",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6a7f3295",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": "Les Suchots",
+            "appellation": "Vosne-Romanée 1er Cru",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "cf384ec9",
+            "domaine": "Georges Noëllat",
+            "cuvee": "Nuits-Saint-Georges",
+            "appellation": "Appellation Nuits-Saint-Georges Contrôlée",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "8c076fe7",
+            "domaine": "Laurent Roumier",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Appellation Contrôlée Chambolle-Musigny",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1da682b2",
+            "domaine": "Claude Dugat",
+            "cuvee": null,
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ae41aee6",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Les Longeroies",
+            "appellation": "Marsannay",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "c15fcab7",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Damodes Premier Cru",
+            "appellation": "Nuits-St-Georges",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1d7af5e8",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Chambolle-Musigny",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ec4a3aa8",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": null,
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "9a324cb8",
+            "domaine": "Sylvie Esmonin",
+            "cuvee": "Cuvée Vieilles Vignes",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6da8ace7",
+            "domaine": "Domaine Henri Gouges",
+            "cuvee": "Clos des Porrets St-Georges",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "26642745",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Cras",
+            "appellation": "Vougeot Premier Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "f55e9007",
+            "domaine": "Claude Dugat",
+            "cuvee": "Lavaux St Jacques",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d1a452fd",
+            "domaine": "Domaine Léchenault",
+            "cuvee": "Les Damodes",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7584f420",
+            "domaine": "Domaine Armand Rousseau",
+            "cuvee": "Les Cazetiers",
+            "appellation": "Gevrey-Chambertin 1er Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "87b98d02",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": "Clos de la Boudriotte",
+            "appellation": "Chassagne-Montrachet Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d9e9f35b",
+            "domaine": "Comte Armand",
+            "cuvee": "Clos des Epeneaux",
+            "appellation": "Appellation Pommard 1er Cru Contrôlée",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "9dd7e27c",
+            "domaine": "Jacques-Frédéric Mucnier",
+            "cuvee": "Clos de la Maréchale",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "0d5f4afa",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Lavaux St Jacques",
+            "appellation": "Gevrey-Chambertin Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d99fcfe8",
+            "domaine": "Georges Noëllat",
+            "cuvee": "Nuits-Saint-Georges",
+            "appellation": "Nuits-Saint-Georges",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "657e9de3",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Damodes",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "be675b04",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": "Clos de la Boudriotte",
+            "appellation": "Chassagne-Montrachet Premier Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "39fc1b48",
+            "domaine": "Sylvie Esmonin",
+            "cuvee": "Clos Saint-Jacques",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2006,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "10a39096",
+            "domaine": "Domaine Méo-Camuzet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "29f00dbc",
+            "domaine": "Domaine Pierre Amiot et Fils",
+            "cuvee": "Clos de la Roche",
+            "appellation": "Clos de la Roche Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "618723ad",
+            "domaine": "Domaine Castagnier",
+            "cuvee": "Charmes Chambertin",
+            "appellation": "Charmes Chambertin Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "15f32a3a",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6646f4dd",
+            "domaine": "Domaine Castagnier",
+            "cuvee": "Charmes Chambertin",
+            "appellation": "Charmes Chambertin Grand Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ff8b641d",
+            "domaine": "Domaine Anne Gros",
+            "cuvee": "Les Loachausses",
+            "appellation": "Echezeaux Grand Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7bb0ea3c",
+            "domaine": "Domaine Latour",
+            "cuvee": "Corton Grand Cru",
+            "appellation": "Appellation Corton Contrôlée",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "84d93907",
+            "domaine": "Domaine Méo-Camuzet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "49b779b8",
+            "domaine": "Domaine Armand Rousseau",
+            "cuvee": "Charmes-Chambertin",
+            "appellation": "Charmes-Chambertin Grand Cru",
+            "millesime": 2004,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "a57eb883",
+            "domaine": "Château des Rontets",
+            "cuvee": "Pierrefolle",
+            "appellation": "Pouilly-Fuissé",
+            "millesime": 2017,
+            "couleur": "blanc",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          }
+        ],
+        "profile": "Cave: 93 bouteilles en stock, 57 dégustées.\nNote moyenne: 3.4/5.\nTaux de rachat: 100%.\nAppellations préférées: Champagne (11), Gevrey-Chambertin (7), Chassagne-Montrachet Premier Cru (4), Pouilly-Fuissé (5), Bourgogne (3).\nDomaines préférés: Domaine de la Grange des Pères (4), Jean-Claude Ramonet (5), Jean-Marc Burgaud (5), Domaine Paul Pillot (3), Champagne Chartogne-Taillet (3).\nRépartition couleurs: rouge 69%, bulles 17%, blanc 15%.\nBudget: 58-58€ (moy. 58€).\nQPR: 1 pépites, 2 corrects, 3 chers.\nDernières dégustations: Domaine Dupraz Apremont  2025 (2/5); Domaine des Ardoisières IGP Vin des Allobroges 2023 (3/5); Champagne Chartogne-Taillet Champagne (3/5); Domaine Berthet-Bondet Côtes du Jura 2021 (3/5); Pierre-Yves Colin-Morey Chassagne-Montrachet Premier Cru 2014 (4/5).\nSaisons de dégustation: winter (54), spring (3).",
+        "memories": "- Domaine Leflaive Puligny-Montrachet Premier Cru | millésime: 2014 | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: superbe nez, longueur incroyable, texture légèrement huileuse, finale croquante, pureté cristalline, fleurs blanches, noisette fraîche, minéralité saline percutante, bouche droite, élégante, persistance aromatique remarquable | mots-clés: vin d'une grande pureté, persistance aromatique remarquable\n- Jacques Selosse Champagne | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: couleur ambre, pomme au four, poire, craie, oxydatif, finesse, bulle crémeuse, minéral, tendu, long, vineux | mots-clés: grand champagne, signature oxydative noble, finesse extrême\n- Gangloff Côté Rôtie  | millésime: 2010 | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: sombre, profond, amorces violette, violette, lard fumé, poivre noir, tendu, gourmand, tanins fondus, structure linéaire, croquant, noble | mots-clés: grand millésime, Syrah noble, 19/20, totalement polishé\n- Château Rayas Châteauneuf-du-Pape | millésime: 1998 | dégusté le: 26 février 2026 | ★★★★☆ | sentiment: excellent | maturité: trop jeune | descripteurs: fraise écrasée, framboise, orange sanguine, épices, concentration, tannins fondus, kirsch, finale interminable | mots-clés: grand vin, en dessous de ses meilleures cuvées, à garder, signature reconnaissable, comparaison 1997 et 1993\n- Domaine de la Grange des Pères Vin de Pays de l'Hérault | millésime: 2008 | dégusté le: 26 février 2026 | ★★★★☆ | sentiment: excellent | maturité: trop jeune | occasion: soirée vin | descripteurs: jeune, étonnant | mots-clés: deuxième vin de la soirée, en dessous d'un Gangloff Sereine Noire 2010",
+        "context": {
+          "dayOfWeek": "vendredi",
+          "season": "printemps",
+          "recentDrunk": [
+            "Domaine Dupraz Apremont  2025",
+            "Domaine des Ardoisières IGP Vin des Allobroges 2023",
+            "Champagne Chartogne-Taillet Champagne",
+            "Domaine Berthet-Bondet Côtes du Jura 2021",
+            "Pierre-Yves Colin-Morey Chassagne-Montrachet Premier Cru 2014"
+          ]
+        }
+      },
+      "response": {
+        "type": "recommend",
+        "text": "Ah, le Chianti avec les spaghetti à Rome, quel souvenir ! Pour retrouver cette gourmandise italienne, je te propose quelques pistes qui vont te rappeler ce bon moment :",
+        "cards": [
+          {
+            "name": "Chianti Classico Riserva",
+            "appellation": "Chianti Classico",
+            "badge": "Découverte",
+            "reason": "Pour retrouver l'âme du Chianti, avec sa belle acidité et ses notes de cerise qui se marient si bien avec la sauce tomate.",
+            "color": "rouge"
+          },
+          {
+            "name": "Barbera d'Asti",
+            "appellation": "Barbera d'Asti",
+            "badge": "Découverte",
+            "reason": "Un autre rouge italien plein de fruit et de fraîcheur, moins tannique que le Chianti, parfait sur des pâtes à la tomate.",
+            "color": "rouge"
+          },
+          {
+            "name": "Lambrusco Grasparossa secco",
+            "appellation": "Lambrusco",
+            "badge": "Audacieux",
+            "reason": "Un Lambrusco sec, c'est une vraie surprise sur les plats italiens. Ses bulles fines et son côté fruité nettoient bien le palais.",
+            "color": "rouge"
+          }
+        ]
+      },
+      "analysis": {
+        "cardCount": 3,
+        "memoryUsed": false,
+        "introFlags": {
+          "hasTiens": false,
+          "hasPepites": false,
+          "hasAhLead": true
+        },
+        "avoidColorHits": []
+      }
+    },
+    {
+      "id": "encave_chianti",
+      "elapsedMs": 19044,
+      "request": {
+        "message": "J'ai achete 6 bouteilles de Chianti Classico 2021",
+        "history": [],
+        "cave": [
+          {
+            "id": "61318105",
+            "domaine": "Thillardon",
+            "cuvee": "Les Carrières",
+            "appellation": "Chenas",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "658ec003",
+            "domaine": "Domaine de la Grange des Pères",
+            "cuvee": null,
+            "appellation": "Pays d'Hérault IGP",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "04d2df36",
+            "domaine": "Domaine de la Grange des Pères",
+            "cuvee": null,
+            "appellation": "Vin du Pays d'Hérault",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 10,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "248aaff4",
+            "domaine": "Frederic Savart",
+            "cuvee": "L'Accomplie",
+            "appellation": "Champagne 1er Cru",
+            "millesime": null,
+            "couleur": "bulles",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7e0caa3e",
+            "domaine": "Caillez Lemaire",
+            "cuvee": "Reflets",
+            "appellation": "Champagne",
+            "millesime": null,
+            "couleur": "bulles",
+            "quantity": 12,
+            "volume": "0.375",
+            "local_score": 0
+          },
+          {
+            "id": "f70a098b",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": null,
+            "appellation": "Morgon Côte du Py",
+            "millesime": 2011,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "30c82ce3",
+            "domaine": "Louis Claude Desvignes",
+            "cuvee": "Côte du Py",
+            "appellation": "Morgon",
+            "millesime": 2011,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "3f17f0b8",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "James",
+            "appellation": "Morgon",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "1.5",
+            "local_score": 0
+          },
+          {
+            "id": "4b826e23",
+            "domaine": "Jean Foilliard",
+            "cuvee": "Cuvée Corcelette",
+            "appellation": "Appellation d'Origine Protégée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d98c0e1b",
+            "domaine": "Jean Foillard",
+            "cuvee": "Côte du Py",
+            "appellation": "Morgon",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "5c7a7e2d",
+            "domaine": "Jean Foillard",
+            "cuvee": "Morgon",
+            "appellation": "Appellation d'Origine Protégée Morgon",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "2849f85e",
+            "domaine": "Jean Foillard",
+            "cuvee": "Fleurie",
+            "appellation": "Appellation Fleurie Contrôlée",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "610bc646",
+            "domaine": "Domaine Coudert",
+            "cuvee": null,
+            "appellation": "Brouilly",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "b6866e57",
+            "domaine": "Jules Desjourneys",
+            "cuvee": "Le Jugement Dernier",
+            "appellation": "Chénas",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ccb0d887",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Chassignol",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "784c236b",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Alizés",
+            "appellation": "Moulin à Vent",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1f255e51",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Chassignol",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "74d577f2",
+            "domaine": "Domaine Thillardon",
+            "cuvee": "Les Blemonts",
+            "appellation": "Appellation Chénas Contrôlée",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "13683d79",
+            "domaine": "Sandlands Vineyards",
+            "cuvee": "Trousseau",
+            "appellation": "Sonoma County Wine",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ac62ff59",
+            "domaine": "Birichiino",
+            "cuvee": "Cinsault",
+            "appellation": "Bechthold Vineyard",
+            "millesime": 2023,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "352da4d5",
+            "domaine": "Birichino",
+            "cuvee": "Saint Georges",
+            "appellation": "Central Coast",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ffe6e7a6",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": null,
+            "appellation": "Bourgogne Appellation d'Origine Contrôlée",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "fc32d670",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": null,
+            "appellation": "Bourgogne Appellation d'Origine Contrôlée",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "e70bc273",
+            "domaine": "Domaine Pierre Amiot et Fils",
+            "cuvee": "Morey-Saint-Denis",
+            "appellation": "Morey-Saint-Denis",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "efe212e9",
+            "domaine": "Pacqueson",
+            "cuvee": "La Barre",
+            "appellation": "Rully",
+            "millesime": 2022,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "fbec1030",
+            "domaine": "Domaine G. Roumier",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Chambolle-Musigny",
+            "millesime": 2008,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d4490350",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "Réserve",
+            "appellation": "Morgon côté du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 3,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7f82a4c8",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "James",
+            "appellation": "Morgon côte du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1fe67c33",
+            "domaine": "Jean-Marc Burgaud",
+            "cuvee": "Javernieres",
+            "appellation": "Morgon côte du Py",
+            "millesime": 2009,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "a7665e88",
+            "domaine": "Claude Dugat",
+            "cuvee": "Gevrey-Chambertin",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "12fa81ea",
+            "domaine": "Domaine Dureuil-Janthial",
+            "cuvee": "Chapître",
+            "appellation": "Rully 1er Cru",
+            "millesime": 2021,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "e459d6fd",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": "Petite Chapelle",
+            "appellation": "Gevrey-Chambertin 1er Cru",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6a7f3295",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": "Les Suchots",
+            "appellation": "Vosne-Romanée 1er Cru",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "cf384ec9",
+            "domaine": "Georges Noëllat",
+            "cuvee": "Nuits-Saint-Georges",
+            "appellation": "Appellation Nuits-Saint-Georges Contrôlée",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "8c076fe7",
+            "domaine": "Laurent Roumier",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Appellation Contrôlée Chambolle-Musigny",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1da682b2",
+            "domaine": "Claude Dugat",
+            "cuvee": null,
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ae41aee6",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Les Longeroies",
+            "appellation": "Marsannay",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "c15fcab7",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Damodes Premier Cru",
+            "appellation": "Nuits-St-Georges",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "1d7af5e8",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Chambolle-Musigny",
+            "appellation": "Chambolle-Musigny",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ec4a3aa8",
+            "domaine": "Domaine Confuron-Cotetidot",
+            "cuvee": null,
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2013,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "9a324cb8",
+            "domaine": "Sylvie Esmonin",
+            "cuvee": "Cuvée Vieilles Vignes",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2020,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6da8ace7",
+            "domaine": "Domaine Henri Gouges",
+            "cuvee": "Clos des Porrets St-Georges",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "26642745",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Cras",
+            "appellation": "Vougeot Premier Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "f55e9007",
+            "domaine": "Claude Dugat",
+            "cuvee": "Lavaux St Jacques",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d1a452fd",
+            "domaine": "Domaine Léchenault",
+            "cuvee": "Les Damodes",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7584f420",
+            "domaine": "Domaine Armand Rousseau",
+            "cuvee": "Les Cazetiers",
+            "appellation": "Gevrey-Chambertin 1er Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "87b98d02",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": "Clos de la Boudriotte",
+            "appellation": "Chassagne-Montrachet Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d9e9f35b",
+            "domaine": "Comte Armand",
+            "cuvee": "Clos des Epeneaux",
+            "appellation": "Appellation Pommard 1er Cru Contrôlée",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "9dd7e27c",
+            "domaine": "Jacques-Frédéric Mucnier",
+            "cuvee": "Clos de la Maréchale",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "0d5f4afa",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Lavaux St Jacques",
+            "appellation": "Gevrey-Chambertin Premier Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "d99fcfe8",
+            "domaine": "Georges Noëllat",
+            "cuvee": "Nuits-Saint-Georges",
+            "appellation": "Nuits-Saint-Georges",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "657e9de3",
+            "domaine": "Domaine de la Vougeraie",
+            "cuvee": "Les Damodes",
+            "appellation": "Nuits-Saint-Georges Premier Cru",
+            "millesime": 2018,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "be675b04",
+            "domaine": "Jean-Claude Ramonet",
+            "cuvee": "Clos de la Boudriotte",
+            "appellation": "Chassagne-Montrachet Premier Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 2,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "39fc1b48",
+            "domaine": "Sylvie Esmonin",
+            "cuvee": "Clos Saint-Jacques",
+            "appellation": "Gevrey-Chambertin",
+            "millesime": 2006,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "10a39096",
+            "domaine": "Domaine Méo-Camuzet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "29f00dbc",
+            "domaine": "Domaine Pierre Amiot et Fils",
+            "cuvee": "Clos de la Roche",
+            "appellation": "Clos de la Roche Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "618723ad",
+            "domaine": "Domaine Castagnier",
+            "cuvee": "Charmes Chambertin",
+            "appellation": "Charmes Chambertin Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "15f32a3a",
+            "domaine": "Domaine Denis Mortet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot Grand Cru",
+            "millesime": 2015,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "6646f4dd",
+            "domaine": "Domaine Castagnier",
+            "cuvee": "Charmes Chambertin",
+            "appellation": "Charmes Chambertin Grand Cru",
+            "millesime": 2016,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "ff8b641d",
+            "domaine": "Domaine Anne Gros",
+            "cuvee": "Les Loachausses",
+            "appellation": "Echezeaux Grand Cru",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "7bb0ea3c",
+            "domaine": "Domaine Latour",
+            "cuvee": "Corton Grand Cru",
+            "appellation": "Appellation Corton Contrôlée",
+            "millesime": 2017,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "84d93907",
+            "domaine": "Domaine Méo-Camuzet",
+            "cuvee": "Clos de Vougeot",
+            "appellation": "Clos de Vougeot",
+            "millesime": 2019,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "49b779b8",
+            "domaine": "Domaine Armand Rousseau",
+            "cuvee": "Charmes-Chambertin",
+            "appellation": "Charmes-Chambertin Grand Cru",
+            "millesime": 2004,
+            "couleur": "rouge",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          },
+          {
+            "id": "a57eb883",
+            "domaine": "Château des Rontets",
+            "cuvee": "Pierrefolle",
+            "appellation": "Pouilly-Fuissé",
+            "millesime": 2017,
+            "couleur": "blanc",
+            "quantity": 1,
+            "volume": "0.75",
+            "local_score": 0
+          }
+        ],
+        "profile": "Cave: 93 bouteilles en stock, 57 dégustées.\nNote moyenne: 3.4/5.\nTaux de rachat: 100%.\nAppellations préférées: Champagne (11), Gevrey-Chambertin (7), Chassagne-Montrachet Premier Cru (4), Pouilly-Fuissé (5), Bourgogne (3).\nDomaines préférés: Domaine de la Grange des Pères (4), Jean-Claude Ramonet (5), Jean-Marc Burgaud (5), Domaine Paul Pillot (3), Champagne Chartogne-Taillet (3).\nRépartition couleurs: rouge 69%, bulles 17%, blanc 15%.\nBudget: 58-58€ (moy. 58€).\nQPR: 1 pépites, 2 corrects, 3 chers.\nDernières dégustations: Domaine Dupraz Apremont  2025 (2/5); Domaine des Ardoisières IGP Vin des Allobroges 2023 (3/5); Champagne Chartogne-Taillet Champagne (3/5); Domaine Berthet-Bondet Côtes du Jura 2021 (3/5); Pierre-Yves Colin-Morey Chassagne-Montrachet Premier Cru 2014 (4/5).\nSaisons de dégustation: winter (54), spring (3).",
+        "memories": "- Domaine Leflaive Puligny-Montrachet Premier Cru | millésime: 2014 | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: superbe nez, longueur incroyable, texture légèrement huileuse, finale croquante, pureté cristalline, fleurs blanches, noisette fraîche, minéralité saline percutante, bouche droite, élégante, persistance aromatique remarquable | mots-clés: vin d'une grande pureté, persistance aromatique remarquable\n- Jacques Selosse Champagne | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: couleur ambre, pomme au four, poire, craie, oxydatif, finesse, bulle crémeuse, minéral, tendu, long, vineux | mots-clés: grand champagne, signature oxydative noble, finesse extrême\n- Gangloff Côté Rôtie  | millésime: 2010 | dégusté le: 26 février 2026 | ★★★★★ | sentiment: excellent | maturité: a point | descripteurs: sombre, profond, amorces violette, violette, lard fumé, poivre noir, tendu, gourmand, tanins fondus, structure linéaire, croquant, noble | mots-clés: grand millésime, Syrah noble, 19/20, totalement polishé\n- Château Rayas Châteauneuf-du-Pape | millésime: 1998 | dégusté le: 26 février 2026 | ★★★★☆ | sentiment: excellent | maturité: trop jeune | descripteurs: fraise écrasée, framboise, orange sanguine, épices, concentration, tannins fondus, kirsch, finale interminable | mots-clés: grand vin, en dessous de ses meilleures cuvées, à garder, signature reconnaissable, comparaison 1997 et 1993\n- Domaine de la Grange des Pères Vin de Pays de l'Hérault | millésime: 2008 | dégusté le: 26 février 2026 | ★★★★☆ | sentiment: excellent | maturité: trop jeune | occasion: soirée vin | descripteurs: jeune, étonnant | mots-clés: deuxième vin de la soirée, en dessous d'un Gangloff Sereine Noire 2010",
+        "context": {
+          "dayOfWeek": "vendredi",
+          "season": "printemps",
+          "recentDrunk": [
+            "Domaine Dupraz Apremont  2025",
+            "Domaine des Ardoisières IGP Vin des Allobroges 2023",
+            "Champagne Chartogne-Taillet Champagne",
+            "Domaine Berthet-Bondet Côtes du Jura 2021",
+            "Pierre-Yves Colin-Morey Chassagne-Montrachet Premier Cru 2014"
+          ]
+        }
+      },
+      "response": {
+        "type": "add_wine",
+        "text": "6 bouteilles de Chianti Classico 2021, un classique italien qui a sa place. C'est le genre de rouge souple et acidulé qui marche bien au printemps, sur la pizza, la charcuterie ou simplement à table sans prise de tête.",
+        "extraction": {
+          "domaine": null,
+          "cuvee": null,
+          "appellation": "Chianti Classico",
+          "millesime": 2021,
+          "couleur": "rouge",
+          "region": "Toscane",
+          "quantity": 6,
+          "volume": "0.75",
+          "grape_varieties": [
+            "Sangiovese"
+          ],
+          "serving_temperature": "15-16°C",
+          "typical_aromas": [
+            "cerise",
+            "violette",
+            "épices"
+          ],
+          "food_pairings": [
+            "pizza tomate",
+            "charcuterie",
+            "pâtes à la sauce tomate",
+            "fromages"
+          ],
+          "character": "Rouge acidulé et friand, tannins souples, expression classique du Sangiovese toscan"
+        }
+      },
+      "analysis": {
+        "cardCount": 0,
+        "memoryUsed": false,
+        "introFlags": {
+          "hasTiens": false,
+          "hasPepites": false,
+          "hasAhLead": false
+        },
+        "avoidColorHits": []
+      }
+    }
+  ]
+}

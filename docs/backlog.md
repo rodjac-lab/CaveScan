@@ -19,6 +19,8 @@ Liste vivante des travaux produit/tech, priorisÃ©e pour les prochaines itÃ©r
 - [ ] Celestin memoire: mieux exploiter la richesse des notes de degustation et des photos de plats. Apprentissage actuel: le pipeline envoie surtout des souvenirs resumes via tags, ce qui peut perdre des nuances importantes de la note brute.
 - [ ] Recommendations: ajouter le millesime comme champ explicite des cartes pour eviter qu'il disparaisse selon la formulation du modele.
 - [ ] Recommendations: definir plus tard un signal de style bouteille structure et fiable en remplacement du champ libre `character`.
+- [ ] Import concurrent mobile-first: supporter d'abord CellarTracker puis Vivino, avec reconnaissance automatique de formats connus et revue simple des lignes ambiguës. Eviter un mapping manuel complet sur mobile. Attendre de vrais fichiers d'exemple avant implementation.
+- [ ] Outillage E2E minimal: ajouter plus tard Playwright avec une config simple, quelques scripts npm, 3-5 parcours critiques et un environnement de test stable (compte seed ou backend de test) pour boucles UI automatisées.
 - [ ] Celestin profile V2: enrichir le profil avec des preferences de style utiles (tendu vs ample, aerien vs dense, boise vs peu boise, etc.).
 - [ ] Celestin profile V2: capturer aussi les aversions et limites de gout pour mieux filtrer les mauvais accords.
 - [ ] Celestin profile V2: mieux exploiter les accords vecus et marquants, pas seulement les stats de cave.

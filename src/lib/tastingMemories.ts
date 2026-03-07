@@ -61,6 +61,7 @@ export function extractAndSaveTags(bottle: Bottle): void {
 interface ScoredMemory {
   bottle: Bottle
   score: number
+  relevanceScore: number
 }
 
 function normalizeForMatch(text: string): string {
@@ -109,34 +110,37 @@ export function selectRelevantMemories(
 
   const scored: ScoredMemory[] = withNotes.map((bottle) => {
     let score = 0
+    let relevanceScore = 0
     const tags = bottle.tasting_tags as TastingTags | null
 
     // --- Query matching ---
     if (hasQuery) {
       if (tags) {
         if (mode === 'food') {
-          score += countTermMatches(normalizedQuery, tags.plats) * 4
-          score += countTermMatches(normalizedQuery, tags.keywords) * 2
+          relevanceScore += countTermMatches(normalizedQuery, tags.plats) * 4
+          relevanceScore += countTermMatches(normalizedQuery, tags.keywords) * 2
         } else if (mode === 'wine') {
-          score += countTermMatches(normalizedQuery, tags.descripteurs) * 4
-          score += countTermMatches(normalizedQuery, tags.keywords) * 2
+          relevanceScore += countTermMatches(normalizedQuery, tags.descripteurs) * 4
+          relevanceScore += countTermMatches(normalizedQuery, tags.keywords) * 2
         } else {
-          score += countTermMatches(normalizedQuery, tags.plats) * 3
-          score += countTermMatches(normalizedQuery, tags.descripteurs) * 3
-          score += countTermMatches(normalizedQuery, tags.keywords) * 2
+          relevanceScore += countTermMatches(normalizedQuery, tags.plats) * 3
+          relevanceScore += countTermMatches(normalizedQuery, tags.descripteurs) * 3
+          relevanceScore += countTermMatches(normalizedQuery, tags.keywords) * 2
         }
       }
 
       // Fallback: search in raw tasting_note text if no tags or no tag matches
-      if (score === 0 && bottle.tasting_note) {
+      if (relevanceScore === 0 && bottle.tasting_note) {
         const normalizedNote = normalizeForMatch(bottle.tasting_note)
         for (const word of fallbackWords) {
           if (normalizedNote.includes(word)) {
-            score += 2
+            relevanceScore += 2
           }
         }
       }
     }
+
+    score += relevanceScore
 
     // --- Sentiment bonus ---
     if (tags?.sentiment === 'excellent') score += 3
@@ -154,13 +158,18 @@ export function selectRelevantMemories(
     else if (days < 90) score += 0.8
     else if (days < 180) score += 0.3
 
-    return { bottle, score }
+    return { bottle, score, relevanceScore }
   })
 
+  // Only keep memories that are actually relevant to the current query.
+  const relevantOnly = hasQuery
+    ? scored.filter((entry) => entry.relevanceScore > 0)
+    : []
+
   // Sort by score descending, collect top N with positive score
-  scored.sort((a, b) => b.score - a.score)
+  relevantOnly.sort((a, b) => b.score - a.score)
   const result: Bottle[] = []
-  for (const s of scored) {
+  for (const s of relevantOnly) {
     if (s.score <= 0 || result.length >= limit) break
     result.push(s.bottle)
   }
