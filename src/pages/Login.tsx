@@ -48,7 +48,7 @@ export default function Login() {
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-wine-900">
             <Wine className="h-6 w-6 text-white" />
           </div>
-          <h1 className="mt-4 text-2xl font-bold">CaveScan</h1>
+          <h1 className="mt-4 text-2xl font-bold">Celestin</h1>
           <p className="text-sm text-muted-foreground">
             Gestion de cave a vin
           </p>

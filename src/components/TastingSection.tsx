@@ -137,7 +137,7 @@ export function TastingSection({
         lines.push('')
       }
 
-      lines.push('—\nPartagé avec CaveScan')
+      lines.push('—\nPartagé avec Celestin\nMyCelestin.com')
 
       const text = lines.join('\n')
 

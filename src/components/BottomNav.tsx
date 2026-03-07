@@ -52,7 +52,7 @@ const leftTabs = [
 ]
 
 const rightTabs = [
-  { to: '/decouvrir', icon: CheersIcon, label: 'Cheers!' },
+  { to: '/decouvrir', icon: CheersIcon, label: 'Celestin' },
   { to: '/settings', icon: SettingsIcon, label: 'Réglages' },
 ]
 

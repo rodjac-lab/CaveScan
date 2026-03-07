@@ -208,7 +208,7 @@ export default function Home() {
     <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
       {/* Page Header */}
       <div className="px-6 pt-4 pb-3">
-        <p className="brand-text">CaveScan</p>
+        <p className="brand-text">Celestin</p>
         <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Ma Cave</h1>
         <p className="text-[13px] font-light text-[var(--text-secondary)]">
           {zones.length} cave{zones.length > 1 ? 's' : ''} · {stats.total} bouteille{stats.total > 1 ? 's' : ''}

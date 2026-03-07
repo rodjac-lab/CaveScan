@@ -227,8 +227,8 @@ export default function Settings() {
 
   const handleInvite = async () => {
     const shareData = {
-      title: 'CaveScan',
-      text: '🍷 Je gère ma cave avec CaveScan !\n\n📸 Photo de l\'étiquette → le vin est identifié\n📦 Entrées et sorties en un geste\n⭐ Notes de dégustation à partager\n\nEssaie, c\'est gratuit 👇\nhttps://cavescan.vercel.app',
+      title: 'Celestin',
+      text: '🍷 Mon carnet de cave intelligent et vivant.\n\n📸 Je scanne mes bouteilles\n🤝 Je partage mes dégustations\n✨ Celestin m\'aide à choisir, comprendre et mémoriser mes vins\n\nDécouvre Celestin :\nhttps://MyCelestin.com',
     }
 
     if (navigator.share) {
@@ -287,7 +287,7 @@ export default function Settings() {
       const memories = selectRelevantMemories('generic', null, drunkBottles)
       const fixture = {
         name: 'celestin-fixture',
-        description: 'Export de fixture depuis la session authentifiee de CaveScan',
+        description: 'Export de fixture depuis la session authentifiee de Celestin',
         exportedAt: new Date().toISOString(),
         history: [],
         cave: (cave ?? []).map((bottle) => ({
@@ -479,7 +479,7 @@ export default function Settings() {
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* Page Header */}
       <div className="flex-shrink-0 px-6 pt-6 pb-4">
-        <p className="brand-text">CaveScan</p>
+        <p className="brand-text">Celestin</p>
         <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Réglages</h1>
       </div>
 
@@ -497,7 +497,7 @@ export default function Settings() {
                 Invitez vos amis
               </p>
               <p className="text-[13px] font-light text-[var(--text-secondary)]">
-                Partagez CaveScan avec les amateurs de vin autour de vous
+                Partagez Celestin avec les amateurs de vin autour de vous
               </p>
               <button
                 onClick={handleInvite}
@@ -580,7 +580,7 @@ export default function Settings() {
           <span className="h-[3px] w-[3px] rounded-full bg-[var(--border-color)]" />
         </div>
         <p className="mb-8 text-center text-[11px] text-[var(--text-muted)]">
-          CaveScan v1.0.0 · Reconnaissance d'étiquettes
+          Celestin v1.0.0 · Reconnaissance d'étiquettes
         </p>
 
         {/* Backfill enriched wine fields (temporary) */}

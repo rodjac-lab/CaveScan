@@ -102,7 +102,7 @@ export default function Cheers() {
       lines.push('')
       lines.push(bottle.tasting_note)
     }
-    lines.push('\n\u2014\nPartag\u00e9 avec CaveScan')
+    lines.push('\n\u2014\nPartag\u00e9 avec Celestin\nMyCelestin.com')
 
     try {
       await navigator.share({ text: lines.join('\n') })
@@ -131,7 +131,7 @@ export default function Cheers() {
     <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
       {/* Header */}
       <div className="flex-shrink-0 px-6 pt-4 pb-2">
-        <p className="brand-text">CaveScan</p>
+        <p className="brand-text">Celestin</p>
         <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Dégustations</h1>
         <p className="text-[13px] font-light text-[var(--text-secondary)]">
           Historique de vos dégustations

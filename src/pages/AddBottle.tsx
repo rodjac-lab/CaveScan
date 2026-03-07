@@ -553,7 +553,7 @@ export default function AddBottle() {
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 pb-28">
       {/* Page Header */}
       <div className="mb-4">
-        <p className="brand-text">CaveScan</p>
+        <p className="brand-text">Celestin</p>
         <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Encaver</h1>
         <p className="text-[13px] font-light text-[var(--text-secondary)]">
           Ajouter des bouteilles à votre cave

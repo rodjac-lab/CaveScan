@@ -626,7 +626,7 @@ export default function RemoveBottle() {
     return (
       <div className="flex-1 p-6">
         <div className="mb-4">
-          <p className="brand-text">CaveScan</p>
+          <p className="brand-text">Celestin</p>
           <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Dégustations</h1>
         </div>
 
@@ -656,7 +656,7 @@ export default function RemoveBottle() {
     return (
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mb-4">
-          <p className="brand-text">CaveScan</p>
+          <p className="brand-text">Celestin</p>
           <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Dégustations</h1>
         </div>
 
@@ -682,7 +682,7 @@ export default function RemoveBottle() {
     return (
       <div className="flex h-full flex-col overflow-hidden">
         <div className="flex-shrink-0 px-6 pt-4 pb-2">
-          <p className="brand-text">CaveScan</p>
+          <p className="brand-text">Celestin</p>
           <h2 className="font-serif text-[16px] font-semibold text-[var(--text-primary)]">
             {activeBatchSession.label}
           </h2>
@@ -732,7 +732,7 @@ export default function RemoveBottle() {
     return (
       <div className="flex-1 p-6">
         <div className="mb-4">
-          <p className="brand-text">CaveScan</p>
+          <p className="brand-text">Celestin</p>
           <h1 className="font-serif text-[30px] font-bold leading-tight text-[var(--text-primary)]">Dégustations</h1>
         </div>
         <div className="mt-10 flex flex-col items-center gap-3">

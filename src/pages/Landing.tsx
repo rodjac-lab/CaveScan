@@ -32,7 +32,7 @@ function AndroidInstall({ deferredPrompt }: { deferredPrompt: BeforeInstallPromp
           onClick={handleInstall}
           className="w-full max-w-xs rounded-2xl bg-[#B8860B] px-8 py-4 text-lg font-semibold text-white shadow-lg transition-transform active:scale-95"
         >
-          Installer CaveScan
+          Installer Celestin
         </button>
       </div>
     )
@@ -135,7 +135,7 @@ function DesktopInstall() {
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="rounded-2xl bg-white p-6 shadow-lg">
-        <img src="/qr-cavescan.svg" alt="QR Code CaveScan" className="h-48 w-48" />
+        <img src="/qr-cavescan.svg" alt="QR Code Celestin" className="h-48 w-48" />
       </div>
       <p className="text-sm text-white/60">
         Scannez ou visitez <span className="font-medium text-white">cavescan.vercel.app</span>
@@ -240,7 +240,7 @@ export default function Landing() {
             className="text-xs font-semibold tracking-[3px] text-[#B8860B]"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
-            CAVESCAN
+            CELESTIN
           </h1>
         </header>
 
@@ -272,7 +272,7 @@ export default function Landing() {
             <div style={{ transform: 'rotateY(-2deg) rotateX(1deg)' }}>
               <img
                 src="/Screenshot_cave.png"
-                alt="Aperçu de CaveScan"
+                alt="Aperçu de Celestin"
                 className="block w-full object-cover"
               />
             </div>
