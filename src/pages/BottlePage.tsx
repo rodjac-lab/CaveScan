@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Loader2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -6,11 +6,11 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useBottle } from '@/hooks/useBottles'
 import { getWineColorLabel } from '@/lib/types'
 import { BottleIdentityCard } from '@/components/BottleIdentityCard'
+import { PastTastingsSection } from '@/components/PastTastingsSection'
 import { TastingGuideCard } from '@/components/TastingGuideCard'
 import { TastingSection } from '@/components/TastingSection'
 import { CaveSection } from '@/components/CaveSection'
 import { BottleDeleteDialog } from '@/components/BottleDeleteDialog'
-import { supabase } from '@/lib/supabase'
 
 const COLOR_CSS_VARS: Record<string, string> = {
   rouge: 'red-wine',
@@ -41,13 +41,6 @@ export default function BottlePage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const handleZoom = (src: string, label?: string) => setZoomImage({ src, label })
-
-  const handleDateChange = useCallback(async (newDate: string) => {
-    if (!bottle) return
-    const isoDate = new Date(newDate + 'T12:00:00').toISOString()
-    await supabase.from('bottles').update({ drunk_at: isoDate }).eq('id', bottle.id)
-    refetch()
-  }, [bottle, refetch])
 
   const handleSaveAndNext = () => {
     if (batchState && batchIndex < totalBatch - 1) {
@@ -128,7 +121,7 @@ export default function BottlePage() {
       )}
 
       {/* ===== IDENTITY CARD ===== */}
-      <BottleIdentityCard bottle={bottle} onZoom={handleZoom} onDateChange={isDrunk ? handleDateChange : undefined} />
+      <BottleIdentityCard bottle={bottle} onZoom={handleZoom} />
 
       {/* ===== TASTING SECTION (drunk bottles) ===== */}
       {isDrunk && (
@@ -144,14 +137,14 @@ export default function BottlePage() {
       )}
 
       {/* ===== TASTING GUIDE ===== */}
-      {isDrunk && <TastingGuideCard bottle={bottle} />}
+      <TastingGuideCard bottle={bottle} />
+
+      {/* ===== PAST TASTINGS ===== */}
+      <PastTastingsSection bottle={bottle} />
 
       {/* ===== CAVE SECTIONS (in_stock bottles) ===== */}
       {!isDrunk && (
-        <>
-          <TastingGuideCard bottle={bottle} />
-          <CaveSection bottle={bottle} onRefetch={refetch} groupBottleIds={batchState?.groupBottleIds} />
-        </>
+        <CaveSection bottle={bottle} onRefetch={refetch} groupBottleIds={batchState?.groupBottleIds} />
       )}
 
       {/* ===== DELETE ===== */}

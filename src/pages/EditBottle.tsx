@@ -1,10 +1,13 @@
-import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Loader2, Check, Camera, ImageIcon, Plus, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, Camera, Check, ImageIcon, Loader2, Plus, X } from 'lucide-react'
+import { Autocomplete } from '@/components/Autocomplete'
+import { StoragePositionPicker } from '@/components/StoragePositionPicker'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -12,15 +15,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { Autocomplete } from '@/components/Autocomplete'
-import { StoragePositionPicker } from '@/components/StoragePositionPicker'
-import { supabase } from '@/lib/supabase'
-import { uploadPhoto } from '@/lib/uploadPhoto'
+import { Textarea } from '@/components/ui/textarea'
+import { useBottle, useAppellationsSuggestions, useDomainesSuggestions } from '@/hooks/useBottles'
 import { useZones } from '@/hooks/useZones'
-import { useBottle, useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
+import { supabase } from '@/lib/supabase'
 import { BOTTLE_VOLUMES, WINE_COLORS, type BottleVolumeOption, type WineColor } from '@/lib/types'
+import { uploadPhoto } from '@/lib/uploadPhoto'
+
+function SectionCard({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-sm)]">
+      <div className="mb-3 flex items-center gap-2.5">
+        <div className="h-px flex-1 bg-[var(--border-color)]" />
+        <span className="section-divider-label">{title}</span>
+        <div className="h-px flex-1 bg-[var(--border-color)]" />
+      </div>
+      <div className="space-y-3">{children}</div>
+    </div>
+  )
+}
 
 export default function EditBottle() {
   const { id } = useParams<{ id: string }>()
@@ -34,7 +53,6 @@ export default function EditBottle() {
   const [error, setError] = useState<string | null>(null)
   const [zoomImage, setZoomImage] = useState<{ src: string; label?: string } | null>(null)
 
-  // Photo upload state
   const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null)
   const [localPhotoUrlBack, setLocalPhotoUrlBack] = useState<string | null>(null)
   const [showFrontPhotoOptions, setShowFrontPhotoOptions] = useState(false)
@@ -46,7 +64,6 @@ export default function EditBottle() {
   const backPhotoInputRef = useRef<HTMLInputElement>(null)
   const backGalleryRef = useRef<HTMLInputElement>(null)
 
-  // Form state
   const [domaine, setDomaine] = useState('')
   const [cuvee, setCuvee] = useState('')
   const [appellation, setAppellation] = useState('')
@@ -55,6 +72,10 @@ export default function EditBottle() {
   const [country, setCountry] = useState('')
   const [region, setRegion] = useState('')
   const [grapeVarietiesInput, setGrapeVarietiesInput] = useState('')
+  const [character, setCharacter] = useState('')
+  const [servingTemperature, setServingTemperature] = useState('')
+  const [typicalAromasInput, setTypicalAromasInput] = useState('')
+  const [foodPairingsInput, setFoodPairingsInput] = useState('')
   const [zoneId, setZoneId] = useState('none')
   const [shelf, setShelf] = useState('')
   const [purchasePrice, setPurchasePrice] = useState('')
@@ -62,27 +83,31 @@ export default function EditBottle() {
   const [notes, setNotes] = useState('')
   const [volumeL, setVolumeL] = useState<BottleVolumeOption>('0.75')
 
-  // Populate form when bottle data loads
   useEffect(() => {
-    if (bottle) {
-      setDomaine(bottle.domaine || '')
-      setCuvee(bottle.cuvee || '')
-      setAppellation(bottle.appellation || '')
-      setMillesime(bottle.millesime?.toString() || '')
-      setCouleur(bottle.couleur || '')
-      setCountry(bottle.country || '')
-      setRegion(bottle.region || '')
-      setGrapeVarietiesInput((bottle.grape_varieties || []).join(', '))
-      setZoneId(bottle.zone_id || 'none')
-      setShelf(bottle.shelf || '')
-      setPurchasePrice(bottle.purchase_price?.toString() || '')
-      setMarketValue(bottle.market_value?.toString() || '')
-      setNotes(bottle.notes || '')
-      setVolumeL((bottle.volume_l?.toString() as BottleVolumeOption) || '0.75')
-      setLocalPhotoUrl(bottle.photo_url || null)
-      setLocalPhotoUrlBack(bottle.photo_url_back || null)
-    }
+    if (!bottle) return
+
+    setDomaine(bottle.domaine || '')
+    setCuvee(bottle.cuvee || '')
+    setAppellation(bottle.appellation || '')
+    setMillesime(bottle.millesime?.toString() || '')
+    setCouleur(bottle.couleur || '')
+    setCountry(bottle.country || '')
+    setRegion(bottle.region || '')
+    setGrapeVarietiesInput((bottle.grape_varieties || []).join(', '))
+    setCharacter(bottle.character || '')
+    setServingTemperature(bottle.serving_temperature || '')
+    setTypicalAromasInput((bottle.typical_aromas || []).join(', '))
+    setFoodPairingsInput((bottle.food_pairings || []).join(', '))
+    setZoneId(bottle.zone_id || 'none')
+    setShelf(bottle.shelf || '')
+    setPurchasePrice(bottle.purchase_price?.toString() || '')
+    setMarketValue(bottle.market_value?.toString() || '')
+    setNotes(bottle.notes || '')
+    setVolumeL((bottle.volume_l?.toString() as BottleVolumeOption) || '0.75')
+    setLocalPhotoUrl(bottle.photo_url || null)
+    setLocalPhotoUrlBack(bottle.photo_url_back || null)
   }, [bottle])
+
   const handleMillesimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 4)
     setMillesime(val)
@@ -94,8 +119,13 @@ export default function EditBottle() {
     e.target.value = ''
 
     const isFront = side === 'front'
-    if (isFront) { setUploadingFront(true); setShowFrontPhotoOptions(false) }
-    else { setUploadingBack(true); setShowBackPhotoOptions(false) }
+    if (isFront) {
+      setUploadingFront(true)
+      setShowFrontPhotoOptions(false)
+    } else {
+      setUploadingBack(true)
+      setShowBackPhotoOptions(false)
+    }
 
     try {
       const url = await uploadPhoto(file, `${Date.now()}-${side}.jpg`)
@@ -123,16 +153,16 @@ export default function EditBottle() {
     if (!bottle) return
 
     if (!domaine && !appellation) {
-      setError('Veuillez renseigner au moins le domaine ou l\'appellation')
+      setError("Veuillez renseigner au moins le domaine ou l'appellation")
       return
     }
 
     setSaving(true)
     setError(null)
-    const grapeVarieties = grapeVarietiesInput
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean)
+
+    const grapeVarieties = grapeVarietiesInput.split(',').map((value) => value.trim()).filter(Boolean)
+    const typicalAromas = typicalAromasInput.split(',').map((value) => value.trim()).filter(Boolean)
+    const foodPairings = foodPairingsInput.split(',').map((value) => value.trim()).filter(Boolean)
 
     const { error: updateError } = await supabase
       .from('bottles')
@@ -145,6 +175,10 @@ export default function EditBottle() {
         country: country || null,
         region: region || null,
         grape_varieties: grapeVarieties.length > 0 ? grapeVarieties : null,
+        character: character || null,
+        serving_temperature: servingTemperature || null,
+        typical_aromas: typicalAromas.length > 0 ? typicalAromas : null,
+        food_pairings: foodPairings.length > 0 ? foodPairings : null,
         zone_id: zoneId === 'none' ? null : zoneId,
         shelf: shelf || null,
         purchase_price: purchasePrice ? parseFloat(purchasePrice.replace(',', '.')) : null,
@@ -158,9 +192,10 @@ export default function EditBottle() {
     if (updateError) {
       setError(updateError.message)
       setSaving(false)
-    } else {
-      navigate(`/bottle/${bottle.id}`, { replace: true })
+      return
     }
+
+    navigate(`/bottle/${bottle.id}`, { replace: true })
   }
 
   if (bottleLoading) {
@@ -179,7 +214,7 @@ export default function EditBottle() {
           Retour
         </Button>
         <div className="rounded-lg bg-destructive/10 p-4 text-destructive">
-          {bottleError || 'Bouteille non trouvée'}
+          {bottleError || 'Bouteille non trouvee'}
         </div>
       </div>
     )
@@ -187,7 +222,6 @@ export default function EditBottle() {
 
   return (
     <div className="flex-1 overflow-y-auto p-4">
-      {/* Header */}
       <div className="mb-4 flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
@@ -201,17 +235,14 @@ export default function EditBottle() {
         </div>
       )}
 
-      {/* Hidden photo inputs */}
       <input ref={frontPhotoInputRef} type="file" accept="image/*" capture="environment" onChange={(e) => handlePhotoSelect('front', e)} className="hidden" />
       <input ref={frontGalleryRef} type="file" accept="image/*" onChange={(e) => handlePhotoSelect('front', e)} className="hidden" />
       <input ref={backPhotoInputRef} type="file" accept="image/*" capture="environment" onChange={(e) => handlePhotoSelect('back', e)} className="hidden" />
       <input ref={backGalleryRef} type="file" accept="image/*" onChange={(e) => handlePhotoSelect('back', e)} className="hidden" />
 
-      {/* Photo section */}
-      <Card className="mb-4">
+      <Card className="mb-4 border-[var(--border-color)] shadow-[var(--shadow-sm)]">
         <CardContent className="p-2">
           <div className="flex gap-2">
-            {/* Front photo */}
             <div className="flex-1">
               {uploadingFront ? (
                 <div className="flex h-[120px] items-center justify-center rounded bg-black/10">
@@ -234,11 +265,11 @@ export default function EditBottle() {
                   <img
                     src={localPhotoUrl}
                     alt="Etiquette avant"
-                    className="max-h-[120px] w-full rounded object-contain bg-black/20 cursor-zoom-in"
+                    className="max-h-[120px] w-full cursor-zoom-in rounded object-contain bg-black/20"
                     onClick={() => setZoomImage({ src: localPhotoUrl, label: 'Avant' })}
                   />
                   <button
-                    className="absolute bottom-1 right-1 rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white hover:bg-black/70 transition-colors"
+                    className="absolute bottom-1 right-1 rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white transition-colors hover:bg-black/70"
                     onClick={() => setShowFrontPhotoOptions(true)}
                   >
                     Changer
@@ -247,7 +278,7 @@ export default function EditBottle() {
               ) : (
                 <button
                   onClick={() => setShowFrontPhotoOptions(true)}
-                  className="flex h-[120px] w-full flex-col items-center justify-center gap-1 rounded border-[1.5px] border-dashed border-wine-300 bg-wine-50/30 text-wine-400 hover:border-wine-500 hover:text-wine-600 transition-colors"
+                  className="flex h-[120px] w-full flex-col items-center justify-center gap-1 rounded border-[1.5px] border-dashed border-wine-300 bg-wine-50/30 text-wine-400 transition-colors hover:border-wine-500 hover:text-wine-600"
                 >
                   <Plus className="h-6 w-6" />
                   <span className="text-[10px]">Etiquette</span>
@@ -255,7 +286,6 @@ export default function EditBottle() {
               )}
             </div>
 
-            {/* Back photo */}
             <div className="flex-1">
               {uploadingBack ? (
                 <div className="flex h-[120px] items-center justify-center rounded bg-black/10">
@@ -278,11 +308,11 @@ export default function EditBottle() {
                   <img
                     src={localPhotoUrlBack}
                     alt="Etiquette arriere"
-                    className="max-h-[120px] w-full rounded object-contain bg-black/20 cursor-zoom-in"
+                    className="max-h-[120px] w-full cursor-zoom-in rounded object-contain bg-black/20"
                     onClick={() => setZoomImage({ src: localPhotoUrlBack, label: 'Arriere' })}
                   />
                   <button
-                    className="absolute bottom-1 right-1 rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white hover:bg-black/70 transition-colors"
+                    className="absolute bottom-1 right-1 rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white transition-colors hover:bg-black/70"
                     onClick={() => setShowBackPhotoOptions(true)}
                   >
                     Changer
@@ -291,7 +321,7 @@ export default function EditBottle() {
               ) : localPhotoUrl ? (
                 <button
                   onClick={() => setShowBackPhotoOptions(true)}
-                  className="flex h-[120px] w-full flex-col items-center justify-center gap-1 rounded border-[1.5px] border-dashed border-wine-300 bg-wine-50/30 text-wine-400 hover:border-wine-500 hover:text-wine-600 transition-colors"
+                  className="flex h-[120px] w-full flex-col items-center justify-center gap-1 rounded border-[1.5px] border-dashed border-wine-300 bg-wine-50/30 text-wine-400 transition-colors hover:border-wine-500 hover:text-wine-600"
                 >
                   <Plus className="h-5 w-5" />
                   <span className="text-[10px]">Contre-etiquette</span>
@@ -304,188 +334,241 @@ export default function EditBottle() {
         </CardContent>
       </Card>
 
-      {/* Form */}
       <div className="space-y-4">
-        <div>
-          <Label htmlFor="domaine">Domaine / Producteur</Label>
-          <Autocomplete
-            id="domaine"
-            value={domaine}
-            onChange={setDomaine}
-            suggestions={domainesSuggestions}
-            placeholder="ex: Chartogne Taillet"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="cuvee">Cuvée</Label>
-          <Input
-            id="cuvee"
-            value={cuvee}
-            onChange={(e) => setCuvee(e.target.value)}
-            placeholder="ex: Orizeaux"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="appellation">Appellation</Label>
-          <Autocomplete
-            id="appellation"
-            value={appellation}
-            onChange={setAppellation}
-            suggestions={appellationsSuggestions}
-            placeholder="ex: Margaux"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
+        <SectionCard title="Identite du vin">
           <div>
-            <Label htmlFor="millesime">Millesime</Label>
-            <Input
-              id="millesime"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={millesime}
-              onChange={handleMillesimeChange}
-              placeholder="ex: 2020"
-              maxLength={4}
+            <Label htmlFor="domaine">Domaine / Producteur</Label>
+            <Autocomplete
+              id="domaine"
+              value={domaine}
+              onChange={setDomaine}
+              suggestions={domainesSuggestions}
+              placeholder="ex: Chartogne Taillet"
             />
           </div>
 
           <div>
-            <Label htmlFor="couleur">Couleur</Label>
-            <Select value={couleur} onValueChange={(v) => setCouleur(v as WineColor)}>
-              <SelectTrigger id="couleur">
-                <SelectValue placeholder="Choisir" />
+            <Label htmlFor="cuvee">Cuvee</Label>
+            <Input
+              id="cuvee"
+              value={cuvee}
+              onChange={(e) => setCuvee(e.target.value)}
+              placeholder="ex: Orizeaux"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="appellation">Appellation</Label>
+            <Autocomplete
+              id="appellation"
+              value={appellation}
+              onChange={setAppellation}
+              suggestions={appellationsSuggestions}
+              placeholder="ex: Margaux"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="millesime">Millesime</Label>
+              <Input
+                id="millesime"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={millesime}
+                onChange={handleMillesimeChange}
+                placeholder="ex: 2020"
+                maxLength={4}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="couleur">Couleur</Label>
+              <Select value={couleur} onValueChange={(v) => setCouleur(v as WineColor)}>
+                <SelectTrigger id="couleur">
+                  <SelectValue placeholder="Choisir" />
+                </SelectTrigger>
+                <SelectContent>
+                  {WINE_COLORS.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="grape-varieties">Cepages</Label>
+            <Input
+              id="grape-varieties"
+              value={grapeVarietiesInput}
+              onChange={(e) => setGrapeVarietiesInput(e.target.value)}
+              placeholder="ex: Cabernet Sauvignon, Merlot"
+            />
+            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+              Separez les cepages par des virgules.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="region">Region</Label>
+              <Input
+                id="region"
+                value={region}
+                onChange={(e) => setRegion(e.target.value)}
+                placeholder="ex: Bordeaux"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="country">Pays</Label>
+              <Input
+                id="country"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                placeholder="ex: France"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="volume">Volume</Label>
+            <Select value={volumeL} onValueChange={(v) => setVolumeL(v as BottleVolumeOption)}>
+              <SelectTrigger id="volume">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {WINE_COLORS.map((c) => (
-                  <SelectItem key={c.value} value={c.value}>
-                    {c.label}
+                {BOTTLE_VOLUMES.map((v) => (
+                  <SelectItem key={v.value} value={v.value}>
+                    {v.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-        </div>
+        </SectionCard>
 
-        <div className="grid grid-cols-2 gap-3">
+        <SectionCard title="Reperes">
           <div>
-            <Label htmlFor="country">Pays</Label>
-            <Input
-              id="country"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              placeholder="ex: France"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="region">Region</Label>
-            <Input
-              id="region"
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
-              placeholder="ex: Bordeaux"
-            />
-          </div>
-
-        </div>
-
-        <div>
-          <Label htmlFor="grape-varieties">Cépages</Label>
-          <Input
-            id="grape-varieties"
-            value={grapeVarietiesInput}
-            onChange={(e) => setGrapeVarietiesInput(e.target.value)}
-            placeholder="ex: Cabernet Sauvignon, Merlot"
-          />
-          <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-            Séparez les cépages par des virgules.
-          </p>
-        </div>
-
-        <div>
-          <Label htmlFor="zone">Zone de stockage</Label>
-          <Select value={zoneId} onValueChange={setZoneId} disabled={zonesLoading}>
-            <SelectTrigger id="zone">
-              <SelectValue placeholder="Choisir une zone" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Aucune zone</SelectItem>
-              {zones.map((z) => (
-                <SelectItem key={z.id} value={z.id}>
-                  {z.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label htmlFor="shelf">Etagere / Emplacement</Label>
-          <div id="shelf" className="mt-1">
-            <StoragePositionPicker
-              zoneId={zoneId === 'none' ? '' : zoneId}
-              zone={zones.find((z) => z.id === zoneId)}
-              value={shelf}
-              onChange={setShelf}
-            />
-          </div>
-        </div>
-
-        <div>
-          <Label htmlFor="volume">Volume</Label>
-          <Select value={volumeL} onValueChange={(v) => setVolumeL(v as BottleVolumeOption)}>
-            <SelectTrigger id="volume">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {BOTTLE_VOLUMES.map((v) => (
-                <SelectItem key={v.value} value={v.value}>
-                  {v.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label htmlFor="price">Prix d'achat (EUR)</Label>
-            <Input
-              id="price"
-              inputMode="decimal"
-              value={purchasePrice}
-              onChange={(e) => setPurchasePrice(e.target.value.replace(/[^0-9.,]/g, ''))}
-              placeholder="ex: 12.50"
+            <Label htmlFor="character">Reperes</Label>
+            <Textarea
+              id="character"
+              value={character}
+              onChange={(e) => setCharacter(e.target.value)}
+              placeholder="Lecture du vin par Celestin..."
+              rows={4}
             />
           </div>
 
           <div>
-            <Label htmlFor="marketValue">Valeur marchande (EUR)</Label>
+            <Label htmlFor="servingTemperature">Temperature de service</Label>
             <Input
-              id="marketValue"
-              inputMode="decimal"
-              value={marketValue}
-              onChange={(e) => setMarketValue(e.target.value.replace(/[^0-9.,]/g, ''))}
-              placeholder="ex: 25.00"
+              id="servingTemperature"
+              value={servingTemperature}
+              onChange={(e) => setServingTemperature(e.target.value)}
+              placeholder="ex: 16-17C"
             />
           </div>
-        </div>
 
-        <div>
-          <Label htmlFor="notes">Notes</Label>
-          <Textarea
-            id="notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Notes personnelles sur cette bouteille..."
-            rows={3}
-          />
-        </div>
+          <div>
+            <Label htmlFor="typicalAromas">Aromatique</Label>
+            <Textarea
+              id="typicalAromas"
+              value={typicalAromasInput}
+              onChange={(e) => setTypicalAromasInput(e.target.value)}
+              placeholder="ex: cassis, violette, graphite"
+              rows={3}
+            />
+            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+              Separez les aromes par des virgules.
+            </p>
+          </div>
 
-        <div className="flex gap-3 pt-4">
+          <div>
+            <Label htmlFor="foodPairings">Accords</Label>
+            <Textarea
+              id="foodPairings"
+              value={foodPairingsInput}
+              onChange={(e) => setFoodPairingsInput(e.target.value)}
+              placeholder="ex: canard roti, boeuf en croute"
+              rows={3}
+            />
+            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+              Separez les accords par des virgules.
+            </p>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Gestion de cave">
+          <div>
+            <Label htmlFor="zone">Zone de stockage</Label>
+            <Select value={zoneId} onValueChange={setZoneId} disabled={zonesLoading}>
+              <SelectTrigger id="zone">
+                <SelectValue placeholder="Choisir une zone" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Aucune zone</SelectItem>
+                {zones.map((z) => (
+                  <SelectItem key={z.id} value={z.id}>
+                    {z.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="shelf">Etagere / Emplacement</Label>
+            <div id="shelf" className="mt-1">
+              <StoragePositionPicker
+                zoneId={zoneId === 'none' ? '' : zoneId}
+                zone={zones.find((z) => z.id === zoneId)}
+                value={shelf}
+                onChange={setShelf}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="price">Prix d'achat (EUR)</Label>
+              <Input
+                id="price"
+                inputMode="decimal"
+                value={purchasePrice}
+                onChange={(e) => setPurchasePrice(e.target.value.replace(/[^0-9.,]/g, ''))}
+                placeholder="ex: 12.50"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="marketValue">Valeur marchande (EUR)</Label>
+              <Input
+                id="marketValue"
+                inputMode="decimal"
+                value={marketValue}
+                onChange={(e) => setMarketValue(e.target.value.replace(/[^0-9.,]/g, ''))}
+                placeholder="ex: 25.00"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Notes personnelles sur cette bouteille..."
+              rows={3}
+            />
+          </div>
+        </SectionCard>
+
+        <div className="flex gap-3 pt-2">
           <Button variant="outline" className="flex-1" onClick={() => navigate(-1)}>
             Annuler
           </Button>
@@ -513,7 +596,7 @@ export default function EditBottle() {
             <img
               src={zoomImage?.src}
               alt={zoomImage?.label ? `Photo ${zoomImage.label}` : 'Photo'}
-              className="max-h-[80vh] w-full object-contain rounded-md bg-black/80"
+              className="max-h-[80vh] w-full rounded-md bg-black/80 object-contain"
             />
             {zoomImage?.label && (
               <p className="text-center text-xs text-muted-foreground">{zoomImage.label}</p>

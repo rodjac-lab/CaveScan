@@ -1,17 +1,9 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Calendar, Euro, Loader2, Plus, Minus, Wine, Tag, Grid2x2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Calendar, Euro, Grid2x2, Loader2, Minus, Plus, Tag, Wine } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { openBottle } from '@/lib/bottleActions'
 import { type BottleWithZone, volumeLabel } from '@/lib/types'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
-import { openBottle } from '@/lib/bottleActions'
-
-const COLOR_CSS_VARS: Record<string, string> = {
-  rouge: 'red-wine',
-  blanc: 'white-wine',
-  rose: 'rose-wine',
-  bulles: 'champagne',
-}
 
 interface CaveSectionProps {
   bottle: BottleWithZone
@@ -20,38 +12,13 @@ interface CaveSectionProps {
 }
 
 export function CaveSection({ bottle, onRefetch, groupBottleIds }: CaveSectionProps) {
-  const navigate = useNavigate()
-  const [pastTastings, setPastTastings] = useState<BottleWithZone[]>([])
   const [groupInStock, setGroupInStock] = useState<BottleWithZone[]>([])
   const [updatingQuantity, setUpdatingQuantity] = useState(false)
   const [removing, setRemoving] = useState(false)
 
-  // Fetch past tastings for in_stock bottles
   useEffect(() => {
-    async function fetchPastTastings() {
-      const tastingsQuery = supabase
-        .from('bottles')
-        .select('*, zone:zones(*)')
-        .eq('status', 'drunk')
+    let isCancelled = false
 
-      if (bottle.domaine) tastingsQuery.eq('domaine', bottle.domaine)
-      else tastingsQuery.is('domaine', null)
-      if (bottle.appellation) tastingsQuery.eq('appellation', bottle.appellation)
-      else tastingsQuery.is('appellation', null)
-      if (bottle.millesime) tastingsQuery.eq('millesime', bottle.millesime)
-      else tastingsQuery.is('millesime', null)
-
-      const { data: tastings } = await tastingsQuery
-        .order('drunk_at', { ascending: false })
-        .limit(20)
-
-      setPastTastings(tastings ?? [])
-    }
-
-    fetchPastTastings()
-  }, [bottle.id, bottle.status, bottle.domaine, bottle.appellation, bottle.millesime])
-
-  useEffect(() => {
     async function fetchGroupInStock() {
       if (!groupBottleIds || groupBottleIds.length === 0) {
         setGroupInStock([bottle])
@@ -64,15 +31,21 @@ export function CaveSection({ bottle, onRefetch, groupBottleIds }: CaveSectionPr
         .eq('status', 'in_stock')
         .in('id', groupBottleIds)
 
+      if (isCancelled) return
+
       setGroupInStock((data as BottleWithZone[] | null) ?? [bottle])
     }
 
-    fetchGroupInStock()
-  }, [bottle.id, groupBottleIds, bottle])
+    void fetchGroupInStock()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [bottle, groupBottleIds])
 
   const totalQuantity = (groupInStock.length > 0 ? groupInStock : [bottle]).reduce(
     (sum, item) => sum + (item.quantity ?? 1),
-    0
+    0,
   )
 
   const handleUpdateQuantity = async (delta: 1 | -1) => {
@@ -92,13 +65,9 @@ export function CaveSection({ bottle, onRefetch, groupBottleIds }: CaveSectionPr
         }
 
         const rows = groupInStock.length > 0 ? groupInStock : [bottle]
-        let target = rows.find((r) => r.id === bottle.id && (r.quantity ?? 1) > 1)
-        if (!target) {
-          target = rows.find((r) => r.id !== bottle.id && (r.quantity ?? 1) > 1)
-        }
-        if (!target) {
-          target = rows.find((r) => r.id !== bottle.id)
-        }
+        let target = rows.find((row) => row.id === bottle.id && (row.quantity ?? 1) > 1)
+        if (!target) target = rows.find((row) => row.id !== bottle.id && (row.quantity ?? 1) > 1)
+        if (!target) target = rows.find((row) => row.id !== bottle.id)
         if (!target) {
           setUpdatingQuantity(false)
           return
@@ -123,6 +92,7 @@ export function CaveSection({ bottle, onRefetch, groupBottleIds }: CaveSectionPr
     } catch (error) {
       console.error('Update quantity error:', error)
     }
+
     setUpdatingQuantity(false)
   }
 
@@ -140,34 +110,32 @@ export function CaveSection({ bottle, onRefetch, groupBottleIds }: CaveSectionPr
 
   return (
     <>
-      {/* --- Section "Ma cave" --- */}
       <div className="cave-section-anim mx-4 mt-[14px]">
         <div className="flex items-center gap-2.5 mb-2.5">
           <div className="flex-1 h-px bg-[var(--border-color)]" />
-          <span className="section-divider-label">Ma cave</span>
+          <span className="section-divider-label">Gestion de cave</span>
           <div className="flex-1 h-px bg-[var(--border-color)]" />
         </div>
 
-        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-[var(--radius)] shadow-[var(--shadow-sm)] overflow-hidden">
-          {/* Quantité */}
-          <div className="flex items-center px-4 py-3 border-b border-[var(--border-color)]">
-            <Tag className="h-4 w-4 text-[var(--text-muted)] shrink-0 mr-3" />
-            <span className="text-xs text-[var(--text-muted)] flex-1">Quantité</span>
+        <div className="overflow-hidden rounded-[var(--radius)] border border-[var(--border-color)] bg-[var(--bg-card)] shadow-[var(--shadow-sm)]">
+          <div className="flex items-center border-b border-[var(--border-color)] px-4 py-3">
+            <Tag className="mr-3 h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+            <span className="flex-1 text-xs text-[var(--text-muted)]">Quantité</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-30"
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-color)] text-[var(--text-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-30"
                 onClick={() => handleUpdateQuantity(-1)}
                 disabled={updatingQuantity || totalQuantity <= 1}
               >
                 <Minus className="h-3.5 w-3.5" />
               </button>
-              <span className="font-serif text-[17px] font-bold text-[var(--text-primary)] w-6 text-center">
+              <span className="w-6 text-center font-serif text-[17px] font-bold text-[var(--text-primary)]">
                 {totalQuantity}
               </span>
               <button
                 type="button"
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-30"
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-color)] text-[var(--text-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-30"
                 onClick={() => handleUpdateQuantity(1)}
                 disabled={updatingQuantity || totalQuantity >= 99}
               >
@@ -176,101 +144,50 @@ export function CaveSection({ bottle, onRefetch, groupBottleIds }: CaveSectionPr
               <span className="text-[11px] text-[var(--text-muted)]">{volumeLabel(bottle.volume_l)}</span>
             </div>
           </div>
-          {/* Emplacement */}
-          <div className="flex items-center px-4 py-3 border-b border-[var(--border-color)]">
-            <Grid2x2 className="h-4 w-4 text-[var(--text-muted)] shrink-0 mr-3" />
-            <span className="text-xs text-[var(--text-muted)] flex-1">Emplacement</span>
-            <span className="text-[13px] font-medium text-[var(--text-primary)] text-right">
+
+          <div className="flex items-center border-b border-[var(--border-color)] px-4 py-3">
+            <Grid2x2 className="mr-3 h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+            <span className="flex-1 text-xs text-[var(--text-muted)]">Emplacement</span>
+            <span className="text-right text-[13px] font-medium text-[var(--text-primary)]">
               {bottle.zone?.name
                 ? `${bottle.zone.name}${bottle.shelf ? ` · ${bottle.shelf}` : ''}`
                 : '—'}
             </span>
           </div>
-          {/* Entrée en cave */}
-          <div className="flex items-center px-4 py-3 border-b border-[var(--border-color)]">
-            <Calendar className="h-4 w-4 text-[var(--text-muted)] shrink-0 mr-3" />
-            <span className="text-xs text-[var(--text-muted)] flex-1">Entrée en cave</span>
-            <span className="text-[13px] font-medium text-[var(--text-primary)] text-right">
+
+          <div className="flex items-center border-b border-[var(--border-color)] px-4 py-3">
+            <Calendar className="mr-3 h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+            <span className="flex-1 text-xs text-[var(--text-muted)]">Entrée en cave</span>
+            <span className="text-right text-[13px] font-medium text-[var(--text-primary)]">
               {bottle.added_at
                 ? new Date(bottle.added_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
                 : '—'}
             </span>
           </div>
-          {/* Prix d'achat */}
+
+          <div className="flex items-center border-b border-[var(--border-color)] px-4 py-3">
+            <Calendar className="mr-3 h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+            <span className="flex-1 text-xs text-[var(--text-muted)]">Date bue</span>
+            <span className="text-right text-[13px] font-medium text-[var(--text-primary)]">
+              {bottle.drunk_at
+                ? new Date(bottle.drunk_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+                : '—'}
+            </span>
+          </div>
+
           <div className="flex items-center px-4 py-3">
-            <Euro className="h-4 w-4 text-[var(--text-muted)] shrink-0 mr-3" />
-            <span className="text-xs text-[var(--text-muted)] flex-1">Prix d'achat</span>
-            <span className="text-[13px] font-medium text-[var(--text-primary)] text-right">
+            <Euro className="mr-3 h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+            <span className="flex-1 text-xs text-[var(--text-muted)]">Prix d'achat</span>
+            <span className="text-right text-[13px] font-medium text-[var(--text-primary)]">
               {bottle.purchase_price ? `${bottle.purchase_price.toFixed(2)} €` : '—'}
             </span>
           </div>
         </div>
       </div>
 
-      {/* --- Section "Dégustations passées" --- */}
-      <div className="history-section-anim mx-4 mt-[14px]">
-        <div className="flex items-center gap-2.5 mb-2.5">
-          <div className="flex-1 h-px bg-[var(--border-color)]" />
-          <span className="section-divider-label">Dégustations passées</span>
-          <div className="flex-1 h-px bg-[var(--border-color)]" />
-        </div>
-
-        {pastTastings.length === 0 ? (
-          <p className="text-center text-[13px] text-[var(--text-muted)] italic py-5">
-            Aucune dégustation enregistrée pour ce vin.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            {pastTastings.map((item) => {
-              const drunkDate = item.drunk_at ? new Date(item.drunk_at) : null
-              return (
-                <button
-                  key={item.id}
-                  className="flex gap-3 bg-[var(--bg-card)] p-3 px-3.5 rounded-[var(--radius-sm)] shadow-[var(--shadow-sm)] text-left transition-shadow hover:shadow-[var(--shadow-md)]"
-                  onClick={() => navigate(`/bottle/${item.id}`)}
-                >
-                  {/* Date block */}
-                  <div className="shrink-0 w-9 text-center">
-                    <div className="font-serif text-[17px] font-bold leading-none text-[var(--text-primary)]">
-                      {drunkDate ? drunkDate.getDate().toString().padStart(2, '0') : '—'}
-                    </div>
-                    <div className="text-[9px] uppercase tracking-wide text-[var(--text-muted)] font-medium mt-0.5">
-                      {drunkDate ? drunkDate.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '') : ''}
-                    </div>
-                  </div>
-                  {/* Color bar */}
-                  {item.couleur && (
-                    <div
-                      className="w-[3px] h-8 rounded-full shrink-0 self-center"
-                      style={{ backgroundColor: `var(--${COLOR_CSS_VARS[item.couleur] ?? 'champagne'})` }}
-                    />
-                  )}
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    {item.tasting_note ? (
-                      <p className="text-[13px] text-[var(--text-secondary)] leading-snug line-clamp-2">
-                        {item.tasting_note}
-                      </p>
-                    ) : (
-                      <p className="text-[13px] text-[var(--text-muted)] italic">
-                        Pas de note
-                      </p>
-                    )}
-                    <p className="text-[10px] text-[var(--text-muted)] mt-1">
-                      Enregistrée
-                    </p>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* --- CTA "Ouvrir cette bouteille" --- */}
       <div className="cta-section-anim mx-4 mt-4">
         <button
-          className="w-full h-12 flex items-center justify-center gap-2.5 rounded-[var(--radius-sm)] bg-[var(--red-wine)] text-white text-[15px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+          className="flex h-12 w-full items-center justify-center gap-2.5 rounded-[var(--radius-sm)] bg-[var(--red-wine)] text-[15px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           onClick={handleMarkAsDrunk}
           disabled={removing}
         >

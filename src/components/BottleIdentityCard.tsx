@@ -1,26 +1,14 @@
-import { useRef } from 'react'
-import { Wine, Calendar, Euro, MapPin } from 'lucide-react'
+import { Wine } from 'lucide-react'
 import { formatBottleVolume, getWineColorLabel, type BottleWithZone } from '@/lib/types'
-
-function formatDateShort(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('fr-FR', {
-    day: 'numeric', month: 'short', year: 'numeric',
-  })
-}
 
 interface BottleIdentityCardProps {
   bottle: BottleWithZone
   onZoom: (src: string, label?: string) => void
-  onDateChange?: (newDate: string) => void
 }
 
-export function BottleIdentityCard({ bottle, onZoom, onDateChange }: BottleIdentityCardProps) {
-  const isDrunk = bottle.status === 'drunk'
-  const displayDateStr = (isDrunk && bottle.drunk_at) || bottle.added_at
-  const displayDate = displayDateStr ? formatDateShort(displayDateStr) : '-'
-  const dateInputRef = useRef<HTMLInputElement>(null)
+export function BottleIdentityCard({ bottle, onZoom }: BottleIdentityCardProps) {
   const grapeDetails = bottle.grape_varieties?.filter(Boolean).join(', ') || ''
-  const originDetails = [bottle.country, bottle.region, grapeDetails].filter(Boolean).join(' · ')
+  const originDetails = [grapeDetails, bottle.region, bottle.country].filter(Boolean).join(' · ')
 
   return (
     <div className="identity-card-anim mx-4 mt-3 overflow-hidden rounded-[var(--radius)] bg-[var(--bg-card)] shadow-[var(--shadow-md)]">
@@ -42,71 +30,53 @@ export function BottleIdentityCard({ bottle, onZoom, onDateChange }: BottleIdent
           <div className="font-serif text-[20px] font-bold leading-tight text-[var(--text-primary)]">
             {bottle.domaine || bottle.cuvee || bottle.appellation || 'Vin'}
           </div>
+
           {bottle.appellation && (
             <div className="mt-px text-[13px] text-[var(--text-secondary)]">
               {bottle.appellation}
             </div>
           )}
+
           {bottle.cuvee && bottle.domaine && (
             <div className="text-[13px] text-[var(--text-secondary)]">
               {bottle.cuvee}
             </div>
           )}
+
           {originDetails && (
-            <div className="mt-1 text-[12px] text-[var(--text-muted)]">
+            <div className="mt-1 text-[12px] leading-relaxed text-[var(--text-muted)]">
               {originDetails}
             </div>
           )}
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {bottle.millesime && (
-              <span className="rounded-full border border-[rgba(184,134,11,0.06)] bg-[var(--accent-bg)] px-2.5 py-0.5 font-serif text-xs font-semibold text-[var(--text-primary)]">
-                {bottle.millesime}
-              </span>
-            )}
-            <span className="rounded-full border border-[rgba(184,134,11,0.06)] bg-[var(--accent-bg)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
-              {formatBottleVolume(bottle.volume_l)}
-            </span>
-            {bottle.couleur && (
-              <span className="rounded-full border border-[rgba(184,134,11,0.06)] bg-[var(--accent-bg)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
-                {getWineColorLabel(bottle.couleur)}
-              </span>
-            )}
-          </div>
         </div>
       </div>
 
-      <div className="flex items-center border-t border-[var(--border-color)]">
-        <div
-          className={`relative flex flex-1 items-center justify-center gap-1.5 border-r border-[var(--border-color)] px-2 py-2.5 ${isDrunk && onDateChange ? 'cursor-pointer active:bg-[var(--accent-bg)]' : ''}`}
-          onClick={() => isDrunk && onDateChange && dateInputRef.current?.showPicker()}
-        >
-          <Calendar className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
-          <span className="truncate text-[11px] font-medium text-[var(--text-secondary)]">
-            {displayDate}
-          </span>
-          {isDrunk && onDateChange && (
-            <input
-              ref={dateInputRef}
-              type="date"
-              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-              value={bottle.drunk_at ? new Date(bottle.drunk_at).toISOString().split('T')[0] : ''}
-              onChange={(e) => {
-                if (e.target.value) onDateChange(e.target.value)
-              }}
-            />
-          )}
+      <div className="grid grid-cols-3 border-t border-[var(--border-color)]">
+        <div className="border-r border-[var(--border-color)] px-2 py-2.5 text-center">
+          <div className="mb-1 text-[10px] font-medium uppercase tracking-[1.2px] text-[var(--text-muted)]">
+            Millésime
+          </div>
+          <div className="font-serif text-[12px] font-semibold text-[var(--text-primary)]">
+            {bottle.millesime || '—'}
+          </div>
         </div>
-        <div className="flex flex-1 items-center justify-center gap-1.5 border-r border-[var(--border-color)] px-2 py-2.5">
-          <Euro className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
-          <span className="truncate text-[11px] font-medium text-[var(--text-secondary)]">
-            {bottle.purchase_price ? `${bottle.purchase_price.toFixed(2)} EUR` : '-'}
-          </span>
+
+        <div className="border-r border-[var(--border-color)] px-2 py-2.5 text-center">
+          <div className="mb-1 text-[10px] font-medium uppercase tracking-[1.2px] text-[var(--text-muted)]">
+            Couleur
+          </div>
+          <div className="text-[12px] font-medium text-[var(--text-secondary)]">
+            {getWineColorLabel(bottle.couleur)}
+          </div>
         </div>
-        <div className="flex flex-1 items-center justify-center gap-1.5 px-2 py-2.5">
-          <MapPin className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
-          <span className="truncate text-[11px] font-medium text-[var(--text-secondary)]">
-            {bottle.zone?.name || 'Cave'}
-          </span>
+
+        <div className="px-2 py-2.5 text-center">
+          <div className="mb-1 text-[10px] font-medium uppercase tracking-[1.2px] text-[var(--text-muted)]">
+            Volume
+          </div>
+          <div className="text-[12px] font-medium text-[var(--text-secondary)]">
+            {formatBottleVolume(bottle.volume_l)}
+          </div>
         </div>
       </div>
     </div>
