@@ -5,6 +5,8 @@ export interface CelestinEvalScenario {
   history?: Array<{ role: 'user' | 'assistant'; content: string }>
   expectations?: {
     avoidColors?: string[]
+    expectedType?: string
+    maxCards?: number
   }
 }
 
@@ -52,6 +54,7 @@ export interface CelestinEvalResponse {
 }
 
 export interface CelestinEvalAnalysis {
+  responseType?: string
   cardCount: number
   memoryUsed: boolean
   introFlags: {
@@ -59,6 +62,8 @@ export interface CelestinEvalAnalysis {
     hasPepites: boolean
     hasAhLead: boolean
   }
+  expectedTypeMismatch: boolean
+  maxCardsExceeded: boolean
   avoidColorHits: Array<{
     name?: string
     color?: string
@@ -105,6 +110,44 @@ export const CELESTIN_EVAL_SCENARIOS: CelestinEvalScenario[] = [
     id: 'encave_chianti',
     message: "J'ai achete 6 bouteilles de Chianti Classico 2021",
     notes: 'Verifier que Celestin reste naturel en mode encavage.',
+  },
+  {
+    id: 'thanks_after_recommendation',
+    message: 'Merci, elles sont tres bien',
+    notes: 'Apres une recommendation, un simple remerciement doit revenir en conversation.',
+    history: [
+      { role: 'user', content: 'Je cherche un vin pour accompagner une paella.' },
+      { role: 'assistant', content: 'Pour une paella, je partirais sur un blanc tendu, un rose structure ou un rouge tres leger. Voici trois pistes pour toi.' },
+    ],
+    expectations: {
+      expectedType: 'conversation',
+      maxCards: 0,
+    },
+  },
+  {
+    id: 'question_after_recommendation',
+    message: 'Pourquoi celui-la plutot que le rose ?',
+    notes: 'Une question sur une proposition deja faite doit rester en conversation.',
+    history: [
+      { role: 'user', content: 'Je cherche un vin pour accompagner une paella.' },
+      { role: 'assistant', content: 'Pour une paella, je partirais sur un blanc tendu, un rose structure ou un rouge tres leger. Voici trois pistes pour toi.' },
+    ],
+    expectations: {
+      expectedType: 'conversation',
+      maxCards: 0,
+    },
+  },
+  {
+    id: 'new_selection_after_recommendation',
+    message: 'Tu en as d autres, plutot en blanc ?',
+    notes: 'Une demande explicite de nouvelle selection doit rester en recommend.',
+    history: [
+      { role: 'user', content: 'Je cherche un vin pour accompagner une paella.' },
+      { role: 'assistant', content: 'Pour une paella, je partirais sur un blanc tendu, un rose structure ou un rouge tres leger. Voici trois pistes pour toi.' },
+    ],
+    expectations: {
+      expectedType: 'recommend',
+    },
   },
 ]
 
@@ -165,11 +208,16 @@ export function analyzeCelestinEvalResult(
   const cards = response.cards ?? []
   const avoidColors = scenario.expectations?.avoidColors ?? []
   const avoidColorHits = cards.filter((card) => avoidColors.includes(card.color ?? ''))
+  const expectedType = scenario.expectations?.expectedType
+  const maxCards = scenario.expectations?.maxCards
 
   return {
+    responseType: response.type,
     cardCount: cards.length,
     memoryUsed: detectMemoryUsage(response.text, cards),
     introFlags: detectIntroFlags(response.text),
+    expectedTypeMismatch: !!(expectedType && response.type !== expectedType),
+    maxCardsExceeded: typeof maxCards === 'number' ? cards.length > maxCards : false,
     avoidColorHits: avoidColorHits.map((card) => ({
       name: card.name,
       color: card.color,
@@ -206,6 +254,12 @@ export function renderCelestinEvalHtmlReport(
     ].filter(Boolean)
 
     const warnings = [
+      ...(result.analysis.expectedTypeMismatch
+        ? [`Expected type: ${scenario?.expectations?.expectedType ?? ''}, got: ${result.analysis.responseType ?? ''}`]
+        : []),
+      ...(result.analysis.maxCardsExceeded
+        ? [`Expected max cards: ${scenario?.expectations?.maxCards ?? ''}, got: ${result.analysis.cardCount}`]
+        : []),
       ...(result.analysis.avoidColorHits.length > 0
         ? result.analysis.avoidColorHits.map((hit) => `Avoid-color hit: ${hit.name} (${hit.color})`)
         : []),

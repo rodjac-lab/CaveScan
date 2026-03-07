@@ -31,5 +31,61 @@
     "id": "encave_chianti",
     "message": "J'ai achete 6 bouteilles de Chianti Classico 2021",
     "notes": "Verifier que Celestin reste naturel en mode encavage."
+  },
+  {
+    "id": "thanks_after_recommendation",
+    "message": "Merci, elles sont tres bien",
+    "notes": "Apres une recommendation, un simple remerciement doit revenir en conversation.",
+    "history": [
+      {
+        "role": "user",
+        "content": "Je cherche un vin pour accompagner une paella."
+      },
+      {
+        "role": "assistant",
+        "content": "Pour une paella, je partirais sur un blanc tendu, un rose structure ou un rouge tres leger. Voici trois pistes pour toi."
+      }
+    ],
+    "expectations": {
+      "expectedType": "conversation",
+      "maxCards": 0
+    }
+  },
+  {
+    "id": "question_after_recommendation",
+    "message": "Pourquoi celui-la plutot que le rose ?",
+    "notes": "Une question sur une proposition deja faite doit rester en conversation.",
+    "history": [
+      {
+        "role": "user",
+        "content": "Je cherche un vin pour accompagner une paella."
+      },
+      {
+        "role": "assistant",
+        "content": "Pour une paella, je partirais sur un blanc tendu, un rose structure ou un rouge tres leger. Voici trois pistes pour toi."
+      }
+    ],
+    "expectations": {
+      "expectedType": "conversation",
+      "maxCards": 0
+    }
+  },
+  {
+    "id": "new_selection_after_recommendation",
+    "message": "Tu en as d autres, plutot en blanc ?",
+    "notes": "Une demande explicite de nouvelle selection doit rester en recommend.",
+    "history": [
+      {
+        "role": "user",
+        "content": "Je cherche un vin pour accompagner une paella."
+      },
+      {
+        "role": "assistant",
+        "content": "Pour une paella, je partirais sur un blanc tendu, un rose structure ou un rouge tres leger. Voici trois pistes pour toi."
+      }
+    ],
+    "expectations": {
+      "expectedType": "recommend"
+    }
   }
 ]

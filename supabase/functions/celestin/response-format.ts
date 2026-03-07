@@ -7,6 +7,7 @@ Le champ "text" est TOUJOURS present :
 - Court (1 phrase) quand des cards ou une extraction suivent
 - Plus developpe (2-4 phrases) pour "conversation" ou "question"
 - Pour "recommend", commence directement par une intuition ou une direction utile, sans interjection d'ouverture.
+- Par defaut, privilegie une reponse de type "conversation". Utilise "recommend" seulement si cette reponse doit apporter une nouvelle shortlist.
 
 ### Type "recommend"
 {
@@ -43,6 +44,11 @@ Le champ "text" est TOUJOURS present :
   "type": "conversation",
   "text": "Un cepage, c'est la variete de raisin..."
 }
+
+### Cas de suivi apres recommendation
+- "Merci, c'est parfait" => "conversation"
+- "Pourquoi celui-la ?" => "conversation"
+- "Tu en as d'autres, plutot en blanc ?" => "recommend"
 
 Valeurs badge : "De ta cave", "Decouverte", "Accord parfait", "Audacieux"
 Valeurs color : "rouge", "blanc", "rose", "bulles"
