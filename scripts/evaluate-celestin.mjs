@@ -95,20 +95,37 @@ function detectIntroFlags(text) {
   }
 }
 
+function getUiActionKind(response) {
+  return response?.ui_action?.kind ?? 'none'
+}
+
+function getCards(response) {
+  if (response?.ui_action?.kind === 'show_recommendations') {
+    return response.ui_action.payload?.cards ?? []
+  }
+  return response?.cards ?? []
+}
+
 function analyzeScenarioResult(scenario, response) {
-  const cards = response.cards ?? []
+  const cards = getCards(response)
   const avoidColors = scenario.expectations?.avoidColors ?? []
   const avoidColorHits = cards.filter((card) => avoidColors.includes(card.color))
+  const expectedUiActionKind = scenario.expectations?.expectedUiActionKind
 
   return {
+    uiActionKind: getUiActionKind(response),
     cardCount: cards.length,
-    memoryUsed: detectMemoryUsage(response.text, cards),
-    introFlags: detectIntroFlags(response.text),
+    memoryUsed: detectMemoryUsage(response.message, cards),
+    introFlags: detectIntroFlags(response.message),
+    expectedUiActionKindMismatch: Boolean(expectedUiActionKind && getUiActionKind(response) !== expectedUiActionKind),
     avoidColorHits: avoidColorHits.map((card) => ({
       name: card.name,
       color: card.color,
       badge: card.badge,
     })),
+    maxCardsExceeded: typeof scenario.expectations?.maxCards === 'number'
+      ? cards.length > scenario.expectations.maxCards
+      : false,
   }
 }
 
@@ -148,7 +165,7 @@ function renderCard(card) {
 function renderHtmlReport(results, fixture, scenarios) {
   const rows = results.map((result) => {
     const scenario = scenarios.find((s) => s.id === result.id)
-    const cardsHtml = (result.response.cards ?? []).map(renderCard).join('')
+    const cardsHtml = getCards(result.response).map(renderCard).join('')
     const flags = result.analysis.introFlags
     const introFlagLabels = [
       flags.hasTiens ? 'tiens' : null,
@@ -157,6 +174,12 @@ function renderHtmlReport(results, fixture, scenarios) {
     ].filter(Boolean)
 
     const warnings = [
+      ...(result.analysis.expectedUiActionKindMismatch
+        ? [`Expected ui_action.kind: ${scenario?.expectations?.expectedUiActionKind ?? ''}, got: ${result.analysis.uiActionKind ?? 'none'}`]
+        : []),
+      ...(result.analysis.maxCardsExceeded
+        ? [`Expected max cards: ${scenario?.expectations?.maxCards ?? ''}, got: ${result.analysis.cardCount}`]
+        : []),
       ...(result.analysis.avoidColorHits.length > 0
         ? result.analysis.avoidColorHits.map((hit) => `Avoid-color hit: ${hit.name} (${hit.color})`)
         : []),
@@ -172,9 +195,9 @@ function renderHtmlReport(results, fixture, scenarios) {
         </div>
         <div class="question"><strong>Question:</strong> ${escapeHtml(scenario?.message ?? '')}</div>
         <div class="notes"><strong>Notes:</strong> ${escapeHtml(scenario?.notes ?? '')}</div>
-        <div class="intro"><strong>Intro:</strong> ${escapeHtml(result.response.text ?? '')}</div>
+        <div class="intro"><strong>Intro:</strong> ${escapeHtml(result.response.message ?? '')}</div>
         <div class="summary">
-          <span>Type: ${escapeHtml(result.response.type ?? '')}</span>
+          <span>UI: ${escapeHtml(getUiActionKind(result.response))}</span>
           <span>Cards: ${result.analysis.cardCount}</span>
           <span>Memory: ${result.analysis.memoryUsed ? 'yes' : 'no'}</span>
         </div>
@@ -251,8 +274,16 @@ async function main() {
         id: scenario.id,
         elapsedMs: 0,
         request: body,
-        response: { type: 'dry_run', text: 'Dry run: no network call', cards: [] },
-        analysis: { cardCount: 0, memoryUsed: false, introFlags: { hasTiens: false, hasPepites: false, hasAhLead: false }, avoidColorHits: [] },
+        response: { message: 'Dry run: no network call', ui_action: null },
+        analysis: {
+          uiActionKind: 'none',
+          cardCount: 0,
+          memoryUsed: false,
+          introFlags: { hasTiens: false, hasPepites: false, hasAhLead: false },
+          expectedUiActionKindMismatch: false,
+          maxCardsExceeded: false,
+          avoidColorHits: [],
+        },
       })
       continue
     }
@@ -270,8 +301,16 @@ async function main() {
         id: scenario.id,
         elapsedMs: null,
         request: body,
-        response: { type: 'error', text: error instanceof Error ? error.message : String(error), cards: [] },
-        analysis: { cardCount: 0, memoryUsed: false, introFlags: { hasTiens: false, hasPepites: false, hasAhLead: false }, avoidColorHits: [] },
+        response: { message: error instanceof Error ? error.message : String(error), ui_action: null },
+        analysis: {
+          uiActionKind: 'none',
+          cardCount: 0,
+          memoryUsed: false,
+          introFlags: { hasTiens: false, hasPepites: false, hasAhLead: false },
+          expectedUiActionKindMismatch: Boolean(scenario.expectations?.expectedUiActionKind && scenario.expectations.expectedUiActionKind !== 'none'),
+          maxCardsExceeded: false,
+          avoidColorHits: [],
+        },
       })
     }
   }

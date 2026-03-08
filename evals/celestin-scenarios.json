@@ -2,7 +2,10 @@
   {
     "id": "generic_tonight",
     "message": "Qu'est-ce que j'ouvre ce soir ?",
-    "notes": "Reco ouverte sans plat explicite."
+    "notes": "Reco ouverte sans plat explicite.",
+    "expectations": {
+      "expectedUiActionKind": "show_recommendations"
+    }
   },
   {
     "id": "sushi",
@@ -47,7 +50,7 @@
       }
     ],
     "expectations": {
-      "expectedType": "conversation",
+      "expectedUiActionKind": "none",
       "maxCards": 0
     }
   },
@@ -66,14 +69,33 @@
       }
     ],
     "expectations": {
-      "expectedType": "conversation",
+      "expectedUiActionKind": "none",
+      "maxCards": 0
+    }
+  },
+  {
+    "id": "critical_question_after_recommendation",
+    "message": "Il n'y a pas de vin italien dans ma cave ?",
+    "notes": "Une question critique sur la shortlist actuelle doit rester en conversation sans relancer de cartes.",
+    "history": [
+      {
+        "role": "user",
+        "content": "Je prepare un osso bucco."
+      },
+      {
+        "role": "assistant",
+        "content": "Pour un osso bucco, je partirais sur des rouges savoureux et digestes. Voici trois pistes dans ta cave."
+      }
+    ],
+    "expectations": {
+      "expectedUiActionKind": "none",
       "maxCards": 0
     }
   },
   {
     "id": "new_selection_after_recommendation",
     "message": "Tu en as d autres, plutot en blanc ?",
-    "notes": "Une demande explicite de nouvelle selection doit rester en recommend.",
+    "notes": "Une demande explicite de nouvelle selection doit rester conversationnelle mais relancer une shortlist.",
     "history": [
       {
         "role": "user",
@@ -85,7 +107,7 @@
       }
     ],
     "expectations": {
-      "expectedType": "recommend"
+      "expectedUiActionKind": "show_recommendations"
     }
   }
 ]

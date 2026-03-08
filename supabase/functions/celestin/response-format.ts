@@ -3,55 +3,77 @@ export const CELESTIN_RESPONSE_FORMAT = `
 
 Reponds UNIQUEMENT avec un JSON valide, sans texte avant ou apres.
 
-Le champ "text" est TOUJOURS present :
-- Court (1 phrase) quand des cards ou une extraction suivent
-- Plus developpe (2-4 phrases) pour "conversation" ou "question"
-- Pour "recommend", commence directement par une intuition ou une direction utile, sans interjection d'ouverture.
-- Par defaut, privilegie une reponse de type "conversation". Utilise "recommend" seulement si cette reponse doit apporter une nouvelle shortlist.
+Le contrat est simple :
+- "message" est TOUJOURS present
+- "ui_action" est optionnel
+- tu parles naturellement dans "message"
+- tu ajoutes "ui_action" seulement si l'application doit faire quelque chose
+- en cas de doute, n'ajoute PAS de ui_action
 
-### Type "recommend"
+Schema cible :
 {
-  "type": "recommend",
-  "text": "Pour du poulet roti, je partirais sur un blanc ample ou un rouge souple :",
-  "cards": [
-    { "bottle_id": "abc12345", "name": "Domaine X", "appellation": "App", "badge": "De ta cave", "reason": "Pitch 1-2 phrases", "color": "rouge" }
-  ]
+  "message": "string",
+  "ui_action": null
 }
 
-### Type "add_wine"
+ou
+
 {
-  "type": "add_wine",
-  "text": "6 bouteilles de Chateau Margaux 2018, bel achat !",
-  "extraction": { "domaine": "Chateau Margaux", "cuvee": null, "appellation": "Margaux", "millesime": 2018, "couleur": "rouge", "region": "Bordeaux", "quantity": 6, "volume": "0.75", "grape_varieties": ["Cabernet Sauvignon", "Merlot"], "serving_temperature": "17-18°C", "typical_aromas": ["cassis", "cedre", "vanille"], "food_pairings": ["agneau", "fromages affines"], "character": "Grand vin puissant et elegant" }
+  "message": "string",
+  "ui_action": {
+    "kind": "show_recommendations" | "prepare_add_wine" | "prepare_log_tasting",
+    "payload": { ... }
+  }
 }
 
-### Type "log_tasting"
+### Reponse purement conversationnelle
 {
-  "type": "log_tasting",
-  "text": "Belle degustation !",
-  "extraction": { "domaine": "...", "cuvee": null, "appellation": "...", "millesime": null, "couleur": "rouge", "region": null, "quantity": 1, "volume": "0.75" }
+  "message": "Non, tu n'as pas vraiment d'italien en cave pour cet osso bucco. Si tu veux, je peux te refaire une selection dans cet esprit."
 }
 
-### Type "question"
+### Reponse avec recommandations
 {
-  "type": "question",
-  "text": "Quel vin as-tu achete ?",
-  "intent_hint": "add"
+  "message": "Pour un osso bucco, je partirais sur des rouges frais et savoureux avec un peu de relief :",
+  "ui_action": {
+    "kind": "show_recommendations",
+    "payload": {
+      "cards": [
+        { "bottle_id": "abc12345", "name": "Domaine X", "appellation": "App", "badge": "De ta cave", "reason": "Pitch 1-2 phrases", "color": "rouge" }
+      ]
+    }
+  }
 }
 
-### Type "conversation"
+### Reponse pour ajout cave
 {
-  "type": "conversation",
-  "text": "Un cepage, c'est la variete de raisin..."
+  "message": "6 bouteilles de Chateau Margaux 2018, bel achat !",
+  "ui_action": {
+    "kind": "prepare_add_wine",
+    "payload": {
+      "extraction": { "domaine": "Chateau Margaux", "cuvee": null, "appellation": "Margaux", "millesime": 2018, "couleur": "rouge", "region": "Bordeaux", "quantity": 6, "volume": "0.75", "grape_varieties": ["Cabernet Sauvignon", "Merlot"], "serving_temperature": "17-18C", "typical_aromas": ["cassis", "cedre", "vanille"], "food_pairings": ["agneau", "fromages affines"], "character": "Grand vin puissant et elegant" }
+    }
+  }
+}
+
+### Reponse pour fiche degustation
+{
+  "message": "Belle degustation !",
+  "ui_action": {
+    "kind": "prepare_log_tasting",
+    "payload": {
+      "extraction": { "domaine": "...", "cuvee": null, "appellation": "...", "millesime": null, "couleur": "rouge", "region": null, "quantity": 1, "volume": "0.75" }
+    }
+  }
 }
 
 ### Cas de suivi apres recommendation
-- "Merci, c'est parfait" => "conversation"
-- "Pourquoi celui-la ?" => "conversation"
-- "Tu en as d'autres, plutot en blanc ?" => "recommend"
+- "Merci, c'est parfait" => seulement "message"
+- "Pourquoi celui-la ?" => seulement "message"
+- "Il n'y a pas de vin italien dans ma cave ?" => seulement "message"
+- "Tu en as d'autres, plutot en blanc ?" => "message" + ui_action.kind = "show_recommendations"
 
 Valeurs badge : "De ta cave", "Decouverte", "Accord parfait", "Audacieux"
 Valeurs color : "rouge", "blanc", "rose", "bulles"
+Valeurs ui_action.kind : "show_recommendations", "prepare_add_wine", "prepare_log_tasting"
 Le champ bottle_id = ID tronque (8 char) d'une bouteille en cave. QUE pour les vins de la cave.
-Le champ intent_hint = "add" ou "log", UNIQUEMENT pour type "question".
 `

@@ -5,7 +5,7 @@ export interface CelestinEvalScenario {
   history?: Array<{ role: 'user' | 'assistant'; content: string }>
   expectations?: {
     avoidColors?: string[]
-    expectedType?: string
+    expectedUiActionKind?: string
     maxCards?: number
   }
 }
@@ -47,14 +47,14 @@ export interface CelestinEvalCard {
 }
 
 export interface CelestinEvalResponse {
-  type?: string
-  text?: string
+  message?: string
+  ui_action?: { kind?: string; payload?: { cards?: CelestinEvalCard[] | null } | null } | null
   cards?: CelestinEvalCard[]
   [key: string]: unknown
 }
 
 export interface CelestinEvalAnalysis {
-  responseType?: string
+  uiActionKind?: string | null
   cardCount: number
   memoryUsed: boolean
   introFlags: {
@@ -62,7 +62,7 @@ export interface CelestinEvalAnalysis {
     hasPepites: boolean
     hasAhLead: boolean
   }
-  expectedTypeMismatch: boolean
+  expectedUiActionKindMismatch: boolean
   maxCardsExceeded: boolean
   avoidColorHits: Array<{
     name?: string
@@ -84,6 +84,9 @@ export const CELESTIN_EVAL_SCENARIOS: CelestinEvalScenario[] = [
     id: 'generic_tonight',
     message: "Qu'est-ce que j'ouvre ce soir ?",
     notes: 'Reco ouverte sans plat explicite.',
+    expectations: {
+      expectedUiActionKind: 'show_recommendations',
+    },
   },
   {
     id: 'sushi',
@@ -120,7 +123,7 @@ export const CELESTIN_EVAL_SCENARIOS: CelestinEvalScenario[] = [
       { role: 'assistant', content: 'Pour une paella, je partirais sur un blanc tendu, un rose structure ou un rouge tres leger. Voici trois pistes pour toi.' },
     ],
     expectations: {
-      expectedType: 'conversation',
+      expectedUiActionKind: 'none',
       maxCards: 0,
     },
   },
@@ -133,20 +136,33 @@ export const CELESTIN_EVAL_SCENARIOS: CelestinEvalScenario[] = [
       { role: 'assistant', content: 'Pour une paella, je partirais sur un blanc tendu, un rose structure ou un rouge tres leger. Voici trois pistes pour toi.' },
     ],
     expectations: {
-      expectedType: 'conversation',
+      expectedUiActionKind: 'none',
+      maxCards: 0,
+    },
+  },
+  {
+    id: 'critical_question_after_recommendation',
+    message: "Il n'y a pas de vin italien dans ma cave ?",
+    notes: 'Une question critique sur la shortlist actuelle doit rester en conversation sans relancer de cartes.',
+    history: [
+      { role: 'user', content: 'Je prepare un osso bucco.' },
+      { role: 'assistant', content: "Pour un osso bucco, je partirais sur des rouges savoureux et digestes. Voici trois pistes dans ta cave." },
+    ],
+    expectations: {
+      expectedUiActionKind: 'none',
       maxCards: 0,
     },
   },
   {
     id: 'new_selection_after_recommendation',
     message: 'Tu en as d autres, plutot en blanc ?',
-    notes: 'Une demande explicite de nouvelle selection doit rester en recommend.',
+    notes: 'Une demande explicite de nouvelle selection doit rester conversationnelle mais relancer une shortlist.',
     history: [
       { role: 'user', content: 'Je cherche un vin pour accompagner une paella.' },
       { role: 'assistant', content: 'Pour une paella, je partirais sur un blanc tendu, un rose structure ou un rouge tres leger. Voici trois pistes pour toi.' },
     ],
     expectations: {
-      expectedType: 'recommend',
+      expectedUiActionKind: 'show_recommendations',
     },
   },
 ]
@@ -205,18 +221,20 @@ export function analyzeCelestinEvalResult(
   scenario: CelestinEvalScenario,
   response: CelestinEvalResponse,
 ): CelestinEvalAnalysis {
-  const cards = response.cards ?? []
+  const cards = response.ui_action?.kind === 'show_recommendations'
+    ? response.ui_action.payload?.cards ?? []
+    : response.cards ?? []
   const avoidColors = scenario.expectations?.avoidColors ?? []
   const avoidColorHits = cards.filter((card) => avoidColors.includes(card.color ?? ''))
-  const expectedType = scenario.expectations?.expectedType
+  const expectedUiActionKind = scenario.expectations?.expectedUiActionKind
   const maxCards = scenario.expectations?.maxCards
 
   return {
-    responseType: response.type,
+    uiActionKind: response.ui_action?.kind ?? 'none',
     cardCount: cards.length,
-    memoryUsed: detectMemoryUsage(response.text, cards),
-    introFlags: detectIntroFlags(response.text),
-    expectedTypeMismatch: !!(expectedType && response.type !== expectedType),
+    memoryUsed: detectMemoryUsage(response.message, cards),
+    introFlags: detectIntroFlags(response.message),
+    expectedUiActionKindMismatch: !!(expectedUiActionKind && (response.ui_action?.kind ?? 'none') !== expectedUiActionKind),
     maxCardsExceeded: typeof maxCards === 'number' ? cards.length > maxCards : false,
     avoidColorHits: avoidColorHits.map((card) => ({
       name: card.name,
@@ -254,8 +272,8 @@ export function renderCelestinEvalHtmlReport(
     ].filter(Boolean)
 
     const warnings = [
-      ...(result.analysis.expectedTypeMismatch
-        ? [`Expected type: ${scenario?.expectations?.expectedType ?? ''}, got: ${result.analysis.responseType ?? ''}`]
+      ...(result.analysis.expectedUiActionKindMismatch
+        ? [`Expected ui_action.kind: ${scenario?.expectations?.expectedUiActionKind ?? ''}, got: ${result.analysis.uiActionKind ?? 'none'}`]
         : []),
       ...(result.analysis.maxCardsExceeded
         ? [`Expected max cards: ${scenario?.expectations?.maxCards ?? ''}, got: ${result.analysis.cardCount}`]
@@ -275,9 +293,9 @@ export function renderCelestinEvalHtmlReport(
         </div>
         <div class="question"><strong>Question:</strong> ${escapeHtml(scenario?.message ?? '')}</div>
         <div class="notes"><strong>Notes:</strong> ${escapeHtml(scenario?.notes ?? '')}</div>
-        <div class="intro"><strong>Intro:</strong> ${escapeHtml(result.response.text ?? '')}</div>
+        <div class="intro"><strong>Intro:</strong> ${escapeHtml(result.response.message ?? '')}</div>
         <div class="summary">
-          <span>Type: ${escapeHtml(result.response.type ?? '')}</span>
+          <span>UI: ${escapeHtml(result.response.ui_action?.kind ?? 'none')}</span>
           <span>Cards: ${result.analysis.cardCount}</span>
           <span>Memory: ${result.analysis.memoryUsed ? 'yes' : 'no'}</span>
         </div>

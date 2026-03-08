@@ -46,13 +46,14 @@ interface ChatMessage {
   actionChips?: ActionChip[]
 }
 
-// Response from the unified celestin edge function
+type CelestinUiAction =
+  | { kind: 'show_recommendations'; payload: { cards: RecommendationCard[] } }
+  | { kind: 'prepare_add_wine'; payload: { extraction: WineActionData['extraction'] } }
+  | { kind: 'prepare_log_tasting'; payload: { extraction: WineActionData['extraction'] } }
+
 interface CelestinResponse {
-  type: 'recommend' | 'add_wine' | 'log_tasting' | 'question' | 'conversation'
-  text: string
-  cards?: RecommendationCard[] | null
-  extraction?: WineActionData['extraction'] | null
-  intent_hint?: 'add' | 'log' | null
+  message: string
+  ui_action?: CelestinUiAction | null
 }
 
 // --- Icons ---
@@ -502,23 +503,25 @@ export default function CeSoirModule() {
       const response = data as CelestinResponse
 
       // Resolve bottle IDs (short → full)
-      const resolvedCards = response.cards
-        ? resolveBottleIds(response.cards, caveRef.current)
+      const resolvedCards = response.ui_action?.kind === 'show_recommendations'
+        ? resolveBottleIds(response.ui_action.payload.cards, caveRef.current)
         : undefined
 
       // Build the update for the loading bubble
-      const update: Partial<ChatMessage> = { text: response.text, isLoading: false }
+      const update: Partial<ChatMessage> = { text: response.message, isLoading: false }
 
-      if (response.type === 'recommend' && resolvedCards && resolvedCards.length > 0) {
+      if (response.ui_action?.kind === 'show_recommendations' && resolvedCards && resolvedCards.length > 0) {
         update.cards = resolvedCards
-      } else if ((response.type === 'add_wine' || response.type === 'log_tasting') && response.extraction) {
+      } else if (
+        (response.ui_action?.kind === 'prepare_add_wine' || response.ui_action?.kind === 'prepare_log_tasting')
+        && response.ui_action.payload.extraction
+      ) {
         update.wineAction = {
-          intent: response.type === 'add_wine' ? 'encaver' : 'deguster',
-          extraction: response.extraction,
-          summary: response.text,
+          intent: response.ui_action.kind === 'prepare_add_wine' ? 'encaver' : 'deguster',
+          extraction: response.ui_action.payload.extraction,
+          summary: response.message,
         }
       }
-      // question and conversation types: just text, already set
 
       setMessages(prev => prev.map(m => m.id === loadingMsgId ? { ...m, ...update } : m))
       } catch (err) {

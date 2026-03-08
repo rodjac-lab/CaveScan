@@ -422,13 +422,12 @@ export default function Settings() {
 
         if (!response.ok || !data || data.error) {
           const errorResponse = {
-            type: 'error',
-            text: !response.ok
+            message: !response.ok
               ? `HTTP ${response.status}${rawText ? `: ${rawText}` : ''}`
               : typeof data?.error === 'string'
                 ? data.error
                 : rawText || 'Erreur inconnue',
-            cards: [],
+            ui_action: null,
           }
           results.push({
             id: scenario.id,

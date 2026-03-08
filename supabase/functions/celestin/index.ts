@@ -46,7 +46,7 @@ interface RequestBody {
   }
 }
 
-type ResponseType = 'recommend' | 'add_wine' | 'log_tasting' | 'question' | 'conversation'
+type UiActionKind = 'show_recommendations' | 'prepare_add_wine' | 'prepare_log_tasting'
 
 interface WineExtraction {
   domaine: string | null
@@ -74,12 +74,14 @@ interface RecommendationCard {
   color: 'rouge' | 'blanc' | 'rose' | 'bulles'
 }
 
+type CelestinUiAction =
+  | { kind: 'show_recommendations'; payload: { cards: RecommendationCard[] } }
+  | { kind: 'prepare_add_wine'; payload: { extraction: WineExtraction } }
+  | { kind: 'prepare_log_tasting'; payload: { extraction: WineExtraction } }
+
 interface CelestinResponse {
-  type: ResponseType
-  text: string
-  cards?: RecommendationCard[] | null
-  extraction?: WineExtraction | null
-  intent_hint?: 'add' | 'log' | null
+  message: string
+  ui_action?: CelestinUiAction | null
 }
 
 // === UTILS ===
@@ -110,12 +112,20 @@ function stripMarkdownCodeBlock(text: string): string {
 function parseAndValidate(raw: string): CelestinResponse {
   const jsonText = stripMarkdownCodeBlock(raw).replace(/[\r\n]/g, ' ')
   const data = JSON.parse(jsonText) as CelestinResponse
-  if (!data.type || !data.text) {
-    throw new Error('Invalid response: missing "type" or "text" field')
+  if (!data.message) {
+    throw new Error('Invalid response: missing "message" field')
   }
-  const validTypes: ResponseType[] = ['recommend', 'add_wine', 'log_tasting', 'question', 'conversation']
-  if (!validTypes.includes(data.type)) {
-    throw new Error(`Invalid response type: ${data.type}`)
+  const validUiActions: UiActionKind[] = ['show_recommendations', 'prepare_add_wine', 'prepare_log_tasting']
+  if (data.ui_action) {
+    if (!validUiActions.includes(data.ui_action.kind)) {
+      throw new Error(`Invalid ui_action kind: ${data.ui_action.kind}`)
+    }
+    if (data.ui_action.kind === 'show_recommendations' && (!data.ui_action.payload?.cards || data.ui_action.payload.cards.length === 0)) {
+      throw new Error('Invalid ui_action: show_recommendations requires cards')
+    }
+    if ((data.ui_action.kind === 'prepare_add_wine' || data.ui_action.kind === 'prepare_log_tasting') && !data.ui_action.payload?.extraction) {
+      throw new Error(`Invalid ui_action: ${data.ui_action.kind} requires extraction`)
+    }
   }
   return data
 }
@@ -194,50 +204,62 @@ function buildUserPrompt(body: RequestBody): string {
 const RESPONSE_SCHEMA = {
   type: 'OBJECT',
   properties: {
-    type: {
-      type: 'STRING',
-      enum: ['recommend', 'add_wine', 'log_tasting', 'question', 'conversation'],
-    },
-    text: { type: 'STRING', description: 'Reponse conversationnelle, toujours present' },
-    cards: {
-      type: 'ARRAY',
-      nullable: true,
-      items: {
-        type: 'OBJECT',
-        properties: {
-          bottle_id: { type: 'STRING', nullable: true },
-          name: { type: 'STRING' },
-          appellation: { type: 'STRING' },
-          badge: { type: 'STRING' },
-          reason: { type: 'STRING' },
-          color: { type: 'STRING' },
-        },
-        required: ['name', 'appellation', 'badge', 'reason', 'color'],
-      },
-    },
-    extraction: {
+    message: { type: 'STRING', description: 'Reponse conversationnelle, toujours presente' },
+    ui_action: {
       type: 'OBJECT',
       nullable: true,
       properties: {
-        domaine: { type: 'STRING', nullable: true },
-        cuvee: { type: 'STRING', nullable: true },
-        appellation: { type: 'STRING', nullable: true },
-        millesime: { type: 'INTEGER', nullable: true },
-        couleur: { type: 'STRING', nullable: true },
-        region: { type: 'STRING', nullable: true },
-        quantity: { type: 'INTEGER' },
-        volume: { type: 'STRING' },
-        grape_varieties: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
-        serving_temperature: { type: 'STRING', nullable: true },
-        typical_aromas: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
-        food_pairings: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
-        character: { type: 'STRING', nullable: true },
+        kind: {
+          type: 'STRING',
+          enum: ['show_recommendations', 'prepare_add_wine', 'prepare_log_tasting'],
+        },
+        payload: {
+          type: 'OBJECT',
+          properties: {
+            cards: {
+              type: 'ARRAY',
+              nullable: true,
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  bottle_id: { type: 'STRING', nullable: true },
+                  name: { type: 'STRING' },
+                  appellation: { type: 'STRING' },
+                  badge: { type: 'STRING' },
+                  reason: { type: 'STRING' },
+                  color: { type: 'STRING' },
+                },
+                required: ['name', 'appellation', 'badge', 'reason', 'color'],
+              },
+            },
+            extraction: {
+              type: 'OBJECT',
+              nullable: true,
+              properties: {
+                domaine: { type: 'STRING', nullable: true },
+                cuvee: { type: 'STRING', nullable: true },
+                appellation: { type: 'STRING', nullable: true },
+                millesime: { type: 'INTEGER', nullable: true },
+                couleur: { type: 'STRING', nullable: true },
+                region: { type: 'STRING', nullable: true },
+                quantity: { type: 'INTEGER' },
+                volume: { type: 'STRING' },
+                grape_varieties: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
+                serving_temperature: { type: 'STRING', nullable: true },
+                typical_aromas: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
+                food_pairings: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
+                character: { type: 'STRING', nullable: true },
+              },
+              required: ['domaine', 'cuvee', 'appellation', 'millesime', 'couleur', 'region', 'quantity', 'volume'],
+            },
+          },
+          required: [],
+        },
       },
-      required: ['domaine', 'cuvee', 'appellation', 'millesime', 'couleur', 'region', 'quantity', 'volume'],
+      required: ['kind', 'payload'],
     },
-    intent_hint: { type: 'STRING', nullable: true, enum: ['add', 'log'] },
   },
-  required: ['type', 'text'],
+  required: ['message'],
 }
 
 // === PROVIDERS ===
@@ -357,7 +379,7 @@ async function celestinWithFallback(systemPrompt: string, userPrompt: string, hi
     try {
       console.log(`[celestin] Trying ${provider.name}...`)
       const response = await provider.call()
-      console.log(`[celestin] ${provider.name} succeeded: type=${response.type}`)
+      console.log(`[celestin] ${provider.name} succeeded: ui_action=${response.ui_action?.kind ?? 'none'}`)
       return { provider: provider.name, response }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -384,7 +406,7 @@ Deno.serve(async (req) => {
     const userPrompt = buildUserPrompt(body)
 
     const { provider, response } = await celestinWithFallback(systemPrompt, userPrompt, body.history)
-    console.log(`[celestin] Done by ${provider}: type=${response.type}`)
+    console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'}`)
 
     return new Response(JSON.stringify(response), {
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
@@ -395,8 +417,7 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        type: 'conversation',
-        text: "Desole, je suis momentanement indisponible. Reessaie dans quelques instants !",
+        message: "Desole, je suis momentanement indisponible. Reessaie dans quelques instants !",
       }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     )
