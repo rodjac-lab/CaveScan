@@ -589,7 +589,8 @@ V1 quasi terminee. Voici ce qui a ete implemente et valide :
 - **Prompt relationship** mis a jour pour guider l'utilisation des plats vecus, descripteurs, et de la session precedente
 
 ### Reste a faire (non fondamental)
-- **Migration memoire cross-session localStorage → Supabase** : le prototype localStorage fonctionne mais ne survit pas a un changement de device ou un clear du navigateur. Migrer vers une table Supabase rendrait la memoire cross-session persistante et multi-device. Ce n'est pas bloquant — la valeur est deja la avec localStorage.
+- **Preferences explicites (UI)** : le type `ExplicitPreferences` existe (regions aimees/evitees, accords custom, notes libres) et est deja serialise dans le prompt, mais il n'y a aucun ecran pour que l'utilisateur les renseigne. Necessite une UI dans les Reglages. Non bloquant — les donnees vecues (P1 tasting tags) couvrent deja l'essentiel.
+- **Migration memoire cross-session localStorage → Supabase** : le prototype localStorage fonctionne mais ne survit pas a un changement de device ou un clear du navigateur. Migrer vers une table Supabase rendrait la memoire cross-session persistante et multi-device. Non bloquant — la valeur est deja la avec localStorage.
 
 ## Recommandation
 
