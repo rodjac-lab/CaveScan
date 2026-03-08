@@ -3,6 +3,8 @@ import type {
   Bottle,
   ComputedTasteProfile,
   TasteProfile,
+  TastingTags,
+  TagFrequency,
   AppellationStat,
   DomaineStat,
   ColorDistribution,
@@ -55,6 +57,9 @@ export function computeTasteProfile(
   const recentTastings = computeRecentTastings(drunkBottles, 5)
   const seasonalPattern = computeSeasonalPattern(drunkBottles)
 
+  // Aggregate tasting tags from lived experiences
+  const { livedPairings, userDescriptors, typicalOccasions } = aggregateTastingTags(drunkBottles)
+
   return {
     totalInCave,
     totalTasted,
@@ -70,6 +75,9 @@ export function computeTasteProfile(
     recentTastings,
     seasonalPattern,
     dataPoints: allBottles.length,
+    livedPairings,
+    userDescriptors,
+    typicalOccasions,
   }
 }
 
@@ -163,6 +171,48 @@ function computeTopStrings(values: string[], limit: number): string[] {
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([name]) => name)
+}
+
+function aggregateTastingTags(drunkBottles: Bottle[]): {
+  livedPairings: TagFrequency[]
+  userDescriptors: TagFrequency[]
+  typicalOccasions: TagFrequency[]
+} {
+  const platCounts = new Map<string, number>()
+  const descCounts = new Map<string, number>()
+  const occasionCounts = new Map<string, number>()
+
+  for (const b of drunkBottles) {
+    const tags = b.tasting_tags as TastingTags | null
+    if (!tags) continue
+
+    for (const plat of tags.plats ?? []) {
+      const key = plat.trim().toLowerCase()
+      if (key) platCounts.set(key, (platCounts.get(key) ?? 0) + 1)
+    }
+
+    for (const desc of tags.descripteurs ?? []) {
+      const key = desc.trim().toLowerCase()
+      if (key) descCounts.set(key, (descCounts.get(key) ?? 0) + 1)
+    }
+
+    if (tags.occasion) {
+      const key = tags.occasion.trim().toLowerCase()
+      if (key) occasionCounts.set(key, (occasionCounts.get(key) ?? 0) + 1)
+    }
+  }
+
+  const toSorted = (map: Map<string, number>, limit: number): TagFrequency[] =>
+    Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([name, count]) => ({ name, count }))
+
+  return {
+    livedPairings: toSorted(platCounts, 8),
+    userDescriptors: toSorted(descCounts, 8),
+    typicalOccasions: toSorted(occasionCounts, 5),
+  }
 }
 
 function computeRecentTastings(drunkBottles: Bottle[], limit: number): RecentTasting[] {
@@ -279,6 +329,17 @@ export function serializeProfileForPrompt(profile: TasteProfile): string {
     .sort(([, a], [, b]) => b - a)
   if (seasons.length > 0) {
     lines.push(`Saisons de degustation: ${seasons.map(([s, n]) => `${s} (${n})`).join(', ')}.`)
+  }
+
+  // Aggregated tasting tags — lived experiences
+  if (c.livedPairings?.length > 0) {
+    lines.push(`Plats associes a tes vins (vecu) : ${c.livedPairings.map(p => `${p.name} (x${p.count})`).join(', ')}.`)
+  }
+  if (c.userDescriptors?.length > 0) {
+    lines.push(`Tes descripteurs recurrents : ${c.userDescriptors.map(d => `${d.name} (x${d.count})`).join(', ')}.`)
+  }
+  if (c.typicalOccasions?.length > 0) {
+    lines.push(`Occasions typiques : ${c.typicalOccasions.map(o => `${o.name} (x${o.count})`).join(', ')}.`)
   }
 
   const e = profile.explicit

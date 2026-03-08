@@ -161,6 +161,11 @@ export interface SeasonalPattern {
   winter: number
 }
 
+export interface TagFrequency {
+  name: string
+  count: number
+}
+
 export interface ComputedTasteProfile {
   totalInCave: number
   totalTasted: number
@@ -176,6 +181,10 @@ export interface ComputedTasteProfile {
   recentTastings: RecentTasting[]
   seasonalPattern: SeasonalPattern
   dataPoints: number
+  // Aggregated from tasting_tags (lived experiences)
+  livedPairings: TagFrequency[]
+  userDescriptors: TagFrequency[]
+  typicalOccasions: TagFrequency[]
 }
 
 export interface ExplicitPreferences {

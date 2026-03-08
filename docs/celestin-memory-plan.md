@@ -577,13 +577,27 @@ Resultat attendu:
 - recommandations ultra personnalisees
 - impression qu'il "connait la personne", pas juste sa cave
 
+## Avancement V1 (mars 2026)
+
+V1 quasi terminee. Voici ce qui a ete implemente et valide :
+
+### Fait
+- **Profil de gout enrichi** : agregation des tasting_tags (plats vecus, descripteurs recurrents, occasions typiques) dans ComputedTasteProfile, serialise dans le prompt Celestin
+- **Souvenirs proactifs** : quand aucun souvenir ne matche la question par mot-cle, fallback sur les souvenirs les mieux notes / plus recents / sentiment fort — permet a Celestin de citer spontanement de bonnes experiences
+- **Historique conversationnel enrichi** : les cards de recommandation et les fiches vin (encavage/degustation) sont resumees dans l'historique envoye au LLM, pour que Celestin comprenne "le deuxieme" ou "celui de droite"
+- **Memoire cross-session** : les derniers echanges sont sauves dans localStorage, puis injectes comme contexte lors de la session suivante (rotation automatique, TTL 7 jours)
+- **Prompt relationship** mis a jour pour guider l'utilisation des plats vecus, descripteurs, et de la session precedente
+
+### Reste a faire (non fondamental)
+- **Migration memoire cross-session localStorage → Supabase** : le prototype localStorage fonctionne mais ne survit pas a un changement de device ou un clear du navigateur. Migrer vers une table Supabase rendrait la memoire cross-session persistante et multi-device. Ce n'est pas bloquant — la valeur est deja la avec localStorage.
+
 ## Recommandation
 
-- V1 maintenant
+- V1 quasi terminee — valider en usage reel avant d'aller plus loin
 - V2 ensuite si vous voyez que Celestin devient central dans l'usage
 - V3 seulement si vous voulez construire un vrai moat produit autour de la memoire utilisateur
 
 En une phrase:
-- V1 = bon sommelier personnalise
+- V1 = bon sommelier personnalise (quasi fait)
 - V2 = sommelier avec memoire reelle
 - V3 = assistant best-in-class qui connait l'utilisateur presque par coeur

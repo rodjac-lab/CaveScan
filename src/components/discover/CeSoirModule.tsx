@@ -402,6 +402,65 @@ function UserBubble({ message }: { message: ChatMessage }) {
 // --- Conversation persistence across tab switches ---
 let persistedMessages: ChatMessage[] | null = null
 
+// --- Cross-session memory (localStorage) ---
+const PREVIOUS_SESSION_KEY = 'celestin_previous_session'
+const CURRENT_SESSION_KEY = 'celestin_current_session'
+
+interface SessionSummary {
+  turns: Array<{ role: 'user' | 'celestin'; text: string }>
+  savedAt: string
+}
+
+function saveCurrentSession(messages: ChatMessage[]): void {
+  const meaningful = messages.filter(m => !m.isLoading && !m.actionChips && m.text.length > 1)
+  if (meaningful.length < 2) return // need at least 1 exchange
+
+  const turns = meaningful.slice(-12).map(m => ({
+    role: m.role,
+    text: m.text.slice(0, 200), // keep it compact
+  }))
+
+  try {
+    localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({
+      turns,
+      savedAt: new Date().toISOString(),
+    }))
+  } catch { /* localStorage full or unavailable */ }
+}
+
+function rotateSessions(): void {
+  try {
+    const current = localStorage.getItem(CURRENT_SESSION_KEY)
+    if (current) {
+      localStorage.setItem(PREVIOUS_SESSION_KEY, current)
+      localStorage.removeItem(CURRENT_SESSION_KEY)
+    }
+  } catch { /* ignore */ }
+}
+
+function loadPreviousSession(): SessionSummary | null {
+  try {
+    const raw = localStorage.getItem(PREVIOUS_SESSION_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as SessionSummary
+    // Only use if less than 7 days old
+    const age = Date.now() - new Date(parsed.savedAt).getTime()
+    if (age > 7 * 24 * 60 * 60 * 1000) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function serializePreviousSession(session: SessionSummary): string {
+  const lines = session.turns.map(t =>
+    `${t.role === 'user' ? 'Utilisateur' : 'Celestin'} : ${t.text}`
+  )
+  const date = new Date(session.savedAt)
+  const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+  return `Resume de la derniere conversation (${dateStr}) :\n${lines.join('\n')}`
+}
+
 // --- Main Component ---
 
 export default function CeSoirModule() {
@@ -413,10 +472,19 @@ export default function CeSoirModule() {
   const { profile } = useTasteProfile()
 
   // Chat state — single source of truth, survives tab navigation
-  const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    persistedMessages ?? [{ id: genMsgId(), role: 'celestin', text: buildGreeting(), actionChips: WELCOME_CHIPS }]
-  )
-  useEffect(() => { persistedMessages = messages }, [messages])
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (persistedMessages) return persistedMessages
+    // New session: rotate previous → archive, current → previous
+    rotateSessions()
+    return [{ id: genMsgId(), role: 'celestin', text: buildGreeting(), actionChips: WELCOME_CHIPS }]
+  })
+  useEffect(() => {
+    persistedMessages = messages
+    saveCurrentSession(messages)
+  }, [messages])
+
+  // Previous session context (loaded once)
+  const previousSessionRef = useRef(loadPreviousSession())
   const [queryInput, setQueryInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [expandedCard, setExpandedCard] = useState<RecommendationCard | null>(null)
@@ -458,13 +526,26 @@ export default function CeSoirModule() {
       local_score: Math.round(score * 100) / 100,
     }))
 
-    // Build conversation history from messages
+    // Build conversation history from messages, enriched with ui_action context
     const history = messages
       .filter(m => !m.isLoading && !m.actionChips)
-      .map(m => ({
-        role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
-        text: m.text,
-      }))
+      .map(m => {
+        let text = m.text
+        // Enrich Celestin messages with card summaries so LLM knows what it recommended
+        if (m.role === 'celestin' && m.cards && m.cards.length > 0) {
+          const cardList = m.cards.map((c, i) => `[${i + 1}] ${c.name} (${c.appellation})`).join(', ')
+          text += `\n[Vins proposés : ${cardList}]`
+        }
+        if (m.role === 'celestin' && m.wineAction) {
+          const ext = m.wineAction.extraction
+          const wineName = [ext.domaine, ext.cuvee, ext.appellation].filter(Boolean).join(' ')
+          text += `\n[Fiche ${m.wineAction.intent === 'encaver' ? 'encavage' : 'dégustation'} : ${wineName}]`
+        }
+        return {
+          role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+          text,
+        }
+      })
 
     // Profile
     const profileStr = prof ? serializeProfileForPrompt(prof) : undefined
@@ -481,6 +562,10 @@ export default function CeSoirModule() {
       recentDrunk: recentDrunk.length > 0 ? recentDrunk : undefined,
     }
 
+    // Previous session summary (cross-session memory)
+    const prevSession = previousSessionRef.current
+    const previousSession = prevSession ? serializePreviousSession(prevSession) : undefined
+
     return {
       message,
       history,
@@ -488,6 +573,7 @@ export default function CeSoirModule() {
       profile: profileStr,
       memories: memoriesStr,
       context,
+      previousSession,
     }
   }
 

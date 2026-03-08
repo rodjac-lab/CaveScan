@@ -39,6 +39,7 @@ interface RequestBody {
   cave: CaveBottle[]
   profile?: string
   memories?: string
+  previousSession?: string
   context?: {
     dayOfWeek: string
     season: string
@@ -177,6 +178,12 @@ function buildUserPrompt(body: RequestBody): string {
   if (body.memories) {
     parts.push(`\nSouvenirs de degustation :\n${body.memories}`)
     parts.push('Cite des souvenirs specifiques quand pertinent.')
+  }
+
+  // Previous session (cross-session memory)
+  if (body.previousSession) {
+    parts.push(`\n${body.previousSession}`)
+    parts.push('Tu peux faire reference a cette conversation precedente si c\'est pertinent, mais ne force pas.')
   }
 
   // Cave

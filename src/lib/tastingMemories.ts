@@ -142,17 +142,22 @@ export function selectRelevantMemories(
     return { bottle, score, relevanceScore }
   })
 
+  // If query matched specific tags, prefer those
   const relevantOnly = hasQuery
     ? scored.filter((entry) => entry.relevanceScore > 0)
     : []
 
-  relevantOnly.sort((a, b) => b.score - a.score)
-  const result: Bottle[] = []
-  for (const s of relevantOnly) {
-    if (s.score <= 0 || result.length >= limit) break
-    result.push(s.bottle)
+  if (relevantOnly.length > 0) {
+    relevantOnly.sort((a, b) => b.score - a.score)
+    return relevantOnly.slice(0, limit).map(s => s.bottle)
   }
-  return result
+
+  // Proactive mode: no textual match (or no query) → return top-scored memories
+  // (best-rated, most recent, strongest sentiment)
+  // This lets Celestin spontaneously cite great experiences
+  scored.sort((a, b) => b.score - a.score)
+  const proactive = scored.filter(s => s.score > 0).slice(0, limit)
+  return proactive.map(s => s.bottle)
 }
 
 function ratingStars(rating: number | null): string {
