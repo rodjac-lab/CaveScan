@@ -264,12 +264,6 @@ export function serializeProfileForPrompt(profile: TasteProfile): string {
     lines.push(`QPR: ${c.qprDistribution.pepite} pepites, ${c.qprDistribution.correct} corrects, ${c.qprDistribution.cher} chers.`)
   }
 
-  if (c.topAromas.length > 0) lines.push(`Aromes apprecies: ${c.topAromas.join(', ')}.`)
-  if (c.topFoodPairings.length > 0) {
-    lines.push(`Reperes d'accords sur les vins apprecies: ${c.topFoodPairings.join(', ')}.`)
-    lines.push(`Ces accords sont des pistes de service liees aux vins apprecies, pas des plats explicitement mentionnes par l'utilisateur.`)
-  }
-
   if (c.recentTastings.length > 0) {
     const recent = c.recentTastings
       .map((t) => {
