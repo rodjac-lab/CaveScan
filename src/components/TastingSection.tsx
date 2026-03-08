@@ -14,6 +14,11 @@ function buildTastingPhotoFilename(): string {
   return `${crypto.randomUUID()}-tasting.jpg`
 }
 
+function getShareEmoji(color: BottleWithZone['couleur']): string {
+  if (color === 'blanc' || color === 'bulles') return '🥂'
+  return '🍷'
+}
+
 interface TastingSectionProps {
   bottle: BottleWithZone
   onRefetch: () => Promise<void>
@@ -99,7 +104,7 @@ export function TastingSection({
       const newPhoto: TastingPhoto = {
         url: photoUrl!,
         label,
-        taken_at: new Date().toISOString()
+        taken_at: new Date().toISOString(),
       }
 
       const existingPhotos = (bottle.tasting_photos as TastingPhoto[]) || []
@@ -150,8 +155,9 @@ export function TastingSection({
     try {
       const title = bottle.domaine || bottle.appellation || 'Vin'
       const lines: string[] = []
+      const shareEmoji = getShareEmoji(bottle.couleur)
 
-      lines.push(`🍷 ${title}${bottle.cuvee ? ` « ${bottle.cuvee} »` : ''}${bottle.millesime ? ` ${bottle.millesime}` : ''}`)
+      lines.push(`${shareEmoji} ${title}${bottle.cuvee ? ` « ${bottle.cuvee} »` : ''}${bottle.millesime ? ` ${bottle.millesime}` : ''}`)
       if (bottle.appellation && bottle.domaine) {
         lines.push(bottle.appellation)
       }
