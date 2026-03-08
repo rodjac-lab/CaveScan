@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Loader2, Save, Share2, ArrowRight, Plus, Camera, ImageIcon, X, Check, Star, RefreshCw } from 'lucide-react'
+import { Loader2, Save, Share2, ArrowRight, Plus, Camera, ImageIcon, X, Check, Star, RefreshCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { type TastingPhoto, type BottleWithZone } from '@/lib/types'
@@ -48,6 +48,7 @@ export function TastingSection({
   const [showLabelPicker, setShowLabelPicker] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [deletingPhotoIndex, setDeletingPhotoIndex] = useState<number | null>(null)
   const tastingPhotoInputRef = useRef<HTMLInputElement>(null)
   const tastingPhotoGalleryRef = useRef<HTMLInputElement>(null)
 
@@ -118,6 +119,29 @@ export function TastingSection({
 
     setPendingFile(null)
     setUploadingPhoto(false)
+  }
+
+  const handleRemoveTastingPhoto = async (indexToRemove: number) => {
+    const existingPhotos = (bottle.tasting_photos as TastingPhoto[]) || []
+    if (!existingPhotos[indexToRemove]) return
+
+    setDeletingPhotoIndex(indexToRemove)
+
+    try {
+      const updatedPhotos = existingPhotos.filter((_, index) => index !== indexToRemove)
+      const { error } = await supabase
+        .from('bottles')
+        .update({ tasting_photos: updatedPhotos })
+        .eq('id', bottle.id)
+
+      if (!error) {
+        await onRefetch()
+      }
+    } catch (err) {
+      console.error('Delete tasting photo error:', err)
+    }
+
+    setDeletingPhotoIndex(null)
   }
 
   const handleShare = async () => {
@@ -302,6 +326,19 @@ export function TastingSection({
                     {photo.label}
                   </span>
                 )}
+                <button
+                  type="button"
+                  aria-label="Supprimer la photo"
+                  onClick={() => void handleRemoveTastingPhoto(index)}
+                  disabled={deletingPhotoIndex === index}
+                  className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white transition-colors hover:bg-black/85 disabled:opacity-60"
+                >
+                  {deletingPhotoIndex === index ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3 w-3" />
+                  )}
+                </button>
               </div>
             ))
           )}

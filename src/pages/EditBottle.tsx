@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Camera, Check, ImageIcon, Loader2, Plus, X } from 'lucide-react'
+import { ArrowLeft, Camera, Check, ImageIcon, Loader2, Plus, Trash2, X } from 'lucide-react'
 import { Autocomplete } from '@/components/Autocomplete'
 import { StoragePositionPicker } from '@/components/StoragePositionPicker'
 import { Button } from '@/components/ui/button'
@@ -59,6 +59,8 @@ export default function EditBottle() {
   const [showBackPhotoOptions, setShowBackPhotoOptions] = useState(false)
   const [uploadingFront, setUploadingFront] = useState(false)
   const [uploadingBack, setUploadingBack] = useState(false)
+  const [removingFront, setRemovingFront] = useState(false)
+  const [removingBack, setRemovingBack] = useState(false)
   const frontPhotoInputRef = useRef<HTMLInputElement>(null)
   const frontGalleryRef = useRef<HTMLInputElement>(null)
   const backPhotoInputRef = useRef<HTMLInputElement>(null)
@@ -147,6 +149,37 @@ export default function EditBottle() {
 
     if (isFront) setUploadingFront(false)
     else setUploadingBack(false)
+  }
+
+  const handlePhotoRemove = async (side: 'front' | 'back') => {
+    if (!bottle) return
+
+    const isFront = side === 'front'
+    if (isFront) {
+      setRemovingFront(true)
+      setShowFrontPhotoOptions(false)
+    } else {
+      setRemovingBack(true)
+      setShowBackPhotoOptions(false)
+    }
+
+    try {
+      const field = isFront ? 'photo_url' : 'photo_url_back'
+      const { error: dbError } = await supabase
+        .from('bottles')
+        .update({ [field]: null })
+        .eq('id', bottle.id)
+
+      if (!dbError) {
+        if (isFront) setLocalPhotoUrl(null)
+        else setLocalPhotoUrlBack(null)
+      }
+    } catch (err) {
+      console.error('Photo remove error:', err)
+    }
+
+    if (isFront) setRemovingFront(false)
+    else setRemovingBack(false)
   }
 
   const handleSave = async () => {
@@ -244,7 +277,7 @@ export default function EditBottle() {
         <CardContent className="p-2">
           <div className="flex gap-2">
             <div className="flex-1">
-              {uploadingFront ? (
+              {uploadingFront || removingFront ? (
                 <div className="flex h-[120px] items-center justify-center rounded bg-black/10">
                   <Loader2 className="h-5 w-5 animate-spin text-wine-600" />
                 </div>
@@ -256,6 +289,11 @@ export default function EditBottle() {
                   <Button variant="outline" size="sm" className="h-7 w-28 text-xs" onClick={() => { setShowFrontPhotoOptions(false); frontGalleryRef.current?.click() }}>
                     <ImageIcon className="mr-1 h-3 w-3" />Galerie
                   </Button>
+                  {localPhotoUrl && (
+                    <Button variant="outline" size="sm" className="h-7 w-28 text-xs text-destructive" onClick={() => void handlePhotoRemove('front')}>
+                      <Trash2 className="mr-1 h-3 w-3" />Supprimer
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground" onClick={() => setShowFrontPhotoOptions(false)}>
                     <X className="h-3 w-3" />
                   </Button>
@@ -287,7 +325,7 @@ export default function EditBottle() {
             </div>
 
             <div className="flex-1">
-              {uploadingBack ? (
+              {uploadingBack || removingBack ? (
                 <div className="flex h-[120px] items-center justify-center rounded bg-black/10">
                   <Loader2 className="h-5 w-5 animate-spin text-wine-600" />
                 </div>
@@ -299,6 +337,11 @@ export default function EditBottle() {
                   <Button variant="outline" size="sm" className="h-7 w-28 text-xs" onClick={() => { setShowBackPhotoOptions(false); backGalleryRef.current?.click() }}>
                     <ImageIcon className="mr-1 h-3 w-3" />Galerie
                   </Button>
+                  {localPhotoUrlBack && (
+                    <Button variant="outline" size="sm" className="h-7 w-28 text-xs text-destructive" onClick={() => void handlePhotoRemove('back')}>
+                      <Trash2 className="mr-1 h-3 w-3" />Supprimer
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground" onClick={() => setShowBackPhotoOptions(false)}>
                     <X className="h-3 w-3" />
                   </Button>
