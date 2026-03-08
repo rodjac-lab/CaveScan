@@ -20,10 +20,12 @@ import { PhotoPreviewCard } from '@/components/PhotoPreviewCard'
 import { WineFormFields } from '@/components/WineFormFields'
 import { QuantitySelector } from '@/components/QuantitySelector'
 import { supabase } from '@/lib/supabase'
+import { ENABLE_MULTI_BOTTLE_SCAN } from '@/lib/featureFlags'
 import { useZones } from '@/hooks/useZones'
 import { useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
 import { normalizeWineColor, type BottleVolumeOption, type WineColor, type WineExtraction, type Zone } from '@/lib/types'
-import { fileToBase64 } from '@/lib/image'
+import { parseExtractWineResponse } from '@/lib/extractWineResponse'
+import { MULTI_BOTTLE_IMAGE_MAX_SIZE, fileToBase64 } from '@/lib/image'
 import { track } from '@/lib/track'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
 import { uploadPhoto } from '@/lib/uploadPhoto'
@@ -36,8 +38,49 @@ interface AddBottleLocationState {
   prefillExtraction?: Partial<WineExtraction> | null
   prefillPhotoFile?: File | null
   prefillBatchFiles?: File[] | null
+  prefillBatchExtractions?: Partial<WineExtraction>[] | null
   prefillQuantity?: number
   prefillVolume?: BottleVolumeOption
+}
+
+function toBatchItemData(file: File, extraction: Partial<WineExtraction>, index: number): BatchItemData {
+  return {
+    id: `batch-${Date.now()}-${index}`,
+    photoFile: file,
+    photoPreview: URL.createObjectURL(file),
+    photoFileBack: null,
+    photoPreviewBack: null,
+    extractionStatus: 'extracted',
+    domaine: extraction.domaine || '',
+    cuvee: extraction.cuvee || '',
+    appellation: extraction.appellation || '',
+    millesime: extraction.millesime ? String(extraction.millesime) : '',
+    couleur: normalizeWineColor(extraction.couleur || null) || '',
+    country: extraction.country || '',
+    region: extraction.region || '',
+    zoneId: '',
+    shelf: '',
+    purchasePrice: '',
+    quantity: 1,
+    volumeL: '0.75',
+    rawExtraction: {
+      domaine: extraction.domaine || null,
+      cuvee: extraction.cuvee || null,
+      appellation: extraction.appellation || null,
+      millesime: extraction.millesime || null,
+      couleur: normalizeWineColor(extraction.couleur || null),
+      country: extraction.country || null,
+      region: extraction.region || null,
+      cepage: extraction.cepage || null,
+      confidence: extraction.confidence ?? 0,
+      grape_varieties: extraction.grape_varieties || null,
+      serving_temperature: extraction.serving_temperature || null,
+      typical_aromas: extraction.typical_aromas || null,
+      food_pairings: extraction.food_pairings || null,
+      character: extraction.character || null,
+    } as WineExtraction,
+    skipped: false,
+  }
 }
 
 export default function AddBottle() {
@@ -54,6 +97,7 @@ export default function AddBottle() {
   const prefillExtraction = locationState?.prefillExtraction ?? null
   const prefillPhotoFile = locationState?.prefillPhotoFile ?? null
   const prefillBatchFiles = locationState?.prefillBatchFiles ?? null
+  const prefillBatchExtractions = locationState?.prefillBatchExtractions ?? null
   const prefillQuantity = locationState?.prefillQuantity ?? undefined
   const prefillVolume = locationState?.prefillVolume ?? undefined
   const hasPrefill = !!(
@@ -112,6 +156,21 @@ export default function AddBottle() {
   const [batchExtractionIndex, setBatchExtractionIndex] = useState(0)
   const batchInitRef = useRef(false)
 
+  useEffect(() => {
+    if (!prefillPhotoFile || !prefillBatchExtractions || prefillBatchExtractions.length === 0 || batchInitRef.current) return
+    batchInitRef.current = true
+
+    const items = prefillBatchExtractions
+      .slice(0, MAX_BATCH_SIZE)
+      .map((extraction, index) => toBatchItemData(prefillPhotoFile, extraction, index))
+
+    setBatchItems(items)
+    setCurrentBatchIndex(0)
+    setBatchExtractionIndex(0)
+    setError(null)
+    setStep('batch-confirm')
+  }, [prefillBatchExtractions, prefillPhotoFile])
+
   // Auto-start batch when arriving from Scanner with multiple files
   useEffect(() => {
     if (!prefillBatchFiles || prefillBatchFiles.length === 0 || batchInitRef.current) return
@@ -139,6 +198,7 @@ export default function AddBottle() {
       quantity: 1,
       volumeL: '0.75' as const,
       rawExtraction: null,
+      skipped: false,
     }))
 
     setBatchItems(items)
@@ -169,16 +229,41 @@ export default function AddBottle() {
 
       if (error) throw error
 
+      let parsed = parseExtractWineResponse(data)
+
+      if (ENABLE_MULTI_BOTTLE_SCAN && parsed.kind === 'multi_bottle') {
+        const hiResBase64 = await fileToBase64(file, MULTI_BOTTLE_IMAGE_MAX_SIZE)
+        const hiResResponse = await supabase.functions.invoke('extract-wine', {
+          body: { image_base64: hiResBase64 },
+        })
+        if (!hiResResponse.error) {
+          parsed = parseExtractWineResponse(hiResResponse.data)
+        }
+      }
+
+      if (ENABLE_MULTI_BOTTLE_SCAN && parsed.kind === 'multi_bottle') {
+        const items = parsed.bottles.map((extraction, index) => toBatchItemData(file, extraction, index))
+        setBatchItems(items)
+        setCurrentBatchIndex(0)
+        setBatchExtractionIndex(0)
+        setRawExtraction(null)
+        track('scan_multi_from_single_photo', { count: parsed.bottles.length })
+        setStep('batch-confirm')
+        return
+      }
+
+      const extraction = parsed.bottles[0]
+
       // Pre-fill form with extracted data
-      setRawExtraction(data)
-      setDomaine(data.domaine || '')
-      setCuvee(data.cuvee || '')
-      setAppellation(data.appellation || '')
-      setMillesime(data.millesime?.toString() || '')
-      setCouleur(normalizeWineColor(data.couleur) || '')
-      setCountry(data.country || '')
-      setRegion(data.region || '')
-      track('scan_single', { provider: 'claude' })
+      setRawExtraction(extraction)
+      setDomaine(extraction.domaine || '')
+      setCuvee(extraction.cuvee || '')
+      setAppellation(extraction.appellation || '')
+      setMillesime(extraction.millesime?.toString() || '')
+      setCouleur(normalizeWineColor(extraction.couleur) || '')
+      setCountry(extraction.country || '')
+      setRegion(extraction.region || '')
+      track('scan_single', { provider: 'extract-wine' })
       setStep('confirm')
     } catch (err) {
       console.error('Extraction error:', err)
@@ -220,6 +305,7 @@ export default function AddBottle() {
       quantity: 1,
       volumeL: '0.75' as const,
       rawExtraction: null,
+      skipped: false,
     }))
 
     setBatchItems(items)
@@ -250,18 +336,20 @@ export default function AddBottle() {
         })
 
         if (error) throw error
+        const parsed = parseExtractWineResponse(data)
+        const extraction = parsed.bottles[0]
 
         updatedItems[i] = {
           ...updatedItems[i],
           extractionStatus: 'extracted',
-          domaine: data.domaine || '',
-          cuvee: data.cuvee || '',
-          appellation: data.appellation || '',
-          millesime: data.millesime?.toString() || '',
-          couleur: normalizeWineColor(data.couleur) || '',
-          country: data.country || '',
-          region: data.region || '',
-          rawExtraction: data,
+          domaine: extraction.domaine || '',
+          cuvee: extraction.cuvee || '',
+          appellation: extraction.appellation || '',
+          millesime: extraction.millesime?.toString() || '',
+          couleur: normalizeWineColor(extraction.couleur) || '',
+          country: extraction.country || '',
+          region: extraction.region || '',
+          rawExtraction: extraction,
         }
       } catch (err) {
         console.error(`Extraction error for item ${i}:`, err)
@@ -296,14 +384,15 @@ export default function AddBottle() {
         })
 
         if (!error && data) {
+          const extraction = parseExtractWineResponse(data).bottles[0]
           // Only fill in missing fields
-          if (!domaine && data.domaine) setDomaine(data.domaine)
-          if (!cuvee && data.cuvee) setCuvee(data.cuvee)
-          if (!appellation && data.appellation) setAppellation(data.appellation)
-          if (!millesime && data.millesime) setMillesime(data.millesime.toString())
-          if (!couleur && data.couleur) setCouleur(normalizeWineColor(data.couleur) || '')
-          if (!country && data.country) setCountry(data.country)
-          if (!region && data.region) setRegion(data.region)
+          if (!domaine && extraction.domaine) setDomaine(extraction.domaine)
+          if (!cuvee && extraction.cuvee) setCuvee(extraction.cuvee)
+          if (!appellation && extraction.appellation) setAppellation(extraction.appellation)
+          if (!millesime && extraction.millesime) setMillesime(extraction.millesime.toString())
+          if (!couleur && extraction.couleur) setCouleur(normalizeWineColor(extraction.couleur) || '')
+          if (!country && extraction.country) setCountry(extraction.country)
+          if (!region && extraction.region) setRegion(extraction.region)
         }
       } catch (err) {
         console.error('Back extraction error:', err)
@@ -334,14 +423,15 @@ export default function AddBottle() {
         })
 
         if (!error && data) {
+          const extraction = parseExtractWineResponse(data).bottles[0]
           const updates: Partial<BatchItemData> = {}
-          if (!currentItem.domaine && data.domaine) updates.domaine = data.domaine
-          if (!currentItem.cuvee && data.cuvee) updates.cuvee = data.cuvee
-          if (!currentItem.appellation && data.appellation) updates.appellation = data.appellation
-          if (!currentItem.millesime && data.millesime) updates.millesime = data.millesime.toString()
-          if (!currentItem.couleur && data.couleur) updates.couleur = normalizeWineColor(data.couleur) || ''
-          if (!currentItem.country && data.country) updates.country = data.country
-          if (!currentItem.region && data.region) updates.region = data.region
+          if (!currentItem.domaine && extraction.domaine) updates.domaine = extraction.domaine
+          if (!currentItem.cuvee && extraction.cuvee) updates.cuvee = extraction.cuvee
+          if (!currentItem.appellation && extraction.appellation) updates.appellation = extraction.appellation
+          if (!currentItem.millesime && extraction.millesime) updates.millesime = extraction.millesime.toString()
+          if (!currentItem.couleur && extraction.couleur) updates.couleur = normalizeWineColor(extraction.couleur) || ''
+          if (!currentItem.country && extraction.country) updates.country = extraction.country
+          if (!currentItem.region && extraction.region) updates.region = extraction.region
           if (Object.keys(updates).length > 0) {
             updatedItems[currentBatchIndex] = {
               ...updatedItems[currentBatchIndex],
@@ -469,11 +559,11 @@ export default function AddBottle() {
 
       // Mark current item as saved
       const updatedItems = [...batchItems]
-      updatedItems[currentBatchIndex] = { ...updatedItems[currentBatchIndex], saved: true }
+      updatedItems[currentBatchIndex] = { ...updatedItems[currentBatchIndex], saved: true, skipped: false }
       setBatchItems(updatedItems)
 
       // Find next unsaved item, or finish
-      const nextUnsaved = updatedItems.findIndex((it, i) => i !== currentBatchIndex && !it.saved)
+      const nextUnsaved = updatedItems.findIndex((it, i) => i !== currentBatchIndex && !it.saved && !it.skipped)
       if (nextUnsaved !== -1) {
         setCurrentBatchIndex(nextUnsaved)
         setStep('batch-confirm')
@@ -490,14 +580,27 @@ export default function AddBottle() {
   }
 
   const handleBatchSkipCurrentItem = () => {
-    // Find next unsaved item after current
-    const nextUnsaved = batchItems.findIndex((it, i) => i !== currentBatchIndex && !it.saved)
-    if (nextUnsaved !== -1) {
-      setCurrentBatchIndex(nextUnsaved)
-    } else {
-      // All items saved or skipped, finish
-      handleReset()
+    const updatedItems = [...batchItems]
+    updatedItems[currentBatchIndex] = {
+      ...updatedItems[currentBatchIndex],
+      skipped: true,
     }
+    setBatchItems(updatedItems)
+
+    const nextAfterCurrent = updatedItems.findIndex((it, i) => i > currentBatchIndex && !it.saved && !it.skipped)
+    if (nextAfterCurrent !== -1) {
+      setCurrentBatchIndex(nextAfterCurrent)
+      return
+    }
+
+    const nextBeforeCurrent = updatedItems.findIndex((it, i) => i < currentBatchIndex && !it.saved && !it.skipped)
+    if (nextBeforeCurrent !== -1) {
+      setCurrentBatchIndex(nextBeforeCurrent)
+      return
+    }
+
+    // All items saved or skipped, finish
+    handleReset()
   }
 
   const handleReset = () => {
@@ -893,7 +996,7 @@ function BatchConfirmSwipeable({
     delta: 40,
   })
 
-  const unsavedCount = batchItems.filter(it => !it.saved).length
+  const unsavedCount = batchItems.filter(it => !it.saved && !it.skipped).length
 
   return (
     <div {...swipeHandlers} className="mt-6 space-y-4">
@@ -931,6 +1034,15 @@ function BatchConfirmSwipeable({
           >
             <Check className="mr-2 h-4 w-4" />
             Deja enregistree
+          </Button>
+        ) : batchItems[currentBatchIndex].skipped ? (
+          <Button
+            variant="outline"
+            className="flex-1 border-[var(--text-muted)] text-[var(--text-muted)]"
+            disabled
+          >
+            <X className="mr-2 h-4 w-4" />
+            Ignoree
           </Button>
         ) : (
           <Button

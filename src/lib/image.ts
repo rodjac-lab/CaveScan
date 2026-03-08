@@ -1,4 +1,5 @@
 export const MAX_IMAGE_SIZE = 1200
+export const MULTI_BOTTLE_IMAGE_MAX_SIZE = 3000
 export const IMAGE_QUALITY = 0.85
 
 export function calculateResizedDimensions(

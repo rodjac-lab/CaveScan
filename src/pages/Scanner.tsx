@@ -2,8 +2,10 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { fileToBase64 } from '@/lib/image'
+import { ENABLE_MULTI_BOTTLE_SCAN } from '@/lib/featureFlags'
+import { MULTI_BOTTLE_IMAGE_MAX_SIZE, fileToBase64 } from '@/lib/image'
 import { type WineExtraction } from '@/lib/types'
+import { parseExtractWineResponse } from '@/lib/extractWineResponse'
 import {
   createBatchSession,
 } from '@/lib/batchSessionStore'
@@ -120,11 +122,32 @@ export default function Scanner() {
 
       if (error) throw error
 
-      const extraction = data as WineExtraction
+      let parsed = parseExtractWineResponse(data)
+
+      if (ENABLE_MULTI_BOTTLE_SCAN && parsed.kind === 'multi_bottle') {
+        const hiResBase64 = await fileToBase64(file, MULTI_BOTTLE_IMAGE_MAX_SIZE)
+        const hiResResponse = await supabase.functions.invoke('extract-wine', {
+          body: { image_base64: hiResBase64 },
+        })
+        if (!hiResResponse.error) {
+          parsed = parseExtractWineResponse(hiResResponse.data)
+        }
+      }
 
       stopCamera()
 
       if (intent === 'encaver') {
+        if (ENABLE_MULTI_BOTTLE_SCAN && parsed.kind === 'multi_bottle') {
+          navigate('/add', {
+            state: {
+              prefillBatchExtractions: parsed.bottles,
+              prefillPhotoFile: file,
+            },
+          })
+          return
+        }
+
+        const extraction = parsed.bottles[0] as WineExtraction
         navigate('/add', {
           state: {
             prefillExtraction: extraction,
@@ -132,6 +155,17 @@ export default function Scanner() {
           },
         })
       } else {
+        if (ENABLE_MULTI_BOTTLE_SCAN && parsed.kind === 'multi_bottle') {
+          navigate('/remove', {
+            state: {
+              prefillExtraction: null,
+              prefillPhotoFile: file,
+            },
+          })
+          return
+        }
+
+        const extraction = parsed.bottles[0] as WineExtraction
         navigate('/remove', {
           state: {
             prefillExtraction: extraction,

@@ -40,6 +40,7 @@ export interface BatchItemData {
   volumeL: BottleVolumeOption
   rawExtraction: unknown
   saved?: boolean
+  skipped?: boolean
 }
 
 interface BatchItemFormProps {
@@ -90,7 +91,7 @@ export function BatchItemForm({
       <BatchNavHeader
         currentIndex={currentIndex}
         totalItems={totalItems}
-        itemStatuses={allItems.map((it) => !!it.saved)}
+        itemStatuses={allItems.map((it) => !!it.saved || !!it.skipped)}
         onNavigate={onNavigate}
       />
 

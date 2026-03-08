@@ -6,81 +6,124 @@ const ANTHROPIC_MODEL = Deno.env.get('ANTHROPIC_MODEL')?.trim()
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 // Set to "gemini" to use Gemini as primary, anything else = Claude primary
 const PRIMARY_PROVIDER = Deno.env.get('PRIMARY_PROVIDER')?.trim()?.toLowerCase() || 'claude'
+const ENABLE_MULTI_BOTTLE_SCAN = Deno.env.get('ENABLE_MULTI_BOTTLE_SCAN') === 'true'
 
-const EXTRACTION_PROMPT = `Analyse cette photo d'étiquette de vin et extrais les informations suivantes au format JSON :
+const EXTRACTION_PROMPT = ENABLE_MULTI_BOTTLE_SCAN
+  ? `Analyse cette photo de vin et reponds UNIQUEMENT avec un JSON valide au format:
 
 {
-  "domaine": "nom du domaine/château/producteur",
-  "cuvee": "nom de la cuvée si mentionné (ex: Orizeaux, Les Caillerets, Clos des Mouches...)",
-  "appellation": "appellation d'origine (AOC/AOP/DOC/DOCG...)",
-  "millesime": année (nombre entier ou null si non visible),
-  "couleur": "rouge" | "blanc" | "rose" | "bulles",
-  "country": "pays de production",
-  "region": "région viticole",
-  "cepage": "cépage principal si mentionné",
-  "confidence": 0.0-1.0,
-  "grape_varieties": ["cépage1", "cépage2"] ou null,
-  "serving_temperature": "16-18°C" ou null,
-  "typical_aromas": ["arôme1", "arôme2", "arôme3"] ou null,
-  "food_pairings": ["accord1", "accord2"] ou null,
-  "character": "commentaire sommelier (1-2 phrases)" ou null
+  "kind": "single_bottle" | "multi_bottle",
+  "bottles": [
+    {
+      "domaine": "nom du domaine/chateau/producteur",
+      "cuvee": "nom de la cuvee si mentionne",
+      "appellation": "appellation d'origine (AOC/AOP/DOC/DOCG...)",
+      "millesime": annee (nombre entier ou null si non visible),
+      "couleur": "rouge" | "blanc" | "rose" | "bulles",
+      "country": "pays de production",
+      "region": "region viticole",
+      "cepage": "cepage principal si mentionne",
+      "confidence": 0.0-1.0,
+      "grape_varieties": ["cepage1", "cepage2"] ou null,
+      "serving_temperature": "16-18C" ou null,
+      "typical_aromas": ["arome1", "arome2", "arome3"] ou null,
+      "food_pairings": ["accord1", "accord2"] ou null,
+      "character": "commentaire sommelier (1-2 phrases)" ou null
+    }
+  ]
 }
 
-Si une information n'est pas visible sur l'étiquette, utilise null.
-La cuvée est le nom spécifique du vin, distinct du domaine et de l'appellation. Par exemple pour "Chartogne Taillet Orizeaux Champagne", le domaine est "Chartogne Taillet", la cuvée est "Orizeaux", et l'appellation est "Champagne".
-Pour la couleur, déduis-la de l'appellation si elle n'est pas explicite.
+Regles:
+- S'il n'y a qu'une seule bouteille clairement identifiable, utilise "kind": "single_bottle" et renvoie une seule entree dans "bottles".
+- Si plusieurs bouteilles distinctes sont visibles et lisibles, utilise "kind": "multi_bottle" et renvoie une entree par bouteille identifiable.
+- N'invente jamais une bouteille. Si une etiquette est trop floue ou partielle, ignore cette bouteille.
+- Si une information n'est pas visible sur l'etiquette, utilise null.
+- La cuvee est le nom specifique du vin, distinct du domaine et de l'appellation.
+- Pour la couleur, deduis-la de l'appellation si elle n'est pas explicite.
 
-# Champs enrichis — Repères de dégustation
+# Champs enrichis - Reperes de degustation
 
-Déduis les champs suivants à partir de tes connaissances œnologiques.
-La PRÉCISION est prioritaire sur l'originalité.
+Deduis les champs suivants a partir de tes connaissances oenologiques.
+La precision est prioritaire sur l'originalite.
 
 ## Niveau de connaissance
-- Si tu connais CE DOMAINE spécifiquement, base tes réponses sur son style propre et précise-le dans character.
-- Si tu ne connais que l'appellation, donne les infos typiques de l'appellation. Ne fais PAS semblant de connaître le domaine.
+- Si tu connais ce domaine specifiquement, base tes reponses sur son style propre et precise-le dans character.
+- Si tu ne connais que l'appellation, donne les infos typiques de l'appellation. Ne fais pas semblant de connaitre le domaine.
 
 ## grape_varieties
-Cépages réels de cette appellation (ou de ce domaine si tu le connais).
-Ne jamais inventer. En cas de doute, donne les cépages typiques de l'appellation.
+Cepages reels de cette appellation (ou de ce domaine si tu le connais).
+Ne jamais inventer. En cas de doute, donne les cepages typiques de l'appellation.
 
 ## serving_temperature
-Température de service adaptée au type de vin :
-- Rouges légers (Beaujolais, Pinot Noir léger) : 14-15°C
-- Rouges moyens (Bourgogne, Loire rouge) : 15-16°C
-- Rouges charpentés (Bordeaux, Rhône, Madiran) : 16-18°C
-- Blancs légers/vifs (Muscadet, Picpoul, Entre-deux-Mers) : 8-10°C
-- Blancs secs aromatiques (Savoie, Alsace, Loire, Chablis) : 10-12°C
-- Blancs amples/boisés (Meursault, Condrieu, Hermitage blanc) : 12-14°C
-- Rosés : 10-12°C
-- Champagne/Bulles : 8-10°C
-- Liquoreux (Sauternes, Banyuls) : 8-10°C
+Temperature de service adaptee au type de vin :
+- Rouges legers : 14-15C
+- Rouges moyens : 15-16C
+- Rouges charpentes : 16-18C
+- Blancs legers/vifs : 8-10C
+- Blancs secs aromatiques : 10-12C
+- Blancs amples/boises : 12-14C
+- Roses : 10-12C
+- Champagne/Bulles : 8-10C
+- Liquoreux : 8-10C
 
 ## typical_aromas
-Arômes typiques du vin. Sois PRÉCIS et DESCRIPTIF :
-- Utilise des familles aromatiques détaillées : "fruits à chair blanche" plutôt que juste "fruité", "agrumes (citron, pamplemousse)" plutôt que juste "agrumes".
-- Donne 3-5 descripteurs qui permettent vraiment d'imaginer le vin.
-- Tiens compte du MILLÉSIME si présent :
-  - Vin jeune (< 5 ans) : arômes primaires (fruits frais, fleurs, herbes)
-  - Vin en développement (5-10 ans) : arômes secondaires (fruits confits, épices douces, miel)
-  - Vin mature (> 10 ans) : arômes tertiaires (cuir, truffe, tabac, terre humide)
+Aromes typiques du vin. Sois precis et descriptif :
+- Utilise des familles aromatiques detaillees.
+- Donne 3-5 descripteurs.
+- Tiens compte du millesime si present :
+  - Vin jeune (< 5 ans) : aromes primaires
+  - Vin en developpement (5-10 ans) : aromes secondaires
+  - Vin mature (> 10 ans) : aromes tertiaires
 
 ## food_pairings
-2-3 accords mets pertinents. Règles strictes :
-- JAMAIS de rouge tannique sur poisson (tanins = goût métallique)
-- Champagne/bulles = joker universel (huîtres, poulet, pizza, apéro)
-- Privilégie les accords régionaux (Tartiflette + Roussette de Savoie, Magret + Madiran)
-- Ose un accord créatif si pertinent (Curry thaï + Gewurztraminer)
+2-3 accords mets pertinents. Regles strictes :
+- Jamais de rouge tannique sur poisson.
+- Champagne/bulles = joker universel.
+- Privilegie les accords regionaux.
+- Ose un accord creatif si pertinent.
 
 ## character
-Commentaire de sommelier en 1-2 phrases avec du CARACTÈRE.
-Parle comme un ami sommelier : direct, opinioné, utile.
+Commentaire de sommelier en 1-2 phrases avec du caractere.
+Parle comme un ami sommelier : direct, utile, honnete.
 - Si tu connais le domaine : parle de son style.
-- Si tu ne le connais pas : commente l'appellation/millésime avec honnêteté.
-- Mentionne si le vin gagne à être carafé ou s'il est prêt à boire.
-- NE JAMAIS inventer un style de domaine que tu ne connais pas.
-- Reste FACTUEL sur le potentiel de garde. Ne promets pas qu'un vin "gagnera en complexité" sauf si tu es CERTAIN que ce type de vin vieillit bien (Grands Bourgognes, Bordeaux classés, etc.). Un vin simple ou de consommation rapide, dis-le franchement : "à boire dans sa jeunesse", "profite de sa fraîcheur maintenant".
+- Si tu ne le connais pas : commente l'appellation/millesime avec honnetete.
+- Mentionne si le vin gagne a etre carafe ou s'il est pret a boire.
+- Ne jamais inventer un style de domaine que tu ne connais pas.
+- Reste factuel sur le potentiel de garde.
 
-Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
+Reponds uniquement avec le JSON, sans texte avant ou apres.`
+  : `Analyse cette photo d'etiquette de vin et reponds UNIQUEMENT avec un JSON valide au format:
+
+{
+  "kind": "single_bottle",
+  "bottles": [
+    {
+      "domaine": "nom du domaine/chateau/producteur",
+      "cuvee": "nom de la cuvee si mentionne",
+      "appellation": "appellation d'origine (AOC/AOP/DOC/DOCG...)",
+      "millesime": annee (nombre entier ou null si non visible),
+      "couleur": "rouge" | "blanc" | "rose" | "bulles",
+      "country": "pays de production",
+      "region": "region viticole",
+      "cepage": "cepage principal si mentionne",
+      "confidence": 0.0-1.0,
+      "grape_varieties": ["cepage1", "cepage2"] ou null,
+      "serving_temperature": "16-18C" ou null,
+      "typical_aromas": ["arome1", "arome2", "arome3"] ou null,
+      "food_pairings": ["accord1", "accord2"] ou null,
+      "character": "commentaire sommelier (1-2 phrases)" ou null
+    }
+  ]
+}
+
+Regles:
+- Extrais une seule bouteille principale.
+- Si plusieurs bouteilles sont visibles, concentre-toi sur la bouteille la plus centrale et la plus lisible.
+- N'invente rien. Si une information n'est pas lisible, mets null.
+- La cuvee est le nom specifique du vin, distinct du domaine et de l'appellation.
+- Pour la couleur, deduis-la de l'appellation si elle n'est pas explicite.
+
+Reponds uniquement avec le JSON, sans texte avant ou apres.`
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -88,14 +131,15 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// === TYPES ===
-
 interface ExtractionResult {
   provider: string
   data: Record<string, unknown>
 }
 
-// === UTILS ===
+interface ExtractionEnvelope {
+  kind: 'single_bottle' | 'multi_bottle'
+  bottles: Array<Record<string, unknown>>
+}
 
 function stripMarkdownCodeBlock(text: string): string {
   let result = text.trim()
@@ -107,6 +151,34 @@ function stripMarkdownCodeBlock(text: string): string {
 
 function detectMediaType(base64: string): string {
   return base64.startsWith('/9j/') ? 'image/jpeg' : 'image/png'
+}
+
+function normalizeEnvelope(raw: unknown): ExtractionEnvelope {
+  if (!raw || typeof raw !== 'object') {
+    throw new Error('Invalid extraction payload')
+  }
+
+  const record = raw as Record<string, unknown>
+  const rawBottles = Array.isArray(record.bottles) ? record.bottles : [record]
+  const bottles = rawBottles
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
+    .filter((item) => Boolean(item.domaine || item.appellation || item.cuvee || item.millesime))
+
+  if (bottles.length === 0) {
+    throw new Error('No identifiable bottle found')
+  }
+
+  if (!ENABLE_MULTI_BOTTLE_SCAN) {
+    return {
+      kind: 'single_bottle',
+      bottles: [bottles[0]],
+    }
+  }
+
+  return {
+    kind: bottles.length > 1 || record.kind === 'multi_bottle' ? 'multi_bottle' : 'single_bottle',
+    bottles,
+  }
 }
 
 const API_TIMEOUT_MS = 15_000
@@ -126,14 +198,10 @@ async function fetchWithTimeout(url: string, options: RequestInit): Promise<Resp
   }
 }
 
-// === CLAUDE PROVIDER ===
-
 async function callClaude(imageBase64: string | undefined, imageUrl: string | undefined): Promise<ExtractionResult> {
   if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not configured')
 
   const model = ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001'
-
-  // Build image content
   const imageContent = imageBase64
     ? { type: 'image', source: { type: 'base64', media_type: detectMediaType(imageBase64), data: imageBase64 } }
     : { type: 'image', source: { type: 'url', url: imageUrl } }
@@ -147,7 +215,7 @@ async function callClaude(imageBase64: string | undefined, imageUrl: string | un
     },
     body: JSON.stringify({
       model,
-      max_tokens: 1500,
+      max_tokens: 1800,
       messages: [{
         role: 'user',
         content: [imageContent, { type: 'text', text: EXTRACTION_PROMPT }],
@@ -161,21 +229,19 @@ async function callClaude(imageBase64: string | undefined, imageUrl: string | un
     try {
       const parsed = JSON.parse(errorText)
       message = parsed.error?.message || errorText
-    } catch { /* use raw text */ }
+    } catch {
+      // use raw text
+    }
     throw new Error(`Claude ${model} (${response.status}): ${message}`)
   }
 
   const result = await response.json()
   const textContent = result.content?.find((c: { type: string; text?: string }) => c.type === 'text')
-
   if (!textContent?.text) throw new Error('No text response from Claude')
 
-  const jsonText = stripMarkdownCodeBlock(textContent.text)
-  const data = JSON.parse(jsonText)
+  const data = normalizeEnvelope(JSON.parse(stripMarkdownCodeBlock(textContent.text)))
   return { provider: `claude/${model}`, data }
 }
-
-// === GEMINI PROVIDER ===
 
 async function callGemini(imageBase64: string | undefined): Promise<ExtractionResult> {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured')
@@ -195,27 +261,37 @@ async function callGemini(imageBase64: string | undefined): Promise<ExtractionRe
       }],
       generationConfig: {
         temperature: 0,
-        maxOutputTokens: 1500,
+        maxOutputTokens: 1800,
         responseMimeType: 'application/json',
         responseSchema: {
           type: 'OBJECT',
           properties: {
-            domaine: { type: 'STRING', nullable: true },
-            cuvee: { type: 'STRING', nullable: true },
-            appellation: { type: 'STRING', nullable: true },
-            millesime: { type: 'INTEGER', nullable: true },
-            couleur: { type: 'STRING', nullable: true },
-            country: { type: 'STRING', nullable: true },
-            region: { type: 'STRING', nullable: true },
-            cepage: { type: 'STRING', nullable: true },
-            confidence: { type: 'NUMBER' },
-            grape_varieties: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
-            serving_temperature: { type: 'STRING', nullable: true },
-            typical_aromas: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
-            food_pairings: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
-            character: { type: 'STRING', nullable: true },
+            kind: { type: 'STRING' },
+            bottles: {
+              type: 'ARRAY',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  domaine: { type: 'STRING', nullable: true },
+                  cuvee: { type: 'STRING', nullable: true },
+                  appellation: { type: 'STRING', nullable: true },
+                  millesime: { type: 'INTEGER', nullable: true },
+                  couleur: { type: 'STRING', nullable: true },
+                  country: { type: 'STRING', nullable: true },
+                  region: { type: 'STRING', nullable: true },
+                  cepage: { type: 'STRING', nullable: true },
+                  confidence: { type: 'NUMBER' },
+                  grape_varieties: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
+                  serving_temperature: { type: 'STRING', nullable: true },
+                  typical_aromas: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
+                  food_pairings: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
+                  character: { type: 'STRING', nullable: true },
+                },
+                required: ['domaine', 'appellation', 'couleur', 'confidence'],
+              },
+            },
           },
-          required: ['domaine', 'appellation', 'couleur', 'confidence'],
+          required: ['kind', 'bottles'],
         },
       },
     }),
@@ -227,32 +303,29 @@ async function callGemini(imageBase64: string | undefined): Promise<ExtractionRe
     try {
       const parsed = JSON.parse(errorText)
       message = parsed.error?.message || errorText
-    } catch { /* use raw text */ }
+    } catch {
+      // use raw text
+    }
     throw new Error(`Gemini 2.5 Flash (${response.status}): ${message}`)
   }
 
   const result = await response.json()
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text
-
   if (!text) throw new Error('No text response from Gemini')
 
-  const jsonText = stripMarkdownCodeBlock(text)
-  const data = JSON.parse(jsonText)
+  const data = normalizeEnvelope(JSON.parse(stripMarkdownCodeBlock(text)))
   return { provider: 'gemini/2.5-flash', data }
 }
 
-// === CROSS-PROVIDER FALLBACK ===
-
 async function extractWithFallback(imageBase64: string | undefined, imageUrl: string | undefined): Promise<ExtractionResult> {
-  // Build provider order based on config
   const providers: Array<{ name: string; call: () => Promise<ExtractionResult> }> = []
 
   if (PRIMARY_PROVIDER === 'gemini') {
-    if (GEMINI_API_KEY) providers.push({ name: 'Gemini', call: () => callGemini(imageBase64, imageUrl) })
+    if (GEMINI_API_KEY) providers.push({ name: 'Gemini', call: () => callGemini(imageBase64) })
     if (ANTHROPIC_API_KEY) providers.push({ name: 'Claude', call: () => callClaude(imageBase64, imageUrl) })
   } else {
     if (ANTHROPIC_API_KEY) providers.push({ name: 'Claude', call: () => callClaude(imageBase64, imageUrl) })
-    if (GEMINI_API_KEY) providers.push({ name: 'Gemini', call: () => callGemini(imageBase64, imageUrl) })
+    if (GEMINI_API_KEY) providers.push({ name: 'Gemini', call: () => callGemini(imageBase64) })
   }
 
   if (providers.length === 0) {
@@ -260,7 +333,6 @@ async function extractWithFallback(imageBase64: string | undefined, imageUrl: st
   }
 
   const errors: string[] = []
-
   for (const provider of providers) {
     try {
       console.log(`Trying ${provider.name}...`)
@@ -276,8 +348,6 @@ async function extractWithFallback(imageBase64: string | undefined, imageUrl: st
 
   throw new Error(`All providers failed. ${errors.join(' | ')}`)
 }
-
-// === MAIN HANDLER ===
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -295,7 +365,7 @@ Deno.serve(async (req) => {
     }
 
     const { provider, data } = await extractWithFallback(image_base64, image_url)
-    console.log('Extraction done by:', provider)
+    console.log('Extraction done by:', provider, 'kind:', data.kind, 'count:', Array.isArray(data.bottles) ? data.bottles.length : 0)
 
     return new Response(JSON.stringify(data), {
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
@@ -304,9 +374,8 @@ Deno.serve(async (req) => {
     const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('Error:', message)
 
-    // User-friendly message for JSON parse failures
     const userMessage = message.includes('Unexpected token') || message.includes('JSON')
-      ? "Impossible de lire l'étiquette sur cette photo."
+      ? "Impossible de lire l'etiquette sur cette photo."
       : message
 
     return new Response(

@@ -10,6 +10,7 @@ import { RemoveResultStep } from '@/components/RemoveResultStep'
 import { supabase } from '@/lib/supabase'
 import { useBottles, useRecentlyDrunk, useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
 import { normalizeWineColor, type BottleWithZone, type WineExtraction } from '@/lib/types'
+import { parseExtractWineResponse } from '@/lib/extractWineResponse'
 import { fileToBase64 } from '@/lib/image'
 import { track } from '@/lib/track'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
@@ -180,7 +181,12 @@ export default function RemoveBottle() {
 
       if (extractError) throw extractError
 
-      const extractionData = data as WineExtraction
+      const parsed = parseExtractWineResponse(data)
+      if (parsed.kind === 'multi_bottle') {
+        throw new Error('Cette photo contient plusieurs bouteilles. Utilisez une photo par bouteille pour ce parcours.')
+      }
+
+      const extractionData = parsed.bottles[0] as WineExtraction
       const matched = findMatches(bottles, extractionData)
       const [primaryMatch, ...alternatives] = matched
 
@@ -200,6 +206,12 @@ export default function RemoveBottle() {
       setStep('result')
     } catch (err) {
       console.error('Extraction error:', err)
+      const message = err instanceof Error ? err.message : ''
+      if (message.includes('plusieurs bouteilles')) {
+        setError(message)
+        setStep('choose')
+        return
+      }
       navigate('/add', {
         state: {
           prefillPhotoFile: file,
@@ -284,7 +296,12 @@ export default function RemoveBottle() {
 
         if (extractError) throw extractError
 
-        const extractionData = data as WineExtraction
+        const parsed = parseExtractWineResponse(data)
+        if (parsed.kind === 'multi_bottle') {
+          throw new Error('Photo multi-bouteilles non supportee dans ce parcours')
+        }
+
+        const extractionData = parsed.bottles[0] as WineExtraction
         const matched = findMatches(bottles, extractionData)
         const [primaryMatch, ...alternatives] = matched
 
