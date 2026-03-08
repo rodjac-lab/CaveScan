@@ -28,6 +28,102 @@ import {
 } from '@/lib/celestinEval'
 import type { Bottle, TasteProfile, Zone } from '@/lib/types'
 
+type MemoryWeightReport = {
+  noteCount: number
+  rawChars: number
+  rawTokens: number
+  avgChars: number
+  maxChars: number
+  currentMemoryChars: number
+  currentMemoryTokens: number
+  fullVerbatimMemoryChars: number
+  fullVerbatimMemoryTokens: number
+  enhancedMemoryChars: number
+  enhancedMemoryTokens: number
+  fullVerbatimDeltaChars: number
+  fullVerbatimDeltaTokens: number
+  enhancedDeltaChars: number
+  enhancedDeltaTokens: number
+  sampleSnippets: Array<{
+    label: string
+    originalChars: number
+    snippetChars: number
+    snippet: string
+  }>
+}
+
+function estimateTokens(textOrChars: string | number): number {
+  const chars = typeof textOrChars === 'number' ? textOrChars : textOrChars.length
+  return Math.ceil(chars / 4)
+}
+
+function buildNoteSnippet(note: string, maxChars = 160): string {
+  const normalized = note.replace(/\s+/g, ' ').trim()
+  if (normalized.length <= maxChars) return normalized
+
+  const sentenceMatch = normalized.match(/^(.{40,180}?[.!?])(?:\s|$)/)
+  if (sentenceMatch?.[1]) {
+    return sentenceMatch[1].trim()
+  }
+
+  return `${normalized.slice(0, maxChars).trimEnd()}...`
+}
+
+function buildEnhancedMemoriesForPrompt(memories: Bottle[]): string {
+  if (memories.length === 0) return ''
+
+  const lines = memories.map((bottle) => {
+    const identity = [bottle.domaine, bottle.appellation, bottle.millesime].filter(Boolean).join(' ')
+    const parts: string[] = [`- ${identity || 'Vin'}`]
+
+    if (bottle.rating) parts.push(`note: ${bottle.rating}/5`)
+    if (bottle.drunk_at) {
+      const date = new Date(bottle.drunk_at)
+      parts.push(`deguste le: ${date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`)
+    }
+    if (bottle.tasting_note) {
+      parts.push(`verbatim: "${buildNoteSnippet(bottle.tasting_note)}"`)
+    }
+
+    return parts.join(' | ')
+  })
+
+  return lines.join('\n')
+}
+
+function buildFullVerbatimMemoriesForPrompt(memories: Bottle[]): string {
+  if (memories.length === 0) return ''
+
+  const lines = memories.map((bottle) => {
+    const identity = [bottle.domaine, bottle.appellation, bottle.millesime].filter(Boolean).join(' ')
+    const parts: string[] = [`- ${identity || 'Vin'}`]
+
+    if (bottle.rating) parts.push(`note: ${bottle.rating}/5`)
+    if (bottle.drunk_at) {
+      const date = new Date(bottle.drunk_at)
+      parts.push(`deguste le: ${date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`)
+    }
+    if (bottle.tasting_note) {
+      parts.push(`verbatim: "${bottle.tasting_note.replace(/\s+/g, ' ').trim()}"`)
+    }
+
+    return parts.join(' | ')
+  })
+
+  return lines.join('\n')
+}
+
+function selectMemorySampleForAnalysis(bottles: Bottle[], limit = 5): Bottle[] {
+  return [...bottles]
+    .filter((bottle) => bottle.tasting_note && bottle.tasting_note.trim().length > 0)
+    .sort((a, b) => {
+      const ratingDiff = (b.rating ?? 0) - (a.rating ?? 0)
+      if (ratingDiff !== 0) return ratingDiff
+      return new Date(b.drunk_at ?? 0).getTime() - new Date(a.drunk_at ?? 0).getTime()
+    })
+    .slice(0, limit)
+}
+
 // Module-level state so backfill survives page navigation
 let enrichState = { status: null as string | null, running: false }
 
@@ -138,6 +234,9 @@ export default function Settings() {
   const [resultsDirHandle, setResultsDirHandle] = useState<FileSystemDirectoryHandle | null>(null)
   const [runningEval, setRunningEval] = useState(false)
   const [evalStatus, setEvalStatus] = useState<string | null>(null)
+  const [analyzingMemories, setAnalyzingMemories] = useState(false)
+  const [memoryWeightStatus, setMemoryWeightStatus] = useState<string | null>(null)
+  const [memoryWeightReport, setMemoryWeightReport] = useState<MemoryWeightReport | null>(null)
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
@@ -223,6 +322,74 @@ export default function Settings() {
     }
 
     setDeleting(null)
+  }
+
+  const handleAnalyzeMemoryWeight = async () => {
+    setAnalyzingMemories(true)
+    setMemoryWeightStatus('Analyse des notes de degustation...')
+    setMemoryWeightReport(null)
+
+    try {
+      const { data, error } = await supabase
+        .from('bottles')
+        .select('id, domaine, appellation, millesime, tasting_note, tasting_tags, rating, drunk_at')
+        .eq('status', 'drunk')
+        .not('tasting_note', 'is', null)
+        .order('drunk_at', { ascending: false })
+
+      if (error) throw error
+
+      const bottles = ((data ?? []) as Bottle[])
+        .filter((bottle) => bottle.tasting_note && bottle.tasting_note.trim().length > 0)
+
+      if (bottles.length === 0) {
+        setMemoryWeightStatus('Aucune note de degustation a analyser.')
+        return
+      }
+
+      const rawChars = bottles.reduce((sum, bottle) => sum + (bottle.tasting_note?.trim().length ?? 0), 0)
+      const maxChars = bottles.reduce((max, bottle) => Math.max(max, bottle.tasting_note?.trim().length ?? 0), 0)
+      const avgChars = Math.round(rawChars / bottles.length)
+
+      const selectedMemories = selectMemorySampleForAnalysis(bottles)
+      const currentMemoryText = serializeMemoriesForPrompt(selectedMemories)
+      const fullVerbatimMemoryText = buildFullVerbatimMemoriesForPrompt(selectedMemories)
+      const enhancedMemoryText = buildEnhancedMemoriesForPrompt(selectedMemories)
+
+      const report: MemoryWeightReport = {
+        noteCount: bottles.length,
+        rawChars,
+        rawTokens: estimateTokens(rawChars),
+        avgChars,
+        maxChars,
+        currentMemoryChars: currentMemoryText.length,
+        currentMemoryTokens: estimateTokens(currentMemoryText),
+        fullVerbatimMemoryChars: fullVerbatimMemoryText.length,
+        fullVerbatimMemoryTokens: estimateTokens(fullVerbatimMemoryText),
+        enhancedMemoryChars: enhancedMemoryText.length,
+        enhancedMemoryTokens: estimateTokens(enhancedMemoryText),
+        fullVerbatimDeltaChars: fullVerbatimMemoryText.length - currentMemoryText.length,
+        fullVerbatimDeltaTokens: estimateTokens(fullVerbatimMemoryText) - estimateTokens(currentMemoryText),
+        enhancedDeltaChars: enhancedMemoryText.length - currentMemoryText.length,
+        enhancedDeltaTokens: estimateTokens(enhancedMemoryText) - estimateTokens(currentMemoryText),
+        sampleSnippets: bottles.slice(0, 5).map((bottle) => {
+          const note = bottle.tasting_note?.trim() || ''
+          return {
+            label: [bottle.domaine, bottle.appellation, bottle.millesime].filter(Boolean).join(' ') || 'Vin',
+            originalChars: note.length,
+            snippetChars: buildNoteSnippet(note).length,
+            snippet: buildNoteSnippet(note),
+          }
+        }),
+      }
+
+      setMemoryWeightReport(report)
+      setMemoryWeightStatus(`Analyse terminee (${report.noteCount} notes).`)
+    } catch (err) {
+      setMemoryWeightStatus(`Erreur analyse memoire: ${err instanceof Error ? err.message : 'inconnue'}`)
+    } finally {
+      setAnalyzingMemories(false)
+    }
   }
 
   const handleInvite = async () => {
@@ -596,6 +763,38 @@ export default function Settings() {
           </button>
           {fixtureStatus && (
             <p className="mb-2 text-center text-[11px] text-[var(--text-muted)]">{fixtureStatus}</p>
+          )}
+
+          <button
+            onClick={handleAnalyzeMemoryWeight}
+            disabled={analyzingMemories}
+            className="mb-2 flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-3 text-[12px] font-medium text-[var(--text-muted)]"
+          >
+            {analyzingMemories ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : null}
+            Analyser le poids memoire des degustations
+          </button>
+          {memoryWeightStatus && (
+            <p className="mb-2 text-center text-[11px] text-[var(--text-muted)]">{memoryWeightStatus}</p>
+          )}
+          {memoryWeightReport && (
+            <div className="mb-3 rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-3 text-[11px] text-[var(--text-secondary)]">
+              <p>{memoryWeightReport.noteCount} notes | moyenne {memoryWeightReport.avgChars} caracteres | max {memoryWeightReport.maxChars}</p>
+              <p>Corpus brut: {memoryWeightReport.rawChars} caracteres (~{memoryWeightReport.rawTokens} tokens)</p>
+              <p>Memoire actuelle envoyee: {memoryWeightReport.currentMemoryChars} caracteres (~{memoryWeightReport.currentMemoryTokens} tokens)</p>
+              <p>Memoire avec verbatim complet: {memoryWeightReport.fullVerbatimMemoryChars} caracteres (~{memoryWeightReport.fullVerbatimMemoryTokens} tokens)</p>
+              <p>Surcout verbatim complet: {memoryWeightReport.fullVerbatimDeltaChars >= 0 ? '+' : ''}{memoryWeightReport.fullVerbatimDeltaChars} caracteres, {memoryWeightReport.fullVerbatimDeltaTokens >= 0 ? '+' : ''}{memoryWeightReport.fullVerbatimDeltaTokens} tokens</p>
+              <p>Memoire avec verbatim court: {memoryWeightReport.enhancedMemoryChars} caracteres (~{memoryWeightReport.enhancedMemoryTokens} tokens)</p>
+              <p>Surcout verbatim court: {memoryWeightReport.enhancedDeltaChars >= 0 ? '+' : ''}{memoryWeightReport.enhancedDeltaChars} caracteres, {memoryWeightReport.enhancedDeltaTokens >= 0 ? '+' : ''}{memoryWeightReport.enhancedDeltaTokens} tokens</p>
+              <div className="mt-2 space-y-1">
+                {memoryWeightReport.sampleSnippets.map((sample, index) => (
+                  <p key={`${sample.label}-${index}`}>
+                    {sample.label}: {sample.originalChars} {'->'} {sample.snippetChars} car. "{sample.snippet}"
+                  </p>
+                ))}
+              </div>
+            </div>
           )}
 
           <button

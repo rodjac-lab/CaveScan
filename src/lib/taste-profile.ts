@@ -13,7 +13,7 @@ import type {
   WineColor,
 } from '@/lib/types'
 
-// ── Pure computation ──
+// Pure computation
 
 export function computeTasteProfile(
   inStockBottles: Bottle[],
@@ -21,7 +21,6 @@ export function computeTasteProfile(
 ): ComputedTasteProfile {
   const allBottles = [...inStockBottles, ...drunkBottles]
 
-  // 1. Stats globales
   const totalInCave = inStockBottles.reduce((sum, b) => sum + (b.quantity ?? 1), 0)
   const totalTasted = drunkBottles.length
 
@@ -37,30 +36,12 @@ export function computeTasteProfile(
       ? Math.round((rebuyEligible.filter((b) => b.rebuy === true).length / rebuyEligible.length) * 100)
       : null
 
-  // 2. Top appellations (top 5)
-  const topAppellations = computeTopGrouped(
-    allBottles,
-    (b) => b.appellation,
-    5
-  )
-
-  // 3. Top domaines (top 5)
-  const topDomaines = computeTopGrouped(
-    allBottles,
-    (b) => b.domaine,
-    5
-  )
-
-  // 4. Distribution couleurs
+  const topAppellations = computeTopGrouped(allBottles, (b) => b.appellation, 5)
+  const topDomaines = computeTopGrouped(allBottles, (b) => b.domaine, 5)
   const colorDistribution = computeColorDistribution(allBottles)
-
-  // 5. Fourchette prix
   const priceRange = computePriceRange(allBottles)
-
-  // 6. QPR distribution
   const qprDistribution = computeQPRDistribution(drunkBottles)
 
-  // 7. Arômes et accords (only from bottles rated >= 4)
   const likedBottles = drunkBottles.filter((b) => b.rating != null && b.rating >= 4)
   const topAromas = computeTopStrings(
     likedBottles.flatMap((b) => b.typical_aromas ?? []),
@@ -71,10 +52,7 @@ export function computeTasteProfile(
     6
   )
 
-  // 8. Dernières dégustations (5 dernières notées)
   const recentTastings = computeRecentTastings(drunkBottles, 5)
-
-  // 9. Pattern saisonnier
   const seasonalPattern = computeSeasonalPattern(drunkBottles)
 
   return {
@@ -94,8 +72,6 @@ export function computeTasteProfile(
     dataPoints: allBottles.length,
   }
 }
-
-// ── Helpers ──
 
 function computeTopGrouped(
   bottles: Bottle[],
@@ -119,7 +95,6 @@ function computeTopGrouped(
   return Array.from(groups.entries())
     .map(([name, { count, ratingSum, ratedCount }]) => {
       const avgRating = ratedCount > 0 ? Math.round((ratingSum / ratedCount) * 10) / 10 : null
-      // Score = count weighted + avgRating bonus (rating contributes less than volume)
       const score = count + (avgRating ?? 0) * 0.5
       return { name, count, avgRating, score }
     })
@@ -210,7 +185,7 @@ function computeSeasonalPattern(drunkBottles: Bottle[]): SeasonalPattern {
 
   for (const b of drunkBottles) {
     if (!b.drunk_at) continue
-    const month = new Date(b.drunk_at).getMonth() // 0-11
+    const month = new Date(b.drunk_at).getMonth()
     if (month >= 2 && month <= 4) pattern.spring++
     else if (month >= 5 && month <= 7) pattern.summer++
     else if (month >= 8 && month <= 10) pattern.autumn++
@@ -220,11 +195,10 @@ function computeSeasonalPattern(drunkBottles: Bottle[]): SeasonalPattern {
   return pattern
 }
 
-// ── Fire-and-forget trigger ──
+// Fire-and-forget trigger
 
 export async function triggerProfileRecompute(): Promise<void> {
   try {
-    // Fetch all user bottles in parallel
     const [inStockRes, drunkRes] = await Promise.all([
       supabase
         .from('bottles')
@@ -253,46 +227,48 @@ export async function triggerProfileRecompute(): Promise<void> {
         { onConflict: 'user_id' }
       )
   } catch (err) {
-    // Fire-and-forget: log but never throw
     console.error('[taste-profile] recompute failed:', err)
   }
 }
 
-// ── Serializer for AI prompts ──
+// Serializer for AI prompts
 
 export function serializeProfileForPrompt(profile: TasteProfile): string {
   const c = profile.computed
   const lines: string[] = []
 
-  lines.push(`Cave: ${c.totalInCave} bouteilles en stock, ${c.totalTasted} dégustées.`)
+  lines.push(`Cave: ${c.totalInCave} bouteilles en stock, ${c.totalTasted} degustees.`)
 
   if (c.avgRating != null) lines.push(`Note moyenne: ${c.avgRating}/5.`)
   if (c.rebuyRate != null) lines.push(`Taux de rachat: ${c.rebuyRate}%.`)
 
   if (c.topAppellations.length > 0) {
-    lines.push(`Appellations préférées: ${c.topAppellations.map((a) => `${a.name} (${a.count})`).join(', ')}.`)
+    lines.push(`Appellations preferees: ${c.topAppellations.map((a) => `${a.name} (${a.count})`).join(', ')}.`)
   }
   if (c.topDomaines.length > 0) {
-    lines.push(`Domaines préférés: ${c.topDomaines.map((d) => `${d.name} (${d.count})`).join(', ')}.`)
+    lines.push(`Domaines preferes: ${c.topDomaines.map((d) => `${d.name} (${d.count})`).join(', ')}.`)
   }
 
   const colors = Object.entries(c.colorDistribution)
     .filter(([, pct]) => pct > 0)
     .sort(([, a], [, b]) => b - a)
     .map(([color, pct]) => `${color} ${pct}%`)
-  if (colors.length > 0) lines.push(`Répartition couleurs: ${colors.join(', ')}.`)
+  if (colors.length > 0) lines.push(`Repartition couleurs: ${colors.join(', ')}.`)
 
   if (c.priceRange.min != null && c.priceRange.max != null) {
-    lines.push(`Budget: ${c.priceRange.min}-${c.priceRange.max}€ (moy. ${c.priceRange.avg}€).`)
+    lines.push(`Budget: ${c.priceRange.min}-${c.priceRange.max}EUR (moy. ${c.priceRange.avg}EUR).`)
   }
 
   const qprTotal = c.qprDistribution.cher + c.qprDistribution.correct + c.qprDistribution.pepite
   if (qprTotal > 0) {
-    lines.push(`QPR: ${c.qprDistribution.pepite} pépites, ${c.qprDistribution.correct} corrects, ${c.qprDistribution.cher} chers.`)
+    lines.push(`QPR: ${c.qprDistribution.pepite} pepites, ${c.qprDistribution.correct} corrects, ${c.qprDistribution.cher} chers.`)
   }
 
-  if (c.topAromas.length > 0) lines.push(`Arômes appréciés: ${c.topAromas.join(', ')}.`)
-  if (c.topFoodPairings.length > 0) lines.push(`Accords aimés: ${c.topFoodPairings.join(', ')}.`)
+  if (c.topAromas.length > 0) lines.push(`Aromes apprecies: ${c.topAromas.join(', ')}.`)
+  if (c.topFoodPairings.length > 0) {
+    lines.push(`Reperes d'accords sur les vins apprecies: ${c.topFoodPairings.join(', ')}.`)
+    lines.push(`Ces accords sont des pistes de service liees aux vins apprecies, pas des plats explicitement mentionnes par l'utilisateur.`)
+  }
 
   if (c.recentTastings.length > 0) {
     const recent = c.recentTastings
@@ -301,20 +277,19 @@ export function serializeProfileForPrompt(profile: TasteProfile): string {
         return t.rating ? `${parts} (${t.rating}/5)` : parts
       })
       .join('; ')
-    lines.push(`Dernières dégustations: ${recent}.`)
+    lines.push(`Dernieres degustations: ${recent}.`)
   }
 
   const seasons = Object.entries(c.seasonalPattern)
     .filter(([, n]) => n > 0)
     .sort(([, a], [, b]) => b - a)
   if (seasons.length > 0) {
-    lines.push(`Saisons de dégustation: ${seasons.map(([s, n]) => `${s} (${n})`).join(', ')}.`)
+    lines.push(`Saisons de degustation: ${seasons.map(([s, n]) => `${s} (${n})`).join(', ')}.`)
   }
 
-  // Explicit preferences
   const e = profile.explicit
-  if (e.lovedRegions?.length) lines.push(`Régions aimées: ${e.lovedRegions.join(', ')}.`)
-  if (e.avoidedRegions?.length) lines.push(`Régions évitées: ${e.avoidedRegions.join(', ')}.`)
+  if (e.lovedRegions?.length) lines.push(`Regions aimees: ${e.lovedRegions.join(', ')}.`)
+  if (e.avoidedRegions?.length) lines.push(`Regions evitees: ${e.avoidedRegions.join(', ')}.`)
   if (e.customPairings?.length) lines.push(`Accords custom: ${e.customPairings.join(', ')}.`)
   if (e.freeNotes) lines.push(`Notes: ${e.freeNotes}`)
 

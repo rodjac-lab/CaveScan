@@ -19,13 +19,34 @@ export function formatDrunkSummary(b: { domaine: string | null; appellation: str
   return [b.domaine, b.appellation, b.millesime].filter(Boolean).join(' ')
 }
 
-export function resolveBottleIds<T extends { bottle_id?: string }>(
+function buildResolvedCardFields(bottle: {
+  domaine?: string | null
+  cuvee?: string | null
+  appellation?: string | null
+  millesime?: number | null
+}) {
+  const name = [bottle.domaine, bottle.cuvee].filter(Boolean).join(' — ')
+  const appellation = [bottle.appellation, bottle.millesime].filter(Boolean).join(' ')
+  return {
+    name: name || bottle.appellation || 'Selection de la cave',
+    appellation: appellation || bottle.appellation || '',
+  }
+}
+
+export function resolveBottleIds<T extends { bottle_id?: string; name?: string; appellation?: string }>(
   cards: T[],
-  bottles: { id: string }[],
+  bottles: Array<{ id: string; domaine?: string | null; cuvee?: string | null; appellation?: string | null; millesime?: number | null }>,
 ): T[] {
   return cards.map((card) => {
     if (!card.bottle_id) return card
     const match = bottles.find((b) => b.id.startsWith(card.bottle_id!))
-    return match ? { ...card, bottle_id: match.id } : card
+    if (!match) return card
+    const resolved = buildResolvedCardFields(match)
+    return {
+      ...card,
+      bottle_id: match.id,
+      name: resolved.name,
+      appellation: resolved.appellation,
+    }
   })
 }

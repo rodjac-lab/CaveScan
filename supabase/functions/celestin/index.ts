@@ -143,6 +143,7 @@ function buildUserPrompt(body: RequestBody): string {
 
   // Conversation history
   if (body.history.length > 0) {
+    parts.push("Historique conversationnel : il peut contenir des hypotheses, raccourcis ou erreurs de Celestin. Ne l'utilise jamais comme preuve sur la cave, les gouts, les souvenirs ou les accords de l'utilisateur. En cas de conflit, les donnees structurees et les corrections de l'utilisateur priment toujours.")
     parts.push('Historique de conversation :')
     for (const turn of body.history) {
       parts.push(`${turn.role === 'user' ? 'Utilisateur' : 'Celestin'} : ${turn.text}`)
