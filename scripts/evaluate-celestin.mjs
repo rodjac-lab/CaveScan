@@ -56,9 +56,14 @@ function loadJson(filePath) {
 }
 
 function buildRequestBody(fixture, scenario) {
+  const history = (scenario.history ?? fixture.history ?? []).map((turn) => ({
+    role: turn.role,
+    text: turn.content,
+  }))
+
   return {
     message: scenario.message,
-    history: scenario.history ?? fixture.history ?? [],
+    history,
     cave: fixture.cave ?? [],
     profile: fixture.profile,
     memories: fixture.memories,
@@ -73,14 +78,16 @@ function detectMemoryUsage(text, cards) {
 
   const patterns = [
     'tu avais adore',
-    'tu avais adoré',
+    'tu avais adorÃ©',
     'tu as aime',
-    'tu as aimé',
-    'tu adores',
+    'tu as aimÃ©',
     'tu avais aime',
     'tu te souviens',
-    'recemment',
-    'récemment',
+    'on a deja bu',
+    'on a dÃ©jÃ  bu',
+    'tu avais trouve',
+    'tu avais trouvÃ©',
+    'comme le ',
   ]
 
   return patterns.some((pattern) => haystack.includes(pattern))
@@ -90,7 +97,7 @@ function detectIntroFlags(text) {
   const normalized = (text ?? '').toLowerCase()
   return {
     hasTiens: normalized.includes('tiens'),
-    hasPepites: normalized.includes('pépite') || normalized.includes('pepite'),
+    hasPepites: normalized.includes('pÃ©pite') || normalized.includes('pepite'),
     hasAhLead: normalized.startsWith('ah,') || normalized.startsWith('ah '),
   }
 }
@@ -169,7 +176,6 @@ function renderHtmlReport(results, fixture, scenarios) {
     const flags = result.analysis.introFlags
     const introFlagLabels = [
       flags.hasTiens ? 'tiens' : null,
-      flags.hasPepites ? 'pepites' : null,
       flags.hasAhLead ? 'ah' : null,
     ].filter(Boolean)
 
