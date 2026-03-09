@@ -14,8 +14,17 @@
 - `wineMatching.ts` — `findMatches()`: fuzzy matching algorithm to find cave bottles matching an OCR extraction.
 - `supabase.ts` — Supabase client instance.
 - `batchSessionStore.ts` — In-memory store for batch tasting sessions.
-- `taste-profile.ts` — User taste profile computation.
-- `recommendationStore.ts` — Cache and store for sommelier recommendations.
+- `taste-profile.ts` — User taste profile computation and serialization for AI prompts.
+- `tastingMemories.ts` — Tasting tag extraction, memory selection and serialization for Celestin.
+- `recommendationRanking.ts` — Local scoring of cave bottles (color, season, profile, maturity, exploration).
+- `recommendationStore.ts` — In-memory cache for recommendation responses (TTL 10 min).
+- `contextHelpers.ts` — Shared utilities: season, day of week, bottle formatting, short ID resolution.
+
+### Edge functions (`supabase/functions/`)
+- `celestin/` — Unified sommelier AI (recommend, add_wine, log_tasting, question, conversation). See `docs/celestin-architecture.md`.
+- `extract-wine/` — OCR label extraction (photo → structured wine data).
+- `extract-tasting-tags/` — Extract structured tags from tasting notes.
+- `enrich-wine/` — Text-only wine enrichment (aromas, pairings, temperature, character).
 
 ### Page component architecture
 Pages in `src/pages/` are orchestrators that compose focused sub-components:
