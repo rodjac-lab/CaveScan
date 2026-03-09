@@ -126,7 +126,7 @@ export default function AddBottle() {
   const [region, setRegion] = useState(prefillExtraction?.region || '')
   const [zoneId, setZoneId] = useState('')
   const [shelf, setShelf] = useState('')
-  const [purchasePrice, setPurchasePrice] = useState('')
+  const [purchasePrice, setPurchasePrice] = useState(prefillExtraction?.purchase_price ? String(prefillExtraction.purchase_price) : '')
   const [quantity, setQuantity] = useState(prefillQuantity ?? 1)
   const [volumeL, setVolumeL] = useState<BottleVolumeOption>(prefillVolume ?? '0.75')
   const [rawExtraction, setRawExtraction] = useState<WineExtraction | null>(

@@ -30,6 +30,7 @@ interface WineActionData {
     typical_aromas?: string[] | null
     food_pairings?: string[] | null
     character?: string | null
+    purchase_price?: number | null
   }
   summary: string
 }

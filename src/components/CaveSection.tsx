@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Calendar, Euro, Grid2x2, Loader2, Minus, Plus, Tag, Wine } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { openBottle } from '@/lib/bottleActions'
@@ -15,6 +15,7 @@ export function CaveSection({ bottle, onRefetch, groupBottleIds }: CaveSectionPr
   const [groupInStock, setGroupInStock] = useState<BottleWithZone[]>([])
   const [updatingQuantity, setUpdatingQuantity] = useState(false)
   const [removing, setRemoving] = useState(false)
+  const addedAtInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     let isCancelled = false
@@ -96,6 +97,17 @@ export function CaveSection({ bottle, onRefetch, groupBottleIds }: CaveSectionPr
     setUpdatingQuantity(false)
   }
 
+  const handleAddedAtChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    if (!value) return
+    const newDate = new Date(value + 'T12:00:00').toISOString()
+    const { error } = await supabase
+      .from('bottles')
+      .update({ added_at: newDate })
+      .eq('id', bottle.id)
+    if (!error) await onRefetch()
+  }
+
   const handleMarkAsDrunk = async () => {
     setRemoving(true)
     try {
@@ -158,21 +170,22 @@ export function CaveSection({ bottle, onRefetch, groupBottleIds }: CaveSectionPr
           <div className="flex items-center border-b border-[var(--border-color)] px-4 py-3">
             <Calendar className="mr-3 h-4 w-4 shrink-0 text-[var(--text-muted)]" />
             <span className="flex-1 text-xs text-[var(--text-muted)]">Entrée en cave</span>
-            <span className="text-right text-[13px] font-medium text-[var(--text-primary)]">
+            <input
+              ref={addedAtInputRef}
+              type="date"
+              className="sr-only"
+              value={bottle.added_at ? new Date(bottle.added_at).toISOString().slice(0, 10) : ''}
+              onChange={handleAddedAtChange}
+            />
+            <button
+              type="button"
+              onClick={() => addedAtInputRef.current?.showPicker()}
+              className="text-right text-[13px] font-medium text-[var(--text-primary)]"
+            >
               {bottle.added_at
                 ? new Date(bottle.added_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
                 : '—'}
-            </span>
-          </div>
-
-          <div className="flex items-center border-b border-[var(--border-color)] px-4 py-3">
-            <Calendar className="mr-3 h-4 w-4 shrink-0 text-[var(--text-muted)]" />
-            <span className="flex-1 text-xs text-[var(--text-muted)]">Date bue</span>
-            <span className="text-right text-[13px] font-medium text-[var(--text-primary)]">
-              {bottle.drunk_at
-                ? new Date(bottle.drunk_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-                : '—'}
-            </span>
+            </button>
           </div>
 
           <div className="flex items-center px-4 py-3">

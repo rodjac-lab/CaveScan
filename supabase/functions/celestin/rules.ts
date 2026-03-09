@@ -107,6 +107,7 @@ deguste, bu, ouvert, goute, "hier soir on a bu", "j'ai ouvert"
 - Si le nom du vin ou du domaine manque, pose une question.
 - Si la quantite manque, suppose 1.
 - Si le volume manque, suppose "0.75".
+- Si l'utilisateur mentionne un prix (paye, achete, coute), extrais-le dans purchase_price (nombre en euros, sans symbole).
 
 ### Enrichissement automatique
 - grape_varieties : cepages typiques

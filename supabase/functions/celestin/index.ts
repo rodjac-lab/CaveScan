@@ -64,6 +64,7 @@ interface WineExtraction {
   typical_aromas?: string[] | null
   food_pairings?: string[] | null
   character?: string | null
+  purchase_price?: number | null
 }
 
 interface RecommendationCard {
@@ -257,6 +258,7 @@ const RESPONSE_SCHEMA = {
                 typical_aromas: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
                 food_pairings: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
                 character: { type: 'STRING', nullable: true },
+                purchase_price: { type: 'NUMBER', nullable: true },
               },
               required: ['domaine', 'cuvee', 'appellation', 'millesime', 'couleur', 'region', 'quantity', 'volume'],
             },

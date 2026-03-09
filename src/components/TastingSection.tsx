@@ -56,8 +56,20 @@ export function TastingSection({
   const [deletingPhotoIndex, setDeletingPhotoIndex] = useState<number | null>(null)
   const tastingPhotoInputRef = useRef<HTMLInputElement>(null)
   const tastingPhotoGalleryRef = useRef<HTMLInputElement>(null)
+  const drunkAtInputRef = useRef<HTMLInputElement>(null)
 
   const canShare = typeof navigator !== 'undefined' && !!navigator.share
+
+  const handleDrunkAtChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    if (!value) return
+    const newDate = new Date(value + 'T12:00:00').toISOString()
+    const { error } = await supabase
+      .from('bottles')
+      .update({ drunk_at: newDate })
+      .eq('id', bottle.id)
+    if (!error) await onRefetch()
+  }
 
   const handleSaveTastingNote = async () => {
     setSaving(true)
@@ -281,6 +293,26 @@ export function TastingSection({
         <span className="section-divider-label">Dégustation</span>
         <div className="flex-1 h-px bg-[var(--border-color)]" />
       </div>
+
+      {/* Tasting date */}
+      {bottle.drunk_at && (
+        <div className="flex justify-end mb-2">
+          <input
+            ref={drunkAtInputRef}
+            type="date"
+            className="sr-only"
+            value={new Date(bottle.drunk_at).toISOString().slice(0, 10)}
+            onChange={handleDrunkAtChange}
+          />
+          <button
+            type="button"
+            onClick={() => drunkAtInputRef.current?.showPicker()}
+            className="text-xs font-medium text-[var(--accent)]"
+          >
+            {new Date(bottle.drunk_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+          </button>
+        </div>
+      )}
 
       {/* Tasting photos row */}
       {uploadingPhoto ? (
