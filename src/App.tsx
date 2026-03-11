@@ -15,6 +15,7 @@ import Landing from './pages/Landing'
 import Scanner from './pages/Scanner'
 import Cheers from './pages/Cheers'
 import Decouvrir from './pages/Decouvrir'
+import Debug from './pages/Debug'
 
 function AppLayout() {
   const location = useLocation()
@@ -67,6 +68,7 @@ function AppLayout() {
             <Route path="/bottle/:id" element={<BottlePage />} />
             <Route path="/bottle/:id/edit" element={<EditBottle />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/debug" element={<Debug />} />
           </Routes>
         </main>
         <BottomNav />
