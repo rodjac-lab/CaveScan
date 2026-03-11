@@ -181,10 +181,10 @@ function buildUserPrompt(body: RequestBody): string {
     parts.push('Cite des souvenirs specifiques quand pertinent.')
   }
 
-  // Previous session (cross-session memory)
+  // Previous sessions (cross-session memory)
   if (body.previousSession) {
     parts.push(`\n${body.previousSession}`)
-    parts.push('Tu peux faire reference a cette conversation precedente si c\'est pertinent, mais ne force pas.')
+    parts.push('Tu peux faire reference a ces conversations precedentes si c\'est pertinent, mais ne force pas. Les plus recentes sont les plus importantes.')
   }
 
   // Cave

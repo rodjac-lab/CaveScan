@@ -403,64 +403,13 @@ function UserBubble({ message }: { message: ChatMessage }) {
 // --- Conversation persistence across tab switches ---
 let persistedMessages: ChatMessage[] | null = null
 
-// --- Cross-session memory (localStorage) ---
-const PREVIOUS_SESSION_KEY = 'celestin_previous_session'
-const CURRENT_SESSION_KEY = 'celestin_current_session'
-
-interface SessionSummary {
-  turns: Array<{ role: 'user' | 'celestin'; text: string }>
-  savedAt: string
-}
-
-function saveCurrentSession(messages: ChatMessage[]): void {
-  const meaningful = messages.filter(m => !m.isLoading && !m.actionChips && m.text.length > 1)
-  if (meaningful.length < 2) return // need at least 1 exchange
-
-  const turns = meaningful.slice(-12).map(m => ({
-    role: m.role,
-    text: m.text.slice(0, 200), // keep it compact
-  }))
-
-  try {
-    localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify({
-      turns,
-      savedAt: new Date().toISOString(),
-    }))
-  } catch { /* localStorage full or unavailable */ }
-}
-
-function rotateSessions(): void {
-  try {
-    const current = localStorage.getItem(CURRENT_SESSION_KEY)
-    if (current) {
-      localStorage.setItem(PREVIOUS_SESSION_KEY, current)
-      localStorage.removeItem(CURRENT_SESSION_KEY)
-    }
-  } catch { /* ignore */ }
-}
-
-function loadPreviousSession(): SessionSummary | null {
-  try {
-    const raw = localStorage.getItem(PREVIOUS_SESSION_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as SessionSummary
-    // Only use if less than 7 days old
-    const age = Date.now() - new Date(parsed.savedAt).getTime()
-    if (age > 7 * 24 * 60 * 60 * 1000) return null
-    return parsed
-  } catch {
-    return null
-  }
-}
-
-function serializePreviousSession(session: SessionSummary): string {
-  const lines = session.turns.map(t =>
-    `${t.role === 'user' ? 'Utilisateur' : 'Celestin'} : ${t.text}`
-  )
-  const date = new Date(session.savedAt)
-  const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
-  return `Resume de la derniere conversation (${dateStr}) :\n${lines.join('\n')}`
-}
+// --- Cross-session memory (uses shared module) ---
+import {
+  saveCurrentSession as saveCrossSession,
+  rotateSessions,
+  loadPreviousSessions,
+  serializePreviousSessionsForPrompt,
+} from '@/lib/crossSessionMemory'
 
 // --- Main Component ---
 
@@ -481,11 +430,11 @@ export default function CeSoirModule() {
   })
   useEffect(() => {
     persistedMessages = messages
-    saveCurrentSession(messages)
+    saveCrossSession(messages)
   }, [messages])
 
-  // Previous session context (loaded once)
-  const previousSessionRef = useRef(loadPreviousSession())
+  // Previous sessions context (loaded once)
+  const previousSessionsRef = useRef(loadPreviousSessions())
   const [queryInput, setQueryInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [expandedCard, setExpandedCard] = useState<RecommendationCard | null>(null)
@@ -563,9 +512,8 @@ export default function CeSoirModule() {
       recentDrunk: recentDrunk.length > 0 ? recentDrunk : undefined,
     }
 
-    // Previous session summary (cross-session memory)
-    const prevSession = previousSessionRef.current
-    const previousSession = prevSession ? serializePreviousSession(prevSession) : undefined
+    // Previous sessions summary (cross-session memory)
+    const previousSession = serializePreviousSessionsForPrompt(previousSessionsRef.current)
 
     return {
       message,
