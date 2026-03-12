@@ -13,7 +13,7 @@ import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Landing from './pages/Landing'
 import Scanner from './pages/Scanner'
-import Cheers from './pages/Cheers'
+import Degustations from './pages/Degustations'
 import Decouvrir from './pages/Decouvrir'
 import Debug from './pages/Debug'
 
@@ -63,7 +63,7 @@ function AppLayout() {
             <Route path="/cave" element={<Home />} />
             <Route path="/add" element={<AddBottle />} />
             <Route path="/remove" element={<RemoveBottle />} />
-            <Route path="/cheers" element={<Cheers />} />
+            <Route path="/degustations" element={<Degustations />} />
             <Route path="/decouvrir" element={<Decouvrir />} />
             <Route path="/bottle/:id" element={<BottlePage />} />
             <Route path="/bottle/:id/edit" element={<EditBottle />} />

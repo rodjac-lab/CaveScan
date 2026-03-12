@@ -16,6 +16,8 @@ RÈGLES :
 - food_pairings : 2-3 accords pertinents. JAMAIS de rouge tannique sur poisson. Privilégie les accords régionaux.
 - character : commentaire de sommelier en 1-2 phrases, direct et opinioné. Mentionne si le vin gagne à être carafé. Reste factuel sur le potentiel de garde.
 
+IMPORTANT : Tous les champs texte doivent etre en francais (aromes, accords, character, etc.), meme pour des vins etrangers.
+
 Réponds UNIQUEMENT avec le JSON.`
 
 const CORS_HEADERS = {

@@ -48,7 +48,7 @@ function SettingsIcon({ className }: { className?: string }) {
 
 const leftTabs = [
   { to: '/cave', icon: CaveIcon, label: 'Cave' },
-  { to: '/cheers', icon: Calendar, label: 'Dégustations' },
+  { to: '/degustations', icon: Calendar, label: 'Dégustations' },
 ]
 
 const rightTabs = [

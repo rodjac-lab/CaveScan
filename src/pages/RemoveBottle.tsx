@@ -5,10 +5,9 @@ import { useSwipeable } from 'react-swipeable'
 import { Button } from '@/components/ui/button'
 import { BatchProgress, type BatchProgressItem } from '@/components/BatchProgress'
 import { BatchTastingItemForm } from '@/components/BatchTastingItemForm'
-import { RemoveChooseStep } from '@/components/RemoveChooseStep'
 import { RemoveResultStep } from '@/components/RemoveResultStep'
 import { supabase } from '@/lib/supabase'
-import { useBottles, useRecentlyDrunk, useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
+import { useBottles, useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
 import { normalizeWineColor, type BottleWithZone, type WineExtraction } from '@/lib/types'
 import { parseExtractWineResponse } from '@/lib/extractWineResponse'
 import { fileToBase64 } from '@/lib/image'
@@ -18,7 +17,6 @@ import { openBottle } from '@/lib/bottleActions'
 import { uploadPhoto } from '@/lib/uploadPhoto'
 import { findMatches } from '@/lib/wineMatching'
 import {
-  createBatchSession,
   getActiveBatchSession,
   setBatchSessionStatus,
   updateBatchItem,
@@ -26,11 +24,9 @@ import {
   type BatchItem,
 } from '@/lib/batchSessionStore'
 
-type Step = 'choose' | 'processing' | 'result' | 'saving'
+type Step = 'processing' | 'result' | 'saving'
            | 'batch-extracting' | 'batch-review' | 'batch-saving'
 type MatchType = 'in_cave' | 'not_in_cave'
-
-const MAX_BATCH_SIZE = 12
 
 interface RemoveBottleLocationState {
   prefillExtraction?: Partial<WineExtraction> | null
@@ -50,12 +46,11 @@ export default function RemoveBottle() {
   const navigate = useNavigate()
   const location = useLocation()
   const { bottles, loading: bottlesLoading } = useBottles()
-  const { bottles: recentlyDrunk, loading: drunkLoading } = useRecentlyDrunk()
   const batchSession = useBatchSession()
   const domainesSuggestions = useDomainesSuggestions()
   const appellationsSuggestions = useAppellationsSuggestions()
 
-  const [step, setStep] = useState<Step>('choose')
+  const [step, setStep] = useState<Step>('processing')
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
   const [showAlternatives, setShowAlternatives] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -95,28 +90,13 @@ export default function RemoveBottle() {
 
   useEffect(() => {
     if (step === 'batch-review' && (!batchSession || batchSession.status === 'done')) {
-      setStep('choose')
+      navigate('/degustations')
     }
   }, [batchSession, step])
 
   const activeBatchSession = useMemo(() => {
     return batchSession && batchSession.status !== 'done' ? batchSession : null
   }, [batchSession])
-
-  const batchSummary = useMemo(() => {
-    if (!activeBatchSession) return null
-
-    const inCave = activeBatchSession.items.filter((item) => item.matchType === 'in_cave').length
-    const notInCave = activeBatchSession.items.filter((item) => item.matchType === 'not_in_cave').length
-    const unresolved = activeBatchSession.items.filter((item) => item.matchType === 'unresolved').length
-
-    return {
-      total: activeBatchSession.items.length,
-      inCave,
-      notInCave,
-      unresolved,
-    }
-  }, [activeBatchSession])
 
   // Map batch items to BatchProgressItem[] for the BatchProgress component
   const batchProgressItems: BatchProgressItem[] = useMemo(() => {
@@ -154,10 +134,11 @@ export default function RemoveBottle() {
     delta: 40,
   })
 
-  const resetToChoose = () => {
-    setError(null)
-    setShowAlternatives(false)
-    setStep('choose')
+  const goToDegustations = () => {
+    if (activeBatchSession) {
+      setBatchSessionStatus(activeBatchSession.id, 'done')
+    }
+    navigate('/degustations')
   }
 
   const resetScanResult = () => {
@@ -165,7 +146,7 @@ export default function RemoveBottle() {
       URL.revokeObjectURL(scanResult.photoUri)
     }
     setScanResult(null)
-    resetToChoose()
+    navigate('/degustations')
   }
 
   const processSingleFile = useCallback(async (file: File) => {
@@ -209,7 +190,7 @@ export default function RemoveBottle() {
       const message = err instanceof Error ? err.message : ''
       if (message.includes('plusieurs bouteilles')) {
         setError(message)
-        setStep('choose')
+        navigate('/degustations')
         return
       }
       navigate('/add', {
@@ -268,13 +249,6 @@ export default function RemoveBottle() {
     }
   }, [location.state, bottles, bottlesLoading, prefillHandled, processSingleFile])
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    await processSingleFile(file)
-    e.target.value = ''
-  }
-
   const processBatchInBackground = async (sessionId: string) => {
     const startedSession = getActiveBatchSession()
     if (!startedSession || startedSession.id !== sessionId) return
@@ -331,25 +305,6 @@ export default function RemoveBottle() {
     }
 
     setBatchSessionStatus(sessionId, 'ready')
-  }
-
-  const handleBatchFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
-
-    if (files.length === 1) {
-      await processSingleFile(files[0])
-      e.target.value = ''
-      return
-    }
-
-    const selectedFiles = Array.from(files).slice(0, MAX_BATCH_SIZE)
-    const session = createBatchSession(selectedFiles)
-    setError(null)
-    setStep('batch-extracting')
-    e.target.value = ''
-
-    void processBatchInBackground(session.id)
   }
 
   const handleSelectAlternative = (bottle: BottleWithZone) => {
@@ -499,7 +454,7 @@ export default function RemoveBottle() {
       if (allDone) {
         setBatchSessionStatus(activeBatchSession.id, 'done')
         triggerProfileRecompute()
-        setStep('choose')
+        navigate('/degustations')
         return
       }
 
@@ -526,7 +481,7 @@ export default function RemoveBottle() {
       // All items are saved or ignored — finish
       setBatchSessionStatus(activeBatchSession.id, 'done')
       triggerProfileRecompute()
-      setStep('choose')
+      navigate('/degustations')
     }
   }
 
@@ -602,7 +557,7 @@ export default function RemoveBottle() {
 
       setBatchSessionStatus(activeBatchSession.id, 'done')
       triggerProfileRecompute()
-      setStep('choose')
+      navigate('/degustations')
     } catch (err) {
       console.error('Batch save error:', err)
       setError("Echec de l'enregistrement de la rafale")
@@ -613,31 +568,6 @@ export default function RemoveBottle() {
   // ══════════════════════════════════════════
   //  RENDER
   // ══════════════════════════════════════════
-
-  if (step === 'choose') {
-    const handleBatchBannerClick = () => {
-      if (!activeBatchSession) return
-      if (activeBatchSession.status === 'processing') {
-        setStep('batch-extracting')
-      } else {
-        setCurrentBatchIndex(0)
-        setStep('batch-review')
-      }
-    }
-
-    return (
-      <RemoveChooseStep
-        error={error}
-        activeBatchSession={activeBatchSession}
-        batchSummary={batchSummary}
-        drunkLoading={drunkLoading}
-        recentlyDrunk={recentlyDrunk}
-        onBatchBannerClick={handleBatchBannerClick}
-        onFileSelect={handleFileSelect}
-        onBatchFileSelect={handleBatchFileSelect}
-      />
-    )
-  }
 
   if (step === 'processing') {
     return (
@@ -683,8 +613,8 @@ export default function RemoveBottle() {
         />
 
         <div className="mt-6">
-          <Button variant="outline" className="w-full" onClick={resetToChoose}>
-            Retour
+          <Button variant="outline" className="w-full" onClick={goToDegustations}>
+            Quitter le batch
           </Button>
         </div>
       </div>
@@ -737,8 +667,8 @@ export default function RemoveBottle() {
               Tout valider les {unsavedCount} restants
             </Button>
           )}
-          <Button variant="outline" className={`w-full ${unsavedCount > 0 ? 'mt-2' : ''}`} onClick={resetToChoose}>
-            Retour
+          <Button variant="outline" className={`w-full ${unsavedCount > 0 ? 'mt-2' : ''}`} onClick={goToDegustations}>
+            Quitter le batch
           </Button>
         </div>
       </div>

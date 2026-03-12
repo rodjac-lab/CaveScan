@@ -50,7 +50,7 @@ export default function BottlePage() {
         replace: true
       })
     } else {
-      navigate('/cheers')
+      navigate('/degustations')
     }
   }
 

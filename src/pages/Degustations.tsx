@@ -77,7 +77,7 @@ function filterBottles(
   return results
 }
 
-export default function Cheers() {
+export default function Degustations() {
   const { bottles, loading } = useDrunkBottles()
   const [colorFilter, setColorFilter] = useState<ColorFilter>(null)
   const [ratingFilter, setRatingFilter] = useState<RatingFilter>(null)

@@ -6,10 +6,7 @@ const ANTHROPIC_MODEL = Deno.env.get('ANTHROPIC_MODEL')?.trim()
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 // Set to "gemini" to use Gemini as primary, anything else = Claude primary
 const PRIMARY_PROVIDER = Deno.env.get('PRIMARY_PROVIDER')?.trim()?.toLowerCase() || 'claude'
-const ENABLE_MULTI_BOTTLE_SCAN = Deno.env.get('ENABLE_MULTI_BOTTLE_SCAN') === 'true'
-
-const EXTRACTION_PROMPT = ENABLE_MULTI_BOTTLE_SCAN
-  ? `Analyse cette photo de vin et reponds UNIQUEMENT avec un JSON valide au format:
+const EXTRACTION_PROMPT = `Analyse cette photo de vin et reponds UNIQUEMENT avec un JSON valide au format:
 
 {
   "kind": "single_bottle" | "multi_bottle",
@@ -91,37 +88,7 @@ Parle comme un ami sommelier : direct, utile, honnete.
 - Ne jamais inventer un style de domaine que tu ne connais pas.
 - Reste factuel sur le potentiel de garde.
 
-Reponds uniquement avec le JSON, sans texte avant ou apres.`
-  : `Analyse cette photo d'etiquette de vin et reponds UNIQUEMENT avec un JSON valide au format:
-
-{
-  "kind": "single_bottle",
-  "bottles": [
-    {
-      "domaine": "nom du domaine/chateau/producteur",
-      "cuvee": "nom de la cuvee si mentionne",
-      "appellation": "appellation d'origine (AOC/AOP/DOC/DOCG...)",
-      "millesime": annee (nombre entier ou null si non visible),
-      "couleur": "rouge" | "blanc" | "rose" | "bulles",
-      "country": "pays de production",
-      "region": "region viticole",
-      "cepage": "cepage principal si mentionne",
-      "confidence": 0.0-1.0,
-      "grape_varieties": ["cepage1", "cepage2"] ou null,
-      "serving_temperature": "16-18C" ou null,
-      "typical_aromas": ["arome1", "arome2", "arome3"] ou null,
-      "food_pairings": ["accord1", "accord2"] ou null,
-      "character": "commentaire sommelier (1-2 phrases)" ou null
-    }
-  ]
-}
-
-Regles:
-- Extrais une seule bouteille principale.
-- Si plusieurs bouteilles sont visibles, concentre-toi sur la bouteille la plus centrale et la plus lisible.
-- N'invente rien. Si une information n'est pas lisible, mets null.
-- La cuvee est le nom specifique du vin, distinct du domaine et de l'appellation.
-- Pour la couleur, deduis-la de l'appellation si elle n'est pas explicite.
+IMPORTANT : Tous les champs texte doivent etre en francais (aromes, accords, character, etc.), meme pour des vins etrangers.
 
 Reponds uniquement avec le JSON, sans texte avant ou apres.`
 
@@ -166,13 +133,6 @@ function normalizeEnvelope(raw: unknown): ExtractionEnvelope {
 
   if (bottles.length === 0) {
     throw new Error('No identifiable bottle found')
-  }
-
-  if (!ENABLE_MULTI_BOTTLE_SCAN) {
-    return {
-      kind: 'single_bottle',
-      bottles: [bottles[0]],
-    }
   }
 
   return {

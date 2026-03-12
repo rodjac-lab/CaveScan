@@ -2,7 +2,7 @@
 verify_jwt = false
 
 [functions.extract-wine]
-verify_jwt = false
+verify_jwt = true
 
 [functions.enrich-wine]
 verify_jwt = false
