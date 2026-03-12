@@ -4,7 +4,8 @@ Liste vivante des travaux produit/tech, priorisÃ©e pour les prochaines itÃ©r
 
 ## Maintenant (P0)
 
-- [ ] SÃ©curiser `extract-wine` : planifier le retour Ã  `verify_jwt = true` et valider les flux camÃ©ra/galerie/batch.
+- [x] ~~Sécuriser extract-wine~~ → verify_jwt = true remis + prompt unifié avec règles qualité.
+- [ ] Implémenter une vraie vérification d’auth dans les edge functions (extract-wine, enrich-wine, celestin) : vérifier le token utilisateur dans le code plutôt que via le legacy JWT secret (clé anon insuffisante).
 - [ ] Ajouter un parcours de test manuel minimal avant release (auth, ajout, sortie, Ã©dition, notes).
 
 ## Prochainement (P1)
