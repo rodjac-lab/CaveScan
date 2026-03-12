@@ -23,20 +23,20 @@ interface BeforeInstallPromptEvent extends Event {
 
 const showcaseCards = [
   {
-    title: 'Scannez votre cave',
-    copy: "Ajoutez une bouteille en quelques secondes. Une photo suffit pour retrouver l'essentiel du vin.",
+    title: 'Scanne ta cave',
+    copy: 'Une photo suffit. Célestin reconnaît le vin et l\'ajoute à ta cave en quelques secondes.',
     image: '/Sceeenshot Landing/Ma Cave.png',
     alt: 'Ecran Ma Cave de Celestin',
   },
   {
-    title: 'Mémorisez vos dégustations',
-    copy: 'Gardez la trace des bouteilles ouvertes, de vos impressions et des moments qui comptent.',
+    title: 'Garde la mémoire',
+    copy: 'Tes dégustations, tes impressions, les moments qui comptent — tout est là.',
     image: '/Sceeenshot Landing/Dégustations.png',
     alt: 'Ecran Dégustations de Celestin',
   },
   {
-    title: 'Laissez Célestin vous guider',
-    copy: 'Choisissez plus juste, comprenez mieux vos vins et profitez davantage de votre cave.',
+    title: 'Laisse-toi guider',
+    copy: 'Célestin connaît ta cave et tes goûts. Il te suggère la bonne bouteille au bon moment.',
     image: '/Sceeenshot Landing/Celestin.png',
     alt: 'Ecran Celestin',
   },
@@ -67,14 +67,14 @@ function AndroidInstall({ deferredPrompt }: { deferredPrompt: BeforeInstallPromp
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#B8860B] text-sm font-bold text-white">1</span>
           <div>
             <p className="font-semibold text-white">Menu Chrome</p>
-            <p className="mt-0.5 text-sm text-white/60">Appuyez sur les trois points en haut à droite</p>
+            <p className="mt-0.5 text-sm text-white/60">Appuie sur les trois points en haut à droite</p>
           </div>
         </div>
         <div className="flex items-start gap-3">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#B8860B] text-sm font-bold text-white">2</span>
           <div>
             <p className="font-semibold text-white">Installer l'application</p>
-            <p className="mt-0.5 text-sm text-white/60">Choisissez "Installer l'application" ou "Ajouter à l'écran d'accueil"</p>
+            <p className="mt-0.5 text-sm text-white/60">Choisis "Installer l'application" ou "Ajouter à l'écran d'accueil"</p>
           </div>
         </div>
       </div>
@@ -90,7 +90,7 @@ function IOSInstall() {
           <div className="flex items-start gap-3">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#B8860B] text-sm font-bold text-white">1</span>
             <div>
-              <p className="font-semibold text-white">Appuyez sur Partager</p>
+              <p className="font-semibold text-white">Appuie sur Partager</p>
               <p className="mt-0.5 text-sm text-white/60">Le bouton en bas de Safari</p>
             </div>
           </div>
@@ -98,7 +98,7 @@ function IOSInstall() {
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#B8860B] text-sm font-bold text-white">2</span>
             <div>
               <p className="font-semibold text-white">Sur l'écran d'accueil</p>
-              <p className="mt-0.5 text-sm text-white/60">Sélectionnez "Sur l'écran d'accueil"</p>
+              <p className="mt-0.5 text-sm text-white/60">Sélectionne "Sur l'écran d'accueil"</p>
             </div>
           </div>
         </div>
@@ -114,8 +114,21 @@ function DesktopInstall() {
         <img src="/qr-mycelestin.svg" alt="QR Code Celestin" className="h-48 w-48" />
       </div>
       <p className="text-sm text-white/60">
-        Scannez ou visitez <span className="font-medium text-white">www.MyCelestin.com</span>
+        Scanne ou visite <span className="font-medium text-white">www.MyCelestin.com</span>
       </p>
+    </div>
+  )
+}
+
+/* ─── Decorative divider ─── */
+function WineDivider({ className = '' }: { className?: string }) {
+  return (
+    <div className={`flex items-center justify-center gap-3 ${className}`}>
+      <div className="h-px w-12 bg-gradient-to-r from-transparent to-[#B8860B]/40" />
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-[#B8860B]/50">
+        <path d="M7 0.5L8.3 5.2L13 7L8.3 8.8L7 13.5L5.7 8.8L1 7L5.7 5.2L7 0.5Z" fill="currentColor" />
+      </svg>
+      <div className="h-px w-12 bg-gradient-to-l from-transparent to-[#B8860B]/40" />
     </div>
   )
 }
@@ -136,7 +149,7 @@ export default function Landing() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#1a1a1a]">
+      <div className="flex min-h-screen items-center justify-center bg-[#171513]">
         <Loader2 className="h-8 w-8 animate-spin text-[#B8860B]" />
       </div>
     )
@@ -150,69 +163,124 @@ export default function Landing() {
     <div className="min-h-screen overflow-x-hidden bg-[#171513] text-white">
       <style>{`
         @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(16px); }
+          from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
         @keyframes float {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-12px); }
+          50% { transform: translateY(-10px); }
         }
-        .anim-fade-1 { animation: fadeUp 0.6s ease-out 0.15s both; }
-        .anim-fade-2 { animation: fadeUp 0.6s ease-out 0.3s both; }
-        .anim-fade-3 { animation: fadeUp 0.6s ease-out 0.45s both; }
-        .anim-fade-4 { animation: fadeUp 0.6s ease-out 0.6s both; }
+        @keyframes shimmer {
+          0% { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        @keyframes revealLine {
+          from { width: 0; }
+          to { width: 100%; }
+        }
+        .anim-fade-1 { animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both; }
+        .anim-fade-2 { animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both; }
+        .anim-fade-3 { animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both; }
+        .anim-fade-4 { animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.55s both; }
+        .anim-fade-5 { animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.7s both; }
         .anim-float { animation: float 6s ease-in-out infinite; }
-        .anim-float-slow { animation: float 7s ease-in-out infinite; }
-        .anim-float-slower { animation: float 8s ease-in-out infinite; }
+        .anim-float-slow { animation: float 7.5s ease-in-out infinite; }
+        .anim-float-slower { animation: float 9s ease-in-out infinite; }
+        .tagline-shimmer {
+          background: linear-gradient(
+            90deg,
+            #B8860B 0%,
+            #D4A843 25%,
+            #F0D78C 50%,
+            #D4A843 75%,
+            #B8860B 100%
+          );
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: shimmer 4s linear infinite;
+        }
+        .hero-line {
+          animation: revealLine 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.6s both;
+        }
+        .showcase-phone {
+          transform: perspective(800px) rotateY(-2deg) rotateX(1deg);
+          transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .showcase-phone:hover {
+          transform: perspective(800px) rotateY(0deg) rotateX(0deg);
+        }
       `}</style>
 
+      {/* ─── Ambient background ─── */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="anim-float absolute -left-10 top-24 h-24 w-24 rounded-full bg-[#722F37]/18" />
-        <div className="anim-float-slow absolute -right-4 top-20 h-16 w-16 rounded-full bg-[#DAC17C]/20" />
-        <div className="anim-float-slower absolute left-2 top-[26rem] h-12 w-12 rounded-full bg-[#D4917A]/18" />
-        <div className="anim-float absolute right-6 top-[40rem] h-20 w-20 rounded-full bg-[#722F37]/16" />
-        <div className="anim-float-slow absolute -left-3 top-[54rem] h-14 w-14 rounded-full bg-[#DAC17C]/18" />
-        <div className="anim-float-slower absolute right-10 top-[68rem] h-10 w-10 rounded-full bg-[#D4917A]/20" />
+        {/* Soft glows */}
+        <div className="absolute -left-20 top-0 h-72 w-72 rounded-full bg-[#722F37]/8 blur-[80px]" />
+        <div className="absolute -right-16 top-32 h-56 w-56 rounded-full bg-[#B8860B]/6 blur-[60px]" />
+        <div className="absolute left-1/2 top-[50%] h-64 w-64 -translate-x-1/2 rounded-full bg-[#722F37]/5 blur-[100px]" />
 
-        <div className="absolute -left-16 top-16 h-40 w-40 rounded-full bg-[#722F37]/10 blur-3xl" />
-        <div className="absolute right-[-2rem] top-48 h-32 w-32 rounded-full bg-[#B8860B]/10 blur-3xl" />
-        <div className="absolute left-[-1.5rem] top-[42rem] h-28 w-28 rounded-full bg-white/6 blur-3xl" />
+        {/* Floating orbs */}
+        <div className="anim-float absolute -left-6 top-28 h-16 w-16 rounded-full bg-[#722F37]/12" />
+        <div className="anim-float-slow absolute -right-3 top-24 h-10 w-10 rounded-full bg-[#DAC17C]/14" />
+        <div className="anim-float-slower absolute left-4 top-[30rem] h-8 w-8 rounded-full bg-[#D4917A]/12" />
+        <div className="anim-float absolute right-8 top-[44rem] h-14 w-14 rounded-full bg-[#722F37]/10" />
+        <div className="anim-float-slow absolute -left-2 top-[58rem] h-10 w-10 rounded-full bg-[#DAC17C]/12" />
+        <div className="anim-float-slower absolute right-4 top-[72rem] h-6 w-6 rounded-full bg-[#D4917A]/14" />
       </div>
 
       <div className="relative mx-auto flex w-full max-w-md flex-col px-6 pb-24">
-        <header className="anim-fade-1 pt-12 pb-8 text-center" style={{ paddingTop: 'max(3rem, env(safe-area-inset-top))' }}>
+
+        {/* ─── Brand mark ─── */}
+        <header className="anim-fade-1 pt-14 pb-6 text-center" style={{ paddingTop: 'max(3.5rem, env(safe-area-inset-top))' }}>
           <p
-            className="text-xs font-semibold tracking-[3px] text-[#B8860B]"
+            className="text-[11px] font-semibold tracking-[3px] text-[#B8860B]"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
             CELESTIN
           </p>
         </header>
 
-        <section className="anim-fade-2 mb-10 text-center">
+        {/* ─── Hero ─── */}
+        <section className="anim-fade-2 mb-4 text-center">
           <h1
-            className="mb-3 text-[34px] font-bold leading-tight text-white"
+            className="tagline-shimmer mb-1 text-[38px] font-bold leading-[1.1]"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
-            <span className="text-white">Choisissez,</span>{' '}
-            <span className="text-[#D4A843]">mémorisez,</span>{' '}
-            <span className="text-white">partagez.</span>
+            Fais parler
           </h1>
-          <p className="mx-auto max-w-md text-[15px] leading-relaxed text-white/70">
-            Le carnet de cave intelligent et vivant qui vous aide à mieux choisir vos vins, garder la mémoire de vos dégustations et les partager.
+          <h1
+            className="tagline-shimmer mb-4 text-[38px] font-bold leading-[1.1]"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            ta cave.
+          </h1>
+        </section>
+
+        {/* Gold line */}
+        <div className="anim-fade-2 mx-auto mb-5 flex justify-center">
+          <div className="hero-line h-px w-16 bg-gradient-to-r from-transparent via-[#B8860B]/60 to-transparent" />
+        </div>
+
+        {/* Subline */}
+        <section className="anim-fade-3 mb-10 text-center">
+          <p className="mx-auto max-w-[300px] text-[15px] leading-relaxed text-white/65">
+            Célestin connaît ta cave et tes goûts pour t'aider à choisir, découvrir et partager les meilleurs moments de vin.
           </p>
         </section>
 
-        <section className="anim-fade-3 relative mb-12 w-full">
-          <div className="anim-float absolute -left-6 top-8 h-24 w-24 rounded-full bg-[#722F37]/16" />
-          <div className="anim-float-slow absolute -right-4 top-20 h-16 w-16 rounded-full bg-[#DAC17C]/20" />
-          <div className="anim-float-slower absolute -left-2 bottom-4 h-12 w-12 rounded-full bg-[#D4917A]/18" />
-
-          <div
-            className="relative mx-auto w-[260px] overflow-hidden rounded-[28px] shadow-[0_18px_60px_rgba(0,0,0,0.28)]"
-            style={{ perspective: '800px' }}
-          >
-            <div style={{ transform: 'rotateY(-2deg) rotateX(1deg)' }}>
+        {/* ─── Hero screenshot ─── */}
+        <section className="anim-fade-3 relative mb-14 flex justify-center">
+          <div className="relative">
+            {/* Glow behind phone */}
+            <div className="absolute inset-0 scale-90 rounded-[32px] bg-[#B8860B]/8 blur-2xl" />
+            <div
+              className="showcase-phone relative w-[250px] overflow-hidden rounded-[26px] border border-white/8 shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+            >
               <img
                 src={showcaseCards[2].image}
                 alt={showcaseCards[2].alt}
@@ -222,24 +290,49 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="anim-fade-3 mb-12">
-          <div className="grid gap-4">
-            {showcaseCards.map((card) => (
-              <div key={card.title} className="relative text-center">
-                <div className="anim-float absolute -left-4 top-[7.5rem] h-14 w-14 rounded-full bg-[#722F37]/14" />
-                <div className="anim-float-slow absolute -right-2 top-[4.5rem] h-10 w-10 rounded-full bg-[#DAC17C]/18" />
-                <div className="mb-3">
+        {/* ─── Complementary phrase ─── */}
+        <section className="anim-fade-4 mb-14 text-center">
+          <p
+            className="text-[17px] font-medium italic leading-snug text-white/50"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            Ton sommelier personnel,
+            <br />
+            directement dans ta cave.
+          </p>
+        </section>
+
+        {/* ─── Showcase cards ─── */}
+        <section className="anim-fade-4 mb-14">
+          <WineDivider className="mb-10" />
+
+          <div className="flex flex-col gap-10">
+            {showcaseCards.map((card, i) => (
+              <div key={card.title} className="relative">
+                {/* Number */}
+                <div className="mb-3 flex items-center gap-3">
+                  <span
+                    className="text-[32px] font-bold text-[#B8860B]/20"
+                    style={{ fontFamily: "'Playfair Display', serif" }}
+                  >
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <div className="h-px flex-1 bg-white/6" />
+                </div>
+
+                <div className="mb-4">
                   <h2
-                    className="mb-1 text-[18px] font-semibold text-white"
+                    className="mb-1.5 text-[19px] font-semibold text-white"
                     style={{ fontFamily: "'Playfair Display', serif" }}
                   >
                     {card.title}
                   </h2>
-                  <p className="mx-auto max-w-[300px] text-[13px] leading-relaxed text-white/58">
+                  <p className="max-w-[280px] text-[13.5px] leading-relaxed text-white/50">
                     {card.copy}
                   </p>
                 </div>
-                <div className="mx-auto w-[260px] overflow-hidden rounded-[22px] border border-white/8 bg-[#ece7df] shadow-[0_16px_36px_rgba(0,0,0,0.24)]">
+
+                <div className="mx-auto w-[255px] overflow-hidden rounded-[22px] border border-white/6 shadow-[0_14px_40px_rgba(0,0,0,0.3)]">
                   <img
                     src={card.image}
                     alt={card.alt}
@@ -251,27 +344,58 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="anim-fade-4 mb-12 rounded-[24px] border border-white/8 bg-white/[0.035] p-5 backdrop-blur-sm">
-          <p className="mb-4 text-center text-[10px] font-semibold tracking-[2px] text-white/40">
+        {/* ─── Value props ─── */}
+        <section className="anim-fade-5 mb-14">
+          <WineDivider className="mb-8" />
+
+          <p
+            className="mb-6 text-center text-[10px] font-semibold tracking-[2.5px] text-white/30"
+          >
             POURQUOI CELESTIN
           </p>
-          <div className="grid gap-3">
-            <div className="rounded-[16px] border border-white/6 bg-white/[0.02] p-4">
-              <p className="mb-1 text-[11px] font-medium uppercase tracking-[1.4px] text-[#B8860B]">Choisir plus juste</p>
-              <p className="text-[13px] leading-relaxed text-white/65">Retrouvez ce que vous avez, laissez Celestin vous guider, ouvrez la bonne bouteille au bon moment.</p>
-            </div>
-            <div className="rounded-[16px] border border-white/6 bg-white/[0.02] p-4">
-              <p className="mb-1 text-[11px] font-medium uppercase tracking-[1.4px] text-[#B8860B]">Garder la mémoire</p>
-              <p className="text-[13px] leading-relaxed text-white/65">Conservez vos dégustations, vos repères et les bouteilles qui comptent vraiment pour vous.</p>
-            </div>
-            <div className="rounded-[16px] border border-white/6 bg-white/[0.02] p-4">
-              <p className="mb-1 text-[11px] font-medium uppercase tracking-[1.4px] text-[#B8860B]">Partager facilement</p>
-              <p className="text-[13px] leading-relaxed text-white/65">Diffusez une dégustation, une belle bouteille ou une recommandation en quelques secondes.</p>
-            </div>
+
+          <div className="flex flex-col gap-3">
+            {[
+              {
+                label: 'Choisir plus juste',
+                text: 'Retrouve ce que tu as, laisse Célestin te guider, ouvre la bonne bouteille au bon moment.',
+                color: '#722F37',
+              },
+              {
+                label: 'Garder la mémoire',
+                text: 'Conserve tes dégustations, tes repères et les bouteilles qui comptent vraiment.',
+                color: '#C8B560',
+              },
+              {
+                label: 'Partager facilement',
+                text: 'Envoie une dégustation, une belle bouteille ou une recommandation en quelques secondes.',
+                color: '#D4917A',
+              },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="group relative overflow-hidden rounded-[16px] border border-white/[0.06] bg-white/[0.025] p-4 transition-colors hover:bg-white/[0.04]"
+              >
+                {/* Subtle color accent bar */}
+                <div
+                  className="absolute left-0 top-0 h-full w-[3px] rounded-l-[16px]"
+                  style={{ background: `linear-gradient(180deg, ${item.color}80, ${item.color}20)` }}
+                />
+                <p className="mb-1 pl-2 text-[11px] font-medium uppercase tracking-[1.4px] text-[#B8860B]">
+                  {item.label}
+                </p>
+                <p className="pl-2 text-[13px] leading-relaxed text-white/55">
+                  {item.text}
+                </p>
+              </div>
+            ))}
           </div>
         </section>
 
-        <section className="anim-fade-4 w-full">
+        {/* ─── Install CTA ─── */}
+        <section className="anim-fade-5 w-full">
+          <WineDivider className="mb-8" />
+
           <div className="flex flex-col items-center gap-6">
             {device === 'android' && <AndroidInstall deferredPrompt={deferredPrompt} />}
             {device === 'ios' && <IOSInstall />}
@@ -287,7 +411,7 @@ export default function Landing() {
               </>
             )}
 
-            <p className="text-center text-xs text-white/40">
+            <p className="text-center text-xs text-white/30">
               Gratuit · Léger · Prêt en 30 secondes
             </p>
           </div>
