@@ -3,6 +3,7 @@ import { Loader2, Save, Share2, ArrowRight, Plus, Camera, ImageIcon, X, Check, S
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { type TastingPhoto, type BottleWithZone } from '@/lib/types'
+import { showToast } from '@/components/Toast'
 import { track } from '@/lib/track'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
 import { uploadPhoto } from '@/lib/uploadPhoto'
@@ -132,6 +133,7 @@ export function TastingSection({
       }
     } catch (err) {
       console.error('Upload error:', err)
+      showToast('Erreur lors de l\'upload de la photo')
     }
 
     setPendingFile(null)
@@ -156,6 +158,7 @@ export function TastingSection({
       }
     } catch (err) {
       console.error('Delete tasting photo error:', err)
+      showToast('Erreur lors de la suppression de la photo')
     }
 
     setDeletingPhotoIndex(null)

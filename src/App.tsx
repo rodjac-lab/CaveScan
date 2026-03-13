@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { prefetchDefaultRecommendations } from '@/hooks/useRecommendations'
 import BottomNav from './components/BottomNav'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { ToastContainer } from './components/Toast'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Loader2 } from 'lucide-react'
 
@@ -103,6 +104,7 @@ function App() {
   return (
     <BrowserRouter>
       <AppLayout />
+      <ToastContainer />
     </BrowserRouter>
   )
 }

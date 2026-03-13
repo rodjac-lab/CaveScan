@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Calendar, Euro, Grid2x2, Loader2, Minus, Plus, Tag, Wine } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { openBottle } from '@/lib/bottleActions'
+import { showToast } from '@/components/Toast'
 import { type BottleWithZone, volumeLabel } from '@/lib/types'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
 
@@ -92,6 +93,7 @@ export function CaveSection({ bottle, onRefetch, groupBottleIds }: CaveSectionPr
       await onRefetch()
     } catch (error) {
       console.error('Update quantity error:', error)
+      showToast('Erreur lors de la mise à jour de la quantité')
     }
 
     setUpdatingQuantity(false)
@@ -116,6 +118,7 @@ export function CaveSection({ bottle, onRefetch, groupBottleIds }: CaveSectionPr
       await onRefetch()
     } catch (err) {
       console.error('Mark as drunk error:', err)
+      showToast('Erreur lors du marquage comme bu')
     }
     setRemoving(false)
   }

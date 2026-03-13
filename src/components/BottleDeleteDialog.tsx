@@ -6,6 +6,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
 import { type BottleWithZone } from '@/lib/types'
 import { track } from '@/lib/track'
+import { showToast } from '@/components/Toast'
 
 interface BottleDeleteDialogProps {
   bottle: BottleWithZone
@@ -42,6 +43,7 @@ export function BottleDeleteDialog({ bottle, open, onClose, onDeleted }: BottleD
       }
     } catch (err) {
       console.error('Delete error:', err)
+      showToast('Erreur lors de la suppression')
     }
     setDeleting(false)
   }

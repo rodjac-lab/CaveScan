@@ -21,6 +21,7 @@ import { useZones } from '@/hooks/useZones'
 import { supabase } from '@/lib/supabase'
 import { BOTTLE_VOLUMES, WINE_COLORS, type BottleVolumeOption, type WineColor } from '@/lib/types'
 import { uploadPhoto } from '@/lib/uploadPhoto'
+import { showToast } from '@/components/Toast'
 
 function SectionCard({
   title,
@@ -145,6 +146,7 @@ export default function EditBottle() {
       }
     } catch (err) {
       console.error('Photo upload error:', err)
+      showToast('Erreur lors de l\'upload de la photo')
     }
 
     if (isFront) setUploadingFront(false)
@@ -176,6 +178,7 @@ export default function EditBottle() {
       }
     } catch (err) {
       console.error('Photo remove error:', err)
+      showToast('Erreur lors de la suppression de la photo')
     }
 
     if (isFront) setRemovingFront(false)
