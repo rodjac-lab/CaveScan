@@ -74,7 +74,8 @@ Source unique de verite pour les travaux produit/tech.
 
 - [ ] Metriques produit de base (taux de scan reussi, temps moyen ajout/sortie)
 - [ ] Outillage E2E minimal (Playwright, 3-5 parcours critiques)
-- [ ] Supprimer les edge functions obsoletes du repo (celestin-assistant/, recommend-wine/)
+- [x] Supprimer les edge functions obsoletes du repo (celestin-assistant/, recommend-wine/)
+- [ ] Auth in-function sur celestin : verifier le JWT dans le code (remplace le toggle legacy dashboard qui ne fonctionne pas sur celestin)
 
 ---
 
