@@ -43,11 +43,11 @@ interface AddBottleLocationState {
   prefillVolume?: BottleVolumeOption
 }
 
-function toBatchItemData(file: File, extraction: Partial<WineExtraction>, index: number): BatchItemData {
+function toBatchItemData(file: File | null, extraction: Partial<WineExtraction>, index: number): BatchItemData {
   return {
     id: `batch-${Date.now()}-${index}`,
     photoFile: file,
-    photoPreview: URL.createObjectURL(file),
+    photoPreview: file ? URL.createObjectURL(file) : null,
     photoFileBack: null,
     photoPreviewBack: null,
     extractionStatus: 'extracted',
@@ -60,9 +60,9 @@ function toBatchItemData(file: File, extraction: Partial<WineExtraction>, index:
     region: extraction.region || '',
     zoneId: '',
     shelf: '',
-    purchasePrice: '',
-    quantity: 1,
-    volumeL: '0.75',
+    purchasePrice: extraction.purchase_price ? String(extraction.purchase_price) : '',
+    quantity: (extraction as Record<string, unknown>).quantity as number ?? 1,
+    volumeL: ((extraction as Record<string, unknown>).volume as BottleVolumeOption) || '0.75',
     rawExtraction: {
       domaine: extraction.domaine || null,
       cuvee: extraction.cuvee || null,
@@ -157,12 +157,12 @@ export default function AddBottle() {
   const batchInitRef = useRef(false)
 
   useEffect(() => {
-    if (!prefillPhotoFile || !prefillBatchExtractions || prefillBatchExtractions.length === 0 || batchInitRef.current) return
+    if (!prefillBatchExtractions || prefillBatchExtractions.length === 0 || batchInitRef.current) return
     batchInitRef.current = true
 
     const items = prefillBatchExtractions
       .slice(0, MAX_BATCH_SIZE)
-      .map((extraction, index) => toBatchItemData(prefillPhotoFile, extraction, index))
+      .map((extraction, index) => toBatchItemData(prefillPhotoFile ?? null, extraction, index))
 
     setBatchItems(items)
     setCurrentBatchIndex(0)
@@ -330,7 +330,7 @@ export default function AddBottle() {
       setBatchItems([...updatedItems])
 
       try {
-        const base64 = await fileToBase64(updatedItems[i].photoFile)
+        const base64 = await fileToBase64(updatedItems[i].photoFile!)
         const { data, error } = await supabase.functions.invoke('extract-wine', {
           body: { image_base64: base64 },
         })
@@ -522,7 +522,7 @@ export default function AddBottle() {
 
     try {
       const timestamp = Date.now()
-      const photoUrl = await uploadPhoto(item.photoFile, `${timestamp}-${item.id}-front.jpg`)
+      const photoUrl = item.photoFile ? await uploadPhoto(item.photoFile, `${timestamp}-${item.id}-front.jpg`) : null
       const photoUrlBack = item.photoFileBack
         ? await uploadPhoto(item.photoFileBack, `${timestamp}-${item.id}-back.jpg`)
         : null

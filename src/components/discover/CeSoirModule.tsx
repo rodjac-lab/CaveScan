@@ -48,6 +48,7 @@ interface ChatMessage {
 type CelestinUiAction =
   | { kind: 'show_recommendations'; payload: { cards: RecommendationCard[] } }
   | { kind: 'prepare_add_wine'; payload: { extraction: WineActionData['extraction'] } }
+  | { kind: 'prepare_add_wines'; payload: { extractions: WineActionData['extraction'][] } }
   | { kind: 'prepare_log_tasting'; payload: { extraction: WineActionData['extraction'] } }
 
 interface CelestinResponse {
@@ -435,6 +436,7 @@ export default function CeSoirModule() {
 
   // Refs
   const threadRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const caveRef = useRef(caveBottles)
   const drunkRef = useRef(drunkBottles)
   const profileRef = useRef(profile)
@@ -547,6 +549,13 @@ export default function CeSoirModule() {
 
       if (response.ui_action?.kind === 'show_recommendations' && resolvedCards && resolvedCards.length > 0) {
         update.cards = resolvedCards
+      } else if (response.ui_action?.kind === 'prepare_add_wines' && response.ui_action.payload.extractions?.length > 0) {
+        // Batch add — navigate directly to AddBottle with batch extractions
+        setMessages(prev => prev.map(m => m.id === loadingMsgId ? { ...m, ...update } : m))
+        setIsLoading(false)
+        scrollToBottom()
+        navigate('/add', { state: { prefillBatchExtractions: response.ui_action.payload.extractions } })
+        return
       } else if (
         (response.ui_action?.kind === 'prepare_add_wine' || response.ui_action?.kind === 'prepare_log_tasting')
         && response.ui_action.payload.extraction
@@ -603,6 +612,7 @@ export default function CeSoirModule() {
     const text = queryInput.trim()
     if (text.length < 2 || isLoading) return
     setQueryInput('')
+    if (textareaRef.current) textareaRef.current.style.height = ''
     submitMessage(text)
   }
 
@@ -704,6 +714,7 @@ export default function CeSoirModule() {
               <SearchIcon />
             </div>
             <textarea
+              ref={textareaRef}
               value={queryInput}
               onChange={(e) => {
                 setQueryInput(e.target.value)

@@ -47,7 +47,7 @@ interface RequestBody {
   }
 }
 
-type UiActionKind = 'show_recommendations' | 'prepare_add_wine' | 'prepare_log_tasting'
+type UiActionKind = 'show_recommendations' | 'prepare_add_wine' | 'prepare_add_wines' | 'prepare_log_tasting'
 
 interface WineExtraction {
   domaine: string | null
@@ -79,6 +79,7 @@ interface RecommendationCard {
 type CelestinUiAction =
   | { kind: 'show_recommendations'; payload: { cards: RecommendationCard[] } }
   | { kind: 'prepare_add_wine'; payload: { extraction: WineExtraction } }
+  | { kind: 'prepare_add_wines'; payload: { extractions: WineExtraction[] } }
   | { kind: 'prepare_log_tasting'; payload: { extraction: WineExtraction } }
 
 interface CelestinResponse {
@@ -118,7 +119,7 @@ function parseAndValidate(raw: string): CelestinResponse {
   if (!data.message) {
     throw new Error('Invalid response: missing "message" field')
   }
-  const validUiActions: UiActionKind[] = ['show_recommendations', 'prepare_add_wine', 'prepare_log_tasting']
+  const validUiActions: UiActionKind[] = ['show_recommendations', 'prepare_add_wine', 'prepare_add_wines', 'prepare_log_tasting']
   if (data.ui_action) {
     if (!validUiActions.includes(data.ui_action.kind)) {
       throw new Error(`Invalid ui_action kind: ${data.ui_action.kind}`)
@@ -128,6 +129,9 @@ function parseAndValidate(raw: string): CelestinResponse {
     }
     if ((data.ui_action.kind === 'prepare_add_wine' || data.ui_action.kind === 'prepare_log_tasting') && !data.ui_action.payload?.extraction) {
       throw new Error(`Invalid ui_action: ${data.ui_action.kind} requires extraction`)
+    }
+    if (data.ui_action.kind === 'prepare_add_wines' && (!data.ui_action.payload?.extractions || data.ui_action.payload.extractions.length === 0)) {
+      throw new Error('Invalid ui_action: prepare_add_wines requires extractions array')
     }
   }
   // Pass through action_chips (optional, no validation needed)
@@ -225,7 +229,7 @@ const RESPONSE_SCHEMA = {
       properties: {
         kind: {
           type: 'STRING',
-          enum: ['show_recommendations', 'prepare_add_wine', 'prepare_log_tasting'],
+          enum: ['show_recommendations', 'prepare_add_wine', 'prepare_add_wines', 'prepare_log_tasting'],
         },
         payload: {
           type: 'OBJECT',
@@ -266,6 +270,31 @@ const RESPONSE_SCHEMA = {
                 purchase_price: { type: 'NUMBER', nullable: true },
               },
               required: ['domaine', 'cuvee', 'appellation', 'millesime', 'couleur', 'region', 'quantity', 'volume'],
+            },
+            extractions: {
+              type: 'ARRAY',
+              nullable: true,
+              description: 'Tableau d\'extractions pour ajout batch (prepare_add_wines)',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  domaine: { type: 'STRING', nullable: true },
+                  cuvee: { type: 'STRING', nullable: true },
+                  appellation: { type: 'STRING', nullable: true },
+                  millesime: { type: 'INTEGER', nullable: true },
+                  couleur: { type: 'STRING', nullable: true },
+                  region: { type: 'STRING', nullable: true },
+                  quantity: { type: 'INTEGER' },
+                  volume: { type: 'STRING' },
+                  grape_varieties: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
+                  serving_temperature: { type: 'STRING', nullable: true },
+                  typical_aromas: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
+                  food_pairings: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
+                  character: { type: 'STRING', nullable: true },
+                  purchase_price: { type: 'NUMBER', nullable: true },
+                },
+                required: ['domaine', 'cuvee', 'appellation', 'millesime', 'couleur', 'region', 'quantity', 'volume'],
+              },
             },
           },
           required: [],

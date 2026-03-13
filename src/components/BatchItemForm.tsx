@@ -20,8 +20,8 @@ import type { Zone } from '@/lib/types'
 
 export interface BatchItemData {
   id: string
-  photoFile: File
-  photoPreview: string
+  photoFile: File | null
+  photoPreview: string | null
   photoFileBack: File | null
   photoPreviewBack: string | null
   extractionStatus: 'pending' | 'extracting' | 'extracted' | 'error'
@@ -106,7 +106,7 @@ export function BatchItemForm({
                     src={item.photoPreview}
                     alt="Étiquette avant"
                     className="max-h-28 w-full rounded object-contain cursor-zoom-in"
-                    onClick={() => onZoomImage(item.photoPreview, 'Avant')}
+                    onClick={() => onZoomImage(item.photoPreview!, 'Avant')}
                   />
                   <p className="text-xs text-center text-muted-foreground mt-1">Avant</p>
                 </div>

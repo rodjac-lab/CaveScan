@@ -40,6 +40,11 @@ export const CELESTIN_RULES = `
 ### Mots-cles encavage
 achete, recu, commande, encaver, ajouter (en cave), arrive, livre, ramene, stocker, rentrer (du vin)
 
+### Encavage batch (prepare_add_wines)
+- Si l'utilisateur colle une facture, un bon de commande, un mail de confirmation ou une liste avec 2+ vins distincts → utilise "prepare_add_wines" avec un tableau "extractions"
+- Extrais chaque ligne comme une extraction separee avec quantite et prix si disponibles
+- Si un seul vin (meme en quantite multiple, ex: "6 bouteilles de Margaux") → utilise "prepare_add_wine" (singulier)
+
 ### Mots-cles degustation
 deguste, bu, ouvert, goute, "hier soir on a bu", "j'ai ouvert"
 

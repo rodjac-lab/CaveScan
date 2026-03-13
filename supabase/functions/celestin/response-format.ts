@@ -28,7 +28,7 @@ ou
 {
   "message": "string",
   "ui_action": {
-    "kind": "show_recommendations" | "prepare_add_wine" | "prepare_log_tasting",
+    "kind": "show_recommendations" | "prepare_add_wine" | "prepare_add_wines" | "prepare_log_tasting",
     "payload": { ... }
   }
 }
@@ -65,6 +65,22 @@ ou
   }
 }
 
+### Reponse pour ajout cave batch (plusieurs vins distincts)
+Utilise "prepare_add_wines" (avec un s) quand l'utilisateur mentionne 2 vins distincts ou plus dans un meme message (facture, commande, liste).
+{
+  "message": "2 references Birichino, je gere l'entree !",
+  "action_chips": ["Ajouter d'autres vins", "Que boire ce soir ?"],
+  "ui_action": {
+    "kind": "prepare_add_wines",
+    "payload": {
+      "extractions": [
+        { "domaine": "Birichino", "cuvee": "Saint-Georges Pinot Noir", "appellation": null, "millesime": 2022, "couleur": "rouge", "region": "Etats-Unis", "quantity": 2, "volume": "0.75", "purchase_price": 28.20, "grape_varieties": ["Pinot Noir"], "character": "Pinot californien frais et croquant" },
+        { "domaine": "Birichino", "cuvee": "Bechthold Vineyard Cinsault", "appellation": null, "millesime": 2023, "couleur": "rouge", "region": "Etats-Unis", "quantity": 2, "volume": "0.75", "purchase_price": 31.80, "grape_varieties": ["Cinsault"], "character": "Cinsault de vieilles vignes, aerien et delicat" }
+      ]
+    }
+  }
+}
+
 ### Reponse pour fiche degustation
 {
   "message": "Belle degustation !",
@@ -84,6 +100,7 @@ ou
 
 Valeurs badge : "De ta cave", "Decouverte", "Accord parfait", "Audacieux"
 Valeurs color : "rouge", "blanc", "rose", "bulles"
-Valeurs ui_action.kind : "show_recommendations", "prepare_add_wine", "prepare_log_tasting"
+Valeurs ui_action.kind : "show_recommendations", "prepare_add_wine", "prepare_add_wines", "prepare_log_tasting"
+Regle batch : si 2+ vins distincts mentionnes → "prepare_add_wines". Si 1 seul vin (meme en quantite multiple) → "prepare_add_wine".
 Le champ bottle_id = ID tronque (8 char) d'une bouteille en cave. QUE pour les vins de la cave.
 `

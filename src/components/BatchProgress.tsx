@@ -4,7 +4,7 @@ export type ExtractionStatus = 'pending' | 'extracting' | 'extracted' | 'error'
 
 export interface BatchProgressItem {
   id: string
-  photoPreview: string
+  photoPreview: string | null
   status: ExtractionStatus
   error?: string
   domaine?: string
@@ -66,11 +66,17 @@ export function BatchProgress({ items, currentIndex }: BatchProgressProps) {
                 isCurrent ? 'bg-[var(--accent)]/10' : ''
               }`}
             >
-              <img
-                src={item.photoPreview}
-                alt={`Photo ${index + 1}`}
-                className="h-12 w-12 rounded object-cover"
-              />
+              {item.photoPreview ? (
+                <img
+                  src={item.photoPreview}
+                  alt={`Photo ${index + 1}`}
+                  className="h-12 w-12 rounded object-cover"
+                />
+              ) : (
+                <div className="h-12 w-12 rounded bg-[var(--accent-bg)] flex items-center justify-center text-[var(--text-muted)] text-xs font-medium">
+                  {index + 1}
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 {hasWineInfo ? (
                   <>

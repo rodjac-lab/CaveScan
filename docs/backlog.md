@@ -1,52 +1,117 @@
-﻿# Backlog CaveScan
+# Backlog Celestin (ex-CaveScan)
 
-Liste vivante des travaux produit/tech, priorisÃ©e pour les prochaines itÃ©rations.
+Source unique de verite pour les travaux produit/tech.
 
-## Maintenant (P0)
+---
 
-- [x] ~~Sécuriser extract-wine~~ → verify_jwt = true remis + prompt unifié avec règles qualité.
-- [ ] Implémenter une vraie vérification d’auth dans les edge functions (extract-wine, enrich-wine, celestin) : vérifier le token utilisateur dans le code plutôt que via le legacy JWT secret (clé anon insuffisante).
-- [ ] Ajouter un parcours de test manuel minimal avant release (auth, ajout, sortie, Ã©dition, notes).
+## Fait
 
-## Prochainement (P1)
+- [x] Securiser extract-wine (verify_jwt = true + prompt unifie)
+- [x] Activer verify_jwt sur toutes les edge functions (extract-wine, celestin, enrich-wine)
+- [x] Clarifier l'UX de la sortie (flow Cheers! single + batch)
+- [x] Reduire la taille des pages monolithiques (refactoring Fowler : 13 composants, 3 utilities)
+- [x] Suggestions intelligentes de bouteilles (module Decouvrir, Gemini Flash + Claude Haiku fallback)
+- [x] Signature/partage "Partage avec CaveScan" (partage avec photos + branding)
+- [x] Celestin V1 memoire : tasting tags, souvenirs proactifs, cross-session localStorage
+- [x] Celestin UI : lisibilite (bulles retirees, 15px, espacement), persona plus tranchee, chips dynamiques LLM
 
-- [ ] AmÃ©liorer la qualitÃ© OCR sur cas difficiles (Ã©tiquettes inclinÃ©es, reflets, faible lumiÃ¨re).
-- [ ] Ajouter des mÃ©triques produit de base (taux de scan rÃ©ussi, temps moyen ajout/sortie).
-- [ ] Ajouter suppression/restauration contrÃ´lÃ©e dâ€™entrÃ©es/sorties (historique robuste).
-- [ ] Historique d'achat par lots: conserver des enregistrements distincts pour un meme vin (date/prix/quantite/volume) tout en affichant une quantite agregee juste dans la cave. Probleme actuel: en vue detail d'une ligne agregee, un seul lot est visible donc les autres prix d'achat sont invisibles. Proposition UX: Fiche -> prix moyen pondere (par quantite) -> tap pour ouvrir un panneau "Historique des achats" listant tous les lots.
-- [ ] Celestin: rendre les intros de recommandation plus naturelles, moins ecrites et moins repetitives.
-- [ ] Celestin: durcir l'usage des souvenirs. Ne citer une memoire que si le lien est vraiment evident et non artificiel.
-- [ ] Celestin: permettre une relance conversationnelle simple quand le contexte mets/vin n'est pas assez clair, au lieu de sur-prescrire.
-- [ ] Celestin encavage conversationnel: au lieu de produire la fiche immediatement, Celestin collecte les infos manquantes (prix, emplacement) par echange naturel avant de declencher prepare_add_wine. Ex: "J'ai achete un NSG 2020" → "Je gere l'entree, tu as le prix?" → "59€" → "Tu la ranges ou?" → fiche complete.
-- [ ] Import facture (photo/PDF) pour creation batch assistee. Meme pipeline que extract-wine mais multi-lignes. Source la plus complete (domaine, millesime, quantite, prix) et scenario recurrent a chaque achat chez le caviste ou en ligne.
-- [ ] Celestin memoire: mieux exploiter la richesse des notes de degustation et des photos de plats. Apprentissage actuel: le pipeline envoie surtout des souvenirs resumes via tags, ce qui peut perdre des nuances importantes de la note brute.
-- [ ] Recommendations: ajouter le millesime comme champ explicite des cartes pour eviter qu'il disparaisse selon la formulation du modele.
-- [ ] Recommendations: definir plus tard un signal de style bouteille structure et fiable en remplacement du champ libre `character`.
-- [ ] Import concurrent mobile-first: supporter d'abord CellarTracker puis Vivino, avec reconnaissance automatique de formats connus et revue simple des lignes ambiguës. Eviter un mapping manuel complet sur mobile. Attendre de vrais fichiers d'exemple avant implementation.
-- [ ] Outillage E2E minimal: ajouter plus tard Playwright avec une config simple, quelques scripts npm, 3-5 parcours critiques et un environnement de test stable (compte seed ou backend de test) pour boucles UI automatisées.
-- [ ] Celestin profile V2: enrichir le profil avec des preferences de style utiles (tendu vs ample, aerien vs dense, boise vs peu boise, etc.).
-- [ ] Celestin profile V2: capturer aussi les aversions et limites de gout pour mieux filtrer les mauvais accords.
-- [ ] Celestin profile V2: mieux exploiter les accords vecus et marquants, pas seulement les stats de cave.
-- [ ] Celestin profile V2: integrer le contexte d'usage (semaine, diner, occasion, envie de decouverte vs valeur sure).
-- [ ] Celestin profile V2: ajouter une notion de confiance du signal pour eviter de surinterpreter des preferences faibles.
-- [x] ~~Clarifier lâ€™UX de la sortie~~ â†’ Flow Cheers! (single + batch) en place.
+---
 
-## Plus tard (P2)
+## P0 — Maintenant
 
-- [x] ~~RÃ©duire la taille des pages monolithiques~~ â†’ Refactoring Fowler complÃ©tÃ© : 13 composants extraits, 3 utilities centralisÃ©es (`bottleActions`, `uploadPhoto`, `wineMatching`).
-- [x] ~~Suggestions intelligentes de bouteilles Ã  ouvrir~~ â†’ Le Sommelier (module DÃ©couvrir) avec Gemini Flash + Claude Haiku fallback.
-- [ ] Valorisation cave (prix marchÃ©) avec affichage de fiabilitÃ© de la donnÃ©e.
-- [ ] Mode partage (lecture seule puis collaboration).
+- [ ] Parcours de test manuel minimal avant release (auth, ajout, sortie, edition, notes, Celestin)
+- [ ] Rebranding CaveScan -> Celestin (nom de code, repo, UI, logo, PWA manifest)
 
-## IdÃ©es Ã  explorer
+---
 
-- [x] ~~Signature/partage â€œPartagÃ© avec CaveScanâ€~~ â†’ ImplÃ©mentÃ© (partage avec photos + branding).
-- [ ] Rappels de fenÃªtre de dÃ©gustation (push ou email digest).
-- [ ] Export assurance (PDF/CSV).
+## P1 — Prochainement
 
-## RÃ©fÃ©rences roadmap (PRD)
+### Cave & Gestion
 
-- MVP: entrÃ©e/sortie photo, inventaire, recherche, sorties rÃ©centes, notes.
-- V1: enrichissement prix/maturitÃ©, import factures.
-- V2: rÃ©duction maximale de friction en sortie (voix, RFID, etc.).
+- [ ] Historique d'achat par lots : enregistrements distincts par lot (date/prix/quantite/volume), prix moyen pondere en fiche, panneau "Historique des achats"
+- [ ] Suppression/restauration controlee d'entrees/sorties (historique robuste)
+- [ ] Fenetres de maturite : remplir drink_from/drink_until via enrichissement, alertes quand une bouteille arrive a maturite
+- [ ] Import facture (photo/PDF) pour creation batch assistee, pipeline multi-lignes
+- [ ] Import concurrent mobile-first : CellarTracker puis Vivino, reconnaissance automatique de formats
 
+### OCR & Scan
+
+- [ ] Ameliorer la qualite OCR sur cas difficiles (etiquettes inclinees, reflets, faible lumiere)
+
+### Celestin — Qualite conversationnelle
+
+- [ ] Intros de recommandation plus naturelles, moins ecrites et moins repetitives
+- [ ] Durcir l'usage des souvenirs (ne citer que si lien vraiment evident)
+- [ ] Relance conversationnelle quand contexte mets/vin incomplet, au lieu de sur-prescrire
+- [ ] Encavage conversationnel : collecte infos manquantes par echange naturel avant fiche (prix, emplacement)
+- [ ] Mieux exploiter la richesse des notes brutes et photos de plats (pas juste les tags resumes)
+- [ ] Millesime comme champ explicite des cartes de recommandation
+- [ ] Signal de style bouteille structure en remplacement du champ libre `character`
+
+### Celestin — Engagement & Proactivite
+
+- [ ] Message du jour a l'ouverture de l'app (maturite, meteo, suggestion contextuelle, rappel cave)
+- [ ] Micro-rituels : "Ce soir" (17h-20h, 1 bouteille proposee), "Le debrief" (lendemain matin, pousser a noter), "Le dimanche" (resume hebdo)
+- [ ] Debrief post-degustation : Celestin relance naturellement apres une notation
+- [ ] Chips de bienvenue contextuels (selon heure, saison, etat de la cave) au lieu de statiques
+- [ ] Micro-culture vin contextuelle ("Tu savais que Sancerre etait un vin rouge avant le phylloxera ?")
+
+### Celestin — Profile V2
+
+- [ ] Preferences de style (tendu vs ample, aerien vs dense, boise vs peu boise)
+- [ ] Aversions et limites de gout
+- [ ] Accords vecus et marquants (pas juste stats de cave)
+- [ ] Contexte d'usage (semaine, diner, occasion, decouverte vs valeur sure)
+- [ ] Confiance du signal pour eviter de surinterpreter des preferences faibles
+- [ ] Preferences explicites dans Reglages (UI)
+
+### Celestin — Memoire V2
+
+- [ ] Migration cross-session localStorage -> Supabase
+- [ ] Verification d'auth avancee dans le code des edge functions (decoder token, filtrer par user_id)
+
+### Tech & Qualite
+
+- [ ] Metriques produit de base (taux de scan reussi, temps moyen ajout/sortie)
+- [ ] Outillage E2E minimal (Playwright, 3-5 parcours critiques)
+- [ ] Supprimer les edge functions obsoletes du repo (celestin-assistant/, recommend-wine/)
+
+---
+
+## P2 — Plus tard
+
+### Celestin — UX avancee
+
+- [ ] Streaming word-by-word des reponses (effet typewriter, comme ChatGPT/Claude.ai)
+- [ ] Animations d'entree des cartes (scale 0.95->1.0 + fade, 200ms)
+- [ ] Sommelier score / gamification discrete (diversite, memoire, regularite)
+- [ ] Bilans hebdo/mensuels ("En mars, tu as explore 3 nouvelles appellations")
+
+### Celestin — Social & Decouverte
+
+- [ ] Carte vin stylee exportable (image generee) pour partage 1-tap
+- [ ] "Ce soir on est 6" : recommandation menu complet (apero -> dessert)
+- [ ] "Mon ami aime le Bourgogne" : recommandations cadeau
+- [ ] Decouverte de la semaine : 1 vin hors cave que Celestin pense que l'utilisateur aimerait
+- [ ] Quand une bouteille est 5/5 : "Tu adores ce style. Voici 3 domaines similaires"
+
+### Cave avancee
+
+- [ ] Valorisation cave (prix marche) avec affichage de fiabilite
+- [ ] Mode partage (lecture seule puis collaboration)
+- [ ] Sortie vocale ("ouvre-moi un Margaux 2018")
+- [ ] Reconnaissance bouteille vide
+- [ ] RFID/NFC (si migration app native)
+
+### Autres
+
+- [ ] Rappels de fenetre de degustation (push ou email digest)
+- [ ] Export assurance (PDF/CSV)
+
+---
+
+## References roadmap (PRD)
+
+- MVP : entree/sortie photo, inventaire, recherche, sorties recentes, notes
+- V1 : enrichissement prix/maturite, import factures
+- V2 : reduction maximale de friction en sortie (voix, RFID)
