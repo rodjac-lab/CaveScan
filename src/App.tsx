@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { prefetchDefaultRecommendations } from '@/hooks/useRecommendations'
 import BottomNav from './components/BottomNav'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Loader2 } from 'lucide-react'
 
@@ -76,19 +77,21 @@ function AppLayout() {
     <ProtectedRoute>
       <div className="flex h-screen flex-col overflow-hidden">
         <main className="flex flex-1 flex-col min-h-0 pb-20 pt-[env(safe-area-inset-top)]">
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/cave" element={<Home />} />
-              <Route path="/add" element={<AddBottle />} />
-              <Route path="/remove" element={<RemoveBottle />} />
-              <Route path="/degustations" element={<Degustations />} />
-              <Route path="/decouvrir" element={<Decouvrir />} />
-              <Route path="/bottle/:id" element={<BottlePage />} />
-              <Route path="/bottle/:id/edit" element={<EditBottle />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/debug" element={<Debug />} />
-            </Routes>
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route path="/cave" element={<Home />} />
+                <Route path="/add" element={<AddBottle />} />
+                <Route path="/remove" element={<RemoveBottle />} />
+                <Route path="/degustations" element={<Degustations />} />
+                <Route path="/decouvrir" element={<Decouvrir />} />
+                <Route path="/bottle/:id" element={<BottlePage />} />
+                <Route path="/bottle/:id/edit" element={<EditBottle />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/debug" element={<Debug />} />
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
         </main>
         <BottomNav />
       </div>

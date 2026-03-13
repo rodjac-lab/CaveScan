@@ -9,6 +9,7 @@ import {
 import type { RecommendationCard } from '@/lib/recommendationStore'
 import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
 import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
+import { getCachedBottles } from '@/hooks/useBottles'
 import type { Bottle, TasteProfile } from '@/lib/types'
 
 // === Prefetch (fire-and-forget, called from AppLayout) ===
@@ -23,17 +24,28 @@ export async function prefetchDefaultRecommendations(): Promise<void> {
   if (getCachedRecommendation(queryKey)) return
 
   try {
-    const [caveRes, drunkRes] = await Promise.all([
-      supabase.from('bottles').select('*').eq('status', 'in_stock'),
-      supabase.from('bottles').select('*').eq('status', 'drunk').order('drunk_at', { ascending: false }).limit(30),
-    ])
+    // Reuse data from hooks if already loaded, otherwise fetch
+    const cached = getCachedBottles()
+    let caveBottles: Bottle[]
+    let drunkBottles: Bottle[]
+
+    if (cached.inStock && cached.drunk) {
+      caveBottles = cached.inStock
+      drunkBottles = cached.drunk
+    } else {
+      const [caveRes, drunkRes] = await Promise.all([
+        supabase.from('bottles').select('*').eq('status', 'in_stock'),
+        supabase.from('bottles').select('*').eq('status', 'drunk').order('drunk_at', { ascending: false }).limit(30),
+      ])
+      caveBottles = (caveRes.data ?? []) as Bottle[]
+      drunkBottles = (drunkRes.data ?? []) as Bottle[]
+    }
+
     const profileRes = await supabase
       .from('user_taste_profiles')
       .select('computed_profile, explicit_preferences, computed_at')
       .maybeSingle()
 
-    const caveBottles = (caveRes.data ?? []) as Bottle[]
-    const drunkBottles = (drunkRes.data ?? []) as Bottle[]
     const profile: TasteProfile | null = profileRes.data
       ? {
           computed: profileRes.data.computed_profile as TasteProfile['computed'],

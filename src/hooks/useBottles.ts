@@ -1,8 +1,16 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { BottleWithZone } from '@/lib/types'
+import type { Bottle, BottleWithZone } from '@/lib/types'
 
 const BOTTLES_SELECT_QUERY = `*, zone:zones(*)`
+
+// Module-level cache so prefetch can reuse hook data (avoids duplicate Supabase queries)
+let cachedInStock: Bottle[] | null = null
+let cachedDrunk: Bottle[] | null = null
+
+export function getCachedBottles(): { inStock: Bottle[] | null; drunk: Bottle[] | null } {
+  return { inStock: cachedInStock, drunk: cachedDrunk }
+}
 
 async function loadBottles(): Promise<{ data: BottleWithZone[]; error: string | null }> {
   const { data, error } = await supabase
@@ -58,6 +66,7 @@ export function useBottles(): {
       setBottles(result.data)
       setError(result.error)
       setLoading(false)
+      cachedInStock = result.data
     }
 
     void fetchInitialBottles()
@@ -86,8 +95,10 @@ export function useRecentlyDrunk(): {
         .order('drunk_at', { ascending: false })
         .limit(30)
 
-      setBottles(data || [])
+      const bottles = data || []
+      setBottles(bottles)
       setLoading(false)
+      cachedDrunk = bottles
     }
     fetchRecentlyDrunk()
   }, [])
