@@ -63,7 +63,7 @@ async function runEnrichBackfill(onUpdate: (s: { status: string | null; running:
   try {
     const { data: bottles } = await supabase
       .from('bottles')
-      .select('id, domaine, cuvee, appellation, millesime, couleur, country, region, raw_extraction, grape_varieties, serving_temperature, typical_aromas, food_pairings, character')
+      .select('id, domaine, cuvee, appellation, millesime, couleur, country, region, raw_extraction, grape_varieties, serving_temperature, typical_aromas, food_pairings, character, drink_from, drink_until')
     if (!bottles || bottles.length === 0) {
       enrichState = { status: 'Toutes les bouteilles sont deja enrichies !', running: false }
       onUpdate(enrichState)
@@ -101,6 +101,8 @@ async function runEnrichBackfill(onUpdate: (s: { status: string | null; running:
       if (!b.typical_aromas) updates.typical_aromas = data.typical_aromas || null
       if (!b.food_pairings) updates.food_pairings = data.food_pairings || null
       if (!b.character) updates.character = data.character || null
+      if (!b.drink_from && data.drink_from) updates.drink_from = data.drink_from
+      if (!b.drink_until && data.drink_until) updates.drink_until = data.drink_until
       if (Object.keys(updates).length > 0) {
         await supabase.from('bottles').update(updates).eq('id', b.id)
       }

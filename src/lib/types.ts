@@ -229,4 +229,6 @@ export interface WineExtraction {
   food_pairings?: string[] | null
   character?: string | null
   purchase_price?: number | null
+  drink_from?: number | null
+  drink_until?: number | null
 }

@@ -15,6 +15,8 @@ RÈGLES :
 - typical_aromas : 3-5 descripteurs précis. Tiens compte du millésime si présent (jeune = fruits frais, mature = cuir/truffe).
 - food_pairings : 2-3 accords pertinents. JAMAIS de rouge tannique sur poisson. Privilégie les accords régionaux.
 - character : commentaire de sommelier en 1-2 phrases, direct et opinioné. Mentionne si le vin gagne à être carafé. Reste factuel sur le potentiel de garde.
+- drink_from : année (entier) à partir de laquelle le vin commence à être agréable. Basé sur l'appellation, le millésime et le style. null si impossible à estimer.
+- drink_until : année (entier) limite raisonnable pour boire le vin. Au-delà il risque de décliner. null si impossible à estimer.
 
 IMPORTANT : Tous les champs texte doivent etre en francais (aromes, accords, character, etc.), meme pour des vins etrangers.
 
@@ -38,8 +40,10 @@ const RESPONSE_SCHEMA = {
     typical_aromas: { type: 'ARRAY' as const, items: { type: 'STRING' as const }, nullable: true },
     food_pairings: { type: 'ARRAY' as const, items: { type: 'STRING' as const }, nullable: true },
     character: { type: 'STRING' as const, nullable: true },
+    drink_from: { type: 'INTEGER' as const, nullable: true },
+    drink_until: { type: 'INTEGER' as const, nullable: true },
   },
-  required: ['country', 'region', 'grape_varieties', 'serving_temperature', 'typical_aromas', 'food_pairings', 'character'],
+  required: ['country', 'region', 'grape_varieties', 'serving_temperature', 'typical_aromas', 'food_pairings', 'character', 'drink_from', 'drink_until'],
 }
 
 function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = TIMEOUT_MS): Promise<Response> {

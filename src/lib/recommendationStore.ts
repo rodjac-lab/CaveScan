@@ -4,6 +4,7 @@ export interface RecommendationCard {
   bottle_id?: string
   name: string
   appellation: string
+  millesime?: number | null
   badge: string
   reason: string
   color: WineColor

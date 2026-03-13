@@ -208,7 +208,7 @@ const RecommendationCardItem = memo(function RecommendationCardItem({ card, onTa
           <p className="font-serif text-[15px] font-bold text-[var(--text-primary)] leading-tight">
             {card.name}
           </p>
-          <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{card.appellation}</p>
+          <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{[card.appellation, card.millesime].filter(Boolean).join(' · ')}</p>
           <p className="text-[12px] italic text-[var(--text-secondary)] mt-2 leading-relaxed line-clamp-3">
             {card.reason}
           </p>

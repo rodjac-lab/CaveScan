@@ -71,6 +71,7 @@ interface RecommendationCard {
   bottle_id?: string
   name: string
   appellation: string
+  millesime?: number | null
   badge: string
   reason: string
   color: 'rouge' | 'blanc' | 'rose' | 'bulles'
@@ -243,6 +244,7 @@ const RESPONSE_SCHEMA = {
                   bottle_id: { type: 'STRING', nullable: true },
                   name: { type: 'STRING' },
                   appellation: { type: 'STRING' },
+                  millesime: { type: 'INTEGER', nullable: true },
                   badge: { type: 'STRING' },
                   reason: { type: 'STRING' },
                   color: { type: 'STRING' },
@@ -268,6 +270,8 @@ const RESPONSE_SCHEMA = {
                 food_pairings: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
                 character: { type: 'STRING', nullable: true },
                 purchase_price: { type: 'NUMBER', nullable: true },
+                drink_from: { type: 'INTEGER', nullable: true, description: 'Annee a partir de laquelle boire' },
+                drink_until: { type: 'INTEGER', nullable: true, description: 'Annee limite pour boire' },
               },
               required: ['domaine', 'cuvee', 'appellation', 'millesime', 'couleur', 'region', 'quantity', 'volume'],
             },
@@ -292,6 +296,8 @@ const RESPONSE_SCHEMA = {
                   food_pairings: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
                   character: { type: 'STRING', nullable: true },
                   purchase_price: { type: 'NUMBER', nullable: true },
+                  drink_from: { type: 'INTEGER', nullable: true, description: 'Annee a partir de laquelle boire' },
+                  drink_until: { type: 'INTEGER', nullable: true, description: 'Annee limite pour boire' },
                 },
                 required: ['domaine', 'cuvee', 'appellation', 'millesime', 'couleur', 'region', 'quantity', 'volume'],
               },

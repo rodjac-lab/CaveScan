@@ -25,7 +25,9 @@ const EXTRACTION_PROMPT = `Analyse cette photo de vin et reponds UNIQUEMENT avec
       "serving_temperature": "16-18C" ou null,
       "typical_aromas": ["arome1", "arome2", "arome3"] ou null,
       "food_pairings": ["accord1", "accord2"] ou null,
-      "character": "commentaire sommelier (1-2 phrases)" ou null
+      "character": "commentaire sommelier (1-2 phrases)" ou null,
+      "drink_from": annee (entier) a partir de laquelle boire ou null,
+      "drink_until": annee (entier) limite pour boire ou null
     }
   ]
 }
@@ -78,6 +80,14 @@ Aromes typiques du vin. Sois precis et descriptif :
 - Champagne/bulles = joker universel.
 - Privilegie les accords regionaux.
 - Ose un accord creatif si pertinent.
+
+## drink_from / drink_until
+Fenetre de maturite estimee (annees entieres).
+- Base-toi sur l'appellation, le millesime, la couleur et le style.
+- Ex: Bourgogne rouge village 2022 → drink_from: 2025, drink_until: 2032
+- Ex: Muscadet 2024 → drink_from: 2024, drink_until: 2027
+- Ex: Grand cru classe Bordeaux 2018 → drink_from: 2028, drink_until: 2050
+- null si pas assez d'info pour estimer (millesime inconnu, appellation trop vague).
 
 ## character
 Commentaire de sommelier en 1-2 phrases avec du caractere.
@@ -246,6 +256,8 @@ async function callGemini(imageBase64: string | undefined): Promise<ExtractionRe
                   typical_aromas: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
                   food_pairings: { type: 'ARRAY', nullable: true, items: { type: 'STRING' } },
                   character: { type: 'STRING', nullable: true },
+                  drink_from: { type: 'INTEGER', nullable: true },
+                  drink_until: { type: 'INTEGER', nullable: true },
                 },
                 required: ['domaine', 'appellation', 'couleur', 'confidence'],
               },

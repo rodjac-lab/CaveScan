@@ -490,6 +490,8 @@ export default function AddBottle() {
         typical_aromas: rawExtraction?.typical_aromas || null,
         food_pairings: rawExtraction?.food_pairings || null,
         character: rawExtraction?.character || null,
+        drink_from: rawExtraction?.drink_from || null,
+        drink_until: rawExtraction?.drink_until || null,
         volume_l: parseFloat(volumeL),
       }
 
@@ -548,6 +550,8 @@ export default function AddBottle() {
         typical_aromas: (item.rawExtraction as WineExtraction | null)?.typical_aromas || null,
         food_pairings: (item.rawExtraction as WineExtraction | null)?.food_pairings || null,
         character: (item.rawExtraction as WineExtraction | null)?.character || null,
+        drink_from: (item.rawExtraction as WineExtraction | null)?.drink_from || null,
+        drink_until: (item.rawExtraction as WineExtraction | null)?.drink_until || null,
         volume_l: parseFloat(item.volumeL),
       }
 

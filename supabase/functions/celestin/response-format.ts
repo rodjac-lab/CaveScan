@@ -47,7 +47,7 @@ ou
     "kind": "show_recommendations",
     "payload": {
       "cards": [
-        { "bottle_id": "abc12345", "name": "Domaine X", "appellation": "App", "badge": "De ta cave", "reason": "Pitch 1-2 phrases", "color": "rouge" }
+        { "bottle_id": "abc12345", "name": "Domaine X", "appellation": "App", "millesime": 2020, "badge": "De ta cave", "reason": "Pitch 1-2 phrases", "color": "rouge" }
       ]
     }
   }
@@ -60,7 +60,7 @@ ou
   "ui_action": {
     "kind": "prepare_add_wine",
     "payload": {
-      "extraction": { "domaine": "Chateau Margaux", "cuvee": null, "appellation": "Margaux", "millesime": 2018, "couleur": "rouge", "region": "Bordeaux", "quantity": 6, "volume": "0.75", "grape_varieties": ["Cabernet Sauvignon", "Merlot"], "serving_temperature": "17-18C", "typical_aromas": ["cassis", "cedre", "vanille"], "food_pairings": ["agneau", "fromages affines"], "character": "Grand vin puissant et elegant" }
+      "extraction": { "domaine": "Chateau Margaux", "cuvee": null, "appellation": "Margaux", "millesime": 2018, "couleur": "rouge", "region": "Bordeaux", "quantity": 6, "volume": "0.75", "grape_varieties": ["Cabernet Sauvignon", "Merlot"], "serving_temperature": "17-18C", "typical_aromas": ["cassis", "cedre", "vanille"], "food_pairings": ["agneau", "fromages affines"], "character": "Grand vin puissant et elegant", "drink_from": 2025, "drink_until": 2045 }
     }
   }
 }
