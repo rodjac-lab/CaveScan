@@ -2,8 +2,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { buildCelestinSystemPrompt } from "./prompt-builder.ts"
 
 // === CONFIG ===
+const MISTRAL_API_KEY = Deno.env.get('MISTRAL_API_KEY')
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
+const MISTRAL_MODEL = 'mistral-small-latest'
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001'
 const API_TIMEOUT_MS = 15_000
 
@@ -384,6 +386,43 @@ async function callGemini(systemPrompt: string, userPrompt: string, history: Con
   return parseAndValidate(text)
 }
 
+async function callMistral(systemPrompt: string, userPrompt: string, history: ConversationTurn[]): Promise<CelestinResponse> {
+  if (!MISTRAL_API_KEY) throw new Error('MISTRAL_API_KEY not configured')
+
+  const messages: Array<{ role: string; content: string }> = [
+    { role: 'system', content: systemPrompt },
+  ]
+  for (const turn of history) {
+    messages.push({ role: turn.role === 'user' ? 'user' : 'assistant', content: turn.text })
+  }
+  messages.push({ role: 'user', content: userPrompt })
+
+  const response = await fetchWithTimeout('https://api.mistral.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${MISTRAL_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: MISTRAL_MODEL,
+      max_tokens: 4096,
+      temperature: 0.5,
+      response_format: { type: 'json_object' },
+      messages,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Mistral ${MISTRAL_MODEL} (${response.status}): ${extractErrorMessage(await response.text())}`)
+  }
+
+  const result = await response.json()
+  const text = result.choices?.[0]?.message?.content
+  if (!text) throw new Error('No text response from Mistral')
+
+  return parseAndValidate(text)
+}
+
 async function callClaude(systemPrompt: string, userPrompt: string, history: ConversationTurn[]): Promise<CelestinResponse> {
   if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not configured')
 
@@ -424,6 +463,7 @@ async function celestinWithFallback(systemPrompt: string, userPrompt: string, hi
 
   if (GEMINI_API_KEY) providers.push({ name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history) })
   if (ANTHROPIC_API_KEY) providers.push({ name: 'Claude', call: () => callClaude(systemPrompt, userPrompt, history) })
+  if (MISTRAL_API_KEY) providers.push({ name: 'Mistral', call: () => callMistral(systemPrompt, userPrompt, history) })
 
   if (providers.length === 0) {
     throw new Error('No API keys configured.')
