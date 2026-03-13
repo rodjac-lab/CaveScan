@@ -35,8 +35,6 @@ interface WineActionData {
   summary: string
 }
 
-interface ActionChip { id: 'open' | 'add' | 'pairing'; label: string }
-
 interface ChatMessage {
   id: string
   role: 'celestin' | 'user'
@@ -44,7 +42,7 @@ interface ChatMessage {
   cards?: RecommendationCard[]
   wineAction?: WineActionData
   isLoading?: boolean
-  actionChips?: ActionChip[]
+  actionChips?: string[]
 }
 
 type CelestinUiAction =
@@ -55,6 +53,7 @@ type CelestinUiAction =
 interface CelestinResponse {
   message: string
   ui_action?: CelestinUiAction | null
+  action_chips?: string[] | null
 }
 
 // --- Icons ---
@@ -102,16 +101,10 @@ function TypingDots() {
 
 // --- Constants ---
 
-const PRIMARY_ACTIONS: Array<{ label: string; hint: string }> = [
-  { label: 'Plus audacieux', hint: 'style plus audacieux, accords originaux' },
-  { label: 'Plus classique', hint: 'style plus classique, valeur sure' },
-  { label: 'Moins cher', hint: 'budget plus accessible, meilleur rapport qualite-prix' },
-]
-
-const WELCOME_CHIPS: ActionChip[] = [
-  { id: 'open', label: 'Ouvrir une bouteille' },
-  { id: 'add', label: 'Ajouter à ma cave' },
-  { id: 'pairing', label: 'Accord mets & vin' },
+const WELCOME_CHIPS: string[] = [
+  'Ouvrir une bouteille',
+  'Ajouter à ma cave',
+  'Accord mets & vin',
 ]
 
 // --- Helpers ---
@@ -340,7 +333,7 @@ function CelestinBubble({ message, onCardTap, onWineValidate, onWineModify, onCh
   onCardTap: (card: RecommendationCard) => void
   onWineValidate?: (action: WineActionData) => void
   onWineModify?: (action: WineActionData) => void
-  onChipClick?: (chip: ActionChip) => void
+  onChipClick?: (chip: string) => void
 }) {
   const hasCarousel = message.cards && message.cards.length > 0
 
@@ -351,21 +344,22 @@ function CelestinBubble({ message, onCardTap, onWineValidate, onWineModify, onCh
           <SparkleIcon />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm rounded-[14px] rounded-tl-[4px] px-3.5 py-2.5 inline-block max-w-full">
-            <p className="font-serif italic text-[13px] text-[var(--text-primary)] leading-relaxed">
+          <div className="max-w-full">
+            <p className="text-[11px] font-medium text-[var(--text-muted)] mb-1">Celestin</p>
+            <p className="font-serif italic text-[15px] text-[var(--text-primary)] leading-relaxed">
               {message.isLoading ? <TypingDots /> : message.text}
             </p>
           </div>
           {message.actionChips && message.actionChips.length > 0 && onChipClick && (
             <div className="flex flex-wrap gap-2 mt-2">
-              {message.actionChips.map(chip => (
+              {message.actionChips.map((chip, i) => (
                 <button
-                  key={chip.id}
+                  key={i}
                   type="button"
                   onClick={() => onChipClick(chip)}
-                  className="h-7 inline-flex items-center rounded-full px-3 text-[11px] leading-none font-medium border bg-transparent border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--accent)] transition-colors"
+                  className="h-8 inline-flex items-center rounded-full px-3.5 text-[13px] leading-none font-medium border bg-transparent border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--accent)] transition-colors"
                 >
-                  {chip.label}
+                  {chip}
                 </button>
               ))}
             </div>
@@ -394,7 +388,7 @@ function UserBubble({ message }: { message: ChatMessage }) {
   return (
     <div className="flex justify-end">
       <div className="bg-[var(--accent-bg)] border border-[var(--border-color)] rounded-[14px] rounded-tr-[4px] px-3.5 py-2.5 max-w-[80%]">
-        <p className="text-[13px] text-[var(--text-primary)]">{message.text}</p>
+        <p className="text-[15px] text-[var(--text-primary)]">{message.text}</p>
       </div>
     </div>
   )
@@ -477,8 +471,9 @@ export default function CeSoirModule() {
     }))
 
     // Build conversation history from messages, enriched with ui_action context
+    // Exclude loading messages and the initial welcome greeting (index 0)
     const history = messages
-      .filter(m => !m.isLoading && !m.actionChips)
+      .filter((m, i) => !m.isLoading && !(i === 0 && m.role === 'celestin' && !m.cards && !m.wineAction))
       .map(m => {
         let text = m.text
         // Enrich Celestin messages with card summaries so LLM knows what it recommended
@@ -545,6 +540,11 @@ export default function CeSoirModule() {
       // Build the update for the loading bubble
       const update: Partial<ChatMessage> = { text: response.message, isLoading: false }
 
+      // Dynamic chips from LLM
+      if (response.action_chips && response.action_chips.length > 0) {
+        update.actionChips = response.action_chips
+      }
+
       if (response.ui_action?.kind === 'show_recommendations' && resolvedCards && resolvedCards.length > 0) {
         update.cards = resolvedCards
       } else if (
@@ -584,15 +584,10 @@ export default function CeSoirModule() {
     }
   }
 
-  function handleQuerySubmit() {
-    const text = queryInput.trim()
-    if (text.length < 2 || isLoading) return
-    setQueryInput('')
+  function submitMessage(text: string) {
     setIsLoading(true)
-
     const loadingMsgId = genMsgId()
     setMessages(prev => {
-      // Remove any existing loading bubbles
       const filtered = prev.filter(m => !m.isLoading)
       return [
         ...filtered.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
@@ -601,16 +596,22 @@ export default function CeSoirModule() {
       ]
     })
     scrollToBottom()
-
     void callCelestin(text, loadingMsgId)
   }
 
-  // --- Welcome chip handler ---
+  function handleQuerySubmit() {
+    const text = queryInput.trim()
+    if (text.length < 2 || isLoading) return
+    setQueryInput('')
+    submitMessage(text)
+  }
 
-  function handleChipClick(chip: ActionChip) {
+  // --- Chip handler (welcome chips + LLM dynamic chips) ---
+
+  function handleChipClick(chipLabel: string) {
     if (isLoading) return
 
-    if (chip.id === 'open') {
+    if (chipLabel === 'Ouvrir une bouteille') {
       // Try to show prefetched cards immediately
       const cached = getCachedRecommendation(buildQueryKey('generic', null))
       const cachedCards = cached?.cards
@@ -619,7 +620,7 @@ export default function CeSoirModule() {
       if (cachedCards && cachedCards.length > 0) {
         setMessages(prev => [
           ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
-          { id: genMsgId(), role: 'user' as const, text: chip.label },
+          { id: genMsgId(), role: 'user' as const, text: chipLabel },
           { id: genMsgId(), role: 'celestin' as const, text: cachedText || 'Voici mes suggestions\u00a0:', cards: cachedCards },
         ])
         scrollToBottom()
@@ -629,49 +630,33 @@ export default function CeSoirModule() {
         const loadingMsgId = genMsgId()
         setMessages(prev => [
           ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
-          { id: genMsgId(), role: 'user' as const, text: chip.label },
+          { id: genMsgId(), role: 'user' as const, text: chipLabel },
           { id: loadingMsgId, role: 'celestin' as const, text: '\u2026', isLoading: true },
         ])
         scrollToBottom()
         void callCelestin('Qu\'est-ce que j\'ouvre ce soir ?', loadingMsgId)
       }
-    } else if (chip.id === 'add') {
-      // Seed the conversation with encaver context
+    } else if (chipLabel === 'Ajouter à ma cave') {
       setIsLoading(true)
       const loadingMsgId = genMsgId()
       setMessages(prev => [
         ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
-        { id: genMsgId(), role: 'user' as const, text: chip.label },
+        { id: genMsgId(), role: 'user' as const, text: chipLabel },
         { id: loadingMsgId, role: 'celestin' as const, text: '\u2026', isLoading: true },
       ])
       scrollToBottom()
       void callCelestin('Je veux ajouter du vin à ma cave', loadingMsgId)
-    } else if (chip.id === 'pairing') {
-      // Ask for the dish
+    } else if (chipLabel === 'Accord mets & vin') {
       setMessages(prev => [
         ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
-        { id: genMsgId(), role: 'user' as const, text: chip.label },
+        { id: genMsgId(), role: 'user' as const, text: chipLabel },
         { id: genMsgId(), role: 'celestin' as const, text: 'Qu\'est-ce que tu prépares ?' },
       ])
       scrollToBottom()
+    } else {
+      // LLM dynamic chips → treat as user message
+      submitMessage(chipLabel)
     }
-  }
-
-  // --- Refinement chips ---
-
-  function handleRefinement(label: string) {
-    if (isLoading) return
-
-    const hint = PRIMARY_ACTIONS.find(a => a.label === label)?.hint ?? label
-    setIsLoading(true)
-    const loadingMsgId = genMsgId()
-    setMessages(prev => [
-      ...prev.filter(m => !m.isLoading),
-      { id: genMsgId(), role: 'user' as const, text: label },
-      { id: loadingMsgId, role: 'celestin' as const, text: '\u2026', isLoading: true },
-    ])
-    scrollToBottom()
-    void callCelestin(`Affinage sommelier: ${hint}`, loadingMsgId)
   }
 
   // --- Wine action handlers ---
@@ -685,15 +670,11 @@ export default function CeSoirModule() {
     navigate(route, { state })
   }
 
-  // Show refinement chips only when the latest Celestin message has recommendation cards
-  const lastCelestinMsg = [...messages].reverse().find(m => m.role === 'celestin')
-  const showRefinements = !!(lastCelestinMsg && (lastCelestinMsg.cards?.length || lastCelestinMsg.isLoading))
-
   return (
     <div className="flex flex-1 flex-col min-h-0">
       {/* Thread */}
       <div ref={threadRef} className="flex-1 overflow-y-auto overscroll-contain px-6 pb-4 pt-3 scrollbar-hide">
-        <div className="space-y-4">
+        <div className="space-y-5">
           {messages.map(msg =>
             msg.role === 'celestin' ? (
               <CelestinBubble
@@ -713,29 +694,13 @@ export default function CeSoirModule() {
 
       {/* Bottom bar */}
       <div className="flex-shrink-0 border-t border-[var(--border-color)] bg-[var(--background)] px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        {/* Refinement chips */}
-        {showRefinements && (
-          <div className="flex items-center gap-1.5 mb-2 overflow-x-auto scrollbar-hide">
-            {PRIMARY_ACTIONS.map(action => (
-              <button
-                key={action.label}
-                type="button"
-                onClick={() => handleRefinement(action.label)}
-                className="h-7 inline-flex items-center justify-center rounded-full px-3 text-[11px] leading-none font-medium border whitespace-nowrap transition-colors bg-transparent border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--accent)]"
-              >
-                {action.label}
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* Input row */}
         <form
           onSubmit={(e) => { e.preventDefault(); handleQuerySubmit() }}
           className="flex items-center gap-2"
         >
           <div className="relative flex-1">
-            <div className="absolute left-3 top-2.5 text-[var(--text-muted)]">
+            <div className="absolute left-3 top-3 text-[var(--text-muted)]">
               <SearchIcon />
             </div>
             <textarea
@@ -754,13 +719,13 @@ export default function CeSoirModule() {
               placeholder="Poulet rôti, j'ai acheté du vin, envie de bulles..."
               enterKeyHint="send"
               rows={1}
-              className="w-full min-h-10 rounded-[20px] border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-4 py-2.5 text-[13px] placeholder:text-[var(--text-muted)] placeholder:italic resize-none leading-tight"
+              className="w-full min-h-[44px] rounded-[20px] border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-4 py-3 text-[14px] placeholder:text-[var(--text-muted)] placeholder:italic resize-none leading-tight"
             />
           </div>
           <button
             type="submit"
             disabled={isLoading}
-            className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-light)] text-white shadow-sm disabled:opacity-50"
+            className="flex-shrink-0 h-11 w-11 flex items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-light)] text-white shadow-sm disabled:opacity-50"
           >
             <SendIcon />
           </button>

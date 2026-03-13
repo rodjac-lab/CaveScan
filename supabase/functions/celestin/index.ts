@@ -84,6 +84,7 @@ type CelestinUiAction =
 interface CelestinResponse {
   message: string
   ui_action?: CelestinUiAction | null
+  action_chips?: string[] | null
 }
 
 // === UTILS ===
@@ -128,6 +129,10 @@ function parseAndValidate(raw: string): CelestinResponse {
     if ((data.ui_action.kind === 'prepare_add_wine' || data.ui_action.kind === 'prepare_log_tasting') && !data.ui_action.payload?.extraction) {
       throw new Error(`Invalid ui_action: ${data.ui_action.kind} requires extraction`)
     }
+  }
+  // Pass through action_chips (optional, no validation needed)
+  if (data.action_chips && !Array.isArray(data.action_chips)) {
+    data.action_chips = null
   }
   return data
 }
@@ -267,6 +272,12 @@ const RESPONSE_SCHEMA = {
         },
       },
       required: ['kind', 'payload'],
+    },
+    action_chips: {
+      type: 'ARRAY',
+      nullable: true,
+      description: '2-3 suggestions contextuelles courtes pour relancer la conversation',
+      items: { type: 'STRING' },
     },
   },
   required: ['message'],
