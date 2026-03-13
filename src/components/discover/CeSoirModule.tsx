@@ -559,26 +559,26 @@ export default function CeSoirModule() {
       }
 
       setMessages(prev => prev.map(m => m.id === loadingMsgId ? { ...m, ...update } : m))
-      } catch (err) {
-        console.error('[CeSoirModule] celestin error:', err)
-        let debugMessage = err instanceof Error ? err.message : String(err)
+    } catch (err) {
+      console.error('[CeSoirModule] celestin error:', err)
+      let debugMessage = err instanceof Error ? err.message : String(err)
 
-        const maybeContext = (err as { context?: Response } | null)?.context
-        if (maybeContext instanceof Response) {
-          try {
-            const raw = await maybeContext.text()
-            debugMessage = `HTTP ${maybeContext.status}${raw ? `: ${raw}` : ''}`
-          } catch {
-            debugMessage = `HTTP ${maybeContext.status}`
-          }
+      const maybeContext = (err as { context?: Response } | null)?.context
+      if (maybeContext instanceof Response) {
+        try {
+          const raw = await maybeContext.text()
+          debugMessage = `HTTP ${maybeContext.status}${raw ? `: ${raw}` : ''}`
+        } catch {
+          debugMessage = `HTTP ${maybeContext.status}`
         }
+      }
 
-        setMessages(prev => prev.map(m =>
-          m.id === loadingMsgId
-            ? { ...m, text: `Debug Celestin UI: ${debugMessage}`, isLoading: false }
-            : m
-        ))
-      } finally {
+      setMessages(prev => prev.map(m =>
+        m.id === loadingMsgId
+          ? { ...m, text: `Debug Celestin UI: ${debugMessage}`, isLoading: false }
+          : m
+      ))
+    } finally {
       setIsLoading(false)
       scrollToBottom()
     }
@@ -716,7 +716,7 @@ export default function CeSoirModule() {
                   handleQuerySubmit()
                 }
               }}
-              placeholder="Poulet rôti, j'ai acheté du vin, envie de bulles..."
+              placeholder="Poulet rôti, envie de bulles..."
               enterKeyHint="send"
               rows={1}
               className="w-full min-h-[44px] rounded-[20px] border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-4 py-3 text-[14px] placeholder:text-[var(--text-muted)] placeholder:italic resize-none leading-tight"
