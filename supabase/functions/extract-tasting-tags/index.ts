@@ -157,7 +157,23 @@ async function callGemini(userPrompt: string): Promise<ProviderResult> {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: EXTRACTION_PROMPT }] },
       contents: [{ parts: [{ text: userPrompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 500, responseMimeType: 'application/json' },
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 500,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'OBJECT',
+          properties: {
+            plats: { type: 'ARRAY', items: { type: 'STRING' } },
+            descripteurs: { type: 'ARRAY', items: { type: 'STRING' } },
+            occasion: { type: 'STRING', nullable: true },
+            sentiment: { type: 'STRING', nullable: true, enum: ['excellent', 'bon', 'moyen', 'decevant'] },
+            maturite: { type: 'STRING', nullable: true, enum: ['trop jeune', 'en devenir', 'a point', 'passe son pic'] },
+            keywords: { type: 'ARRAY', items: { type: 'STRING' } },
+          },
+          required: ['plats', 'descripteurs', 'occasion', 'sentiment', 'maturite', 'keywords'],
+        },
+      },
     }),
   })
 

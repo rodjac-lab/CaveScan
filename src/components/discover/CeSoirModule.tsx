@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback, type PointerEvent as ReactPointerEvent } from 'react'
+import { useRef, useState, useEffect, useCallback, memo, type PointerEvent as ReactPointerEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
@@ -153,7 +153,7 @@ function genMsgId(): string {
 
 const TAP_THRESHOLD = 10
 
-function LoadingCardSkeleton({ index }: { index: number }) {
+const LoadingCardSkeleton = memo(function LoadingCardSkeleton({ index }: { index: number }) {
   return (
     <div
       className="flex-shrink-0 w-[220px] h-[188px] rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden animate-pulse"
@@ -171,9 +171,9 @@ function LoadingCardSkeleton({ index }: { index: number }) {
       </div>
     </div>
   )
-}
+})
 
-function RecommendationCardItem({ card, onTap }: { card: RecommendationCard; onTap: () => void }) {
+const RecommendationCardItem = memo(function RecommendationCardItem({ card, onTap }: { card: RecommendationCard; onTap: () => void }) {
   const pointerStart = useRef<{ x: number; y: number } | null>(null)
 
   function handlePointerDown(e: ReactPointerEvent) {
@@ -216,11 +216,11 @@ function RecommendationCardItem({ card, onTap }: { card: RecommendationCard; onT
       </div>
     </div>
   )
-}
+})
 
 // --- WineActionCard (extraction mode) ---
 
-function WineActionCard({ action, onValidate, onModify }: {
+const WineActionCard = memo(function WineActionCard({ action, onValidate, onModify }: {
   action: WineActionData
   onValidate: () => void
   onModify: () => void
@@ -269,7 +269,7 @@ function WineActionCard({ action, onValidate, onModify }: {
       </div>
     </div>
   )
-}
+})
 
 // --- Chat sub-components ---
 
@@ -329,7 +329,7 @@ function ChatCarousel({ cards, isLoading, onCardTap }: {
   )
 }
 
-function CelestinBubble({ message, onCardTap, onWineValidate, onWineModify, onChipClick }: {
+const CelestinBubble = memo(function CelestinBubble({ message, onCardTap, onWineValidate, onWineModify, onChipClick }: {
   message: ChatMessage
   onCardTap: (card: RecommendationCard) => void
   onWineValidate?: (action: WineActionData) => void
@@ -383,9 +383,9 @@ function CelestinBubble({ message, onCardTap, onWineValidate, onWineModify, onCh
       )}
     </div>
   )
-}
+})
 
-function UserBubble({ message }: { message: ChatMessage }) {
+const UserBubble = memo(function UserBubble({ message }: { message: ChatMessage }) {
   return (
     <div className="flex justify-end">
       <div className="bg-[var(--accent-bg)] border border-[var(--border-color)] rounded-[14px] rounded-tr-[4px] px-3.5 py-2.5 max-w-[80%]">
@@ -393,7 +393,7 @@ function UserBubble({ message }: { message: ChatMessage }) {
       </div>
     </div>
   )
-}
+})
 
 // --- Conversation persistence across tab switches ---
 let persistedMessages: ChatMessage[] | null = null
