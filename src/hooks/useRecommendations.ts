@@ -76,7 +76,8 @@ export async function prefetchDefaultRecommendations(): Promise<void> {
     })
 
     if (error) throw error
-    if (data?.error) throw new Error(data.error)
+    if (!data) throw new Error('No data from celestin')
+    if (data.error) throw new Error(data.error)
 
     // Resolve bottle IDs (short 8-char → full UUID)
     const cards = resolveBottleIds((data.cards ?? []) as RecommendationCard[], caveBottles)

@@ -20,10 +20,32 @@ IMPORTANT : Tous les champs texte doivent etre en francais (aromes, accords, cha
 
 Réponds UNIQUEMENT avec le JSON.`
 
+const TIMEOUT_MS = 15_000
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+const RESPONSE_SCHEMA = {
+  type: 'OBJECT' as const,
+  properties: {
+    country: { type: 'STRING' as const, nullable: true },
+    region: { type: 'STRING' as const, nullable: true },
+    grape_varieties: { type: 'ARRAY' as const, items: { type: 'STRING' as const }, nullable: true },
+    serving_temperature: { type: 'STRING' as const, nullable: true },
+    typical_aromas: { type: 'ARRAY' as const, items: { type: 'STRING' as const }, nullable: true },
+    food_pairings: { type: 'ARRAY' as const, items: { type: 'STRING' as const }, nullable: true },
+    character: { type: 'STRING' as const, nullable: true },
+  },
+  required: ['country', 'region', 'grape_varieties', 'serving_temperature', 'typical_aromas', 'food_pairings', 'character'],
+}
+
+function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer))
 }
 
 function stripMarkdownCodeBlock(text: string): string {
@@ -51,14 +73,16 @@ Deno.serve(async (req) => {
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `${ENRICHMENT_PROMPT}\n\nBouteille : ${description}\n\nRéponds avec ce format JSON exact :\n{"country": "...", "region": "...", "grape_varieties": ["..."], "serving_temperature": "...", "typical_aromas": ["..."], "food_pairings": ["..."], "character": "..."}` }] }],
+        contents: [{ parts: [{ text: `${ENRICHMENT_PROMPT}\n\nBouteille : ${description}` }] }],
         generationConfig: {
           temperature: 0,
           maxOutputTokens: 1500,
+          responseMimeType: 'application/json',
+          responseSchema: RESPONSE_SCHEMA,
         },
       }),
     })
