@@ -17,9 +17,10 @@ Reponds UNIQUEMENT avec un JSON valide, sans texte avant ou apres.
   ] } } }
 
 ## Encavage single (prepare_add_wine)
-{ "message": "6 Margaux 2018, bel achat !", "action_chips": ["Ajouter une autre", "Que boire ce soir ?"],
+{ "message": "C'est note !", "action_chips": ["Ajouter une autre", "Que boire ce soir ?"],
   "ui_action": { "kind": "prepare_add_wine", "payload": { "extraction": {
     "domaine": "Chateau Margaux", "cuvee": null, "appellation": "Margaux", "millesime": 2018, "couleur": "rouge", "region": "Bordeaux", "quantity": 6, "volume": "0.75",
+    "purchase_price": 45, "zone_name": "Cave 1",
     "grape_varieties": ["Cabernet Sauvignon", "Merlot"], "serving_temperature": "17-18C", "typical_aromas": ["cassis", "cedre"], "food_pairings": ["agneau"], "character": "Grand vin puissant", "drink_from": 2025, "drink_until": 2045
   } } } }
 

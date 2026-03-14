@@ -231,4 +231,5 @@ export interface WineExtraction {
   purchase_price?: number | null
   drink_from?: number | null
   drink_until?: number | null
+  zone_name?: string | null
 }

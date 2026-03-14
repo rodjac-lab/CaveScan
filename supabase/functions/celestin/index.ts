@@ -219,6 +219,12 @@ function buildUserPrompt(body: RequestBody): string {
     parts.push('Tu peux faire reference a ces conversations precedentes si c\'est pertinent, mais ne force pas. Les plus recentes sont les plus importantes.')
   }
 
+  // Storage zones
+  const zones = (body as Record<string, unknown>).zones as string[] | undefined
+  if (zones && zones.length > 0) {
+    parts.push(`\nZones de stockage disponibles : ${zones.join(', ')}`)
+  }
+
   // Cave
   if (body.cave.length > 0) {
     parts.push(`\nBouteilles en cave (${body.cave.length}) :`)
@@ -294,6 +300,7 @@ const RESPONSE_SCHEMA = {
                 purchase_price: { type: 'NUMBER', nullable: true },
                 drink_from: { type: 'INTEGER', nullable: true, description: 'Annee a partir de laquelle boire' },
                 drink_until: { type: 'INTEGER', nullable: true, description: 'Annee limite pour boire' },
+                zone_name: { type: 'STRING', nullable: true, description: 'Nom de la zone de stockage choisie par l utilisateur' },
               },
               required: ['domaine', 'cuvee', 'appellation', 'millesime', 'couleur', 'region', 'quantity', 'volume'],
             },

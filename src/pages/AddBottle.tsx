@@ -126,6 +126,13 @@ export default function AddBottle() {
   const [region, setRegion] = useState(prefillExtraction?.region || '')
   const [zoneId, setZoneId] = useState('')
   const [shelf, setShelf] = useState('')
+
+  // Match zone_name from Celestin conversational entry to actual zone ID
+  useEffect(() => {
+    if (!prefillExtraction?.zone_name || zones.length === 0 || zoneId) return
+    const match = zones.find(z => z.name.toLowerCase() === prefillExtraction.zone_name!.toLowerCase())
+    if (match) setZoneId(match.id)
+  }, [prefillExtraction?.zone_name, zones, zoneId])
   const [purchasePrice, setPurchasePrice] = useState(prefillExtraction?.purchase_price ? String(prefillExtraction.purchase_price) : '')
   const [quantity, setQuantity] = useState(prefillQuantity ?? 1)
   const [volumeL, setVolumeL] = useState<BottleVolumeOption>(prefillVolume ?? '0.75')

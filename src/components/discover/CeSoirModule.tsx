@@ -4,6 +4,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
 import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
+import { useZones } from '@/hooks/useZones'
 import { serializeProfileForPrompt } from '@/lib/taste-profile'
 import { rankCaveBottles } from '@/lib/recommendationRanking'
 import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
@@ -475,6 +476,7 @@ export default function CeSoirModule() {
   const { bottles: caveBottles } = useBottles()
   const { bottles: drunkBottles } = useRecentlyDrunk()
   const { profile } = useTasteProfile()
+  const { zones } = useZones()
 
   // Chat state — single source of truth, survives tab navigation
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -572,6 +574,9 @@ export default function CeSoirModule() {
     // Previous sessions summary (cross-session memory)
     const previousSession = serializePreviousSessionsForPrompt(previousSessionsRef.current)
 
+    // Storage zones for conversational cellar entry
+    const zoneNames = zones.map(z => z.name)
+
     return {
       message,
       history,
@@ -580,6 +585,7 @@ export default function CeSoirModule() {
       memories: memoriesStr,
       context,
       previousSession,
+      zones: zoneNames.length > 0 ? zoneNames : undefined,
     }
   }
 
