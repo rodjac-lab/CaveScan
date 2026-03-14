@@ -42,6 +42,7 @@ interface RequestBody {
   history: ConversationTurn[]
   cave: CaveBottle[]
   profile?: string
+  questionnaireProfile?: string
   memories?: string
   previousSession?: string
   provider?: string // "claude" | "gemini" | "mistral" — force a specific provider (for eval)
@@ -208,6 +209,11 @@ function buildUserPrompt(body: RequestBody): string {
   // Profile
   if (body.profile) {
     parts.push(`\nProfil de gout :\n${body.profile}`)
+  }
+
+  // Questionnaire profile (FWI + sensory preferences)
+  if (body.questionnaireProfile) {
+    parts.push(`\n${body.questionnaireProfile}`)
   }
 
   // Memories

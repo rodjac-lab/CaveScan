@@ -5,13 +5,17 @@ import { supabase } from '@/lib/supabase'
 import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
 import { useZones } from '@/hooks/useZones'
+import { useQuestionnaireProfile } from '@/hooks/useQuestionnaireProfile'
 import { serializeProfileForPrompt } from '@/lib/taste-profile'
 import { rankCaveBottles } from '@/lib/recommendationRanking'
 import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
 import { getCachedRecommendation, buildQueryKey } from '@/lib/recommendationStore'
 import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
+import { serializeQuestionnaireForPrompt } from '@/lib/questionnaire-profile'
+import type { QuestionnaireProfile } from '@/lib/questionnaire-profile'
 import type { RecommendationCard } from '@/lib/recommendationStore'
 import type { WineColor, BottleVolumeOption } from '@/lib/types'
+import QuestionnaireFlow from './QuestionnaireFlow'
 
 // --- Types ---
 
@@ -477,6 +481,23 @@ export default function CeSoirModule() {
   const { bottles: drunkBottles } = useRecentlyDrunk()
   const { profile } = useTasteProfile()
   const { zones } = useZones()
+  const { profile: questionnaireProfile, loading: questionnaireLoading, saveProfile: saveQuestionnaireProfile } = useQuestionnaireProfile()
+  const [showQuestionnaire, setShowQuestionnaire] = useState(false)
+  const [questionnaireChecked, setQuestionnaireChecked] = useState(false)
+
+  // Show questionnaire on first load if not completed and not previously dismissed
+  useEffect(() => {
+    if (!questionnaireLoading && !questionnaireChecked) {
+      setQuestionnaireChecked(true)
+      const dismissed = sessionStorage.getItem('questionnaire_dismissed')
+      if (!questionnaireProfile && !dismissed) {
+        setShowQuestionnaire(true)
+      }
+    }
+  }, [questionnaireLoading, questionnaireChecked, questionnaireProfile])
+
+  const questionnaireProfileRef = useRef(questionnaireProfile)
+  questionnaireProfileRef.current = questionnaireProfile
 
   // Chat state — single source of truth, survives tab navigation
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -559,6 +580,10 @@ export default function CeSoirModule() {
     // Profile
     const profileStr = prof ? serializeProfileForPrompt(prof) : undefined
 
+    // Questionnaire profile (FWI + sensory preferences)
+    const qProfile = questionnaireProfileRef.current
+    const questionnaireStr = qProfile ? serializeQuestionnaireForPrompt(qProfile) : undefined
+
     // Memories
     const memories = selectRelevantMemories('generic', message, drunk)
     const memoriesStr = serializeMemoriesForPrompt(memories) || undefined
@@ -582,6 +607,7 @@ export default function CeSoirModule() {
       history,
       cave: caveSummary,
       profile: profileStr,
+      questionnaireProfile: questionnaireStr,
       memories: memoriesStr,
       context,
       previousSession,
@@ -744,6 +770,35 @@ export default function CeSoirModule() {
       ? { prefillExtraction, prefillQuantity: quantity, prefillVolume: volume }
       : { prefillExtraction }
     navigate(route, { state })
+  }
+
+  // Questionnaire flow
+  if (showQuestionnaire) {
+    return (
+      <QuestionnaireFlow
+        onComplete={async (qProfile: QuestionnaireProfile) => {
+          await saveQuestionnaireProfile(qProfile)
+          setShowQuestionnaire(false)
+        }}
+        onDismiss={() => {
+          sessionStorage.setItem('questionnaire_dismissed', '1')
+          setShowQuestionnaire(false)
+        }}
+      />
+    )
+  }
+
+  // Loading questionnaire check
+  if (questionnaireLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <span className="inline-flex items-center gap-[3px]">
+          {[0, 0.15, 0.3].map((delay, i) => (
+            <span key={i} className="typing-dot w-[5px] h-[5px] rounded-full bg-[var(--text-muted)]" style={{ animationDelay: `${delay}s` }} />
+          ))}
+        </span>
+      </div>
+    )
   }
 
   return (

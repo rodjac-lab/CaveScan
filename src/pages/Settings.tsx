@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Edit2, Trash2, Loader2, MapPin, LogOut, Send, Share, Wrench } from 'lucide-react'
+import { Plus, Edit2, Trash2, Loader2, MapPin, LogOut, Send, Share, Wrench, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,8 +13,10 @@ import {
 } from '@/components/ui/dialog'
 import { useZones } from '@/hooks/useZones'
 import { useAuth } from '@/hooks/useAuth'
+import { useQuestionnaireProfile } from '@/hooks/useQuestionnaireProfile'
 import { supabase } from '@/lib/supabase'
 import { track } from '@/lib/track'
+import { REGION_OPTIONS } from '@/lib/questionnaire-profile'
 import type { Zone } from '@/lib/types'
 
 
@@ -24,6 +26,7 @@ export default function Settings() {
   const navigate = useNavigate()
   const { zones, loading, error, refetch } = useZones()
   const { session, isAnonymous, signOut } = useAuth()
+  const { profile: questionnaireProfile, clearProfile: clearQuestionnaireProfile } = useQuestionnaireProfile()
   const [loggingOut, setLoggingOut] = useState(false)
 
   const handleLogout = async () => {
@@ -183,7 +186,80 @@ export default function Settings() {
           </div>
         </section>
 
-        {/* 2. Zones section (unchanged logic) */}
+        {/* 2. Profile section */}
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <User className="h-[18px] w-[18px] text-[var(--text-secondary)]" />
+            <h2 className="text-[14px] font-semibold text-[var(--text-primary)]">Mon profil</h2>
+          </div>
+
+          {questionnaireProfile ? (
+            <div className="rounded-[14px] border border-[var(--border-color)] bg-[var(--bg-card)] shadow-sm overflow-hidden">
+              <div className="p-4 space-y-3">
+                <h3 className="font-serif text-[17px] font-bold text-[var(--text-primary)]">
+                  {questionnaireProfile.marketingProfile}
+                </h3>
+                <div className="space-y-2">
+                  {([
+                    ['Connoisseur', questionnaireProfile.fwi.connoisseur, 30],
+                    ['Knowledge', questionnaireProfile.fwi.knowledge, 30],
+                    ['Provenance', questionnaireProfile.fwi.provenance, 30],
+                  ] as const).map(([label, value, max]) => (
+                    <div key={label} className="space-y-0.5">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-[var(--text-secondary)] font-medium">{label}</span>
+                        <span className="text-[var(--text-muted)]">{value}/{max}</span>
+                      </div>
+                      <div className="h-[5px] rounded-full bg-[var(--border-color)] overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-light)]"
+                          style={{ width: `${(value / max) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {questionnaireProfile.sensory.regions.map(r => {
+                    const label = REGION_OPTIONS.find(ro => ro.value === r)?.label ?? r
+                    return (
+                      <span key={r} className="inline-block rounded-full px-2.5 py-1 text-[11px] font-medium bg-[var(--accent)] text-white">
+                        {label}
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
+              <div className="border-t border-[var(--border-color)] px-4 py-3">
+                <button
+                  onClick={async () => {
+                    if (confirm('Relancer le questionnaire de profil ? Tes réponses actuelles seront effacées.')) {
+                      await clearQuestionnaireProfile()
+                      navigate('/decouvrir')
+                    }
+                  }}
+                  className="w-full text-center text-[13px] font-medium text-[var(--accent)]"
+                >
+                  Relancer le questionnaire
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-[14px] border border-[var(--border-color)] bg-[var(--bg-card)] p-5 shadow-sm text-center">
+              <p className="text-[13px] text-[var(--text-muted)] mb-3">
+                Tu n'as pas encore complété le questionnaire de profil.
+              </p>
+              <button
+                onClick={() => navigate('/decouvrir')}
+                className="inline-flex items-center justify-center rounded-[10px] bg-[var(--accent)] px-5 py-2.5 text-[13px] font-semibold text-white"
+              >
+                Démarrer le questionnaire
+              </button>
+            </div>
+          )}
+        </section>
+
+        {/* 3. Zones section (unchanged logic) */}
         <section className="mb-8">
           <div className="flex items-center gap-2 mb-3">
             <MapPin className="h-[18px] w-[18px] text-[var(--text-secondary)]" />
