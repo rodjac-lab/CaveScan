@@ -166,7 +166,27 @@ function buildUserPrompt(body: RequestBody): string {
   }
 
   // Current message
-  if (body.message === '__prefetch__') {
+  if (body.message === '__greeting__') {
+    parts.push('DEMANDE SPECIALE : message d\'accueil a l\'ouverture de l\'app.')
+    parts.push('1 phrase. Pas de ui_action. Inclus 2-3 action_chips.')
+    parts.push('')
+    parts.push('Le ton : comme un ami sommelier qui t\'accueille. Subtil, jamais vendeur.')
+    parts.push('Inspire-toi du moment (heure, saison) et glisse une touche personnelle.')
+    parts.push('Ne cite JAMAIS un vin par son nom. Ne dis pas "Salut l\'ami".')
+    parts.push('')
+    parts.push('Exemples du ton juste :')
+    parts.push('- (8h, printemps) "Le printemps s\'installe, c\'est la saison ou les blancs reprennent du service."')
+    parts.push('- (12h) "Tu as prevu quelque chose de bon ce midi ?"')
+    parts.push('- (18h, vendredi) "Vendredi soir, la cave t\'attend."')
+    parts.push('- (20h, hiver) "Soiree d\'hiver, il fait bon ouvrir quelque chose de reconfortant."')
+    parts.push('- (apres longue absence) "Ca faisait un moment ! Ta cave n\'a pas bouge."')
+    if ((body as Record<string, unknown>).greetingContext) {
+      const gc = (body as Record<string, unknown>).greetingContext as Record<string, unknown>
+      parts.push(`\nContexte : ${gc.hour}h, ${gc.season ?? ''}, cave de ${gc.caveSize} bouteilles.`)
+      if (gc.lastActivity) parts.push(`${gc.lastActivity}`)
+    }
+    return parts.join('\n')
+  } else if (body.message === '__prefetch__') {
     parts.push('Demande : suggestions personnalisees pour ce soir, pas de contrainte de plat.')
     parts.push('Pas d\'accord mets-vins a appliquer : priorise la pertinence contextuelle et la diversite.')
   } else {

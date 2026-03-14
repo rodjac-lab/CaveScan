@@ -102,11 +102,27 @@ function TypingDots() {
 
 // --- Constants ---
 
-const WELCOME_CHIPS: string[] = [
-  'Ouvrir une bouteille',
-  'Ajouter à ma cave',
-  'Accord mets & vin',
-]
+function buildWelcomeChips(): string[] {
+  const hour = new Date().getHours()
+  const day = new Date().getDay()
+  const isWeekend = day === 0 || day === 6
+  const isFriday = day === 5
+
+  if (hour < 11) {
+    return ['Accord mets & vin', 'Ajouter une bouteille', 'Parle-moi d\'un cépage']
+  }
+  if (hour < 14) {
+    return ['Accord pour ce midi', 'Que boire avec mon plat ?', 'Ajouter une bouteille']
+  }
+  if (hour < 17) {
+    return ['Préparer le dîner', 'Ajouter une bouteille', 'Accord mets & vin']
+  }
+  // 17h+
+  if (isFriday || isWeekend) {
+    return ['Que boire ce soir ?', 'Accord mets & vin', 'Ouvrir une bouteille']
+  }
+  return ['Que boire ce soir ?', 'Accord mets & vin', 'Ajouter une bouteille']
+}
 
 // --- Helpers ---
 
@@ -131,10 +147,54 @@ function badgeToClass(badge: string): string {
 }
 
 function buildGreeting(): string {
-  const hour = new Date().getHours()
-  if (hour < 12) return 'Bonjour ! Comment puis-je t\'aider ?'
-  if (hour < 18) return 'Bon après-midi ! Comment puis-je t\'aider ?'
-  return 'Bonsoir ! Comment puis-je t\'aider ?'
+  const now = new Date()
+  const hour = now.getHours()
+  const day = now.getDay() // 0=dim, 6=sam
+  const month = now.getMonth()
+  const isWeekend = day === 0 || day === 6
+  const isFriday = day === 5
+
+  // Saison
+  const season = month >= 2 && month <= 4 ? 'printemps'
+    : month >= 5 && month <= 7 ? 'été'
+    : month >= 8 && month <= 10 ? 'automne'
+    : 'hiver'
+
+  // Matin (avant 11h)
+  if (hour < 11) {
+    if (isWeekend) return 'Samedi matin, le moment idéal pour prévoir le dîner de ce soir.'
+    if (isFriday) return 'Vendredi ! La semaine touche à sa fin, ça mérite une belle bouteille ce soir.'
+    return season === 'hiver'
+      ? 'Un matin d\'hiver, parfait pour penser aux plats qui réchauffent.'
+      : 'La journée commence. On en reparle ce soir ?'
+  }
+
+  // Midi (11h-14h)
+  if (hour < 14) {
+    if (isWeekend) return 'Le déjeuner du week-end, c\'est sacré. Tu as prévu quelque chose de bon ?'
+    return 'Pause déjeuner. Envie d\'un accord pour ce midi ?'
+  }
+
+  // Après-midi (14h-17h)
+  if (hour < 17) {
+    if (isWeekend) return 'L\'après-midi avance, le moment de penser au dîner approche.'
+    return season === 'été'
+      ? 'Après-midi d\'été, les rosés s\'impatientent.'
+      : 'L\'après-midi file. On prépare la soirée ?'
+  }
+
+  // Apéro (17h-20h)
+  if (hour < 20) {
+    if (isFriday) return 'Vendredi soir, la cave t\'attend.'
+    if (isWeekend) return 'Le soleil descend, l\'heure de choisir quelque chose de bien.'
+    if (season === 'été') return 'Fin de journée, il fait encore bon. Bulles ou blanc frais ?'
+    return 'La soirée commence. Envie de quelque chose en particulier ?'
+  }
+
+  // Soir (20h+)
+  if (season === 'hiver') return 'Soirée d\'hiver, il fait bon ouvrir quelque chose de réconfortant.'
+  if (isWeekend) return 'La soirée s\'installe. Qu\'est-ce qui te ferait plaisir ?'
+  return 'Bonne soirée. Un verre en tête ?'
 }
 
 function volumeLabel(vol: string): string {
@@ -421,7 +481,7 @@ export default function CeSoirModule() {
     if (persistedMessages) return persistedMessages
     // New session: rotate previous → archive, current → previous
     rotateSessions()
-    return [{ id: genMsgId(), role: 'celestin', text: buildGreeting(), actionChips: WELCOME_CHIPS }]
+    return [{ id: genMsgId(), role: 'celestin', text: buildGreeting(), actionChips: buildWelcomeChips() }]
   })
   useEffect(() => {
     persistedMessages = messages
