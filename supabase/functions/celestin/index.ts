@@ -5,8 +5,10 @@ import { buildCelestinSystemPrompt } from "./prompt-builder.ts"
 const MISTRAL_API_KEY = Deno.env.get('MISTRAL_API_KEY')
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
 const MISTRAL_MODEL = 'mistral-small-latest'
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001'
+const OPENAI_MODEL = 'gpt-4.1-mini'
 const API_TIMEOUT_MS = 15_000
 
 const CORS_HEADERS = {
@@ -42,6 +44,7 @@ interface RequestBody {
   profile?: string
   memories?: string
   previousSession?: string
+  provider?: string // "claude" | "gemini" | "mistral" — force a specific provider (for eval)
   context?: {
     dayOfWeek: string
     season: string
@@ -483,14 +486,152 @@ async function callClaude(systemPrompt: string, userPrompt: string, history: Con
   return parseAndValidate(textContent.text)
 }
 
+// OpenAI Structured Outputs schema (JSON Schema format)
+const OPENAI_RESPONSE_SCHEMA = {
+  name: 'celestin_response',
+  strict: true,
+  schema: {
+    type: 'object',
+    properties: {
+      message: { type: 'string', description: 'Reponse conversationnelle, toujours presente' },
+      ui_action: {
+        type: ['object', 'null'],
+        properties: {
+          kind: {
+            type: 'string',
+            enum: ['show_recommendations', 'prepare_add_wine', 'prepare_add_wines', 'prepare_log_tasting'],
+          },
+          payload: {
+            type: 'object',
+            properties: {
+              cards: {
+                type: ['array', 'null'],
+                items: {
+                  type: 'object',
+                  properties: {
+                    bottle_id: { type: ['string', 'null'] },
+                    name: { type: 'string' },
+                    appellation: { type: 'string' },
+                    millesime: { type: ['integer', 'null'] },
+                    badge: { type: 'string' },
+                    reason: { type: 'string' },
+                    color: { type: 'string' },
+                  },
+                  required: ['name', 'appellation', 'badge', 'reason', 'color', 'bottle_id', 'millesime'],
+                  additionalProperties: false,
+                },
+              },
+              extraction: {
+                type: ['object', 'null'],
+                properties: {
+                  domaine: { type: ['string', 'null'] },
+                  cuvee: { type: ['string', 'null'] },
+                  appellation: { type: ['string', 'null'] },
+                  millesime: { type: ['integer', 'null'] },
+                  couleur: { type: ['string', 'null'] },
+                  region: { type: ['string', 'null'] },
+                  quantity: { type: 'integer' },
+                  volume: { type: 'string' },
+                },
+                required: ['domaine', 'cuvee', 'appellation', 'millesime', 'couleur', 'region', 'quantity', 'volume'],
+                additionalProperties: false,
+              },
+              extractions: {
+                type: ['array', 'null'],
+                items: {
+                  type: 'object',
+                  properties: {
+                    domaine: { type: ['string', 'null'] },
+                    cuvee: { type: ['string', 'null'] },
+                    appellation: { type: ['string', 'null'] },
+                    millesime: { type: ['integer', 'null'] },
+                    couleur: { type: ['string', 'null'] },
+                    region: { type: ['string', 'null'] },
+                    quantity: { type: 'integer' },
+                    volume: { type: 'string' },
+                  },
+                  required: ['domaine', 'cuvee', 'appellation', 'millesime', 'couleur', 'region', 'quantity', 'volume'],
+                  additionalProperties: false,
+                },
+              },
+            },
+            required: ['cards', 'extraction', 'extractions'],
+            additionalProperties: false,
+          },
+        },
+        required: ['kind', 'payload'],
+        additionalProperties: false,
+      },
+      action_chips: {
+        type: ['array', 'null'],
+        items: { type: 'string' },
+      },
+    },
+    required: ['message', 'ui_action', 'action_chips'],
+    additionalProperties: false,
+  },
+}
+
+async function callOpenAI(systemPrompt: string, userPrompt: string, history: ConversationTurn[]): Promise<CelestinResponse> {
+  if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not configured')
+
+  const messages: Array<{ role: string; content: string }> = [
+    { role: 'system', content: systemPrompt },
+  ]
+  for (const turn of history) {
+    messages.push({ role: turn.role === 'user' ? 'user' : 'assistant', content: turn.text })
+  }
+  messages.push({ role: 'user', content: userPrompt })
+
+  const response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      max_tokens: 4096,
+      temperature: 0.5,
+      response_format: { type: 'json_schema', json_schema: OPENAI_RESPONSE_SCHEMA },
+      messages,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`OpenAI ${OPENAI_MODEL} (${response.status}): ${extractErrorMessage(await response.text())}`)
+  }
+
+  const result = await response.json()
+  const text = result.choices?.[0]?.message?.content
+  if (!text) throw new Error('No text response from OpenAI')
+
+  return parseAndValidate(text)
+}
+
 // === FALLBACK ===
 
-async function celestinWithFallback(systemPrompt: string, userPrompt: string, history: ConversationTurn[]): Promise<{ provider: string; response: CelestinResponse }> {
+async function celestinWithFallback(systemPrompt: string, userPrompt: string, history: ConversationTurn[], forcedProvider?: string): Promise<{ provider: string; response: CelestinResponse }> {
+  // If a specific provider is forced (eval mode), call only that one
+  if (forcedProvider) {
+    const providerMap: Record<string, { name: string; call: () => Promise<CelestinResponse> }> = {
+      claude: { name: 'Claude', call: () => callClaude(systemPrompt, userPrompt, history) },
+      gemini: { name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history) },
+      mistral: { name: 'Mistral', call: () => callMistral(systemPrompt, userPrompt, history) },
+      openai: { name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history) },
+    }
+    const selected = providerMap[forcedProvider.toLowerCase()]
+    if (!selected) throw new Error(`Unknown provider: ${forcedProvider}`)
+    console.log(`[celestin] Forced provider: ${selected.name}`)
+    const response = await selected.call()
+    return { provider: selected.name, response }
+  }
+
   const providers: Array<{ name: string; call: () => Promise<CelestinResponse> }> = []
 
+  if (OPENAI_API_KEY) providers.push({ name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history) })
   if (ANTHROPIC_API_KEY) providers.push({ name: 'Claude', call: () => callClaude(systemPrompt, userPrompt, history) })
   if (GEMINI_API_KEY) providers.push({ name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history) })
-  if (MISTRAL_API_KEY) providers.push({ name: 'Mistral', call: () => callMistral(systemPrompt, userPrompt, history) })
 
   if (providers.length === 0) {
     throw new Error('No API keys configured.')
@@ -521,14 +662,16 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: CORS_HEADERS })
   }
 
+  let forcedProvider: string | undefined
   try {
     const body: RequestBody = await req.json()
+    forcedProvider = body.provider
     console.log(`[celestin] message="${body.message.slice(0, 80)}" history=${body.history.length} cave=${body.cave.length}`)
 
     const systemPrompt = buildSystemPrompt()
     const userPrompt = buildUserPrompt(body)
 
-    const { provider, response } = await celestinWithFallback(systemPrompt, userPrompt, body.history)
+    const { provider, response } = await celestinWithFallback(systemPrompt, userPrompt, body.history, body.provider)
     console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'}`)
 
     return new Response(JSON.stringify(response), {
@@ -538,9 +681,14 @@ Deno.serve(async (req) => {
     const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('[celestin] Error:', message)
 
+    // In eval mode (forced provider), return the actual error for debugging
+    const errorMessage = forcedProvider
+      ? `[${forcedProvider}] ${message}`
+      : "Desole, je suis momentanement indisponible. Reessaie dans quelques instants !"
+
     return new Response(
       JSON.stringify({
-        message: "Desole, je suis momentanement indisponible. Reessaie dans quelques instants !",
+        message: errorMessage,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     )

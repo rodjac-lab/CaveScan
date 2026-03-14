@@ -155,9 +155,14 @@ export default function Debug() {
   const [exportingFixture, setExportingFixture] = useState(false)
   const [fixtureStatus, setFixtureStatus] = useState<string | null>(null)
   const [fixtureHandle, setFixtureHandle] = useState<FileSystemFileHandle | null>(null)
-  const [resultsDirHandle, setResultsDirHandle] = useState<FileSystemDirectoryHandle | null>(null)
   const [runningEval, setRunningEval] = useState(false)
   const [evalStatus, setEvalStatus] = useState<string | null>(null)
+  const [evalProviders, setEvalProviders] = useState<Record<string, boolean>>({
+    claude: true,
+    openai: true,
+    gemini: false,
+    mistral: false,
+  })
 
   // Memory weight analysis
   const [analyzingMemories, setAnalyzingMemories] = useState(false)
@@ -285,22 +290,11 @@ export default function Debug() {
     } catch { /* User cancelled */ }
   }
 
-  const handlePickEvalResultsDir = async () => {
-    const picker = window as PickerWindow
-    if (!picker.showDirectoryPicker) {
-      setEvalStatus('Choix de dossier non supporte dans ce navigateur. Utilise Chrome desktop.')
-      return
-    }
-    try {
-      const handle = await picker.showDirectoryPicker()
-      setResultsDirHandle(handle)
-      setEvalStatus(`Dossier des resultats: ${handle.name}`)
-    } catch { /* User cancelled */ }
-  }
-
   const handleRunCelestinEval = async () => {
     if (!fixtureHandle) { setEvalStatus('Choisis d abord une fixture JSON.'); return }
-    if (!resultsDirHandle) { setEvalStatus('Choisis d abord le dossier evals/results.'); return }
+
+    const selectedProviders = Object.entries(evalProviders).filter(([, v]) => v).map(([k]) => k)
+    if (selectedProviders.length === 0) { setEvalStatus('Selectionne au moins un provider.'); return }
 
     setRunningEval(true)
     setEvalStatus('Lecture de la fixture...')
@@ -312,67 +306,82 @@ export default function Debug() {
       const fixtureFile = await fixtureHandle.getFile()
       const fixture = JSON.parse(await fixtureFile.text()) as CelestinEvalFixture
       const results: CelestinEvalResult[] = []
+      const totalSteps = CELESTIN_EVAL_SCENARIOS.length * selectedProviders.length
+      let currentStep = 0
 
       for (const scenario of CELESTIN_EVAL_SCENARIOS) {
-        setEvalStatus(`Evaluation ${scenario.id}...`)
-        const body = buildCelestinEvalRequest(fixture, scenario)
-        const startedAt = Date.now()
-        const response = await fetch(`${supabaseUrl}/functions/v1/celestin`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-            apikey: supabaseAnonKey,
-          },
-          body: JSON.stringify(body),
-        })
-        const elapsedMs = Date.now() - startedAt
-        const rawText = await response.text()
+        for (const provider of selectedProviders) {
+          currentStep++
+          setEvalStatus(`[${currentStep}/${totalSteps}] ${scenario.id} — ${provider}...`)
+          const body = buildCelestinEvalRequest(fixture, scenario, provider)
+          const startedAt = Date.now()
+          const response = await fetch(`${supabaseUrl}/functions/v1/celestin`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access_token}`,
+              apikey: supabaseAnonKey,
+            },
+            body: JSON.stringify(body),
+          })
+          const elapsedMs = Date.now() - startedAt
+          const rawText = await response.text()
 
-        let data: Record<string, unknown> | null = null
-        try { data = rawText ? JSON.parse(rawText) as Record<string, unknown> : null } catch { data = null }
+          let data: Record<string, unknown> | null = null
+          try { data = rawText ? JSON.parse(rawText) as Record<string, unknown> : null } catch { data = null }
 
-        if (!response.ok || !data || data.error) {
-          const errorResponse = {
-            message: !response.ok
-              ? `HTTP ${response.status}${rawText ? `: ${rawText}` : ''}`
-              : typeof data?.error === 'string' ? data.error : rawText || 'Erreur inconnue',
-            ui_action: null,
+          if (!response.ok || !data || data.error) {
+            const errorResponse = {
+              message: !response.ok
+                ? `HTTP ${response.status}${rawText ? `: ${rawText}` : ''}`
+                : typeof data?.error === 'string' ? data.error : rawText || 'Erreur inconnue',
+              ui_action: null,
+            }
+            results.push({
+              id: scenario.id,
+              provider,
+              elapsedMs: null,
+              request: body,
+              response: errorResponse,
+              analysis: analyzeCelestinEvalResult(scenario, errorResponse, provider),
+            })
+            continue
           }
+
           results.push({
             id: scenario.id,
-            elapsedMs: null,
+            provider,
+            elapsedMs,
             request: body,
-            response: errorResponse,
-            analysis: analyzeCelestinEvalResult(scenario, errorResponse),
+            response: data,
+            analysis: analyzeCelestinEvalResult(scenario, data, provider),
           })
-          continue
         }
-
-        results.push({
-          id: scenario.id,
-          elapsedMs,
-          request: body,
-          response: data,
-          analysis: analyzeCelestinEvalResult(scenario, data),
-        })
       }
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-      const report = { fixture, scenarios: CELESTIN_EVAL_SCENARIOS, results }
+      const providerSuffix = selectedProviders.join('-vs-')
+      const report = { fixture, scenarios: CELESTIN_EVAL_SCENARIOS, providers: selectedProviders, results }
       const html = renderCelestinEvalHtmlReport(results, fixture, CELESTIN_EVAL_SCENARIOS)
+      const baseName = `celestin-eval-${providerSuffix}-${timestamp}`
 
-      const jsonHandle = await resultsDirHandle.getFileHandle(`celestin-eval-${timestamp}.json`, { create: true })
-      const jsonWritable = await jsonHandle.createWritable()
-      await jsonWritable.write(JSON.stringify(report, null, 2))
-      await jsonWritable.close()
+      // Download via <a download> — no filesystem permission needed
+      function downloadBlob(content: string, filename: string, type: string) {
+        const blob = new Blob([content], { type })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }
 
-      const htmlHandle = await resultsDirHandle.getFileHandle(`celestin-eval-${timestamp}.html`, { create: true })
-      const htmlWritable = await htmlHandle.createWritable()
-      await htmlWritable.write(html)
-      await htmlWritable.close()
+      downloadBlob(JSON.stringify(report, null, 2), `${baseName}.json`, 'application/json')
+      downloadBlob(html, `${baseName}.html`, 'text/html')
 
-      setEvalStatus(`Rapports ecrits dans ${resultsDirHandle.name}`)
+      setEvalStatus(`Rapports telecharges (${selectedProviders.join(' vs ')})`)
     } catch (err) {
       setEvalStatus(`Erreur eval Celestin: ${err instanceof Error ? err.message : 'inconnue'}`)
     } finally {
@@ -616,13 +625,28 @@ export default function Debug() {
               Choisir une fixture pour l'eval
             </button>
 
-            <button
-              onClick={handlePickEvalResultsDir}
-              disabled={runningEval}
-              className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-3 text-[12px] font-medium text-[var(--text-muted)]"
-            >
-              Choisir le dossier evals/results
-            </button>
+            {/* Provider checkboxes */}
+            <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
+              <p className="text-[11px] font-medium text-[var(--text-primary)] mb-2">Providers a tester</p>
+              <div className="flex gap-4 flex-wrap">
+                {([
+                  { key: 'claude', label: 'Claude Haiku' },
+                  { key: 'openai', label: 'GPT-4.1 mini' },
+                  { key: 'gemini', label: 'Gemini Flash' },
+                  { key: 'mistral', label: 'Mistral Small' },
+                ] as const).map((p) => (
+                  <label key={p.key} className="flex items-center gap-1.5 text-[12px] text-[var(--text-secondary)]">
+                    <input
+                      type="checkbox"
+                      checked={evalProviders[p.key]}
+                      onChange={(e) => setEvalProviders((prev) => ({ ...prev, [p.key]: e.target.checked }))}
+                      className="rounded"
+                    />
+                    {p.label}
+                  </label>
+                ))}
+              </div>
+            </div>
 
             <button
               onClick={handleRunCelestinEval}
