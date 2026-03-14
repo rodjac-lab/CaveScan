@@ -17,10 +17,14 @@ Source unique de verite pour les travaux produit/tech.
 
 ---
 
-## P0 — Maintenant
+## P0 — Avant lancement
 
+- [ ] Rebranding : nettoyer les dernieres references CaveScan (PWA manifest, package.json, localStorage keys, docs)
+- [ ] Auth in-function sur TOUTES les edge functions (celestin, extract-wine, enrich-wine, extract-tasting-tags)
+- [ ] RGPD : page mentions legales/CGU + bouton suppression de compte dans Reglages
+- [ ] Suivi couts LLM : compteur d'appels par user/jour dans la table events
+- [ ] Limiter historique Celestin envoye au LLM (cap tokens) + longueur max des messages utilisateur
 - [ ] Parcours de test manuel minimal avant release (auth, ajout, sortie, edition, notes, Celestin)
-- [ ] Rebranding CaveScan -> Celestin (nom de code, repo, UI, logo, PWA manifest)
 
 ---
 
@@ -30,7 +34,7 @@ Source unique de verite pour les travaux produit/tech.
 
 - [ ] Historique d'achat par lots : enregistrements distincts par lot (date/prix/quantite/volume), prix moyen pondere en fiche, panneau "Historique des achats"
 - [ ] Suppression/restauration controlee d'entrees/sorties (historique robuste)
-- [ ] Fenetres de maturite : remplir drink_from/drink_until via enrichissement, alertes quand une bouteille arrive a maturite
+- [x] Fenetres de maturite : remplir drink_from/drink_until via enrichissement (fait), alertes quand une bouteille arrive a maturite (reste a faire)
 - [ ] Import facture (photo/PDF) pour creation batch assistee, pipeline multi-lignes
 - [ ] Import concurrent mobile-first : CellarTracker puis Vivino, reconnaissance automatique de formats
 
@@ -45,7 +49,7 @@ Source unique de verite pour les travaux produit/tech.
 - [ ] Relance conversationnelle quand contexte mets/vin incomplet, au lieu de sur-prescrire
 - [ ] Encavage conversationnel : collecte infos manquantes par echange naturel avant fiche (prix, emplacement)
 - [ ] Mieux exploiter la richesse des notes brutes et photos de plats (pas juste les tags resumes)
-- [ ] Millesime comme champ explicite des cartes de recommandation
+- [x] Millesime comme champ explicite des cartes de recommandation
 - [ ] Signal de style bouteille structure en remplacement du champ libre `character`
 
 ### Celestin — Engagement & Proactivite
@@ -75,7 +79,19 @@ Source unique de verite pour les travaux produit/tech.
 - [ ] Metriques produit de base (taux de scan reussi, temps moyen ajout/sortie)
 - [ ] Outillage E2E minimal (Playwright, 3-5 parcours critiques)
 - [x] Supprimer les edge functions obsoletes du repo (celestin-assistant/, recommend-wine/)
-- [ ] Auth in-function sur celestin : verifier le JWT dans le code (remplace le toggle legacy dashboard qui ne fonctionne pas sur celestin)
+- [x] Auth in-function sur celestin — deplace en P0
+- [ ] Validation taille/format sur upload photo (limite MB + type MIME)
+- [ ] Detection doublons a l'encavage (meme domaine + appellation + millesime = alerte)
+- [ ] Dashboard couts LLM basique (nb appels/user, cout estime)
+
+### Business & GTM
+
+- [ ] Modele freemium : definir les limites (X questions Celestin/mois, cave illimitee)
+- [ ] Integration Stripe (paiement)
+- [ ] Landing page repositionnee "Sommelier IA personnel" (pas "gestionnaire de cave")
+- [ ] Onboarding : premier contact = Celestin, pas le scan
+- [ ] Strategie acquisition premiers 50 utilisateurs (canaux, communautes vin, beta privee)
+- [ ] KPIs de lancement (retention J7/J30, cout LLM/user, taux de conversion free→paid)
 
 ---
 
