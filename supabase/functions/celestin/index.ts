@@ -481,8 +481,8 @@ async function callClaude(systemPrompt: string, userPrompt: string, history: Con
 async function celestinWithFallback(systemPrompt: string, userPrompt: string, history: ConversationTurn[]): Promise<{ provider: string; response: CelestinResponse }> {
   const providers: Array<{ name: string; call: () => Promise<CelestinResponse> }> = []
 
-  if (GEMINI_API_KEY) providers.push({ name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history) })
   if (ANTHROPIC_API_KEY) providers.push({ name: 'Claude', call: () => callClaude(systemPrompt, userPrompt, history) })
+  if (GEMINI_API_KEY) providers.push({ name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history) })
   if (MISTRAL_API_KEY) providers.push({ name: 'Mistral', call: () => callMistral(systemPrompt, userPrompt, history) })
 
   if (providers.length === 0) {
