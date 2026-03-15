@@ -29,6 +29,8 @@ import type { QuestionnaireProfile, FWIScores, SensoryPreferences } from '@/lib/
 import type { RecommendationCard } from '@/lib/recommendationStore'
 import type { WineColor, BottleVolumeOption } from '@/lib/types'
 import { FWISlider, SensoryChips, RegionChips, ProfileCard } from './QuestionnaireWidgets'
+import { fileToBase64 } from '@/lib/image'
+import { parseExtractWineResponse } from '@/lib/extractWineResponse'
 import { track } from '@/lib/track'
 
 // --- Types ---
@@ -58,6 +60,7 @@ interface ChatMessage {
   id: string
   role: 'celestin' | 'user'
   text: string
+  image?: string // base64 preview
   cards?: RecommendationCard[]
   wineAction?: WineActionData
   isLoading?: boolean
@@ -82,19 +85,28 @@ type QPhase = 'seqA' | 'seqB' | 'seqC' | 'sensory' | 'done'
 
 // --- Icons ---
 
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-      <circle cx="11" cy="11" r="8" />
-      <path d="M21 21l-4.35-4.35" />
-    </svg>
-  )
-}
-
 function SendIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
       <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+    </svg>
+  )
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  )
+}
+
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   )
 }
@@ -481,7 +493,14 @@ const UserBubble = memo(function UserBubble({ message }: { message: ChatMessage 
   return (
     <div className="flex justify-end">
       <div className="bg-[var(--accent-bg)] border border-[var(--border-color)] rounded-[14px] rounded-tr-[4px] px-3.5 py-2.5 max-w-[80%]">
-        <p className="text-[15px] text-[var(--text-primary)]">{message.text}</p>
+        {message.image && (
+          <img
+            src={`data:image/jpeg;base64,${message.image}`}
+            alt=""
+            className="max-h-40 rounded-lg mb-2"
+          />
+        )}
+        {message.text && <p className="text-[15px] text-[var(--text-primary)]">{message.text}</p>}
       </div>
     </div>
   )
@@ -530,6 +549,9 @@ export default function CeSoirModule() {
   const [queryInput, setQueryInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [expandedCard, setExpandedCard] = useState<RecommendationCard | null>(null)
+  const [pendingPhoto, setPendingPhoto] = useState<string | null>(null) // base64
+  const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   // --- Questionnaire inline state ---
   const [qActive, setQActive] = useState(false)
@@ -543,6 +565,8 @@ export default function CeSoirModule() {
   // Refs
   const threadRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const storedPhotoRef = useRef<{ base64: string; file: File | null } | null>(null)
+  const lastSentImageRef = useRef<string | null>(null) // persist image across follow-up messages
   const caveRef = useRef(caveBottles)
   const drunkRef = useRef(drunkBottles)
   const profileRef = useRef(profile)
@@ -771,7 +795,7 @@ export default function CeSoirModule() {
 
   // --- Build context for the edge function ---
 
-  function buildRequestBody(message: string) {
+  function buildRequestBody(message: string, image?: string) {
     const cave = caveRef.current
     const drunk = drunkRef.current
     const prof = profileRef.current
@@ -795,7 +819,7 @@ export default function CeSoirModule() {
     const history = messages
       .filter((m, i) => !m.isLoading && !(i === 0 && m.role === 'celestin' && !m.cards && !m.wineAction))
       .map(m => {
-        let text = m.text
+        let text = m.text || (m.image ? '(photo jointe)' : '')
         // Enrich Celestin messages with card summaries so LLM knows what it recommended
         if (m.role === 'celestin' && m.cards && m.cards.length > 0) {
           const cardList = m.cards.map((c, i) => `[${i + 1}] ${c.name} (${c.appellation})`).join(', ')
@@ -847,14 +871,20 @@ export default function CeSoirModule() {
       context,
       previousSession,
       zones: zoneNames.length > 0 ? zoneNames : undefined,
+      ...(image ? { image } : {}),
     }
   }
 
   // --- Core submit handler ---
 
-  async function callCelestin(message: string, loadingMsgId: string) {
+  async function callCelestin(message: string, loadingMsgId: string, image?: string) {
+    // Persist image for follow-up questions, or reuse last image
+    if (image) {
+      lastSentImageRef.current = image
+    }
+    const effectiveImage = image ?? lastSentImageRef.current ?? undefined
     try {
-      const body = buildRequestBody(message)
+      const body = buildRequestBody(message, effectiveImage)
       const { data, error } = await supabase.functions.invoke('celestin', { body })
 
       if (error) throw error
@@ -937,12 +967,20 @@ export default function CeSoirModule() {
 
   function handleQuerySubmit() {
     const text = queryInput.trim()
-    if (text.length < 2 || isLoading) return
+    const photo = pendingPhoto
+    const photoFile = pendingPhotoFile
+
+    // Allow submit with photo only (no text required)
+    if (!photo && text.length < 2) return
+    if (isLoading) return
+
     setQueryInput('')
+    setPendingPhoto(null)
+    setPendingPhotoFile(null)
     if (textareaRef.current) textareaRef.current.style.height = ''
 
     // Detect questionnaire request in natural language
-    if (!questionnaireProfile && !qActive && /(?:profil|questionnaire|mieux.*conna[iî]tre|d[ée]couvrir.*profil)/i.test(text)) {
+    if (!photo && !questionnaireProfile && !qActive && /(?:profil|questionnaire|mieux.*conna[iî]tre|d[ée]couvrir.*profil)/i.test(text)) {
       setMessages(prev => [
         ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
         { id: genMsgId(), role: 'user', text },
@@ -952,13 +990,139 @@ export default function CeSoirModule() {
       return
     }
 
-    submitMessage(text)
+    if (photo) {
+      handlePhotoSubmit(text, photo, photoFile)
+    } else {
+      submitMessage(text)
+    }
+  }
+
+  function handlePhotoSubmit(text: string, photo: string, photoFile: File | null) {
+    const isEncavage = /encav|ajoute|stock|range|met.*cave/i.test(text)
+
+    if (text && isEncavage && photoFile) {
+      // Flow extract-wine (encavage photo)
+      handleExtractWineFlow(text, photo, photoFile)
+    } else if (text) {
+      // Flow celestin multimodal (photo + texte)
+      submitMessageWithImage(text, photo)
+    } else {
+      // Flow "Celestin demande" (photo seule sans texte)
+      handlePhotoOnlyFlow(photo, photoFile)
+    }
+  }
+
+  function submitMessageWithImage(text: string, image: string) {
+    setIsLoading(true)
+    const loadingMsgId = genMsgId()
+    setMessages(prev => {
+      const filtered = prev.filter(m => !m.isLoading)
+      return [
+        ...filtered.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
+        { id: genMsgId(), role: 'user' as const, text, image },
+        { id: loadingMsgId, role: 'celestin' as const, text: '\u2026', isLoading: true },
+      ]
+    })
+    scrollToBottom()
+    void callCelestin(text, loadingMsgId, image)
+  }
+
+  async function handleExtractWineFlow(text: string, photo: string, photoFile: File) {
+    setIsLoading(true)
+    const loadingMsgId = genMsgId()
+    setMessages(prev => {
+      const filtered = prev.filter(m => !m.isLoading)
+      return [
+        ...filtered.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
+        { id: genMsgId(), role: 'user' as const, text, image: photo },
+        { id: loadingMsgId, role: 'celestin' as const, text: '\u2026', isLoading: true },
+      ]
+    })
+    scrollToBottom()
+
+    try {
+      const base64 = await fileToBase64(photoFile)
+      const { data, error } = await supabase.functions.invoke('extract-wine', {
+        body: { image_base64: base64 },
+      })
+      if (error) throw error
+
+      const parsed = parseExtractWineResponse(data)
+      const extraction = parsed.bottles[0]
+      const wineAction: WineActionData = {
+        intent: 'encaver',
+        extraction: {
+          domaine: extraction.domaine,
+          cuvee: extraction.cuvee,
+          appellation: extraction.appellation,
+          millesime: extraction.millesime,
+          couleur: extraction.couleur,
+          region: extraction.region,
+          quantity: 1,
+          volume: '0.75',
+          grape_varieties: extraction.grape_varieties,
+          serving_temperature: extraction.serving_temperature,
+          typical_aromas: extraction.typical_aromas,
+          food_pairings: extraction.food_pairings,
+          character: extraction.character,
+        },
+        summary: [extraction.domaine, extraction.cuvee, extraction.appellation].filter(Boolean).join(' — '),
+      }
+
+      const wineName = [extraction.domaine, extraction.cuvee, extraction.appellation].filter(Boolean).join(' ')
+      setMessages(prev => prev.map(m =>
+        m.id === loadingMsgId
+          ? { ...m, text: `J'ai identifié ${wineName}. Voici la fiche :`, isLoading: false, wineAction }
+          : m
+      ))
+    } catch (err) {
+      console.error('[CeSoirModule] extract-wine error:', err)
+      // Fallback: send to Celestin multimodal
+      void callCelestin(text || 'Identifie ce vin', loadingMsgId, photo)
+    } finally {
+      setIsLoading(false)
+      scrollToBottom()
+    }
+  }
+
+  function handlePhotoOnlyFlow(photo: string, photoFile: File | null) {
+    // Store photo in a ref so chip handlers can access it
+    storedPhotoRef.current = { base64: photo, file: photoFile }
+
+    setMessages(prev => {
+      const filtered = prev.filter(m => !m.isLoading)
+      return [
+        ...filtered.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
+        { id: genMsgId(), role: 'user' as const, text: '', image: photo },
+        {
+          id: genMsgId(), role: 'celestin' as const,
+          text: 'Belle photo ! Qu\'est-ce que tu veux que j\'en fasse ?',
+          actionChips: ['Encaver', 'Conseille-moi', 'Carte des vins'],
+        },
+      ]
+    })
+    scrollToBottom()
   }
 
   // --- Chip handler (welcome chips + LLM dynamic chips + questionnaire chips) ---
 
   function handleChipClick(chipLabel: string) {
     if (isLoading) return
+
+    // Photo-specific chips (from handlePhotoOnlyFlow)
+    const stored = storedPhotoRef.current
+    if (stored && (chipLabel === 'Encaver' || chipLabel === 'Conseille-moi' || chipLabel === 'Carte des vins')) {
+      storedPhotoRef.current = null // consume once
+      if (chipLabel === 'Encaver' && stored.file) {
+        handleExtractWineFlow('Encave cette bouteille', stored.base64, stored.file)
+      } else {
+        const query = chipLabel === 'Carte des vins'
+          ? 'Lis cette carte des vins et recommande-moi quelque chose'
+          : 'Conseille-moi sur cette photo'
+        submitMessageWithImage(query, stored.base64)
+      }
+      return
+    }
 
     // Questionnaire chips
     if (chipLabel === 'Allons-y !' || chipLabel === 'Découvrir mon profil') {
@@ -1022,6 +1186,21 @@ export default function CeSoirModule() {
     }
   }
 
+  // --- Photo handler ---
+
+  async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const base64 = await fileToBase64(file)
+      setPendingPhoto(base64)
+      setPendingPhotoFile(file)
+    } catch (err) {
+      console.error('[CeSoirModule] photo resize error:', err)
+    }
+  }
+
   // --- Wine action handlers ---
 
   function handleWineValidate(action: WineActionData) {
@@ -1075,6 +1254,15 @@ export default function CeSoirModule() {
         </div>
       </div>
 
+      {/* Hidden file input for photo */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handlePhotoSelect}
+        className="hidden"
+      />
+
       {/* Bottom bar */}
       <div className="flex-shrink-0 border-t border-[var(--border-color)] bg-[var(--background)] px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         {qActive ? (
@@ -1082,42 +1270,66 @@ export default function CeSoirModule() {
             {renderQInput()}
           </div>
         ) : (
-          <form
-            onSubmit={(e) => { e.preventDefault(); handleQuerySubmit() }}
-            className="flex items-center gap-2"
-          >
-            <div className="relative flex-1">
-              <div className="absolute left-3 top-3 text-[var(--text-muted)]">
-                <SearchIcon />
+          <div>
+            {/* Photo preview */}
+            {pendingPhoto && (
+              <div className="relative inline-block mb-2 ml-1">
+                <img
+                  src={`data:image/jpeg;base64,${pendingPhoto}`}
+                  alt="Preview"
+                  className="h-20 rounded-lg border border-[var(--border-color)]"
+                />
+                <button
+                  type="button"
+                  onClick={() => { setPendingPhoto(null); setPendingPhotoFile(null) }}
+                  className="absolute -top-1.5 -right-1.5 h-5 w-5 flex items-center justify-center rounded-full bg-[var(--text-primary)] text-[var(--background)] shadow-sm"
+                >
+                  <XIcon />
+                </button>
               </div>
-              <textarea
-                ref={textareaRef}
-                value={queryInput}
-                onChange={(e) => {
-                  setQueryInput(e.target.value)
-                  e.target.style.height = 'auto'
-                  e.target.style.height = `${e.target.scrollHeight}px`
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleQuerySubmit()
-                  }
-                }}
-                placeholder="Poulet rôti, envie de bulles..."
-                enterKeyHint="send"
-                rows={1}
-                className="w-full min-h-[44px] rounded-[20px] border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-4 py-3 text-[14px] placeholder:text-[var(--text-muted)] placeholder:italic resize-none leading-tight overflow-hidden"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="flex-shrink-0 h-11 w-11 flex items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-light)] text-white shadow-sm disabled:opacity-50"
+            )}
+            <form
+              onSubmit={(e) => { e.preventDefault(); handleQuerySubmit() }}
+              className="flex items-center gap-2"
             >
-              <SendIcon />
-            </button>
-          </form>
+              <div className="relative flex-1">
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={isLoading}
+                  className="absolute left-2.5 top-2.5 h-7 w-7 flex items-center justify-center rounded-full bg-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors disabled:opacity-50"
+                >
+                  <PlusIcon />
+                </button>
+                <textarea
+                  ref={textareaRef}
+                  value={queryInput}
+                  onChange={(e) => {
+                    setQueryInput(e.target.value)
+                    e.target.style.height = 'auto'
+                    e.target.style.height = `${e.target.scrollHeight}px`
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleQuerySubmit()
+                    }
+                  }}
+                  placeholder={pendingPhoto ? "Décris ce que tu veux faire..." : "Poulet rôti, envie de bulles..."}
+                  enterKeyHint="send"
+                  rows={1}
+                  className="w-full min-h-[44px] rounded-[20px] border border-[var(--border-color)] bg-[var(--bg-card)] pl-11 pr-4 py-3 text-[14px] placeholder:text-[var(--text-muted)] placeholder:italic resize-none leading-tight overflow-hidden"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="flex-shrink-0 h-11 w-11 flex items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-light)] text-white shadow-sm disabled:opacity-50"
+              >
+                <SendIcon />
+              </button>
+            </form>
+          </div>
         )}
       </div>
 

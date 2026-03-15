@@ -46,6 +46,7 @@ interface RequestBody {
   memories?: string
   previousSession?: string
   provider?: string // "claude" | "gemini" | "mistral" — force a specific provider (for eval)
+  image?: string // base64-encoded image (JPEG or PNG)
   context?: {
     dayOfWeek: string
     season: string
@@ -148,6 +149,10 @@ function parseAndValidate(raw: string): CelestinResponse {
   return data
 }
 
+function detectMediaType(base64: string): 'image/jpeg' | 'image/png' {
+  return base64.startsWith('/9j/') ? 'image/jpeg' : 'image/png'
+}
+
 // === SYSTEM PROMPT ===
 
 function buildSystemPrompt(): string {
@@ -195,6 +200,9 @@ function buildUserPrompt(body: RequestBody): string {
     parts.push('Pas d\'accord mets-vins a appliquer : priorise la pertinence contextuelle et la diversite.')
   } else {
     parts.push(`Message de l'utilisateur : ${body.message}`)
+    if (body.image) {
+      parts.push("L'utilisateur a joint une photo. Analyse-la et reponds en fonction de ce que tu vois.")
+    }
   }
 
   // Context
@@ -367,33 +375,55 @@ function extractErrorMessage(errorText: string): string {
   }
 }
 
-function buildGeminiContents(history: ConversationTurn[], message: string): Array<{ role: string; parts: Array<{ text: string }> }> {
-  const contents: Array<{ role: string; parts: Array<{ text: string }> }> = history.map((turn) => ({
+// deno-lint-ignore no-explicit-any
+function buildGeminiContents(history: ConversationTurn[], message: string, image?: string): Array<{ role: string; parts: any[] }> {
+  // deno-lint-ignore no-explicit-any
+  const contents: Array<{ role: string; parts: any[] }> = history.map((turn) => ({
     role: turn.role === 'user' ? 'user' : 'model',
     parts: [{ text: turn.text }],
   }))
-  contents.push({ role: 'user', parts: [{ text: message }] })
+  // deno-lint-ignore no-explicit-any
+  const userParts: any[] = []
+  if (image) {
+    userParts.push({ inline_data: { mime_type: detectMediaType(image), data: image } })
+  }
+  userParts.push({ text: message })
+  contents.push({ role: 'user', parts: userParts })
   return contents
 }
 
-function buildClaudeMessages(history: ConversationTurn[], message: string): Array<{ role: string; content: string }> {
-  const messages: Array<{ role: string; content: string }> = history.map((turn) => ({
+// deno-lint-ignore no-explicit-any
+function buildClaudeMessages(history: ConversationTurn[], message: string, image?: string): Array<{ role: string; content: any }> {
+  // deno-lint-ignore no-explicit-any
+  const messages: Array<{ role: string; content: any }> = history.map((turn) => ({
     role: turn.role === 'user' ? 'user' : 'assistant',
     content: turn.text,
   }))
-  messages.push({ role: 'user', content: message })
+  if (image) {
+    messages.push({
+      role: 'user',
+      content: [
+        { type: 'image', source: { type: 'base64', media_type: detectMediaType(image), data: image } },
+        { type: 'text', text: message },
+      ],
+    })
+  } else {
+    messages.push({ role: 'user', content: message })
+  }
   return messages
 }
 
-async function callGemini(systemPrompt: string, userPrompt: string, history: ConversationTurn[]): Promise<CelestinResponse> {
+async function callGemini(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string): Promise<CelestinResponse> {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured')
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
 
   // For multi-turn, use history. For single-turn (prefetch), just send user prompt.
   const contents = history.length > 0
-    ? buildGeminiContents(history, userPrompt)
-    : [{ role: 'user', parts: [{ text: userPrompt }] }]
+    ? buildGeminiContents(history, userPrompt, image)
+    : image
+      ? [{ role: 'user', parts: [{ inline_data: { mime_type: detectMediaType(image), data: image } }, { text: userPrompt }] }]
+      : [{ role: 'user', parts: [{ text: userPrompt }] }]
 
   const response = await fetchWithTimeout(url, {
     method: 'POST',
@@ -406,7 +436,7 @@ async function callGemini(systemPrompt: string, userPrompt: string, history: Con
         maxOutputTokens: 4096,
         responseMimeType: 'application/json',
         responseSchema: RESPONSE_SCHEMA,
-        thinkingConfig: { thinkingBudget: 0 },
+        thinkingConfig: { thinkingBudget: image ? 1024 : 0 },
       },
     }),
   })
@@ -422,7 +452,7 @@ async function callGemini(systemPrompt: string, userPrompt: string, history: Con
   return parseAndValidate(text)
 }
 
-async function callMistral(systemPrompt: string, userPrompt: string, history: ConversationTurn[]): Promise<CelestinResponse> {
+async function callMistral(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string): Promise<CelestinResponse> {
   if (!MISTRAL_API_KEY) throw new Error('MISTRAL_API_KEY not configured')
 
   const messages: Array<{ role: string; content: string }> = [
@@ -431,7 +461,11 @@ async function callMistral(systemPrompt: string, userPrompt: string, history: Co
   for (const turn of history) {
     messages.push({ role: turn.role === 'user' ? 'user' : 'assistant', content: turn.text })
   }
-  messages.push({ role: 'user', content: userPrompt })
+  // Mistral has no vision — add a note if image was provided
+  const finalPrompt = image
+    ? userPrompt + "\n\n(L'utilisateur a envoye une photo mais je ne peux pas la voir. Reponds en te basant uniquement sur le texte.)"
+    : userPrompt
+  messages.push({ role: 'user', content: finalPrompt })
 
   const response = await fetchWithTimeout('https://api.mistral.ai/v1/chat/completions', {
     method: 'POST',
@@ -459,12 +493,17 @@ async function callMistral(systemPrompt: string, userPrompt: string, history: Co
   return parseAndValidate(text)
 }
 
-async function callClaude(systemPrompt: string, userPrompt: string, history: ConversationTurn[]): Promise<CelestinResponse> {
+async function callClaude(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string): Promise<CelestinResponse> {
   if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not configured')
 
   const messages = history.length > 0
-    ? buildClaudeMessages(history, userPrompt)
-    : [{ role: 'user', content: userPrompt }]
+    ? buildClaudeMessages(history, userPrompt, image)
+    : image
+      ? [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: detectMediaType(image), data: image } },
+          { type: 'text', text: userPrompt },
+        ] }]
+      : [{ role: 'user', content: userPrompt }]
 
   const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -578,16 +617,27 @@ const OPENAI_RESPONSE_SCHEMA = {
   },
 }
 
-async function callOpenAI(systemPrompt: string, userPrompt: string, history: ConversationTurn[]): Promise<CelestinResponse> {
+async function callOpenAI(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string): Promise<CelestinResponse> {
   if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not configured')
 
-  const messages: Array<{ role: string; content: string }> = [
+  // deno-lint-ignore no-explicit-any
+  const messages: Array<{ role: string; content: any }> = [
     { role: 'system', content: systemPrompt },
   ]
   for (const turn of history) {
     messages.push({ role: turn.role === 'user' ? 'user' : 'assistant', content: turn.text })
   }
-  messages.push({ role: 'user', content: userPrompt })
+  if (image) {
+    messages.push({
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: `data:${detectMediaType(image)};base64,${image}` } },
+        { type: 'text', text: userPrompt },
+      ],
+    })
+  } else {
+    messages.push({ role: 'user', content: userPrompt })
+  }
 
   const response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -617,14 +667,14 @@ async function callOpenAI(systemPrompt: string, userPrompt: string, history: Con
 
 // === FALLBACK ===
 
-async function celestinWithFallback(systemPrompt: string, userPrompt: string, history: ConversationTurn[], forcedProvider?: string): Promise<{ provider: string; response: CelestinResponse }> {
+async function celestinWithFallback(systemPrompt: string, userPrompt: string, history: ConversationTurn[], forcedProvider?: string, image?: string): Promise<{ provider: string; response: CelestinResponse }> {
   // If a specific provider is forced (eval mode), call only that one
   if (forcedProvider) {
     const providerMap: Record<string, { name: string; call: () => Promise<CelestinResponse> }> = {
-      claude: { name: 'Claude', call: () => callClaude(systemPrompt, userPrompt, history) },
-      gemini: { name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history) },
-      mistral: { name: 'Mistral', call: () => callMistral(systemPrompt, userPrompt, history) },
-      openai: { name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history) },
+      claude: { name: 'Claude', call: () => callClaude(systemPrompt, userPrompt, history, image) },
+      gemini: { name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history, image) },
+      mistral: { name: 'Mistral', call: () => callMistral(systemPrompt, userPrompt, history, image) },
+      openai: { name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history, image) },
     }
     const selected = providerMap[forcedProvider.toLowerCase()]
     if (!selected) throw new Error(`Unknown provider: ${forcedProvider}`)
@@ -635,9 +685,9 @@ async function celestinWithFallback(systemPrompt: string, userPrompt: string, hi
 
   const providers: Array<{ name: string; call: () => Promise<CelestinResponse> }> = []
 
-  if (OPENAI_API_KEY) providers.push({ name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history) })
-  if (ANTHROPIC_API_KEY) providers.push({ name: 'Claude', call: () => callClaude(systemPrompt, userPrompt, history) })
-  if (GEMINI_API_KEY) providers.push({ name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history) })
+  if (OPENAI_API_KEY) providers.push({ name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history, image) })
+  if (ANTHROPIC_API_KEY) providers.push({ name: 'Claude', call: () => callClaude(systemPrompt, userPrompt, history, image) })
+  if (GEMINI_API_KEY) providers.push({ name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history, image) })
 
   if (providers.length === 0) {
     throw new Error('No API keys configured.')
@@ -672,13 +722,14 @@ Deno.serve(async (req) => {
   try {
     const body: RequestBody = await req.json()
     forcedProvider = body.provider
-    console.log(`[celestin] message="${body.message.slice(0, 80)}" history=${body.history.length} cave=${body.cave.length}`)
+    console.log(`[celestin] message="${body.message.slice(0, 80)}" history=${body.history.length} cave=${body.cave.length} image=${body.image ? `${body.image.length} chars` : 'none'}`)
 
     const systemPrompt = buildSystemPrompt()
     const userPrompt = buildUserPrompt(body)
 
-    const { provider, response } = await celestinWithFallback(systemPrompt, userPrompt, body.history, body.provider)
-    console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'}`)
+    const { provider, response } = await celestinWithFallback(systemPrompt, userPrompt, body.history, body.provider, body.image)
+    console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} msg="${response.message.slice(0, 200)}"`)
+
 
     return new Response(JSON.stringify(response), {
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
