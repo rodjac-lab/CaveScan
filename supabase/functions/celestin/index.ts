@@ -160,23 +160,107 @@ function buildSystemPrompt(): string {
   return buildCelestinSystemPrompt()
 }
 
-// === USER PROMPT ===
+// === CONTEXT BLOCK (appended to system prompt, semi-static per session) ===
+
+function buildContextBlock(body: RequestBody): string {
+  const parts: string[] = []
+
+  // Profile
+  if (body.profile) {
+    parts.push(`Profil de gout :\n${body.profile}`)
+  }
+
+  // Questionnaire profile (FWI + sensory preferences)
+  if (body.questionnaireProfile) {
+    parts.push(body.questionnaireProfile)
+  }
+
+  // Memories
+  if (body.memories) {
+    parts.push(`Souvenirs de degustation :\n${body.memories}`)
+    parts.push('Cite des souvenirs specifiques quand pertinent.')
+  }
+
+  // Previous sessions (cross-session memory)
+  if (body.previousSession) {
+    parts.push(body.previousSession)
+    parts.push('Tu peux faire reference a ces conversations precedentes si c\'est pertinent, mais ne force pas. Les plus recentes sont les plus importantes.')
+  }
+
+  // Storage zones
+  const zones = (body as Record<string, unknown>).zones as string[] | undefined
+  if (zones && zones.length > 0) {
+    parts.push(`Zones de stockage disponibles : ${zones.join(', ')}`)
+  }
+
+  // Cave
+  if (body.cave.length > 0) {
+    parts.push(`Bouteilles en cave (${body.cave.length}) :`)
+    for (const b of body.cave) {
+      const label = [b.domaine, b.cuvee, b.appellation, b.millesime, b.couleur]
+        .filter(Boolean)
+        .join(' · ')
+      const qty = b.quantity ?? 1
+      const vol = b.volume === '0.375' ? 'demi' : b.volume === '1.5' ? 'magnum' : 'btl'
+      const qtyStr = `${qty}× ${vol}`
+      const extra = b.character ? ` — ${b.character}` : ''
+      const localScore = typeof b.local_score === 'number' ? ` | score_local=${b.local_score}` : ''
+      parts.push(`- [${b.id}] ${label} | ${qtyStr}${extra}${localScore}`)
+    }
+  } else {
+    parts.push('Cave vide — propose uniquement des decouvertes.')
+  }
+
+  return parts.join('\n\n')
+}
+
+// === INTENT CLASSIFIER (code-side, no LLM call) ===
+
+type MessageIntent = 'greeting' | 'prefetch' | 'conversation' | 'recommendation' | 'unknown'
+
+function classifyIntent(message: string, hasImage: boolean): MessageIntent {
+  if (message === '__greeting__') return 'greeting'
+  if (message === '__prefetch__') return 'prefetch'
+
+  const lower = message.toLowerCase().trim()
+
+  // Explicit recommendation triggers (checked first — strongest signal)
+  const RECOMMENDATION_PATTERNS = [
+    /\b(que? boire|recommande|propose|ce soir|pour accompagner|ouvre[- ]moi|quel vin|avec (ce|le|du|des|mon|ma|mes|un|une)|accord|accords mets)/i,
+    /\b(pour aller avec|pour manger|pour diner|pour le repas)/i,
+    /\b(en blanc|en rouge|en ros[ée]|en bulles|un blanc|un rouge|une bulle|autre chose|une autre|plutot un|sinon)\b/i, // Refinements of a previous recommendation
+  ]
+
+  // Short acknowledgments / thanks / refusals — clearly conversational
+  const CONVERSATION_PATTERNS = [
+    /^(merci|super|ok|d'accord|parfait|g[eé]nial|cool|top|nice|bien|bonne id[eé]e|ah ok|je vois|compris|entendu|c'est bon|non merci|pas pour moi|[cç]a ira|bof|mouais|haha|mdr|lol)[.! ]*$/i,
+    /^(oui|non|pourquoi|comment|quoi|c'est quoi|qu'est-ce que?|est-ce que|tu (aimes?|connais|pref[eè]res|penses|sais|crois)|parle[- ]moi|explique|raconte|dis[- ]moi)/i,
+  ]
+
+  if (hasImage) return 'unknown' // Let the LLM decide for images
+
+  for (const pattern of RECOMMENDATION_PATTERNS) {
+    if (pattern.test(lower)) return 'recommendation'
+  }
+
+  for (const pattern of CONVERSATION_PATTERNS) {
+    if (pattern.test(lower)) return 'conversation'
+  }
+
+  // Short messages (< 20 chars) without recommendation keywords are likely conversational
+  if (lower.length < 20) return 'conversation'
+
+  return 'unknown'
+}
+
+// === USER PROMPT (lightweight: current message + minimal dynamic context) ===
 
 function buildUserPrompt(body: RequestBody): string {
   const parts: string[] = []
-
-  // Conversation history
-  if (body.history.length > 0) {
-    parts.push("Historique conversationnel : il peut contenir des hypotheses, raccourcis ou erreurs de Celestin. Ne l'utilise jamais comme preuve sur la cave, les gouts, les souvenirs ou les accords de l'utilisateur. En cas de conflit, les donnees structurees et les corrections de l'utilisateur priment toujours.")
-    parts.push('Historique de conversation :')
-    for (const turn of body.history) {
-      parts.push(`${turn.role === 'user' ? 'Utilisateur' : 'Celestin'} : ${turn.text}`)
-    }
-    parts.push('')
-  }
+  const intent = classifyIntent(body.message, !!body.image)
 
   // Current message
-  if (body.message === '__greeting__') {
+  if (intent === 'greeting') {
     parts.push('DEMANDE SPECIALE : message d\'accueil a l\'ouverture de l\'app.')
     parts.push('1 phrase. Pas de ui_action. Inclus 2-3 action_chips.')
     parts.push('')
@@ -196,69 +280,27 @@ function buildUserPrompt(body: RequestBody): string {
       if (gc.lastActivity) parts.push(`${gc.lastActivity}`)
     }
     return parts.join('\n')
-  } else if (body.message === '__prefetch__') {
+  } else if (intent === 'prefetch') {
     parts.push('Demande : suggestions personnalisees pour ce soir, pas de contrainte de plat.')
     parts.push('Pas d\'accord mets-vins a appliquer : priorise la pertinence contextuelle et la diversite.')
+  } else if (intent === 'conversation') {
+    // Strong hint: this is NOT a recommendation request
+    parts.push(`[CONVERSATION — PAS de ui_action. Reponds BRIEVEMENT (1-2 phrases max) + action_chips. Ne recommande aucun vin.]`)
+    parts.push(body.message)
   } else {
-    parts.push(`Message de l'utilisateur : ${body.message}`)
+    parts.push(body.message)
     if (body.image) {
       parts.push("L'utilisateur a joint une photo. Analyse-la et reponds en fonction de ce que tu vois.")
     }
   }
 
-  // Context
+  // Dynamic context (changes between turns)
   if (body.context) {
     const ctx = body.context
     parts.push(`\nContexte : ${ctx.dayOfWeek}, ${ctx.season}.`)
     if (ctx.recentDrunk?.length) {
       parts.push(`Vins bus recemment (a eviter) : ${ctx.recentDrunk.join(', ')}`)
     }
-  }
-
-  // Profile
-  if (body.profile) {
-    parts.push(`\nProfil de gout :\n${body.profile}`)
-  }
-
-  // Questionnaire profile (FWI + sensory preferences)
-  if (body.questionnaireProfile) {
-    parts.push(`\n${body.questionnaireProfile}`)
-  }
-
-  // Memories
-  if (body.memories) {
-    parts.push(`\nSouvenirs de degustation :\n${body.memories}`)
-    parts.push('Cite des souvenirs specifiques quand pertinent.')
-  }
-
-  // Previous sessions (cross-session memory)
-  if (body.previousSession) {
-    parts.push(`\n${body.previousSession}`)
-    parts.push('Tu peux faire reference a ces conversations precedentes si c\'est pertinent, mais ne force pas. Les plus recentes sont les plus importantes.')
-  }
-
-  // Storage zones
-  const zones = (body as Record<string, unknown>).zones as string[] | undefined
-  if (zones && zones.length > 0) {
-    parts.push(`\nZones de stockage disponibles : ${zones.join(', ')}`)
-  }
-
-  // Cave
-  if (body.cave.length > 0) {
-    parts.push(`\nBouteilles en cave (${body.cave.length}) :`)
-    for (const b of body.cave) {
-      const label = [b.domaine, b.cuvee, b.appellation, b.millesime, b.couleur]
-        .filter(Boolean)
-        .join(' · ')
-      const qty = b.quantity ?? 1
-      const vol = b.volume === '0.375' ? 'demi' : b.volume === '1.5' ? 'magnum' : 'btl'
-      const qtyStr = `${qty}× ${vol}`
-      const extra = b.character ? ` — ${b.character}` : ''
-      const localScore = typeof b.local_score === 'number' ? ` | score_local=${b.local_score}` : ''
-      parts.push(`- [${b.id}] ${label} | ${qtyStr}${extra}${localScore}`)
-    }
-  } else {
-    parts.push('\nCave vide — propose uniquement des decouvertes.')
   }
 
   return parts.join('\n')
@@ -746,9 +788,11 @@ Deno.serve(async (req) => {
   try {
     const body: RequestBody = await req.json()
     forcedProvider = body.provider
-    console.log(`[celestin] message="${body.message.slice(0, 80)}" history=${body.history.length} cave=${body.cave.length} image=${body.image ? `${body.image.length} chars` : 'none'}`)
+    const intent = classifyIntent(body.message, !!body.image)
+    console.log(`[celestin] message="${body.message.slice(0, 80)}" intent=${intent} history=${body.history.length} cave=${body.cave.length} image=${body.image ? `${body.image.length} chars` : 'none'}`)
 
-    const systemPrompt = buildSystemPrompt()
+    const contextBlock = buildContextBlock(body)
+    const systemPrompt = buildSystemPrompt() + '\n\n--- CONTEXTE UTILISATEUR ---\n\n' + contextBlock
     const userPrompt = buildUserPrompt(body)
 
     const { provider, response } = await celestinWithFallback(systemPrompt, userPrompt, body.history, body.provider, body.image)

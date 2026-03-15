@@ -2,154 +2,279 @@
 
 Celestin est le sommelier IA de l'app. Ce document decrit comment un message utilisateur est traite, du tap sur "Envoyer" jusqu'a la reponse affichee.
 
-## Vue d'ensemble
+## Flux complet
 
-```mermaid
-flowchart TB
-    subgraph Client ["Client (React)"]
-        A[Message utilisateur] --> B[buildRequestBody]
-        B --> |cave rankee, profil,\nmemoires, session precedente| C[supabase.functions.invoke]
-        G[Parsing reponse] --> H{ui_action?}
-        H --> |show_recommendations| I[Carousel de cards]
-        H --> |prepare_add_wine| J[Fiche encavage]
-        H --> |prepare_log_tasting| K[Fiche degustation]
-        H --> |null| L[Bulle texte simple]
-    end
+```
+╔══════════════════════════════════════════════════════════════════╗
+║                      FRONTEND (React)                           ║
+║                 CeSoirModule.tsx + libraries                    ║
+╚══════════════════════════════════════════════════════════════════╝
 
-    subgraph Edge ["Edge Function (Deno)"]
-        C --> D[buildSystemPrompt + buildUserPrompt]
-        D --> E[celestinWithFallback]
-        E --> |primaire| E1[Gemini 2.5 Flash]
-        E --> |fallback| E2[Claude Haiku 4.5]
-        E1 --> F[parseAndValidate]
-        E2 --> F
-        F --> G
-    end
+  User tape un message (+ photo optionnelle)
+       │
+       ▼
+  buildRequestBody()
+       │
+       ├─ rankCaveBottles()              → cave triée par pertinence
+       ├─ serializeProfileForPrompt()    → profil de goût texte
+       ├─ serializeQuestionnaireForPrompt() → FWI + préfs sensorielles
+       ├─ selectRelevantMemories()       → souvenirs de dégustation
+       ├─ serializePreviousSessionsForPrompt() → sessions précédentes
+       ├─ getDayOfWeek(), getSeason()    → contexte temporel
+       └─ zones, recentDrunk            → métadonnées
+       │
+       ▼
+  RequestBody = {
+    message, history[], cave[], profile, questionnaireProfile,
+    memories, previousSession, context, zones, image?
+  }
+       │
+       ▼  HTTP POST → supabase.functions.invoke('celestin')
+
+╔══════════════════════════════════════════════════════════════════╗
+║              EDGE FUNCTION  celestin/index.ts                   ║
+╚══════════════════════════════════════════════════════════════════╝
+       │
+       ▼
+  ┌─────────────────────────────────────┐
+  │  classifyIntent(message, hasImage)  │  ◄── CODE, pas de LLM
+  │                                     │
+  │  greeting       → "__greeting__"    │
+  │  prefetch       → "__prefetch__"    │
+  │  conversation   → merci, questions, │
+  │                   messages courts    │
+  │  recommendation → "en blanc",       │
+  │                   "que boire", etc.  │
+  │  unknown        → le LLM décide    │
+  └────────────┬────────────────────────┘
+               │
+       ┌───────┴───────┐
+       ▼               ▼
+  buildSystemPrompt()  buildUserPrompt(body)
+       │                    │
+       │               Si conversation:
+       │               "[CONVERSATION — PAS de ui_action.
+       │                Reponds BRIEVEMENT.]"
+       │               + message brut
+       │
+       │               Si recommendation/unknown:
+       │               message brut + image hint
+       │               + contexte jour/saison
+       │
+       ▼
+  ┌──────────────────────────────────────────────┐
+  │           SYSTEM PROMPT (assemblé)           │
+  │                                              │
+  │  1. WINE_CODEX        (wine-codex.ts)        │
+  │     → accords, températures, saisons         │
+  │                                              │
+  │  2. CELESTIN_PERSONA  (persona.ts)           │
+  │     → sommelier français, opinions, ton      │
+  │     → interdits: "Ah", "Oh", questions rhét. │
+  │                                              │
+  │  3. CELESTIN_CAPABILITIES (capabilities.ts)  │
+  │     → recommander, encaver, déguster, Q&A    │
+  │                                              │
+  │  4. CELESTIN_RULES    (rules.ts)             │
+  │     → routing: quand show_recommendations    │
+  │       vs prepare_add_wine vs conversation    │
+  │     → règles cave: jamais changer couleur    │
+  │     → règles photo: carte resto ≠ cave       │
+  │                                              │
+  │  5. CELESTIN_RESPONSE_FORMAT                 │
+  │     (response-format.ts)                     │
+  │     → JSON: message + ui_action? + chips?    │
+  │                                              │
+  │  --- CONTEXTE UTILISATEUR ---                │
+  │  (buildContextBlock)                         │
+  │     → profil de goût                         │
+  │     → questionnaire FWI                      │
+  │     → souvenirs de dégustation               │
+  │     → sessions précédentes                   │
+  │     → zones de stockage                      │
+  │     → cave complète (N bouteilles triées)    │
+  └──────────────────┬───────────────────────────┘
+                     │
+                     ▼
+  ┌──────────────────────────────────────────────┐
+  │       celestinWithFallback()                 │
+  │                                              │
+  │  Provider 1: GPT-4.1 mini  (OpenAI)         │
+  │       │  structured outputs + vision         │
+  │       ▼ fail?                                │
+  │  Provider 2: Claude Haiku 4.5 (Anthropic)   │
+  │       │  meilleur suivi d'instructions       │
+  │       ▼ fail?                                │
+  │  Provider 3: Gemini 2.5 Flash (Google)       │
+  │       │  responseSchema + vision             │
+  │       ▼ fail?                                │
+  │  Mistral Small (dernier recours, no vision)  │
+  │                                              │
+  │  Chaque provider :                           │
+  │  1. Envoie system prompt                     │
+  │  2. Reconstruit history[] en messages natifs │
+  │     (avec images base64 si vision)           │
+  │  3. Ajoute userPrompt comme dernier message  │
+  │  4. Parse JSON → parseAndValidate()          │
+  └──────────────────┬───────────────────────────┘
+                     │
+                     ▼
+  CelestinResponse = {
+    message: "Bonne idée le Morgon !",
+    ui_action?: {
+      kind: "show_recommendations",
+      payload: { cards: [...] }
+    },
+    action_chips?: ["Et en blanc ?", "Autre plat"]
+  }
+       │
+       ▼  HTTP 200 + JSON
+
+╔══════════════════════════════════════════════════════════════════╗
+║              RESPONSE ROUTING (CeSoirModule)                    ║
+╚══════════════════════════════════════════════════════════════════╝
+       │
+       ├─ show_recommendations
+       │   → resolveBottleIds(cards, cave)
+       │   → affiche cartes de vin + action_chips
+       │
+       ├─ prepare_add_wine
+       │   → navigate('/addBottle', { prefillExtraction })
+       │
+       ├─ prepare_add_wines
+       │   → navigate('/addBottle', { prefillBatchExtractions })
+       │
+       ├─ prepare_log_tasting
+       │   → navigate('/tastingForm', { prefillExtraction })
+       │
+       └─ (pas de ui_action)
+           → affiche message texte + action_chips
+
+  persistedMessages[] ← sauvegardé (module-level + localStorage)
 ```
 
-## Pipeline de contexte
+## Fichiers et rôles
 
-Quand l'utilisateur envoie un message, `buildRequestBody()` dans `CeSoirModule.tsx` assemble tout le contexte :
+### Edge Function (`supabase/functions/celestin/`)
 
-```mermaid
-flowchart LR
-    subgraph Donnees ["Sources de donnees"]
-        CA[Cave in_stock]
-        DR[Bouteilles bues]
-        PR[Profil de gout]
-        LS[localStorage]
-    end
-
-    subgraph Assemblage ["buildRequestBody()"]
-        CA --> |rankCaveBottles| R[Cave rankee par pertinence]
-        DR --> |selectRelevantMemories| M[3-5 souvenirs pertinents]
-        PR --> |serializeProfileForPrompt| P[Profil serialise]
-        LS --> |loadPreviousSession| S[Session precedente]
-        MS[messages] --> |enrichissement cards/actions| H[Historique conversationnel]
-    end
-
-    R --> BODY[Request body]
-    M --> BODY
-    P --> BODY
-    S --> BODY
-    H --> BODY
-    CTX[Jour + saison + vins recents] --> BODY
-```
-
-### Detail de chaque source
-
-| Source | Fichier | Ce qui est envoye |
-|--------|---------|-------------------|
-| **Cave rankee** | `recommendationRanking.ts` | Toutes les bouteilles in_stock, triees par score local (couleur, profil, saison, maturite, exploration) |
-| **Profil de gout** | `taste-profile.ts` | Stats agregees : appellations/domaines preferes, couleurs, prix, QPR, aromes, plats vecus, descripteurs, occasions |
-| **Souvenirs** | `tastingMemories.ts` | 3-5 bouteilles bues avec notes, tags, rating — selectionnees par pertinence textuelle ou fallback proactif |
-| **Session precedente** | `CeSoirModule.tsx` | Derniers 12 tours de la session precedente (localStorage, TTL 7 jours) |
-| **Historique** | `CeSoirModule.tsx` | Messages de la conversation actuelle, enrichis avec resume des cards et fiches vin |
-| **Contexte** | `contextHelpers.ts` | Jour de la semaine, saison, vins bus recemment (a eviter) |
-
-## System prompt (edge function)
-
-Le system prompt est assemble par `prompt-builder.ts` en concatenant 6 modules :
-
-```mermaid
-flowchart LR
-    WC[wine-codex.ts\nRegles oenologiques] --> SP[System Prompt]
-    PE[persona.ts\nIdentite Celestin] --> SP
-    RE[relationship.ts\nTon et relation] --> SP
-    CA[capabilities.ts\nCe que Celestin sait faire] --> SP
-    RU[rules.ts\nRegles de routing et comportement] --> SP
-    RF[response-format.ts\nContrat JSON de sortie] --> SP
-```
-
-### Routing LLM
-
-Le LLM decide lui-meme le type de reponse. Les regles dans `rules.ts` le guident :
-
-| Situation | ui_action |
-|-----------|-----------|
-| Recommandation de vin | `show_recommendations` avec 3-5 cards |
-| Utilisateur veut encaver | `prepare_add_wine` avec extraction structuree |
-| Utilisateur veut noter une degustation | `prepare_log_tasting` avec extraction |
-| Question, conversation, doute | `null` (texte seul) |
-
-## Fichiers cles
-
-### Client (`src/`)
-
-| Fichier | Role |
+| Fichier | Rôle |
 |---------|------|
-| `components/discover/CeSoirModule.tsx` | Composant principal : chat UI, assemblage du contexte, appel edge function, gestion des cards/fiches, memoire cross-session |
-| `lib/taste-profile.ts` | Calcul du profil de gout (stats, tags agreges), serialisation pour le prompt |
-| `lib/tastingMemories.ts` | Selection des souvenirs pertinents, serialisation pour le prompt |
-| `lib/recommendationRanking.ts` | Scoring local des bouteilles en cave (couleur, saison, profil, maturite, exploration) |
-| `lib/recommendationStore.ts` | Cache en memoire des reponses (TTL 10 min) |
-| `lib/contextHelpers.ts` | Utilitaires : saison, jour, formatage, resolution des IDs courts |
-| `lib/types.ts` | Types partages : `ComputedTasteProfile`, `TastingTags`, `TagFrequency`, etc. |
-| `hooks/useTasteProfile.ts` | Hook React pour charger le profil depuis Supabase |
+| `index.ts` | Handler HTTP + classifieur d'intent + providers LLM + fallback |
+| `prompt-builder.ts` | Assemble le system prompt (concatène les 5 modules) |
+| `rules.ts` | Routing ui_action : quand recommander, encaver, déguster, converser |
+| `persona.ts` | Personnalité : sommelier français, opinions, ton, interdits |
+| `capabilities.ts` | Ce que Celestin sait faire (recommander, encaver, Q&A vin) |
+| `response-format.ts` | Format JSON attendu avec exemples (cards, extraction, chips) |
+| `wine-codex.ts` | Connaissances vin : accords, températures, saisons, styles |
 
-### Edge function (`supabase/functions/celestin/`)
+### Frontend (`src/`)
 
-| Fichier | Role |
+| Fichier | Rôle |
 |---------|------|
-| `index.ts` | Handler HTTP : recoit le body, construit les prompts, appelle le LLM (Gemini puis Claude fallback), parse et valide la reponse |
-| `prompt-builder.ts` | Assemble le system prompt depuis les 6 modules |
-| `persona.ts` | Identite de Celestin (ami sommelier, pas snob, opinions franches) |
-| `relationship.ts` | Ton de la relation (tutoiement, chaleur, naturel, usage des souvenirs et donnees vecues) |
-| `capabilities.ts` | Ce que Celestin sait faire (recommander, encaver, noter, converser) |
-| `rules.ts` | Regles de routing, comportement, accords mets-vins, extraction, enrichissement |
-| `wine-codex.ts` | Connaissances oenologiques de reference (accords, temperatures, cepages adjacents) |
-| `response-format.ts` | Contrat JSON de sortie (message + ui_action optionnel) |
+| `components/discover/CeSoirModule.tsx` | Chat UI + `buildRequestBody()` + `callCelestin()` |
+| `hooks/useRecommendations.ts` | Prefetch suggestions au lancement (`__prefetch__`) |
+| `lib/recommendationRanking.ts` | Score de pertinence par bouteille (`rankCaveBottles()`) |
+| `lib/tastingMemories.ts` | Sélection et sérialisation des souvenirs de dégustation |
+| `lib/taste-profile.ts` | Sérialisation du profil de goût |
+| `lib/questionnaire-profile.ts` | Sérialisation du questionnaire FWI |
+| `lib/contextHelpers.ts` | Jour, saison, `resolveBottleIds()`, `formatDrunkSummary()` |
+| `lib/crossSessionMemory.ts` | Persistance sessions (localStorage, rotation, TTL 7j) |
+| `lib/recommendationStore.ts` | Cache prefetch (module-level) |
 
-## Memoire : 4 couches
+## Classifieur d'intent (code-side)
 
-```mermaid
-flowchart TB
-    subgraph L1 ["1. Faits (Supabase)"]
-        B[bottles] --- T[tasting_tags]
-        B --- Z[zones]
-    end
+Avant d'appeler le LLM, `classifyIntent()` dans `index.ts` analyse le message avec des regex :
 
-    subgraph L2 ["2. Profil infere (Supabase)"]
-        UP[user_taste_profiles\ncomputeTasteProfile]
-    end
+| Intent | Déclencheurs | Effet sur le prompt |
+|--------|-------------|---------------------|
+| `greeting` | `__greeting__` | Prompt spécial accueil, pas de ui_action |
+| `prefetch` | `__prefetch__` | Suggestions sans contrainte de plat |
+| `conversation` | "merci", "super", questions générales, messages < 20 chars | Injecte `[CONVERSATION — PAS de ui_action]` |
+| `recommendation` | "que boire", "en blanc", "pour accompagner", etc. | Message brut, le LLM génère des cartes |
+| `unknown` | Tout le reste, images | Le LLM décide librement |
 
-    subgraph L3 ["3. Souvenirs (Supabase + runtime)"]
-        SM[selectRelevantMemories\ntasting notes + tags]
-    end
+L'intent est loggé pour debug : `[celestin] message="..." intent=conversation`.
 
-    subgraph L4 ["4. Etat conversationnel"]
-        CS[Cross-session\nlocalStorage]
-        PS[Persistance intra-session\nmodule-level variable]
-        HI[Historique enrichi\ncards + actions resumees]
-    end
+## Providers LLM
 
-    L1 --> L2
-    L1 --> L3
-    L3 --> PROMPT[Prompt Celestin]
-    L2 --> PROMPT
-    L4 --> PROMPT
+| Ordre | Provider | Modèle | Particularités |
+|-------|----------|--------|----------------|
+| 1 | OpenAI | gpt-4.1-mini | Structured outputs (JSON schema strict), vision |
+| 2 | Anthropic | claude-haiku-4-5 | Meilleur suivi d'instructions, vision |
+| 3 | Google | gemini-2.5-flash | responseSchema natif, vision, thinking budget |
+| 4 | Mistral | mistral-small | Pas de vision, dernier recours |
+
+Chaque provider reconstruit l'historique dans son format natif (messages alternés user/assistant avec images base64).
+
+## Structure du system prompt
+
+```
+WINE_CODEX                        Connaissances vin (accords, T°, saisons)
+CELESTIN_PERSONA                  Personnalité et ton
+CELESTIN_CAPABILITIES             Ce qu'il sait faire
+CELESTIN_RULES                    Routing + contraintes cave + photo
+CELESTIN_RESPONSE_FORMAT          JSON attendu + exemples
+--- CONTEXTE UTILISATEUR ---      (ajouté par buildContextBlock)
+  Profil de goût                  Préférences dérivées de l'historique
+  Questionnaire FWI               Score Wine Interest + préfs sensorielles
+  Souvenirs de dégustation        Notes de dégustation passées
+  Sessions précédentes            Résumé des conversations récentes
+  Zones de stockage               Noms des zones disponibles
+  Cave complète (N btl)           Triée par local_score
 ```
 
-### V1 — Etat actuel (mars 2026)
+## Structure du user prompt
 
-Voir `celestin-memory-plan.md` pour le plan complet et l'avancement.
+| Intent | Contenu du user prompt |
+|--------|------------------------|
+| conversation | `[CONVERSATION — PAS de ui_action...]` + message brut |
+| recommendation | message brut + contexte jour/saison |
+| greeting | instructions d'accueil + exemples + contexte heure/saison |
+| prefetch | "suggestions personnalisées pour ce soir" |
+| unknown | message brut + hint image + contexte jour/saison |
+
+## Types de réponse
+
+```typescript
+interface CelestinResponse {
+  message: string                    // Toujours présent
+  ui_action?: {
+    kind: 'show_recommendations'     // Cartes de vin
+        | 'prepare_add_wine'         // Encavage single
+        | 'prepare_add_wines'        // Encavage batch
+        | 'prepare_log_tasting'      // Dégustation
+    payload: {
+      cards?: RecommendationCard[]   // Pour show_recommendations
+      extraction?: WineExtraction    // Pour add_wine / log_tasting
+      extractions?: WineExtraction[] // Pour add_wines
+    }
+  }
+  action_chips?: string[]            // 2-3 suggestions de relance
+}
+```
+
+## Mémoire : 4 couches
+
+```
+Couche 1 — Faits (Supabase)
+  bottles, tasting_tags, zones
+
+Couche 2 — Profil inféré (Supabase)
+  computeTasteProfile → appellations/domaines préférés, couleurs, prix, QPR
+
+Couche 3 — Souvenirs (Supabase + runtime)
+  selectRelevantMemories → tasting notes + tags pertinents
+
+Couche 4 — État conversationnel
+  Cross-session (localStorage, TTL 7j)
+  Persistance intra-session (module-level variable)
+  Historique enrichi (cards + actions résumées dans les turns)
+```
+
+## Persistance
+
+| Mécanisme | Scope | Durée | Usage |
+|-----------|-------|-------|-------|
+| `persistedMessages` (module-level) | Navigation entre onglets | Session app | Chat survit au changement d'onglet |
+| `localStorage` (cross-session) | Entre sessions | 7 jours (TTL) | Résumé des conversations précédentes |
+| Prefetch cache (module-level) | Session app | Jusqu'au reload | Recommandations initiales |
