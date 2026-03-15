@@ -281,9 +281,9 @@ export function serializeQuestionnaireForPrompt(q: QuestionnaireProfile): string
     '# Profil questionnaire utilisateur',
     `Profil : ${q.marketingProfile}`,
     `Segment FWI : ${q.fwi.segment} (total ${q.fwi.total}/90)`,
-    `  Connoisseur : ${q.fwi.connoisseur}/30`,
-    `  Knowledge : ${q.fwi.knowledge}/30`,
-    `  Provenance : ${q.fwi.provenance}/30`,
+    `  Sensibilité : ${q.fwi.connoisseur}/30`,
+    `  Savoir : ${q.fwi.knowledge}/30`,
+    `  Terroir : ${q.fwi.provenance}/30`,
   ]
 
   const sensoryLabels: Record<string, Record<string, string>> = {

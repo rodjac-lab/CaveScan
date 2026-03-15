@@ -186,9 +186,9 @@ export const ProfileCard = memo(function ProfileCard({ fwi, sensory, marketingPr
           {marketingProfile}
         </h3>
         <div className="space-y-2.5">
-          <GaugeBar label="Connoisseur" value={fwi.connoisseur} max={30} />
-          <GaugeBar label="Knowledge" value={fwi.knowledge} max={30} />
-          <GaugeBar label="Provenance" value={fwi.provenance} max={30} />
+          <GaugeBar label="Sensibilité" value={fwi.connoisseur} max={30} />
+          <GaugeBar label="Savoir" value={fwi.knowledge} max={30} />
+          <GaugeBar label="Terroir" value={fwi.provenance} max={30} />
         </div>
         <div className="flex flex-wrap gap-1.5">
           {tags.map((tag) => (
