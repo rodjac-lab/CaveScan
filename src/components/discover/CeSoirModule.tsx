@@ -1107,7 +1107,7 @@ export default function CeSoirModule() {
                 placeholder="Poulet rôti, envie de bulles..."
                 enterKeyHint="send"
                 rows={1}
-                className="w-full min-h-[44px] rounded-[20px] border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-4 py-3 text-[14px] placeholder:text-[var(--text-muted)] placeholder:italic resize-none leading-tight"
+                className="w-full min-h-[44px] rounded-[20px] border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-4 py-3 text-[14px] placeholder:text-[var(--text-muted)] placeholder:italic resize-none leading-tight overflow-hidden"
               />
             </div>
             <button
