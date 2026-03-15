@@ -22,6 +22,7 @@ const CORS_HEADERS = {
 interface ConversationTurn {
   role: 'user' | 'assistant'
   text: string
+  image?: string // base64 image from that turn
 }
 
 interface CaveBottle {
@@ -378,10 +379,15 @@ function extractErrorMessage(errorText: string): string {
 // deno-lint-ignore no-explicit-any
 function buildGeminiContents(history: ConversationTurn[], message: string, image?: string): Array<{ role: string; parts: any[] }> {
   // deno-lint-ignore no-explicit-any
-  const contents: Array<{ role: string; parts: any[] }> = history.map((turn) => ({
-    role: turn.role === 'user' ? 'user' : 'model',
-    parts: [{ text: turn.text }],
-  }))
+  const contents: Array<{ role: string; parts: any[] }> = history.map((turn) => {
+    // deno-lint-ignore no-explicit-any
+    const parts: any[] = []
+    if (turn.image && turn.role === 'user') {
+      parts.push({ inline_data: { mime_type: detectMediaType(turn.image), data: turn.image } })
+    }
+    parts.push({ text: turn.text })
+    return { role: turn.role === 'user' ? 'user' : 'model', parts }
+  })
   // deno-lint-ignore no-explicit-any
   const userParts: any[] = []
   if (image) {
@@ -395,10 +401,18 @@ function buildGeminiContents(history: ConversationTurn[], message: string, image
 // deno-lint-ignore no-explicit-any
 function buildClaudeMessages(history: ConversationTurn[], message: string, image?: string): Array<{ role: string; content: any }> {
   // deno-lint-ignore no-explicit-any
-  const messages: Array<{ role: string; content: any }> = history.map((turn) => ({
-    role: turn.role === 'user' ? 'user' : 'assistant',
-    content: turn.text,
-  }))
+  const messages: Array<{ role: string; content: any }> = history.map((turn) => {
+    if (turn.image && turn.role === 'user') {
+      return {
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: detectMediaType(turn.image), data: turn.image } },
+          { type: 'text', text: turn.text },
+        ],
+      }
+    }
+    return { role: turn.role === 'user' ? 'user' : 'assistant', content: turn.text }
+  })
   if (image) {
     messages.push({
       role: 'user',
@@ -625,7 +639,17 @@ async function callOpenAI(systemPrompt: string, userPrompt: string, history: Con
     { role: 'system', content: systemPrompt },
   ]
   for (const turn of history) {
-    messages.push({ role: turn.role === 'user' ? 'user' : 'assistant', content: turn.text })
+    if (turn.image && turn.role === 'user') {
+      messages.push({
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: `data:${detectMediaType(turn.image)};base64,${turn.image}` } },
+          { type: 'text', text: turn.text },
+        ],
+      })
+    } else {
+      messages.push({ role: turn.role === 'user' ? 'user' : 'assistant', content: turn.text })
+    }
   }
   if (image) {
     messages.push({

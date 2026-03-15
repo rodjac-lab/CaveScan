@@ -566,7 +566,6 @@ export default function CeSoirModule() {
   const threadRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const storedPhotoRef = useRef<{ base64: string; file: File | null } | null>(null)
-  const lastSentImageRef = useRef<string | null>(null) // persist image across follow-up messages
   const caveRef = useRef(caveBottles)
   const drunkRef = useRef(drunkBottles)
   const profileRef = useRef(profile)
@@ -833,8 +832,10 @@ export default function CeSoirModule() {
         return {
           role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
           text,
+          ...(m.image ? { image: m.image } : {}),
         }
       })
+
 
     // Profile
     const profileStr = prof ? serializeProfileForPrompt(prof) : undefined
@@ -878,13 +879,8 @@ export default function CeSoirModule() {
   // --- Core submit handler ---
 
   async function callCelestin(message: string, loadingMsgId: string, image?: string) {
-    // Persist image for follow-up questions, or reuse last image
-    if (image) {
-      lastSentImageRef.current = image
-    }
-    const effectiveImage = image ?? lastSentImageRef.current ?? undefined
     try {
-      const body = buildRequestBody(message, effectiveImage)
+      const body = buildRequestBody(message, image)
       const { data, error } = await supabase.functions.invoke('celestin', { body })
 
       if (error) throw error
