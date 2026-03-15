@@ -11,11 +11,25 @@ import { rankCaveBottles } from '@/lib/recommendationRanking'
 import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
 import { getCachedRecommendation, buildQueryKey } from '@/lib/recommendationStore'
 import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
-import { serializeQuestionnaireForPrompt } from '@/lib/questionnaire-profile'
-import type { QuestionnaireProfile } from '@/lib/questionnaire-profile'
+import {
+  serializeQuestionnaireForPrompt,
+  SEQUENCE_A,
+  SEQUENCE_B,
+  SEQUENCE_C,
+  SENSORY_QUESTIONS,
+  REGION_OPTIONS,
+  computeFWIScores,
+  computeMarketingProfile,
+  buildProfileDescription,
+  getSequenceATransition,
+  getSequenceBTransition,
+  getSequenceCTransition,
+} from '@/lib/questionnaire-profile'
+import type { QuestionnaireProfile, FWIScores, SensoryPreferences } from '@/lib/questionnaire-profile'
 import type { RecommendationCard } from '@/lib/recommendationStore'
 import type { WineColor, BottleVolumeOption } from '@/lib/types'
-import QuestionnaireFlow from './QuestionnaireFlow'
+import { FWISlider, SensoryChips, RegionChips, ProfileCard } from './QuestionnaireWidgets'
+import { track } from '@/lib/track'
 
 // --- Types ---
 
@@ -48,6 +62,8 @@ interface ChatMessage {
   wineAction?: WineActionData
   isLoading?: boolean
   actionChips?: string[]
+  profileCard?: { fwi: FWIScores; sensory: SensoryPreferences; marketingProfile: string }
+  questionLabel?: string
 }
 
 type CelestinUiAction =
@@ -61,6 +77,8 @@ interface CelestinResponse {
   ui_action?: CelestinUiAction | null
   action_chips?: string[] | null
 }
+
+type QPhase = 'seqA' | 'seqB' | 'seqC' | 'sensory' | 'done'
 
 // --- Icons ---
 
@@ -411,7 +429,9 @@ const CelestinBubble = memo(function CelestinBubble({ message, onCardTap, onWine
         </div>
         <div className="flex-1 min-w-0">
           <div className="max-w-full">
-            <p className="text-[11px] font-medium text-[var(--text-muted)] mb-1">Celestin</p>
+            <p className="text-[11px] font-medium text-[var(--text-muted)] mb-1">
+              Celestin{message.questionLabel && <span className="text-[var(--accent)]"> · {message.questionLabel}</span>}
+            </p>
             <p className="font-serif italic text-[15px] text-[var(--text-primary)] leading-relaxed">
               {message.isLoading ? <TypingDots /> : message.text}
             </p>
@@ -435,6 +455,13 @@ const CelestinBubble = memo(function CelestinBubble({ message, onCardTap, onWine
               action={message.wineAction}
               onValidate={() => onWineValidate(message.wineAction!)}
               onModify={() => onWineModify(message.wineAction!)}
+            />
+          )}
+          {message.profileCard && (
+            <ProfileCard
+              fwi={message.profileCard.fwi}
+              sensory={message.profileCard.sensory}
+              marketingProfile={message.profileCard.marketingProfile}
             />
           )}
         </div>
@@ -482,19 +509,6 @@ export default function CeSoirModule() {
   const { profile } = useTasteProfile()
   const { zones } = useZones()
   const { profile: questionnaireProfile, loading: questionnaireLoading, saveProfile: saveQuestionnaireProfile } = useQuestionnaireProfile()
-  const [showQuestionnaire, setShowQuestionnaire] = useState(false)
-  const [questionnaireChecked, setQuestionnaireChecked] = useState(false)
-
-  // Show questionnaire on first load if not completed and not previously dismissed
-  useEffect(() => {
-    if (!questionnaireLoading && !questionnaireChecked) {
-      setQuestionnaireChecked(true)
-      const dismissed = sessionStorage.getItem('questionnaire_dismissed')
-      if (!questionnaireProfile && !dismissed) {
-        setShowQuestionnaire(true)
-      }
-    }
-  }, [questionnaireLoading, questionnaireChecked, questionnaireProfile])
 
   const questionnaireProfileRef = useRef(questionnaireProfile)
   questionnaireProfileRef.current = questionnaireProfile
@@ -517,6 +531,15 @@ export default function CeSoirModule() {
   const [isLoading, setIsLoading] = useState(false)
   const [expandedCard, setExpandedCard] = useState<RecommendationCard | null>(null)
 
+  // --- Questionnaire inline state ---
+  const [qActive, setQActive] = useState(false)
+  const [qPhase, setQPhase] = useState<QPhase>('seqA')
+  const [qIndex, setQIndex] = useState(0)
+  const [qFwiAnswers, setQFwiAnswers] = useState<Record<string, number>>({})
+  const [qSensoryAnswers, setQSensoryAnswers] = useState<Partial<SensoryPreferences>>({})
+  const [qTyping, setQTyping] = useState(false)
+  const qProposedRef = useRef(!!persistedMessages)
+
   // Refs
   const threadRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -533,6 +556,218 @@ export default function CeSoirModule() {
       threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: 'smooth' })
     })
   }, [])
+
+  // --- Questionnaire proposal after greeting ---
+  useEffect(() => {
+    if (questionnaireLoading || questionnaireProfile || qProposedRef.current || qActive) return
+    qProposedRef.current = true
+    const dismissed = sessionStorage.getItem('questionnaire_dismissed')
+    if (dismissed) {
+      // User previously dismissed → add "Découvrir mon profil" chip to the greeting
+      setMessages(prev => {
+        const idx = prev.findIndex(m => m.role === 'celestin' && m.actionChips && m.actionChips.length > 0)
+        if (idx >= 0 && !prev[idx].actionChips!.includes('Découvrir mon profil')) {
+          const updated = [...prev]
+          updated[idx] = { ...updated[idx], actionChips: [...updated[idx].actionChips!, 'Découvrir mon profil'] }
+          return updated
+        }
+        return prev
+      })
+    } else {
+      // First visit — propose questionnaire after greeting
+      const timer = setTimeout(() => {
+        setMessages(prev => [...prev, {
+          id: genMsgId(),
+          role: 'celestin',
+          text: 'J\'aimerais mieux te connaître — quelques questions rapides pour que mes recommandations soient vraiment adaptées à toi.',
+          actionChips: ['Allons-y !', 'Pas maintenant'],
+        }])
+        scrollToBottom()
+      }, 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [questionnaireLoading, questionnaireProfile, qActive, scrollToBottom])
+
+  // --- Questionnaire helpers ---
+
+  function addQMsg(text: string, extras?: Partial<ChatMessage>, keepTyping = false): Promise<void> {
+    return new Promise(resolve => {
+      const id = genMsgId()
+      setQTyping(true)
+      setMessages(prev => [...prev, { id, role: 'celestin', text: '…', isLoading: true }])
+      scrollToBottom()
+      setTimeout(() => {
+        setMessages(prev => prev.map(m => m.id === id ? { ...m, text, isLoading: false, ...extras } : m))
+        if (!keepTyping) setQTyping(false)
+        scrollToBottom()
+        resolve()
+      }, 500)
+    })
+  }
+
+  function addQUserMsg(text: string) {
+    setMessages(prev => [
+      ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
+      { id: genMsgId(), role: 'user', text },
+    ])
+    scrollToBottom()
+  }
+
+  function getQLabel(phase: QPhase, index: number): string {
+    if (phase === 'seqA' || phase === 'seqB' || phase === 'seqC') return `Question ${index + 1}/6`
+    if (phase === 'sensory') return `Question ${index + 1}/7`
+    return ''
+  }
+
+  async function startQSequence(phase: QPhase) {
+    const intros: Record<string, string> = {
+      seqA: 'Commençons par comment tu vis le moment de la dégustation...',
+      seqB: 'Maintenant, parlons de ce que tu sais sur le vin...',
+      seqC: 'Et enfin, ce que l\'origine d\'un vin représente pour toi...',
+      sensory: 'Dernière étape — tes préférences de goût. Deux choix à chaque fois, tape sur celui qui te correspond le mieux.',
+    }
+
+    await addQMsg(intros[phase], undefined, true)
+    setQPhase(phase)
+    setQIndex(0)
+
+    const seqs: Record<string, { text: string }[]> = { seqA: SEQUENCE_A, seqB: SEQUENCE_B, seqC: SEQUENCE_C }
+    if (seqs[phase]) {
+      await addQMsg(seqs[phase][0].text, { questionLabel: getQLabel(phase, 0) })
+    } else if (phase === 'sensory') {
+      await addQMsg(SENSORY_QUESTIONS[0].text, { questionLabel: getQLabel(phase, 0) })
+    }
+  }
+
+  async function startQuestionnaire() {
+    setQActive(true)
+    setQFwiAnswers({})
+    setQSensoryAnswers({})
+    await addQMsg('Je vais te proposer des affirmations — positionne-toi de 1 (pas du tout toi) à 5 (tout à fait toi). Simple et rapide.', undefined, true)
+    await startQSequence('seqA')
+  }
+
+  function handleQFWIAnswer(value: number) {
+    const seq = qPhase === 'seqA' ? SEQUENCE_A : qPhase === 'seqB' ? SEQUENCE_B : SEQUENCE_C
+    const q = seq[qIndex]
+    if (!q) return
+
+    const labelMap: Record<number, string> = { 1: 'Pas du tout moi', 2: 'Plutôt pas moi', 3: 'Neutre', 4: 'Plutôt moi', 5: 'Tout à fait moi' }
+    addQUserMsg(labelMap[value] ?? String(value))
+
+    const newAnswers = { ...qFwiAnswers, [q.id]: value }
+    setQFwiAnswers(newAnswers)
+
+    const nextIdx = qIndex + 1
+    if (nextIdx >= seq.length) {
+      // Transition to next sequence
+      const score = seq.map(item => newAnswers[item.id] ?? 3).reduce((a, b) => a + b, 0)
+      const transitionFn = qPhase === 'seqA' ? getSequenceATransition : qPhase === 'seqB' ? getSequenceBTransition : getSequenceCTransition
+      const nextPhase: QPhase = qPhase === 'seqA' ? 'seqB' : qPhase === 'seqB' ? 'seqC' : 'sensory'
+      const continueText = nextPhase === 'sensory' ? ' Allez, dernière ligne droite !' : ' On enchaîne !'
+
+      void addQMsg(transitionFn(score) + continueText, undefined, true).then(() => {
+        return startQSequence(nextPhase)
+      })
+    } else {
+      setQIndex(nextIdx)
+      void addQMsg(seq[nextIdx].text, { questionLabel: getQLabel(qPhase, nextIdx) })
+    }
+  }
+
+  function handleQSensoryAnswer(value: string) {
+    const q = SENSORY_QUESTIONS[qIndex]
+    if (!q) return
+
+    const label = q.optionA.value === value ? q.optionA.label : q.optionB.label
+    addQUserMsg(label)
+
+    const newAnswers = { ...qSensoryAnswers, [q.field]: value }
+    setQSensoryAnswers(newAnswers)
+
+    const nextIdx = qIndex + 1
+    if (nextIdx >= SENSORY_QUESTIONS.length) {
+      finishQuestionnaire(newAnswers as Record<string, string>)
+    } else {
+      setQIndex(nextIdx)
+      void addQMsg(SENSORY_QUESTIONS[nextIdx].text, { questionLabel: getQLabel('sensory', nextIdx) })
+    }
+  }
+
+  function handleQRegionConfirm(regions: string[]) {
+    const regionLabels = regions.map(r => REGION_OPTIONS.find(ro => ro.value === r)?.label ?? r)
+    addQUserMsg(regionLabels.join(', '))
+
+    const newAnswers = { ...qSensoryAnswers, regions }
+    setQSensoryAnswers(newAnswers)
+
+    const nextIdx = qIndex + 1
+    if (nextIdx >= SENSORY_QUESTIONS.length) {
+      finishQuestionnaire(newAnswers as Record<string, unknown> as Record<string, string>)
+    } else {
+      setQIndex(nextIdx)
+      void addQMsg(SENSORY_QUESTIONS[nextIdx].text, { questionLabel: getQLabel('sensory', nextIdx) })
+    }
+  }
+
+  function finishQuestionnaire(finalSensory: Record<string, string>) {
+    const fwi = computeFWIScores(qFwiAnswers)
+    const sensory: SensoryPreferences = {
+      structure: (finalSensory.structure as SensoryPreferences['structure']) ?? 'elegance',
+      aromatique: (finalSensory.aromatique as SensoryPreferences['aromatique']) ?? 'fruits_frais',
+      evolution: (finalSensory.evolution as SensoryPreferences['evolution']) ?? 'jeune',
+      elevage: (finalSensory.elevage as SensoryPreferences['elevage']) ?? 'mineral',
+      acidite: (finalSensory.acidite as SensoryPreferences['acidite']) ?? 'tendu',
+      regions: (finalSensory.regions as unknown as string[]) ?? [],
+      neophilie: (finalSensory.neophilie as SensoryPreferences['neophilie']) ?? 'decouverte',
+    }
+    const marketingProfile = computeMarketingProfile(fwi, sensory)
+    const description = buildProfileDescription(fwi, sensory, marketingProfile)
+
+    const qProfile: QuestionnaireProfile = {
+      fwi,
+      sensory,
+      marketingProfile,
+      completedAt: new Date().toISOString(),
+      version: 1,
+    }
+
+    void addQMsg(description, { profileCard: { fwi, sensory, marketingProfile } }).then(() => {
+      setQActive(false)
+      setQPhase('done')
+      track('questionnaire_completed', { segment: fwi.segment, profile: marketingProfile })
+      void saveQuestionnaireProfile(qProfile)
+    })
+  }
+
+  function getQProgress(): { current: number; total: number } | null {
+    if (!qActive || qPhase === 'done') return null
+    if (qPhase === 'seqA') return { current: qIndex + 1, total: 18 }
+    if (qPhase === 'seqB') return { current: 6 + qIndex + 1, total: 18 }
+    if (qPhase === 'seqC') return { current: 12 + qIndex + 1, total: 18 }
+    if (qPhase === 'sensory') return { current: qIndex + 1, total: 7 }
+    return null
+  }
+
+  function renderQInput() {
+    if (qTyping) return null
+
+    if (qPhase === 'seqA' || qPhase === 'seqB' || qPhase === 'seqC') {
+      const seq = qPhase === 'seqA' ? SEQUENCE_A : qPhase === 'seqB' ? SEQUENCE_B : SEQUENCE_C
+      const q = seq[qIndex]
+      if (q) return <FWISlider key={q.id} onConfirm={(v) => handleQFWIAnswer(v)} />
+    }
+
+    if (qPhase === 'sensory') {
+      const q = SENSORY_QUESTIONS[qIndex]
+      if (q) {
+        if (q.multiSelect) return <RegionChips key={q.id} onConfirm={handleQRegionConfirm} />
+        return <SensoryChips key={q.id} optionA={q.optionA} optionB={q.optionB} onSelect={handleQSensoryAnswer} />
+      }
+    }
+
+    return null
+  }
 
   // --- Build context for the edge function ---
 
@@ -705,13 +940,39 @@ export default function CeSoirModule() {
     if (text.length < 2 || isLoading) return
     setQueryInput('')
     if (textareaRef.current) textareaRef.current.style.height = ''
+
+    // Detect questionnaire request in natural language
+    if (!questionnaireProfile && !qActive && /(?:profil|questionnaire|mieux.*conna[iî]tre|d[ée]couvrir.*profil)/i.test(text)) {
+      setMessages(prev => [
+        ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
+        { id: genMsgId(), role: 'user', text },
+      ])
+      scrollToBottom()
+      void startQuestionnaire()
+      return
+    }
+
     submitMessage(text)
   }
 
-  // --- Chip handler (welcome chips + LLM dynamic chips) ---
+  // --- Chip handler (welcome chips + LLM dynamic chips + questionnaire chips) ---
 
   function handleChipClick(chipLabel: string) {
     if (isLoading) return
+
+    // Questionnaire chips
+    if (chipLabel === 'Allons-y !' || chipLabel === 'Découvrir mon profil') {
+      addQUserMsg(chipLabel)
+      void startQuestionnaire()
+      return
+    }
+
+    if (chipLabel === 'Pas maintenant') {
+      addQUserMsg('Pas maintenant')
+      sessionStorage.setItem('questionnaire_dismissed', '1')
+      void addQMsg('Pas de souci ! Tu pourras me demander quand tu voudras.')
+      return
+    }
 
     if (chipLabel === 'Ouvrir une bouteille') {
       // Try to show prefetched cards immediately
@@ -772,37 +1033,28 @@ export default function CeSoirModule() {
     navigate(route, { state })
   }
 
-  // Questionnaire flow
-  if (showQuestionnaire) {
-    return (
-      <QuestionnaireFlow
-        onComplete={async (qProfile: QuestionnaireProfile) => {
-          await saveQuestionnaireProfile(qProfile)
-          setShowQuestionnaire(false)
-        }}
-        onDismiss={() => {
-          sessionStorage.setItem('questionnaire_dismissed', '1')
-          setShowQuestionnaire(false)
-        }}
-      />
-    )
-  }
-
-  // Loading questionnaire check
-  if (questionnaireLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <span className="inline-flex items-center gap-[3px]">
-          {[0, 0.15, 0.3].map((delay, i) => (
-            <span key={i} className="typing-dot w-[5px] h-[5px] rounded-full bg-[var(--text-muted)]" style={{ animationDelay: `${delay}s` }} />
-          ))}
-        </span>
-      </div>
-    )
-  }
+  // --- Progress bar ---
+  const qProgress = getQProgress()
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
+      {/* Questionnaire progress bar */}
+      {qProgress && (
+        <div className="flex-shrink-0 px-6 pt-2 pb-1">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-[3px] rounded-full bg-[var(--border-color)] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-light)] transition-all duration-300"
+                style={{ width: `${(qProgress.current / qProgress.total) * 100}%` }}
+              />
+            </div>
+            <span className="text-[11px] text-[var(--text-muted)] tabular-nums">
+              {qProgress.current}/{qProgress.total}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Thread */}
       <div ref={threadRef} className="flex-1 overflow-y-auto overscroll-contain px-6 pb-4 pt-3 scrollbar-hide">
         <div className="space-y-5">
@@ -825,43 +1077,48 @@ export default function CeSoirModule() {
 
       {/* Bottom bar */}
       <div className="flex-shrink-0 border-t border-[var(--border-color)] bg-[var(--background)] px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        {/* Input row */}
-        <form
-          onSubmit={(e) => { e.preventDefault(); handleQuerySubmit() }}
-          className="flex items-center gap-2"
-        >
-          <div className="relative flex-1">
-            <div className="absolute left-3 top-3 text-[var(--text-muted)]">
-              <SearchIcon />
-            </div>
-            <textarea
-              ref={textareaRef}
-              value={queryInput}
-              onChange={(e) => {
-                setQueryInput(e.target.value)
-                e.target.style.height = 'auto'
-                e.target.style.height = `${e.target.scrollHeight}px`
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleQuerySubmit()
-                }
-              }}
-              placeholder="Poulet rôti, envie de bulles..."
-              enterKeyHint="send"
-              rows={1}
-              className="w-full min-h-[44px] rounded-[20px] border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-4 py-3 text-[14px] placeholder:text-[var(--text-muted)] placeholder:italic resize-none leading-tight"
-            />
+        {qActive ? (
+          <div className="pt-1 pb-1">
+            {renderQInput()}
           </div>
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="flex-shrink-0 h-11 w-11 flex items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-light)] text-white shadow-sm disabled:opacity-50"
+        ) : (
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleQuerySubmit() }}
+            className="flex items-center gap-2"
           >
-            <SendIcon />
-          </button>
-        </form>
+            <div className="relative flex-1">
+              <div className="absolute left-3 top-3 text-[var(--text-muted)]">
+                <SearchIcon />
+              </div>
+              <textarea
+                ref={textareaRef}
+                value={queryInput}
+                onChange={(e) => {
+                  setQueryInput(e.target.value)
+                  e.target.style.height = 'auto'
+                  e.target.style.height = `${e.target.scrollHeight}px`
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleQuerySubmit()
+                  }
+                }}
+                placeholder="Poulet rôti, envie de bulles..."
+                enterKeyHint="send"
+                rows={1}
+                className="w-full min-h-[44px] rounded-[20px] border border-[var(--border-color)] bg-[var(--bg-card)] pl-9 pr-4 py-3 text-[14px] placeholder:text-[var(--text-muted)] placeholder:italic resize-none leading-tight"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex-shrink-0 h-11 w-11 flex items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-light)] text-white shadow-sm disabled:opacity-50"
+            >
+              <SendIcon />
+            </button>
+          </form>
+        )}
       </div>
 
       {/* Expanded card dialog */}
