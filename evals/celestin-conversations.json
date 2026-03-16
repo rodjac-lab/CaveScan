@@ -1,0 +1,191 @@
+[
+  {
+    "id": "reco_merci",
+    "type": "conversation",
+    "description": "Reco → merci → idle, pas de re-reco",
+    "turns": [
+      {
+        "message": "Que boire ce soir ?",
+        "expect": {
+          "uiAction": "show_recommendations",
+          "nextPhase": "post_task_ack"
+        }
+      },
+      {
+        "message": "Merci, parfait !",
+        "expect": {
+          "uiAction": "none",
+          "nextPhase": "idle_smalltalk"
+        }
+      }
+    ]
+  },
+  {
+    "id": "reco_refinement",
+    "type": "conversation",
+    "description": "Reco → refinement en blanc → nouvelles cartes",
+    "turns": [
+      {
+        "message": "Je cherche un vin pour ce soir",
+        "expect": {
+          "uiAction": "show_recommendations",
+          "nextPhase": "post_task_ack"
+        }
+      },
+      {
+        "message": "Tu en as plutôt en blanc ?",
+        "expect": {
+          "uiAction": "show_recommendations",
+          "nextPhase": "post_task_ack"
+        }
+      }
+    ]
+  },
+  {
+    "id": "reco_merci_culture",
+    "type": "conversation",
+    "description": "Reco → merci → question culture vin → texte sans cartes",
+    "turns": [
+      {
+        "message": "Qu'est-ce que j'ouvre ce soir ?",
+        "expect": {
+          "uiAction": "show_recommendations",
+          "nextPhase": "post_task_ack"
+        }
+      },
+      {
+        "message": "Merci !",
+        "expect": {
+          "uiAction": "none",
+          "nextPhase": "idle_smalltalk"
+        }
+      },
+      {
+        "message": "Au fait, c'est quoi le chenin ?",
+        "expect": {
+          "uiAction": "none",
+          "nextPhase": null
+        }
+      }
+    ]
+  },
+  {
+    "id": "reco_cancel",
+    "type": "conversation",
+    "description": "Reco → annulation → retour idle",
+    "turns": [
+      {
+        "message": "Qu'est-ce que je pourrais ouvrir ?",
+        "expect": {
+          "uiAction": "show_recommendations",
+          "nextPhase": "post_task_ack"
+        }
+      },
+      {
+        "message": "Non finalement laisse tomber",
+        "expect": {
+          "uiAction": "none",
+          "nextPhase": "idle_smalltalk"
+        }
+      }
+    ]
+  },
+  {
+    "id": "encavage_flow",
+    "type": "conversation",
+    "description": "Encavage conversationnel — collecte d'infos progressive",
+    "turns": [
+      {
+        "message": "J'ai acheté du vin aujourd'hui",
+        "expect": {
+          "uiAction": null,
+          "nextPhase": null
+        }
+      },
+      {
+        "message": "Un Sancerre 2023 du Domaine Vacheron",
+        "expect": {
+          "uiAction": null,
+          "nextPhase": null
+        }
+      }
+    ]
+  },
+  {
+    "id": "culture_questions",
+    "type": "conversation",
+    "description": "Questions culture vin successives — idle reste idle, pas de ui_action",
+    "turns": [
+      {
+        "message": "C'est quoi le chenin ?",
+        "expect": {
+          "uiAction": "none",
+          "nextPhase": null
+        }
+      },
+      {
+        "message": "Et le nebbiolo, c'est quoi ?",
+        "expect": {
+          "uiAction": "none",
+          "nextPhase": null
+        }
+      }
+    ]
+  },
+  {
+    "id": "reco_3_turns",
+    "type": "conversation",
+    "description": "Reco → refinement → merci → idle (3 tours complets)",
+    "turns": [
+      {
+        "message": "Ce soir c'est pizza",
+        "expect": {
+          "uiAction": "show_recommendations",
+          "nextPhase": "post_task_ack"
+        }
+      },
+      {
+        "message": "Tu en as en blanc plutôt ?",
+        "expect": {
+          "uiAction": "show_recommendations",
+          "nextPhase": "post_task_ack"
+        }
+      },
+      {
+        "message": "Super merci",
+        "expect": {
+          "uiAction": "none",
+          "nextPhase": "idle_smalltalk"
+        }
+      }
+    ]
+  },
+  {
+    "id": "reco_then_encavage",
+    "type": "conversation",
+    "description": "Reco → merci → encavage → context switch propre",
+    "turns": [
+      {
+        "message": "Qu'est-ce que j'ouvre ce soir ?",
+        "expect": {
+          "uiAction": "show_recommendations",
+          "nextPhase": "post_task_ack"
+        }
+      },
+      {
+        "message": "Merci !",
+        "expect": {
+          "uiAction": "none",
+          "nextPhase": "idle_smalltalk"
+        }
+      },
+      {
+        "message": "Au fait j'ai acheté 3 bouteilles de Chablis 2022",
+        "expect": {
+          "uiAction": null,
+          "nextPhase": null
+        }
+      }
+    ]
+  }
+]

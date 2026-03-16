@@ -4,6 +4,7 @@ import path from 'path'
 const ROOT = process.cwd()
 const DEFAULT_FIXTURE = path.join(ROOT, 'evals', 'celestin-fixture.template.json')
 const DEFAULT_SCENARIOS = path.join(ROOT, 'evals', 'celestin-scenarios.json')
+const DEFAULT_CONVERSATIONS = path.join(ROOT, 'evals', 'celestin-conversations.json')
 const DEFAULT_OUT_DIR = path.join(ROOT, 'evals', 'results')
 
 function readEnvFile(filePath) {
@@ -24,17 +25,25 @@ function readEnvFile(filePath) {
 function parseArgs(argv) {
   const args = {
     fixture: DEFAULT_FIXTURE,
-    scenarios: DEFAULT_SCENARIOS,
+    scenarios: null,
+    conversations: null,
     outDir: DEFAULT_OUT_DIR,
     dryRun: false,
   }
 
   for (let i = 2; i < argv.length; i++) {
     const arg = argv[i]
-    if (arg === '--fixture') args.fixture = path.resolve(argv[++i])
-    else if (arg === '--scenarios') args.scenarios = path.resolve(argv[++i])
-    else if (arg === '--out-dir') args.outDir = path.resolve(argv[++i])
+    if (arg === '--fixture' && argv[i + 1]) args.fixture = path.resolve(argv[++i])
+    else if (arg === '--scenarios' && argv[i + 1]) args.scenarios = path.resolve(argv[++i])
+    else if (arg === '--conversations' && argv[i + 1]) args.conversations = path.resolve(argv[++i])
+    else if (arg === '--out-dir' && argv[i + 1]) args.outDir = path.resolve(argv[++i])
     else if (arg === '--dry-run') args.dryRun = true
+  }
+
+  // Default: run both if neither is specified
+  if (!args.scenarios && !args.conversations) {
+    args.scenarios = DEFAULT_SCENARIOS
+    args.conversations = DEFAULT_CONVERSATIONS
   }
 
   return args
@@ -52,10 +61,24 @@ function escapeHtml(value) {
 }
 
 function loadJson(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return null
   return JSON.parse(fs.readFileSync(filePath, 'utf8'))
 }
 
-function buildRequestBody(fixture, scenario) {
+function buildRequestBody(fixture, message, history, conversationState) {
+  return {
+    message,
+    history,
+    cave: fixture.cave ?? [],
+    profile: fixture.profile,
+    memories: fixture.memories,
+    context: fixture.context,
+    ...(conversationState ? { conversationState } : {}),
+  }
+}
+
+// Legacy: build body from single-turn scenario format
+function buildSingleTurnBody(fixture, scenario) {
   const history = (scenario.history ?? fixture.history ?? []).map((turn) => ({
     role: turn.role,
     text: turn.content,
@@ -78,15 +101,15 @@ function detectMemoryUsage(text, cards) {
 
   const patterns = [
     'tu avais adore',
-    'tu avais adorÃ©',
+    'tu avais adoré',
     'tu as aime',
-    'tu as aimÃ©',
+    'tu as aimé',
     'tu avais aime',
     'tu te souviens',
     'on a deja bu',
-    'on a dÃ©jÃ  bu',
+    'on a déjà bu',
     'tu avais trouve',
-    'tu avais trouvÃ©',
+    'tu avais trouvé',
     'comme le ',
   ]
 
@@ -97,7 +120,7 @@ function detectIntroFlags(text) {
   const normalized = (text ?? '').toLowerCase()
   return {
     hasTiens: normalized.includes('tiens'),
-    hasPepites: normalized.includes('pÃ©pite') || normalized.includes('pepite'),
+    hasPepites: normalized.includes('pépite') || normalized.includes('pepite'),
     hasAhLead: normalized.startsWith('ah,') || normalized.startsWith('ah '),
   }
 }
@@ -157,63 +180,295 @@ async function callCelestin(body, baseUrl, anonKey) {
   return { data, elapsedMs }
 }
 
+// --- Conversation (multi-turn) runner ---
+
+function analyzeTurnResult(turn, response) {
+  const actualUiAction = getUiActionKind(response)
+  const actualPhase = response._nextState?.phase ?? null
+  const checks = []
+
+  // Check uiAction expectation
+  if (turn.expect.uiAction !== null && turn.expect.uiAction !== undefined) {
+    const pass = actualUiAction === turn.expect.uiAction
+    checks.push({
+      check: 'uiAction',
+      expected: turn.expect.uiAction,
+      actual: actualUiAction,
+      pass,
+    })
+  }
+
+  // Check nextPhase expectation
+  if (turn.expect.nextPhase !== null && turn.expect.nextPhase !== undefined) {
+    const pass = actualPhase === turn.expect.nextPhase
+    checks.push({
+      check: 'nextPhase',
+      expected: turn.expect.nextPhase,
+      actual: actualPhase,
+      pass,
+    })
+  }
+
+  return {
+    uiActionKind: actualUiAction,
+    nextPhase: actualPhase,
+    cardCount: getCards(response).length,
+    checks,
+    allPassed: checks.every((c) => c.pass),
+  }
+}
+
+function summarizeAssistantMessage(response) {
+  // Build a text summary of assistant response for history (like the frontend does)
+  let text = response.message ?? ''
+  const uiAction = response.ui_action
+  if (uiAction?.kind === 'show_recommendations') {
+    const cards = uiAction.payload?.cards ?? []
+    if (cards.length > 0) {
+      text += ` [${cards.length} recommandations : ${cards.map((c) => c.name).join(', ')}]`
+    }
+  } else if (uiAction?.kind === 'prepare_add_wine') {
+    text += ' [propose encavage]'
+  } else if (uiAction?.kind === 'prepare_add_wines') {
+    const count = uiAction.payload?.wines?.length ?? 0
+    text += ` [propose ${count} encavages]`
+  } else if (uiAction?.kind === 'prepare_log_tasting') {
+    text += ' [propose dégustation]'
+  }
+  return text
+}
+
+async function runConversation(conversation, fixture, baseUrl, anonKey, dryRun) {
+  const turns = conversation.turns
+  const turnResults = []
+  let history = []
+  let conversationState = null
+  let chainBroken = false // true after a turn fails — subsequent turns are "skipped"
+
+  console.log(`\n  Conversation ${conversation.id}: ${conversation.description}`)
+
+  for (let i = 0; i < turns.length; i++) {
+    const turn = turns[i]
+    console.log(`    Turn ${i + 1}/${turns.length}: "${turn.message}"`)
+
+    const body = buildRequestBody(fixture, turn.message, history, conversationState)
+
+    if (dryRun) {
+      turnResults.push({
+        turnIndex: i,
+        message: turn.message,
+        elapsedMs: 0,
+        response: { message: 'Dry run: no network call', ui_action: null, _nextState: null },
+        analysis: {
+          uiActionKind: 'none',
+          nextPhase: null,
+          cardCount: 0,
+          checks: [],
+          allPassed: true,
+          skipped: false,
+        },
+      })
+      continue
+    }
+
+    try {
+      const { data, elapsedMs } = await callCelestin(body, baseUrl, anonKey)
+
+      const analysis = analyzeTurnResult(turn, data)
+
+      // If the chain is already broken, mark this turn as skipped instead of fail
+      if (chainBroken) {
+        analysis.skipped = true
+        analysis.allPassed = true // don't count skipped turns as failures
+        console.log(`      ⊘ skipped (previous turn failed) | ui=${analysis.uiActionKind} phase=${analysis.nextPhase} | ${elapsedMs}ms`)
+      } else {
+        analysis.skipped = false
+        const statusIcon = analysis.allPassed ? '✓' : '✗'
+        const checksStr = analysis.checks.map((c) => `${c.check}:${c.pass ? '✓' : `✗(${c.expected}≠${c.actual})`}`).join(' ')
+        console.log(`      ${statusIcon} ${checksStr} | ui=${analysis.uiActionKind} phase=${analysis.nextPhase} | ${elapsedMs}ms`)
+
+        // Break the chain if this turn failed
+        if (!analysis.allPassed) {
+          chainBroken = true
+        }
+      }
+
+      turnResults.push({
+        turnIndex: i,
+        message: turn.message,
+        elapsedMs,
+        response: data,
+        analysis,
+      })
+
+      // Chain: update history and conversationState for next turn
+      const assistantText = summarizeAssistantMessage(data)
+      history = [
+        ...history,
+        { role: 'user', text: turn.message },
+        { role: 'assistant', text: assistantText },
+      ]
+      conversationState = data._nextState ?? null
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error)
+      console.log(`      ✗ ERROR: ${errMsg}`)
+      turnResults.push({
+        turnIndex: i,
+        message: turn.message,
+        elapsedMs: null,
+        response: { message: errMsg, ui_action: null, _nextState: null },
+        analysis: {
+          uiActionKind: 'none',
+          nextPhase: null,
+          cardCount: 0,
+          checks: [{ check: 'error', expected: 'success', actual: errMsg, pass: false }],
+          allPassed: false,
+          skipped: false,
+        },
+      })
+      // Stop conversation on network error — no point continuing
+      break
+    }
+  }
+
+  const allPassed = turnResults.every((t) => t.analysis.allPassed)
+  const totalMs = turnResults.reduce((sum, t) => sum + (t.elapsedMs ?? 0), 0)
+
+  return {
+    id: conversation.id,
+    type: 'conversation',
+    description: conversation.description,
+    turnCount: turns.length,
+    turnsCompleted: turnResults.length,
+    totalMs,
+    allPassed,
+    turns: turnResults,
+  }
+}
+
+// --- HTML Report ---
+
 function renderCard(card) {
   return `
     <div class="card">
       <div class="badge">${escapeHtml(card.badge ?? '')}</div>
       <div class="name">${escapeHtml(card.name ?? '')}</div>
       <div class="appellation">${escapeHtml(card.appellation ?? '')}</div>
-      <div class="meta">color=${escapeHtml(card.color ?? '')}${card.bottle_id ? ` | bottle=${escapeHtml(card.bottle_id)}` : ''}</div>
+      <div class="card-meta">color=${escapeHtml(card.color ?? '')}${card.bottle_id ? ` | bottle=${escapeHtml(card.bottle_id)}` : ''}</div>
       <div class="reason">${escapeHtml(card.reason ?? '')}</div>
     </div>
   `
 }
 
-function renderHtmlReport(results, fixture, scenarios) {
-  const rows = results.map((result) => {
-    const scenario = scenarios.find((s) => s.id === result.id)
-    const cardsHtml = getCards(result.response).map(renderCard).join('')
-    const flags = result.analysis.introFlags
-    const introFlagLabels = [
-      flags.hasTiens ? 'tiens' : null,
-      flags.hasAhLead ? 'ah' : null,
-    ].filter(Boolean)
+function renderSingleTurnResult(result, scenario) {
+  const cardsHtml = getCards(result.response).map(renderCard).join('')
+  const flags = result.analysis.introFlags
+  const introFlagLabels = [
+    flags.hasTiens ? 'tiens' : null,
+    flags.hasAhLead ? 'ah' : null,
+  ].filter(Boolean)
 
-    const warnings = [
-      ...(result.analysis.expectedUiActionKindMismatch
-        ? [`Expected ui_action.kind: ${scenario?.expectations?.expectedUiActionKind ?? ''}, got: ${result.analysis.uiActionKind ?? 'none'}`]
-        : []),
-      ...(result.analysis.maxCardsExceeded
-        ? [`Expected max cards: ${scenario?.expectations?.maxCards ?? ''}, got: ${result.analysis.cardCount}`]
-        : []),
-      ...(result.analysis.avoidColorHits.length > 0
-        ? result.analysis.avoidColorHits.map((hit) => `Avoid-color hit: ${hit.name} (${hit.color})`)
-        : []),
-      ...(introFlagLabels.length > 0 ? [`Intro flags: ${introFlagLabels.join(', ')}`] : []),
-      ...(result.analysis.memoryUsed ? ['Memory mention detected'] : []),
-    ]
+  const warnings = [
+    ...(result.analysis.expectedUiActionKindMismatch
+      ? [`Expected ui_action.kind: ${scenario?.expectations?.expectedUiActionKind ?? ''}, got: ${result.analysis.uiActionKind ?? 'none'}`]
+      : []),
+    ...(result.analysis.maxCardsExceeded
+      ? [`Expected max cards: ${scenario?.expectations?.maxCards ?? ''}, got: ${result.analysis.cardCount}`]
+      : []),
+    ...(result.analysis.avoidColorHits.length > 0
+      ? result.analysis.avoidColorHits.map((hit) => `Avoid-color hit: ${hit.name} (${hit.color})`)
+      : []),
+    ...(introFlagLabels.length > 0 ? [`Intro flags: ${introFlagLabels.join(', ')}`] : []),
+    ...(result.analysis.memoryUsed ? ['Memory mention detected'] : []),
+  ]
+
+  return `
+    <section class="scenario">
+      <div class="scenario-head">
+        <h2>${escapeHtml(result.id)}</h2>
+        <div class="timing">${result.elapsedMs} ms</div>
+      </div>
+      <div class="question"><strong>Question:</strong> ${escapeHtml(scenario?.message ?? '')}</div>
+      <div class="notes"><strong>Notes:</strong> ${escapeHtml(scenario?.notes ?? '')}</div>
+      <div class="intro"><strong>Intro:</strong> ${escapeHtml(result.response.message ?? '')}</div>
+      <div class="summary">
+        <span>UI: ${escapeHtml(getUiActionKind(result.response))}</span>
+        <span>Cards: ${result.analysis.cardCount}</span>
+        <span>Memory: ${result.analysis.memoryUsed ? 'yes' : 'no'}</span>
+      </div>
+      <div class="warnings">
+        ${warnings.length > 0 ? warnings.map((w) => `<div class="warning">${escapeHtml(w)}</div>`).join('') : '<div class="ok">No automatic warning</div>'}
+      </div>
+      <div class="cards">${cardsHtml || '<div class="empty">No cards</div>'}</div>
+    </section>
+  `
+}
+
+function renderConversationResult(convResult) {
+  const statusClass = convResult.allPassed ? 'conv-pass' : 'conv-fail'
+  const statusLabel = convResult.allPassed ? 'PASS' : 'FAIL'
+
+  const turnsHtml = convResult.turns.map((turn) => {
+    const checks = turn.analysis.checks
+    const turnPass = turn.analysis.allPassed
+    const turnSkipped = turn.analysis.skipped
+    const turnStatusClass = turnSkipped ? 'turn-skipped' : (turnPass ? 'turn-pass' : 'turn-fail')
+    const turnStatusIcon = turnSkipped ? '⊘' : (turnPass ? '✓' : '✗')
+
+    const checksHtml = turnSkipped
+      ? '<span class="check-skipped">skipped (previous turn failed)</span>'
+      : checks.map((c) => {
+          const checkClass = c.pass ? 'check-pass' : 'check-fail'
+          return `<span class="${checkClass}">${escapeHtml(c.check)}: expected <strong>${escapeHtml(c.expected)}</strong>, got <strong>${escapeHtml(c.actual)}</strong></span>`
+        }).join('')
+
+    const cardsHtml = getCards(turn.response).map(renderCard).join('')
 
     return `
-      <section class="scenario">
-        <div class="scenario-head">
-          <h2>${escapeHtml(result.id)}</h2>
-          <div class="timing">${result.elapsedMs} ms</div>
+      <div class="turn ${turnStatusClass}">
+        <div class="turn-head">
+          <div class="turn-label">Tour ${turn.turnIndex + 1}</div>
+          <div class="turn-status">${turnStatusIcon}</div>
+          <div class="timing">${turn.elapsedMs ?? '—'} ms</div>
         </div>
-        <div class="question"><strong>Question:</strong> ${escapeHtml(scenario?.message ?? '')}</div>
-        <div class="notes"><strong>Notes:</strong> ${escapeHtml(scenario?.notes ?? '')}</div>
-        <div class="intro"><strong>Intro:</strong> ${escapeHtml(result.response.message ?? '')}</div>
-        <div class="summary">
-          <span>UI: ${escapeHtml(getUiActionKind(result.response))}</span>
-          <span>Cards: ${result.analysis.cardCount}</span>
-          <span>Memory: ${result.analysis.memoryUsed ? 'yes' : 'no'}</span>
+        <div class="turn-user"><strong>User:</strong> ${escapeHtml(turn.message)}</div>
+        <div class="turn-assistant"><strong>Celestin:</strong> ${escapeHtml(turn.response.message ?? '')}</div>
+        <div class="turn-meta">
+          <span>UI: ${escapeHtml(turn.analysis.uiActionKind)}</span>
+          <span>Phase: ${escapeHtml(turn.analysis.nextPhase ?? '—')}</span>
+          <span>Cards: ${turn.analysis.cardCount}</span>
         </div>
-        <div class="warnings">
-          ${warnings.length > 0 ? warnings.map((w) => `<div class="warning">${escapeHtml(w)}</div>`).join('') : '<div class="ok">No automatic warning</div>'}
-        </div>
-        <div class="cards">${cardsHtml || '<div class="empty">No cards</div>'}</div>
-      </section>
+        <div class="turn-checks">${checksHtml || '<span class="check-none">No checks</span>'}</div>
+        ${cardsHtml ? `<div class="cards">${cardsHtml}</div>` : ''}
+      </div>
     `
+  }).join('')
+
+  return `
+    <section class="conversation ${statusClass}">
+      <div class="scenario-head">
+        <h2>${escapeHtml(convResult.id)} <span class="conv-badge ${statusClass}">${statusLabel}</span></h2>
+        <div class="timing">${convResult.totalMs} ms total</div>
+      </div>
+      <div class="conv-desc">${escapeHtml(convResult.description)}</div>
+      <div class="conv-summary">${convResult.turnsCompleted}/${convResult.turnCount} tours</div>
+      <div class="turns">${turnsHtml}</div>
+    </section>
+  `
+}
+
+function renderHtmlReport(singleResults, conversationResults, fixture, scenarios) {
+  const singleRows = singleResults.map((result) => {
+    const scenario = scenarios?.find((s) => s.id === result.id)
+    return renderSingleTurnResult(result, scenario)
   }).join('\n')
+
+  const convRows = conversationResults.map(renderConversationResult).join('\n')
+
+  // Compute conversation stats
+  const convTotal = conversationResults.length
+  const convPassed = conversationResults.filter((c) => c.allPassed).length
+  const convFailed = convTotal - convPassed
 
   return `<!doctype html>
 <html lang="fr">
@@ -225,7 +480,8 @@ function renderHtmlReport(results, fixture, scenarios) {
     body { font-family: Georgia, serif; background: #f5f1ea; color: #1c1a17; margin: 0; padding: 24px; }
     .page { max-width: 1100px; margin: 0 auto; }
     h1 { margin: 0 0 8px; font-size: 36px; }
-    .meta { color: #6a625b; margin-bottom: 24px; }
+    .report-meta { color: #6a625b; margin-bottom: 24px; }
+    .section-title { font-size: 28px; margin: 32px 0 16px; border-bottom: 2px solid #e2d8ca; padding-bottom: 8px; }
     .scenario { background: #fffdf9; border: 1px solid #e2d8ca; border-radius: 16px; padding: 18px; margin-bottom: 18px; box-shadow: 0 8px 24px rgba(0,0,0,0.04); }
     .scenario-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
     .scenario h2 { margin: 0 0 10px; font-size: 24px; }
@@ -240,20 +496,62 @@ function renderHtmlReport(results, fixture, scenarios) {
     .badge { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #9b7b1f; margin-bottom: 6px; }
     .name { font-weight: 700; margin-bottom: 4px; }
     .appellation { color: #7b746e; font-size: 14px; margin-bottom: 6px; }
-    .meta { font-size: 12px; color: #8a7e73; }
+    .card-meta { font-size: 12px; color: #8a7e73; }
     .reason { margin-top: 8px; font-size: 14px; line-height: 1.45; }
     .empty { color: #8a7e73; font-style: italic; }
+
+    /* Conversation-specific styles */
+    .conversation { background: #fffdf9; border: 1px solid #e2d8ca; border-radius: 16px; padding: 18px; margin-bottom: 18px; box-shadow: 0 8px 24px rgba(0,0,0,0.04); }
+    .conv-badge { font-size: 12px; padding: 2px 10px; border-radius: 999px; font-weight: 600; vertical-align: middle; }
+    .conv-pass .conv-badge, .conv-badge.conv-pass { background: #e4efe2; color: #275d2e; }
+    .conv-fail .conv-badge, .conv-badge.conv-fail { background: #f8e1dc; color: #7b3226; }
+    .conv-desc { color: #5c534b; margin: 4px 0 12px; font-size: 15px; }
+    .conv-summary { color: #8a7e73; font-size: 13px; margin-bottom: 12px; }
+    .conv-stats { display: flex; gap: 16px; margin-bottom: 16px; font-size: 15px; }
+    .conv-stats .stat-pass { color: #275d2e; font-weight: 600; }
+    .conv-stats .stat-fail { color: #7b3226; font-weight: 600; }
+    .turns { display: flex; flex-direction: column; gap: 8px; }
+    .turn { border: 1px solid #eadfce; border-radius: 12px; padding: 14px; position: relative; }
+    .turn-pass { border-left: 4px solid #6ead6e; }
+    .turn-fail { border-left: 4px solid #c75050; }
+    .turn-skipped { border-left: 4px solid #c5b88a; opacity: 0.7; }
+    .turn-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .turn-label { font-weight: 700; font-size: 13px; color: #5c534b; }
+    .turn-status { font-size: 16px; }
+    .turn-user { margin: 6px 0; line-height: 1.45; color: #3a3630; }
+    .turn-assistant { margin: 6px 0; line-height: 1.45; color: #5c534b; font-style: italic; }
+    .turn-meta { display: flex; gap: 14px; font-size: 13px; color: #8a7e73; margin: 8px 0; }
+    .turn-checks { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .check-pass { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #e4efe2; color: #275d2e; font-size: 12px; }
+    .check-fail { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #f8e1dc; color: #7b3226; font-size: 12px; }
+    .check-none { color: #8a7e73; font-size: 12px; font-style: italic; }
+    .check-skipped { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #f0ead8; color: #8a7e53; font-size: 12px; font-style: italic; }
   </style>
 </head>
 <body>
   <div class="page">
     <h1>Celestin Eval Report</h1>
-    <div class="meta">Fixture: ${escapeHtml(fixture.name ?? 'unnamed')} | Scenarios: ${results.length}</div>
-    ${rows}
+    <div class="report-meta">Fixture: ${escapeHtml(fixture.name ?? 'unnamed')} | Single-turn: ${singleResults.length} | Conversations: ${convTotal}${convTotal > 0 ? ` (${convPassed} pass, ${convFailed} fail)` : ''}</div>
+
+    ${convTotal > 0 ? `
+    <h2 class="section-title">Conversations (multi-tour)</h2>
+    <div class="conv-stats">
+      <span class="stat-pass">${convPassed} passed</span>
+      <span class="stat-fail">${convFailed} failed</span>
+    </div>
+    ${convRows}
+    ` : ''}
+
+    ${singleResults.length > 0 ? `
+    <h2 class="section-title">Single-turn scenarios</h2>
+    ${singleRows}
+    ` : ''}
   </div>
 </body>
 </html>`
 }
+
+// --- Main ---
 
 async function main() {
   const args = parseArgs(process.argv)
@@ -266,66 +564,100 @@ async function main() {
   }
 
   const fixture = loadJson(args.fixture)
-  const scenarios = loadJson(args.scenarios)
+  if (!fixture) throw new Error(`Fixture not found: ${args.fixture}`)
+
+  const scenarios = args.scenarios ? loadJson(args.scenarios) : null
+  const conversations = args.conversations ? loadJson(args.conversations) : null
+
+  if (!scenarios && !conversations) {
+    throw new Error('No scenarios or conversations to run. Use --scenarios and/or --conversations.')
+  }
+
   ensureDir(args.outDir)
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const results = []
+  const singleResults = []
+  const conversationResults = []
 
-  for (const scenario of scenarios) {
-    const body = buildRequestBody(fixture, scenario)
-    console.log(`Running ${scenario.id}: ${scenario.message}`)
-    if (args.dryRun) {
-      results.push({
-        id: scenario.id,
-        elapsedMs: 0,
-        request: body,
-        response: { message: 'Dry run: no network call', ui_action: null },
-        analysis: {
-          uiActionKind: 'none',
-          cardCount: 0,
-          memoryUsed: false,
-          introFlags: { hasTiens: false, hasPepites: false, hasAhLead: false },
-          expectedUiActionKindMismatch: false,
-          maxCardsExceeded: false,
-          avoidColorHits: [],
-        },
-      })
-      continue
-    }
-    try {
-      const { data, elapsedMs } = await callCelestin(body, supabaseUrl, supabaseAnonKey)
-      results.push({
-        id: scenario.id,
-        elapsedMs,
-        request: body,
-        response: data,
-        analysis: analyzeScenarioResult(scenario, data),
-      })
-    } catch (error) {
-      results.push({
-        id: scenario.id,
-        elapsedMs: null,
-        request: body,
-        response: { message: error instanceof Error ? error.message : String(error), ui_action: null },
-        analysis: {
-          uiActionKind: 'none',
-          cardCount: 0,
-          memoryUsed: false,
-          introFlags: { hasTiens: false, hasPepites: false, hasAhLead: false },
-          expectedUiActionKindMismatch: Boolean(scenario.expectations?.expectedUiActionKind && scenario.expectations.expectedUiActionKind !== 'none'),
-          maxCardsExceeded: false,
-          avoidColorHits: [],
-        },
-      })
+  // --- Run single-turn scenarios ---
+  if (scenarios && scenarios.length > 0) {
+    console.log(`\n=== Single-turn scenarios (${scenarios.length}) ===`)
+    for (const scenario of scenarios) {
+      const body = buildSingleTurnBody(fixture, scenario)
+      console.log(`Running ${scenario.id}: ${scenario.message}`)
+      if (args.dryRun) {
+        singleResults.push({
+          id: scenario.id,
+          elapsedMs: 0,
+          request: body,
+          response: { message: 'Dry run: no network call', ui_action: null },
+          analysis: {
+            uiActionKind: 'none',
+            cardCount: 0,
+            memoryUsed: false,
+            introFlags: { hasTiens: false, hasPepites: false, hasAhLead: false },
+            expectedUiActionKindMismatch: false,
+            maxCardsExceeded: false,
+            avoidColorHits: [],
+          },
+        })
+        continue
+      }
+      try {
+        const { data, elapsedMs } = await callCelestin(body, supabaseUrl, supabaseAnonKey)
+        singleResults.push({
+          id: scenario.id,
+          elapsedMs,
+          request: body,
+          response: data,
+          analysis: analyzeScenarioResult(scenario, data),
+        })
+      } catch (error) {
+        singleResults.push({
+          id: scenario.id,
+          elapsedMs: null,
+          request: body,
+          response: { message: error instanceof Error ? error.message : String(error), ui_action: null },
+          analysis: {
+            uiActionKind: 'none',
+            cardCount: 0,
+            memoryUsed: false,
+            introFlags: { hasTiens: false, hasPepites: false, hasAhLead: false },
+            expectedUiActionKindMismatch: Boolean(scenario.expectations?.expectedUiActionKind && scenario.expectations.expectedUiActionKind !== 'none'),
+            maxCardsExceeded: false,
+            avoidColorHits: [],
+          },
+        })
+      }
     }
   }
 
+  // --- Run multi-turn conversations ---
+  if (conversations && conversations.length > 0) {
+    console.log(`\n=== Multi-turn conversations (${conversations.length}) ===`)
+    for (const conversation of conversations) {
+      const result = await runConversation(conversation, fixture, supabaseUrl, supabaseAnonKey, args.dryRun)
+      conversationResults.push(result)
+    }
+
+    // Print summary
+    const passed = conversationResults.filter((c) => c.allPassed).length
+    const failed = conversationResults.length - passed
+    console.log(`\n  Conversations: ${passed} passed, ${failed} failed out of ${conversationResults.length}`)
+  }
+
+  // --- Write reports ---
   const jsonPath = path.join(args.outDir, `celestin-eval-${timestamp}.json`)
   const htmlPath = path.join(args.outDir, `celestin-eval-${timestamp}.html`)
 
-  fs.writeFileSync(jsonPath, JSON.stringify({ fixture, scenarios, results }, null, 2))
-  fs.writeFileSync(htmlPath, renderHtmlReport(results, fixture, scenarios))
+  fs.writeFileSync(jsonPath, JSON.stringify({
+    fixture,
+    scenarios: scenarios ?? [],
+    conversations: conversations ?? [],
+    singleResults,
+    conversationResults,
+  }, null, 2))
+  fs.writeFileSync(htmlPath, renderHtmlReport(singleResults, conversationResults, fixture, scenarios ?? []))
 
   console.log(`\nReport written:`)
   console.log(`- ${jsonPath}`)
