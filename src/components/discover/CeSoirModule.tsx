@@ -815,7 +815,7 @@ export default function CeSoirModule() {
 
     // Build conversation history from messages, enriched with ui_action context
     // Exclude loading messages and the initial welcome greeting (index 0)
-    const history = messages
+    const rawHistory = messages
       .filter((m, i) => !m.isLoading && !(i === 0 && m.role === 'celestin' && !m.cards && !m.wineAction))
       .map(m => {
         let text = m.text || (m.image ? '(photo jointe)' : '')
@@ -835,6 +835,16 @@ export default function CeSoirModule() {
           ...(m.image ? { image: m.image } : {}),
         }
       })
+
+    // Strip images from old turns — keep only the 2 most recent user images
+    // This prevents old photos from influencing responses and reduces payload size
+    const userImageIndices = rawHistory
+      .map((t, i) => (t.role === 'user' && t.image) ? i : -1)
+      .filter(i => i >= 0)
+    const keepImageFrom = new Set(userImageIndices.slice(-2))
+    const history = rawHistory.map((t, i) =>
+      t.image && !keepImageFrom.has(i) ? { ...t, image: undefined } : t
+    )
 
 
     // Profile

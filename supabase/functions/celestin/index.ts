@@ -154,6 +154,40 @@ function detectMediaType(base64: string): 'image/jpeg' | 'image/png' {
   return base64.startsWith('/9j/') ? 'image/jpeg' : 'image/png'
 }
 
+// === INTENT & CONTEXT TYPES (declared early for use by policy + context) ===
+
+type MessageIntent = 'greeting' | 'prefetch' | 'conversation' | 'recommendation' | 'unknown'
+type ContextLevel = 'minimal' | 'light' | 'full'
+
+// === RESPONSE POLICY (post-generation guard) ===
+
+function getContextLevel(intent: MessageIntent): ContextLevel {
+  if (intent === 'greeting') return 'minimal'
+  if (intent === 'conversation') return 'light'
+  return 'full' // recommendation, unknown, prefetch, image
+}
+
+function applyResponsePolicy(
+  response: CelestinResponse,
+  intent: MessageIntent,
+  lastAssistantText?: string,
+  messageLength?: number
+): CelestinResponse {
+  const isSocialAck = intent === 'conversation' || intent === 'greeting'
+  const hadRecentReco = lastAssistantText?.includes('[Vins proposés')
+  const isShort = (messageLength ?? 0) < 20
+
+  if (isSocialAck && response.ui_action) {
+    console.log(`[celestin] Policy: stripped ui_action (${response.ui_action.kind}) on social turn (intent=${intent})`)
+    return { ...response, ui_action: undefined }
+  }
+  if (hadRecentReco && isShort && response.ui_action?.kind === 'show_recommendations') {
+    console.log('[celestin] Policy: stripped re-reco after short ack')
+    return { ...response, ui_action: undefined }
+  }
+  return response
+}
+
 // === SYSTEM PROMPT ===
 
 function buildSystemPrompt(): string {
@@ -162,18 +196,24 @@ function buildSystemPrompt(): string {
 
 // === CONTEXT BLOCK (appended to system prompt, semi-static per session) ===
 
-function buildContextBlock(body: RequestBody): string {
+function buildContextBlock(body: RequestBody, contextLevel: ContextLevel = 'full'): string {
   const parts: string[] = []
 
-  // Profile
+  // Profile — always included (small, ~2-3 lines)
   if (body.profile) {
     parts.push(`Profil de gout :\n${body.profile}`)
   }
 
-  // Questionnaire profile (FWI + sensory preferences)
-  if (body.questionnaireProfile) {
-    parts.push(body.questionnaireProfile)
+  // === minimal stops here (greeting) ===
+  if (contextLevel === 'minimal') {
+    if (body.cave.length > 0) {
+      parts.push(`Cave : ${body.cave.length} bouteilles.`)
+    }
+    return parts.join('\n\n')
   }
+
+  // === light adds memories + sessions (conversation) ===
+  // No questionnaire profile for light — not needed for casual chat
 
   // Memories
   if (body.memories) {
@@ -187,13 +227,28 @@ function buildContextBlock(body: RequestBody): string {
     parts.push('Tu peux faire reference a ces conversations precedentes si c\'est pertinent, mais ne force pas. Les plus recentes sont les plus importantes.')
   }
 
+  if (contextLevel === 'light') {
+    // Cave count only — not the full list
+    if (body.cave.length > 0) {
+      parts.push(`Cave : ${body.cave.length} bouteilles (detail non inclus pour cette question).`)
+    }
+    return parts.join('\n\n')
+  }
+
+  // === full adds questionnaire + zones + full cave listing ===
+
+  // Questionnaire profile (FWI + sensory preferences)
+  if (body.questionnaireProfile) {
+    parts.push(body.questionnaireProfile)
+  }
+
   // Storage zones
   const zones = (body as Record<string, unknown>).zones as string[] | undefined
   if (zones && zones.length > 0) {
     parts.push(`Zones de stockage disponibles : ${zones.join(', ')}`)
   }
 
-  // Cave
+  // Cave (full listing)
   if (body.cave.length > 0) {
     parts.push(`Bouteilles en cave (${body.cave.length}) :`)
     for (const b of body.cave) {
@@ -216,22 +271,15 @@ function buildContextBlock(body: RequestBody): string {
 
 // === INTENT CLASSIFIER (code-side, no LLM call) ===
 
-type MessageIntent = 'greeting' | 'prefetch' | 'conversation' | 'recommendation' | 'unknown'
-
-function classifyIntent(message: string, hasImage: boolean): MessageIntent {
+function classifyIntent(message: string, hasImage: boolean, lastAssistantText?: string): MessageIntent {
   if (message === '__greeting__') return 'greeting'
   if (message === '__prefetch__') return 'prefetch'
 
   const lower = message.toLowerCase().trim()
-
-  // Explicit recommendation triggers (checked first — strongest signal)
-  const RECOMMENDATION_PATTERNS = [
-    /\b(que? boire|recommande|propose|ce soir|pour accompagner|ouvre[- ]moi|quel vin|avec (ce|le|du|des|mon|ma|mes|un|une)|accord|accords mets)/i,
-    /\b(pour aller avec|pour manger|pour diner|pour le repas)/i,
-    /\b(en blanc|en rouge|en ros[ée]|en bulles|un blanc|un rouge|une bulle|autre chose|une autre|plutot un|sinon)\b/i, // Refinements of a previous recommendation
-  ]
+  const hadRecentReco = lastAssistantText?.includes('[Vins proposés')
 
   // Short acknowledgments / thanks / refusals — clearly conversational
+  // Check BEFORE recommendation patterns so "merci" after a reco stays conversational
   const CONVERSATION_PATTERNS = [
     /^(merci|super|ok|d'accord|parfait|g[eé]nial|cool|top|nice|bien|bonne id[eé]e|ah ok|je vois|compris|entendu|c'est bon|non merci|pas pour moi|[cç]a ira|bof|mouais|haha|mdr|lol)[.! ]*$/i,
     /^(oui|non|pourquoi|comment|quoi|c'est quoi|qu'est-ce que?|est-ce que|tu (aimes?|connais|pref[eè]res|penses|sais|crois)|parle[- ]moi|explique|raconte|dis[- ]moi)/i,
@@ -239,8 +287,33 @@ function classifyIntent(message: string, hasImage: boolean): MessageIntent {
 
   if (hasImage) return 'unknown' // Let the LLM decide for images
 
+  // After a recent recommendation: short social messages → conversation, NOT re-reco
+  if (hadRecentReco && lower.length < 20) {
+    for (const pattern of CONVERSATION_PATTERNS) {
+      if (pattern.test(lower)) return 'conversation'
+    }
+  }
+
+  // Refinement patterns (only valid after a recent recommendation)
+  const REFINEMENT_PATTERNS = [
+    /\b(en blanc|en rouge|en ros[ée]|en bulles|un blanc|un rouge|une bulle|autre chose|une autre|plutot un|sinon)\b/i,
+  ]
+
+  // Explicit recommendation triggers
+  const RECOMMENDATION_PATTERNS = [
+    /\b(que? boire|recommande|propose|ce soir|pour accompagner|ouvre[- ]moi|quel vin|avec (ce|le|du|des|mon|ma|mes|un|une)|accord|accords mets)/i,
+    /\b(pour aller avec|pour manger|pour diner|pour le repas)/i,
+  ]
+
   for (const pattern of RECOMMENDATION_PATTERNS) {
     if (pattern.test(lower)) return 'recommendation'
+  }
+
+  // Refinements only count as recommendation if there was a recent reco
+  if (hadRecentReco) {
+    for (const pattern of REFINEMENT_PATTERNS) {
+      if (pattern.test(lower)) return 'recommendation'
+    }
   }
 
   for (const pattern of CONVERSATION_PATTERNS) {
@@ -255,9 +328,10 @@ function classifyIntent(message: string, hasImage: boolean): MessageIntent {
 
 // === USER PROMPT (lightweight: current message + minimal dynamic context) ===
 
-function buildUserPrompt(body: RequestBody): string {
+function buildUserPrompt(body: RequestBody, lastAssistantText?: string): string {
   const parts: string[] = []
   const intent = classifyIntent(body.message, !!body.image)
+  const hadRecentReco = lastAssistantText?.includes('[Vins proposés')
 
   // Current message
   if (intent === 'greeting') {
@@ -284,8 +358,13 @@ function buildUserPrompt(body: RequestBody): string {
     parts.push('Demande : suggestions personnalisees pour ce soir, pas de contrainte de plat.')
     parts.push('Pas d\'accord mets-vins a appliquer : priorise la pertinence contextuelle et la diversite.')
   } else if (intent === 'conversation') {
-    // Strong hint: this is NOT a recommendation request
-    parts.push(`[CONVERSATION — PAS de ui_action. Reponds BRIEVEMENT (1-2 phrases max) + action_chips. Ne recommande aucun vin.]`)
+    if (hadRecentReco) {
+      // Post-reco acknowledgment — be very explicit: user is satisfied, don't suggest more
+      parts.push(`[ACQUITTEMENT apres recommandation — L'utilisateur te remercie ou acquiesce. Reponds en 1 phrase COURTE. Ne propose PAS d'autres vins, ne fais PAS de suggestion. Juste un cloture chaleureuse + action_chips pour changer de sujet.]`)
+    } else {
+      // Generic conversation
+      parts.push(`[CONVERSATION — PAS de ui_action. Reponds BRIEVEMENT (1-2 phrases max) + action_chips. Ne recommande aucun vin.]`)
+    }
     parts.push(body.message)
   } else {
     parts.push(body.message)
@@ -788,16 +867,24 @@ Deno.serve(async (req) => {
   try {
     const body: RequestBody = await req.json()
     forcedProvider = body.provider
-    const intent = classifyIntent(body.message, !!body.image)
-    console.log(`[celestin] message="${body.message.slice(0, 80)}" intent=${intent} history=${body.history.length} cave=${body.cave.length} image=${body.image ? `${body.image.length} chars` : 'none'}`)
 
-    const contextBlock = buildContextBlock(body)
+    // Extract last assistant text for context-aware intent detection & policy
+    const lastAssistantTurn = [...body.history].reverse().find(t => t.role === 'assistant')
+    const lastAssistantText = lastAssistantTurn?.text
+
+    const intent = classifyIntent(body.message, !!body.image, lastAssistantText)
+    const contextLevel = getContextLevel(intent)
+    console.log(`[celestin] message="${body.message.slice(0, 80)}" intent=${intent} context=${contextLevel} history=${body.history.length} cave=${body.cave.length} image=${body.image ? `${body.image.length} chars` : 'none'}`)
+
+    const contextBlock = buildContextBlock(body, contextLevel)
     const systemPrompt = buildSystemPrompt() + '\n\n--- CONTEXTE UTILISATEUR ---\n\n' + contextBlock
-    const userPrompt = buildUserPrompt(body)
+    const userPrompt = buildUserPrompt(body, lastAssistantText)
 
-    const { provider, response } = await celestinWithFallback(systemPrompt, userPrompt, body.history, body.provider, body.image)
+    const { provider, response: rawResponse } = await celestinWithFallback(systemPrompt, userPrompt, body.history, body.provider, body.image)
+
+    // Apply post-generation policy (strip inappropriate ui_actions)
+    const response = applyResponsePolicy(rawResponse, intent, lastAssistantText, body.message.length)
     console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} msg="${response.message.slice(0, 200)}"`)
-
 
     return new Response(JSON.stringify(response), {
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
