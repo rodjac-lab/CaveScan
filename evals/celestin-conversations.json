@@ -187,5 +187,53 @@
         }
       }
     ]
+  },
+  {
+    "id": "memory_recall_gangloff",
+    "type": "conversation",
+    "description": "Recall souvenir Gangloff — doit citer des détails de la dégustation",
+    "turns": [
+      {
+        "message": "Tu te souviens du Gangloff qu'on a bu ?",
+        "expect": {
+          "uiAction": "none",
+          "responseContains": ["gangloff"]
+        }
+      },
+      {
+        "message": "C'était quoi comme millésime déjà ?",
+        "expect": {
+          "uiAction": "none",
+          "responseContains": ["2010"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "memory_recall_chain",
+    "type": "conversation",
+    "description": "Recall Gangloff → enchaîne sur Rayas — 2 souvenirs distincts",
+    "turns": [
+      {
+        "message": "Tu te souviens de la soirée vin du 26 février ?",
+        "expect": {
+          "uiAction": "none"
+        }
+      },
+      {
+        "message": "Et le Rayas, c'était comment ?",
+        "expect": {
+          "uiAction": "none",
+          "responseContains": ["rayas"]
+        }
+      },
+      {
+        "message": "On avait mis combien d'étoiles ?",
+        "expect": {
+          "uiAction": "none",
+          "responseContains": ["4"]
+        }
+      }
+    ]
   }
 ]

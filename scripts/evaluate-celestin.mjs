@@ -209,6 +209,20 @@ function analyzeTurnResult(turn, response) {
     })
   }
 
+  // Check responseContains — verify specific words/phrases appear in the response
+  if (Array.isArray(turn.expect.responseContains)) {
+    const responseText = (response.message ?? '').toLowerCase()
+    for (const term of turn.expect.responseContains) {
+      const pass = responseText.includes(term.toLowerCase())
+      checks.push({
+        check: 'contains',
+        expected: term,
+        actual: pass ? 'found' : 'missing',
+        pass,
+      })
+    }
+  }
+
   return {
     uiActionKind: actualUiAction,
     nextPhase: actualPhase,
