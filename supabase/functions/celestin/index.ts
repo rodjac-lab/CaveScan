@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { buildCelestinSystemPrompt } from "./prompt-builder.ts"
+import { interpretTurn, type TurnInterpretation, type CognitiveMode } from "./turn-interpreter.ts"
+import { computeNextState, INITIAL_STATE, type ConversationState } from "./conversation-state.ts"
 
 // === CONFIG ===
 const MISTRAL_API_KEY = Deno.env.get('MISTRAL_API_KEY')
@@ -48,6 +50,7 @@ interface RequestBody {
   previousSession?: string
   provider?: string // "claude" | "gemini" | "mistral" — force a specific provider (for eval)
   image?: string // base64-encoded image (JPEG or PNG)
+  conversationState?: ConversationState // sent by frontend, tracks dialogue phase
   context?: {
     dayOfWeek: string
     season: string
@@ -154,36 +157,32 @@ function detectMediaType(base64: string): 'image/jpeg' | 'image/png' {
   return base64.startsWith('/9j/') ? 'image/jpeg' : 'image/png'
 }
 
-// === INTENT & CONTEXT TYPES (declared early for use by policy + context) ===
-
-type MessageIntent = 'greeting' | 'prefetch' | 'conversation' | 'recommendation' | 'unknown'
-type ContextLevel = 'minimal' | 'light' | 'full'
-
 // === RESPONSE POLICY (post-generation guard) ===
-
-function getContextLevel(intent: MessageIntent): ContextLevel {
-  if (intent === 'greeting') return 'minimal'
-  if (intent === 'conversation') return 'light'
-  return 'full' // recommendation, unknown, prefetch, image
-}
 
 function applyResponsePolicy(
   response: CelestinResponse,
-  intent: MessageIntent,
+  interpretation: TurnInterpretation,
   lastAssistantText?: string,
-  messageLength?: number
+  messageLength?: number,
 ): CelestinResponse {
-  const isSocialAck = intent === 'conversation' || intent === 'greeting'
-  const hadRecentReco = lastAssistantText?.includes('[Vins proposés')
-  const isShort = (messageLength ?? 0) < 20
-
-  if (isSocialAck && response.ui_action) {
-    console.log(`[celestin] Policy: stripped ui_action (${response.ui_action.kind}) on social turn (intent=${intent})`)
+  // Primary: Turn Interpreter decision
+  if (!interpretation.shouldAllowUiAction && response.ui_action) {
+    console.log(`[celestin] Policy: stripped ui_action (${response.ui_action.kind}) — turnType=${interpretation.turnType}, mode=${interpretation.cognitiveMode}`)
     return { ...response, ui_action: undefined }
   }
-  if (hadRecentReco && isShort && response.ui_action?.kind === 'show_recommendations') {
-    console.log('[celestin] Policy: stripped re-reco after short ack')
+  // Fallback safety net: prevent re-reco on very short messages after a reco
+  const hadRecentReco = lastAssistantText?.includes('[Vins proposés')
+  if (hadRecentReco && (messageLength ?? 0) < 15 && response.ui_action?.kind === 'show_recommendations') {
+    console.log('[celestin] Policy: fallback — stripped re-reco on very short post-reco message')
     return { ...response, ui_action: undefined }
+  }
+  // Strip premature prepare_add_wine with incomplete extraction (no domaine AND no appellation)
+  if (response.ui_action?.kind === 'prepare_add_wine' || response.ui_action?.kind === 'prepare_log_tasting') {
+    const ext = response.ui_action.payload.extraction
+    if (!ext?.domaine && !ext?.appellation) {
+      console.log(`[celestin] Policy: stripped ${response.ui_action.kind} — extraction too incomplete (no domaine, no appellation)`)
+      return { ...response, ui_action: undefined }
+    }
   }
   return response
 }
@@ -194,9 +193,9 @@ function buildSystemPrompt(): string {
   return buildCelestinSystemPrompt()
 }
 
-// === CONTEXT BLOCK (appended to system prompt, semi-static per session) ===
+// === CONTEXT BLOCK (driven by cognitive mode) ===
 
-function buildContextBlock(body: RequestBody, contextLevel: ContextLevel = 'full'): string {
+function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'greeting' | 'social'): string {
   const parts: string[] = []
 
   // Profile — always included (small, ~2-3 lines)
@@ -204,51 +203,66 @@ function buildContextBlock(body: RequestBody, contextLevel: ContextLevel = 'full
     parts.push(`Profil de gout :\n${body.profile}`)
   }
 
-  // === minimal stops here (greeting) ===
-  if (contextLevel === 'minimal') {
+  // --- greeting / social: profile + cave count only ---
+  if (cognitiveMode === 'greeting' || cognitiveMode === 'social') {
     if (body.cave.length > 0) {
       parts.push(`Cave : ${body.cave.length} bouteilles.`)
     }
     return parts.join('\n\n')
   }
 
-  // === light adds memories + sessions (conversation) ===
-  // No questionnaire profile for light — not needed for casual chat
+  // --- wine_conversation: profile + questionnaire (no cave, no memories) ---
+  if (cognitiveMode === 'wine_conversation') {
+    if (body.questionnaireProfile) {
+      parts.push(body.questionnaireProfile)
+    }
+    return parts.join('\n\n')
+  }
 
-  // Memories
+  // --- restaurant_assistant: profile + questionnaire (image is in the message) ---
+  if (cognitiveMode === 'restaurant_assistant') {
+    if (body.questionnaireProfile) {
+      parts.push(body.questionnaireProfile)
+    }
+    return parts.join('\n\n')
+  }
+
+  // --- tasting_memory: profile + memories + sessions (no full cave) ---
+  if (cognitiveMode === 'tasting_memory') {
+    if (body.memories) {
+      parts.push(`Souvenirs de degustation :\n${body.memories}`)
+      parts.push('Cite des souvenirs specifiques quand pertinent.')
+    }
+    if (body.previousSession) {
+      parts.push(body.previousSession)
+      parts.push('Tu peux faire reference a ces conversations precedentes si c\'est pertinent, mais ne force pas.')
+    }
+    if (body.cave.length > 0) {
+      parts.push(`Cave : ${body.cave.length} bouteilles (detail non inclus).`)
+    }
+    return parts.join('\n\n')
+  }
+
+  // --- cellar_assistant (default): everything ---
+  if (body.questionnaireProfile) {
+    parts.push(body.questionnaireProfile)
+  }
+
   if (body.memories) {
     parts.push(`Souvenirs de degustation :\n${body.memories}`)
     parts.push('Cite des souvenirs specifiques quand pertinent.')
   }
 
-  // Previous sessions (cross-session memory)
   if (body.previousSession) {
     parts.push(body.previousSession)
     parts.push('Tu peux faire reference a ces conversations precedentes si c\'est pertinent, mais ne force pas. Les plus recentes sont les plus importantes.')
   }
 
-  if (contextLevel === 'light') {
-    // Cave count only — not the full list
-    if (body.cave.length > 0) {
-      parts.push(`Cave : ${body.cave.length} bouteilles (detail non inclus pour cette question).`)
-    }
-    return parts.join('\n\n')
-  }
-
-  // === full adds questionnaire + zones + full cave listing ===
-
-  // Questionnaire profile (FWI + sensory preferences)
-  if (body.questionnaireProfile) {
-    parts.push(body.questionnaireProfile)
-  }
-
-  // Storage zones
   const zones = (body as Record<string, unknown>).zones as string[] | undefined
   if (zones && zones.length > 0) {
     parts.push(`Zones de stockage disponibles : ${zones.join(', ')}`)
   }
 
-  // Cave (full listing)
   if (body.cave.length > 0) {
     parts.push(`Bouteilles en cave (${body.cave.length}) :`)
     for (const b of body.cave) {
@@ -269,72 +283,14 @@ function buildContextBlock(body: RequestBody, contextLevel: ContextLevel = 'full
   return parts.join('\n\n')
 }
 
-// === INTENT CLASSIFIER (code-side, no LLM call) ===
+// === USER PROMPT (driven by Turn Interpreter) ===
 
-function classifyIntent(message: string, hasImage: boolean, lastAssistantText?: string): MessageIntent {
-  if (message === '__greeting__') return 'greeting'
-  if (message === '__prefetch__') return 'prefetch'
-
-  const lower = message.toLowerCase().trim()
-  const hadRecentReco = lastAssistantText?.includes('[Vins proposés')
-
-  // Short acknowledgments / thanks / refusals — clearly conversational
-  // Check BEFORE recommendation patterns so "merci" after a reco stays conversational
-  const CONVERSATION_PATTERNS = [
-    /^(merci|super|ok|d'accord|parfait|g[eé]nial|cool|top|nice|bien|bonne id[eé]e|ah ok|je vois|compris|entendu|c'est bon|non merci|pas pour moi|[cç]a ira|bof|mouais|haha|mdr|lol)[.! ]*$/i,
-    /^(oui|non|pourquoi|comment|quoi|c'est quoi|qu'est-ce que?|est-ce que|tu (aimes?|connais|pref[eè]res|penses|sais|crois)|parle[- ]moi|explique|raconte|dis[- ]moi)/i,
-  ]
-
-  if (hasImage) return 'unknown' // Let the LLM decide for images
-
-  // After a recent recommendation: short social messages → conversation, NOT re-reco
-  if (hadRecentReco && lower.length < 20) {
-    for (const pattern of CONVERSATION_PATTERNS) {
-      if (pattern.test(lower)) return 'conversation'
-    }
-  }
-
-  // Refinement patterns (only valid after a recent recommendation)
-  const REFINEMENT_PATTERNS = [
-    /\b(en blanc|en rouge|en ros[ée]|en bulles|un blanc|un rouge|une bulle|autre chose|une autre|plutot un|sinon)\b/i,
-  ]
-
-  // Explicit recommendation triggers
-  const RECOMMENDATION_PATTERNS = [
-    /\b(que? boire|recommande|propose|ce soir|pour accompagner|ouvre[- ]moi|quel vin|avec (ce|le|du|des|mon|ma|mes|un|une)|accord|accords mets)/i,
-    /\b(pour aller avec|pour manger|pour diner|pour le repas)/i,
-  ]
-
-  for (const pattern of RECOMMENDATION_PATTERNS) {
-    if (pattern.test(lower)) return 'recommendation'
-  }
-
-  // Refinements only count as recommendation if there was a recent reco
-  if (hadRecentReco) {
-    for (const pattern of REFINEMENT_PATTERNS) {
-      if (pattern.test(lower)) return 'recommendation'
-    }
-  }
-
-  for (const pattern of CONVERSATION_PATTERNS) {
-    if (pattern.test(lower)) return 'conversation'
-  }
-
-  // Short messages (< 20 chars) without recommendation keywords are likely conversational
-  if (lower.length < 20) return 'conversation'
-
-  return 'unknown'
-}
-
-// === USER PROMPT (lightweight: current message + minimal dynamic context) ===
-
-function buildUserPrompt(body: RequestBody, lastAssistantText?: string): string {
+function buildUserPrompt(body: RequestBody, interpretation: TurnInterpretation, state: ConversationState): string {
   const parts: string[] = []
-  const intent = classifyIntent(body.message, !!body.image)
-  const hadRecentReco = lastAssistantText?.includes('[Vins proposés')
+  const { turnType, cognitiveMode } = interpretation
 
-  // Current message
-  if (intent === 'greeting') {
+  // Greeting
+  if (turnType === 'greeting') {
     parts.push('DEMANDE SPECIALE : message d\'accueil a l\'ouverture de l\'app.')
     parts.push('1 phrase. Pas de ui_action. Inclus 2-3 action_chips.')
     parts.push('')
@@ -354,19 +310,44 @@ function buildUserPrompt(body: RequestBody, lastAssistantText?: string): string 
       if (gc.lastActivity) parts.push(`${gc.lastActivity}`)
     }
     return parts.join('\n')
-  } else if (intent === 'prefetch') {
+  }
+
+  // Prefetch
+  if (turnType === 'prefetch') {
     parts.push('Demande : suggestions personnalisees pour ce soir, pas de contrainte de plat.')
     parts.push('Pas d\'accord mets-vins a appliquer : priorise la pertinence contextuelle et la diversite.')
-  } else if (intent === 'conversation') {
-    if (hadRecentReco) {
-      // Post-reco acknowledgment — be very explicit: user is satisfied, don't suggest more
-      parts.push(`[ACQUITTEMENT apres recommandation — L'utilisateur te remercie ou acquiesce. Reponds en 1 phrase COURTE. Ne propose PAS d'autres vins, ne fais PAS de suggestion. Juste un cloture chaleureuse + action_chips pour changer de sujet.]`)
+  }
+
+  // Social ack — post-task or generic
+  else if (turnType === 'social_ack') {
+    if (state.phase === 'post_task_ack') {
+      parts.push(`[ACQUITTEMENT — L'utilisateur acquiesce apres ta derniere action. 1 phrase COURTE. Ne propose PAS d'autres vins, ne fais PAS de suggestion. Cloture chaleureuse + action_chips pour changer de sujet.]`)
     } else {
-      // Generic conversation
-      parts.push(`[CONVERSATION — PAS de ui_action. Reponds BRIEVEMENT (1-2 phrases max) + action_chips. Ne recommande aucun vin.]`)
+      parts.push(`[CONVERSATION — PAS de ui_action. Reponds BRIEVEMENT (1-2 phrases max) + action_chips.]`)
     }
     parts.push(body.message)
-  } else {
+  }
+
+  // Task cancel
+  else if (turnType === 'task_cancel') {
+    parts.push(`[L'utilisateur decline ou veut arreter. Reponds brievement, pas de ui_action. Propose des action_chips pour changer de sujet.]`)
+    parts.push(body.message)
+  }
+
+  // Smalltalk / wine culture
+  else if (turnType === 'smalltalk' || (turnType === 'context_switch' && cognitiveMode === 'wine_conversation')) {
+    parts.push(`[QUESTION VIN — Reponds avec tes connaissances. PAS de ui_action. Sois concis et opinione.]`)
+    parts.push(body.message)
+  }
+
+  // Context switch to tasting memory
+  else if (turnType === 'context_switch' && cognitiveMode === 'tasting_memory') {
+    parts.push(`[SOUVENIR — L'utilisateur fait reference a une degustation passee. Utilise les souvenirs fournis. PAS de ui_action sauf si l'utilisateur demande explicitement de noter.]`)
+    parts.push(body.message)
+  }
+
+  // Task request, task continue, disambiguation answer, unknown — just the message
+  else {
     parts.push(body.message)
     if (body.image) {
       parts.push("L'utilisateur a joint une photo. Analyse-la et reponds en fonction de ce que tu vois.")
@@ -868,25 +849,38 @@ Deno.serve(async (req) => {
     const body: RequestBody = await req.json()
     forcedProvider = body.provider
 
-    // Extract last assistant text for context-aware intent detection & policy
+    // Conversation state from frontend (defaults to idle if absent)
+    const conversationState: ConversationState = body.conversationState ?? { ...INITIAL_STATE }
+
+    // Extract last assistant text for context-aware interpretation
     const lastAssistantTurn = [...body.history].reverse().find(t => t.role === 'assistant')
     const lastAssistantText = lastAssistantTurn?.text
 
-    const intent = classifyIntent(body.message, !!body.image, lastAssistantText)
-    const contextLevel = getContextLevel(intent)
-    console.log(`[celestin] message="${body.message.slice(0, 80)}" intent=${intent} context=${contextLevel} history=${body.history.length} cave=${body.cave.length} image=${body.image ? `${body.image.length} chars` : 'none'}`)
+    // Turn Interpreter: replaces classifyIntent — state-aware, produces turnType + cognitiveMode
+    const interpretation = interpretTurn(body.message, !!body.image, conversationState, lastAssistantText)
+    console.log(`[celestin] message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} state=${conversationState.phase} history=${body.history.length} cave=${body.cave.length} image=${body.image ? 'yes' : 'no'}`)
 
-    const contextBlock = buildContextBlock(body, contextLevel)
+    // Build prompt and context driven by cognitive mode
+    const contextBlock = buildContextBlock(body, interpretation.cognitiveMode)
     const systemPrompt = buildSystemPrompt() + '\n\n--- CONTEXTE UTILISATEUR ---\n\n' + contextBlock
-    const userPrompt = buildUserPrompt(body, lastAssistantText)
+    const userPrompt = buildUserPrompt(body, interpretation, conversationState)
 
     const { provider, response: rawResponse } = await celestinWithFallback(systemPrompt, userPrompt, body.history, body.provider, body.image)
 
     // Apply post-generation policy (strip inappropriate ui_actions)
-    const response = applyResponsePolicy(rawResponse, intent, lastAssistantText, body.message.length)
-    console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} msg="${response.message.slice(0, 200)}"`)
+    const response = applyResponsePolicy(rawResponse, interpretation, lastAssistantText, body.message.length)
 
-    return new Response(JSON.stringify(response), {
+    // Compute next conversation state
+    const nextState = computeNextState(
+      conversationState,
+      interpretation.turnType,
+      !!response.ui_action,
+      response.ui_action?.kind,
+      interpretation.inferredTaskType,
+    )
+    console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} nextState=${nextState.phase} msg="${response.message.slice(0, 120)}"`)
+
+    return new Response(JSON.stringify({ ...response, _nextState: nextState }), {
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     })
   } catch (error) {

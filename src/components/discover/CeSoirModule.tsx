@@ -508,6 +508,8 @@ const UserBubble = memo(function UserBubble({ message }: { message: ChatMessage 
 
 // --- Conversation persistence across tab switches ---
 let persistedMessages: ChatMessage[] | null = null
+// deno-lint-ignore no-explicit-any
+let persistedConversationState: Record<string, any> | null = null
 
 // --- Cross-session memory (uses shared module) ---
 import {
@@ -882,6 +884,7 @@ export default function CeSoirModule() {
       context,
       previousSession,
       zones: zoneNames.length > 0 ? zoneNames : undefined,
+      ...(persistedConversationState ? { conversationState: persistedConversationState } : {}),
       ...(image ? { image } : {}),
     }
   }
@@ -895,7 +898,14 @@ export default function CeSoirModule() {
 
       if (error) throw error
 
-      const response = data as CelestinResponse
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fullResponse = data as any
+      const response = fullResponse as CelestinResponse
+
+      // Update conversation state from backend
+      if (fullResponse?._nextState) {
+        persistedConversationState = fullResponse._nextState
+      }
 
       // Resolve bottle IDs (short → full)
       const resolvedCards = response.ui_action?.kind === 'show_recommendations'
