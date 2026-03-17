@@ -60,8 +60,19 @@ function normalizeForMatch(text: string): string {
     .toLowerCase()
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^a-z0-9\s'-]/g, '') // strip punctuation (keep apostrophes and hyphens)
     .trim()
 }
+
+const STOP_WORDS = new Set([
+  'je', "j'ai", 'tu', 'il', 'on', 'nous', 'vous', 'ils',
+  'le', 'la', 'les', 'un', 'une', 'des', 'du', 'de', 'au', 'aux',
+  'ce', 'ca', 'ces', 'mon', 'ma', 'mes', 'ton', 'ta', 'tes', 'son', 'sa', 'ses',
+  'et', 'ou', 'mais', 'donc', 'que', 'qui', 'quoi',
+  'dans', 'sur', 'avec', 'pour', 'par', 'pas', 'plus', 'bien', 'tres', 'trop',
+  'est', 'sont', 'fait', 'ete', 'deja', 'encore', 'jamais', 'toujours',
+  'oui', 'non', 'merci', 'aussi', 'comme', 'tout', 'tous',
+])
 
 function countTermMatches(normalizedQuery: string, terms: string[]): number {
   let matches = 0
@@ -91,7 +102,7 @@ export function selectRelevantMemories(
   const hasQuery = query != null && query.trim().length > 0
   const normalizedQuery = hasQuery ? normalizeForMatch(query) : ''
   const fallbackWords = hasQuery
-    ? query.split(/\s+/).filter((w) => w.length > 2).map(normalizeForMatch)
+    ? query.split(/\s+/).map(normalizeForMatch).filter((w) => w.length > 2 && !STOP_WORDS.has(w))
     : []
 
   const scored: ScoredMemory[] = withNotes.map((bottle) => {
@@ -100,6 +111,17 @@ export function selectRelevantMemories(
     const tags = bottle.tasting_tags as TastingTags | null
 
     if (hasQuery) {
+      // Search in bottle identity fields (domaine, appellation, cuvee) — strongest signal
+      const identityFields = [bottle.domaine, bottle.appellation, bottle.cuvee].filter(Boolean) as string[]
+      for (const word of fallbackWords) {
+        for (const field of identityFields) {
+          if (normalizeForMatch(field).includes(word)) {
+            relevanceScore += 5
+          }
+        }
+      }
+
+      // Search in tasting tags
       if (tags) {
         if (mode === 'food') {
           relevanceScore += countTermMatches(normalizedQuery, tags.plats) * 4
@@ -114,7 +136,8 @@ export function selectRelevantMemories(
         }
       }
 
-      if (relevanceScore === 0 && bottle.tasting_note) {
+      // Search in tasting note text (cumulative, not just fallback)
+      if (bottle.tasting_note) {
         const normalizedNote = normalizeForMatch(bottle.tasting_note)
         for (const word of fallbackWords) {
           if (normalizedNote.includes(word)) {
