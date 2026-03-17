@@ -189,8 +189,8 @@ function applyResponsePolicy(
 
 // === SYSTEM PROMPT ===
 
-function buildSystemPrompt(): string {
-  return buildCelestinSystemPrompt()
+function buildSystemPrompt(cognitiveMode?: CognitiveMode | 'greeting' | 'social'): string {
+  return buildCelestinSystemPrompt(cognitiveMode)
 }
 
 // === CONTEXT BLOCK (driven by cognitive mode) ===
@@ -862,7 +862,7 @@ Deno.serve(async (req) => {
 
     // Build prompt and context driven by cognitive mode
     const contextBlock = buildContextBlock(body, interpretation.cognitiveMode)
-    const systemPrompt = buildSystemPrompt() + '\n\n--- CONTEXTE UTILISATEUR ---\n\n' + contextBlock
+    const systemPrompt = buildSystemPrompt(interpretation.cognitiveMode) + '\n\n--- CONTEXTE UTILISATEUR ---\n\n' + contextBlock
     const userPrompt = buildUserPrompt(body, interpretation, conversationState)
 
     const { provider, response: rawResponse } = await celestinWithFallback(systemPrompt, userPrompt, body.history, body.provider, body.image)
@@ -880,7 +880,7 @@ Deno.serve(async (req) => {
     )
     console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} nextState=${nextState.phase} msg="${response.message.slice(0, 120)}"`)
 
-    return new Response(JSON.stringify({ ...response, _nextState: nextState }), {
+    return new Response(JSON.stringify({ ...response, _nextState: nextState, _debug: { turnType: interpretation.turnType, cognitiveMode: interpretation.cognitiveMode, provider } }), {
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     })
   } catch (error) {

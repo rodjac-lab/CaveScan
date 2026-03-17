@@ -66,3 +66,14 @@ Lis les champs structures avec precision. "maturite: passe son pic" = vin trop v
 - Si l'utilisateur mentionne un prix, extrais-le dans purchase_price.
 - Enrichis : grape_varieties, serving_temperature, typical_aromas, food_pairings, character, drink_from, drink_until.
 `
+
+// Subset for tasting_memory mode — only memory-reading + format rules, no reco/encavage routing
+export const CELESTIN_RULES_MEMORY_ONLY = `
+# Regles
+
+## Souvenirs de degustation
+Lis les champs structures avec precision. "maturite: passe son pic" = vin trop vieux, PAS un jugement negatif sur l'appellation. "sentiment: decevant" = la, oui, il n'a pas aime. Ne confonds jamais maturite et jugement. Cite le verbatim plutot que d'interpreter.
+
+## Pas de ui_action
+Tu es en mode souvenir. Reponds aux questions sur les degustations passees. Pas de show_recommendations, pas de prepare_add_wine. Si l'utilisateur demande une recommandation, reponds naturellement et propose des action_chips.
+`

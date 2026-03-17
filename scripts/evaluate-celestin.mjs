@@ -209,6 +209,18 @@ function analyzeTurnResult(turn, response) {
     })
   }
 
+  // Check cognitiveMode (requires _debug in response)
+  if (turn.expect.cognitiveMode !== null && turn.expect.cognitiveMode !== undefined) {
+    const actualMode = response._debug?.cognitiveMode ?? null
+    const pass = actualMode === turn.expect.cognitiveMode
+    checks.push({
+      check: 'cognitiveMode',
+      expected: turn.expect.cognitiveMode,
+      actual: actualMode ?? 'unknown',
+      pass,
+    })
+  }
+
   // Check responseContains — verify specific words/phrases appear in the response
   if (Array.isArray(turn.expect.responseContains)) {
     const responseText = (response.message ?? '').toLowerCase()
@@ -451,6 +463,9 @@ function renderConversationResult(convResult) {
           <span>UI: ${escapeHtml(turn.analysis.uiActionKind)}</span>
           <span>Phase: ${escapeHtml(turn.analysis.nextPhase ?? '—')}</span>
           <span>Cards: ${turn.analysis.cardCount}</span>
+          <span>Turn: ${escapeHtml(turn.response._debug?.turnType ?? '—')}</span>
+          <span>Mode: ${escapeHtml(turn.response._debug?.cognitiveMode ?? '—')}</span>
+          <span>Provider: ${escapeHtml(turn.response._debug?.provider ?? '—')}</span>
         </div>
         <div class="turn-checks">${checksHtml || '<span class="check-none">No checks</span>'}</div>
         ${cardsHtml ? `<div class="cards">${cardsHtml}</div>` : ''}

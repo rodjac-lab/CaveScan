@@ -189,6 +189,34 @@
     ]
   },
   {
+    "id": "reco_then_memory",
+    "type": "conversation",
+    "description": "Reco → question souvenir — le mode doit switcher vers tasting_memory",
+    "turns": [
+      {
+        "message": "Qu'est-ce que j'ouvre ce soir ?",
+        "expect": {
+          "uiAction": "show_recommendations",
+          "nextPhase": "post_task_ack"
+        }
+      },
+      {
+        "message": "Ai-je déjà bu des Côte-Rôtie ?",
+        "expect": {
+          "uiAction": "none",
+          "cognitiveMode": "tasting_memory",
+          "responseContains": ["gangloff"]
+        }
+      },
+      {
+        "message": "C'est tout ?",
+        "expect": {
+          "uiAction": "none"
+        }
+      }
+    ]
+  },
+  {
     "id": "memory_recall_gangloff",
     "type": "conversation",
     "description": "Recall souvenir Gangloff — doit citer des détails de la dégustation",
