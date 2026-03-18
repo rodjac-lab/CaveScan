@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { Bottle, TastingTags } from '@/lib/types'
+import { searchSemanticMemories } from '@/lib/semanticMemory'
 
 type Mode = 'generic' | 'food' | 'wine' | 'surprise'
 
@@ -181,6 +182,35 @@ export function selectRelevantMemories(
   scored.sort((a, b) => b.score - a.score)
   const proactive = scored.filter(s => s.score > 0).slice(0, limit)
   return proactive.map(s => s.bottle)
+}
+
+/**
+ * Async version of selectRelevantMemories that tries semantic search first,
+ * then falls back to keyword matching.
+ */
+export async function selectRelevantMemoriesAsync(
+  mode: Mode,
+  query: string | null,
+  drunkBottles: Bottle[],
+  limit = 5,
+): Promise<Bottle[]> {
+  // If no query or too short, skip semantic search
+  if (!query || query.trim().length < 3) {
+    return selectRelevantMemories(mode, query, drunkBottles, limit)
+  }
+
+  try {
+    const results = await searchSemanticMemories(query, limit)
+    if (results.length > 0) {
+      console.log(`[tastingMemories] Semantic search returned ${results.length} results`)
+      return results
+    }
+  } catch (err) {
+    console.warn('[tastingMemories] Semantic search failed, falling back to keyword matching:', err)
+  }
+
+  // Fallback to existing keyword matching
+  return selectRelevantMemories(mode, query, drunkBottles, limit)
 }
 
 function ratingStars(rating: number | null): string {

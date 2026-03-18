@@ -20,6 +20,7 @@ import {
   clearAllSessions,
   type SessionSummary,
 } from '@/lib/crossSessionMemory'
+import { buildCompositeText } from '@/lib/semanticMemory'
 import type { Bottle, TasteProfile } from '@/lib/types'
 
 // --- Memory weight types & helpers (moved from Settings) ---
@@ -115,6 +116,60 @@ async function runEnrichBackfill(onUpdate: (s: { status: string | null; running:
   onUpdate(enrichState)
 }
 
+// --- Embedding backfill (module-level state) ---
+
+let embeddingState = { status: null as string | null, running: false }
+
+async function runEmbeddingBackfill(onUpdate: (s: { status: string | null; running: boolean }) => void) {
+  if (embeddingState.running) return
+  embeddingState = { status: 'Chargement des bouteilles dégustées...', running: true }
+  onUpdate(embeddingState)
+
+  try {
+    const { data: bottles } = await supabase
+      .from('bottles')
+      .select('id, domaine, cuvee, appellation, millesime, couleur, country, region, tasting_note, tasting_tags, character, rating, drunk_at, rebuy, qpr, grape_varieties, food_pairings, serving_temperature, typical_aromas, status, added_at, updated_at, purchase_price, market_value, drink_from, drink_until, notes, tasting_photos, zone_id, shelf, photo_url, photo_url_back, raw_extraction, quantity, volume_l')
+      .eq('status', 'drunk')
+      .not('tasting_note', 'is', null)
+      .is('embedding', null)
+
+    if (!bottles || bottles.length === 0) {
+      embeddingState = { status: 'Tous les embeddings sont déjà générés !', running: false }
+      onUpdate(embeddingState)
+      return
+    }
+
+    let done = 0
+    let errors = 0
+    for (const b of bottles) {
+      const bottle = b as Bottle
+      const text = buildCompositeText(bottle)
+      if (!text || text.trim().length < 10) { done++; continue }
+
+      embeddingState = { status: `${done}/${bottles.length} — ${b.domaine || b.appellation || 'vin'}...`, running: true }
+      onUpdate(embeddingState)
+
+      const { error: fnErr } = await supabase.functions.invoke('generate-embedding', {
+        body: { text, bottle_id: b.id },
+      })
+
+      if (fnErr) {
+        console.warn('[embedding-backfill] Error for', b.id, fnErr)
+        errors++
+        await new Promise(r => setTimeout(r, 2000))
+      } else {
+        await new Promise(r => setTimeout(r, 500))
+      }
+      done++
+    }
+
+    embeddingState = { status: `Terminé ! ${done - errors} embeddings, ${errors} erreurs`, running: false }
+  } catch (err) {
+    embeddingState = { status: `Erreur: ${err instanceof Error ? err.message : 'inconnue'}`, running: false }
+  }
+  onUpdate(embeddingState)
+}
+
 // --- Helper: format relative time ---
 
 function formatRelativeDate(dateStr: string): string {
@@ -150,6 +205,14 @@ export default function Debug() {
   // Tasting tags backfill
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null)
   const [backfillRunning, setBackfillRunning] = useState(false)
+
+  // Embedding backfill
+  const [embeddingStatus, setEmbeddingStatus] = useState<string | null>(embeddingState.status)
+  const [embeddingRunning, setEmbeddingRunning] = useState(embeddingState.running)
+  const embeddingUpdater = (s: { status: string | null; running: boolean }) => {
+    setEmbeddingStatus(s.status)
+    setEmbeddingRunning(s.running)
+  }
 
   // Fixture / eval
   const [exportingFixture, setExportingFixture] = useState(false)
@@ -716,6 +779,16 @@ export default function Debug() {
               Re-extraire les tags de degustation
             </button>
             {backfillStatus && <p className="text-center text-[11px] text-[var(--text-muted)]">{backfillStatus}</p>}
+
+            <button
+              onClick={() => runEmbeddingBackfill(embeddingUpdater)}
+              disabled={embeddingRunning}
+              className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-3 text-[12px] font-medium text-[var(--text-muted)]"
+            >
+              {embeddingRunning && <Loader2 className="h-4 w-4 animate-spin" />}
+              Générer les embeddings (mémoire sémantique)
+            </button>
+            {embeddingStatus && <p className="text-center text-[11px] text-[var(--text-muted)]">{embeddingStatus}</p>}
           </div>
         </section>
 

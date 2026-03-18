@@ -8,6 +8,7 @@ import { track } from '@/lib/track'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
 import { uploadPhoto } from '@/lib/uploadPhoto'
 import { extractAndSaveTags } from '@/lib/tastingMemories'
+import { generateAndSaveEmbedding } from '@/lib/semanticMemory'
 
 const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Plat', 'Ambiance', 'Autre']
 
@@ -89,7 +90,9 @@ export function TastingSection({
     if (!error) {
       track('tasting_saved')
       triggerProfileRecompute()
-      extractAndSaveTags({ ...bottle, tasting_note: noteValue, rating, rebuy, qpr })
+      const updatedBottle = { ...bottle, tasting_note: noteValue, rating, rebuy, qpr }
+      extractAndSaveTags(updatedBottle)
+      generateAndSaveEmbedding(updatedBottle)
       await onRefetch()
     }
     setSaving(false)
@@ -262,7 +265,9 @@ export function TastingSection({
           ...(!noteVal ? { tasting_tags: null } : {}),
         })
         .eq('id', bottle.id)
-      extractAndSaveTags({ ...bottle, tasting_note: noteVal, rating, rebuy, qpr })
+      const updatedBottle = { ...bottle, tasting_note: noteVal, rating, rebuy, qpr }
+      extractAndSaveTags(updatedBottle)
+      generateAndSaveEmbedding(updatedBottle)
     }
 
     setSaving(false)

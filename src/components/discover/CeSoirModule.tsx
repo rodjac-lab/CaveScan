@@ -8,7 +8,7 @@ import { useZones } from '@/hooks/useZones'
 import { useQuestionnaireProfile } from '@/hooks/useQuestionnaireProfile'
 import { serializeProfileForPrompt } from '@/lib/taste-profile'
 import { rankCaveBottles } from '@/lib/recommendationRanking'
-import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
+import { selectRelevantMemories, selectRelevantMemoriesAsync, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
 import { getCachedRecommendation, buildQueryKey } from '@/lib/recommendationStore'
 import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
 import {
@@ -796,7 +796,7 @@ export default function CeSoirModule() {
 
   // --- Build context for the edge function ---
 
-  function buildRequestBody(message: string, image?: string) {
+  function buildRequestBody(message: string, image?: string, memoriesOverride?: string) {
     const cave = caveRef.current
     const drunk = drunkRef.current
     const prof = profileRef.current
@@ -856,9 +856,10 @@ export default function CeSoirModule() {
     const qProfile = questionnaireProfileRef.current
     const questionnaireStr = qProfile ? serializeQuestionnaireForPrompt(qProfile) : undefined
 
-    // Memories
-    const memories = selectRelevantMemories('generic', message, drunk)
-    const memoriesStr = serializeMemoriesForPrompt(memories) || undefined
+    // Memories (use override from async semantic search if provided)
+    const memoriesStr = memoriesOverride !== undefined
+      ? (memoriesOverride || undefined)
+      : (serializeMemoriesForPrompt(selectRelevantMemories('generic', message, drunk)) || undefined)
 
     // Context
     const recentDrunk = drunk.slice(0, 5).map(formatDrunkSummary)
@@ -893,7 +894,18 @@ export default function CeSoirModule() {
 
   async function callCelestin(message: string, loadingMsgId: string, image?: string) {
     try {
-      const body = buildRequestBody(message, image)
+      // Try async semantic memory search, then fall back to sync keyword matching inside buildRequestBody
+      let memoriesOverride: string | undefined
+      try {
+        const asyncMemories = await selectRelevantMemoriesAsync('generic', message, drunkRef.current)
+        if (asyncMemories.length > 0) {
+          memoriesOverride = serializeMemoriesForPrompt(asyncMemories) || undefined
+        }
+      } catch {
+        // Semantic search failed — buildRequestBody will use keyword fallback
+      }
+
+      const body = buildRequestBody(message, image, memoriesOverride)
       const { data, error } = await supabase.functions.invoke('celestin', { body })
 
       if (error) throw error
