@@ -14,6 +14,9 @@ Source unique de verite pour les travaux produit/tech.
 - [x] Signature/partage "Partage avec CaveScan" (partage avec photos + branding)
 - [x] Celestin V1 memoire : tasting tags, souvenirs proactifs, cross-session localStorage
 - [x] Celestin UI : lisibilite (bulles retirees, 15px, espacement), persona plus tranchee, chips dynamiques LLM
+- [x] Celestin orchestrateur Phase 1 : response policy post-LLM, context levels (minimal/light/full), intent classifier context-aware, nettoyage images historique
+- [x] Celestin orchestrateur Phase 2 : state machine 6 etats, Turn Interpreter (remplace classifyIntent), 4 cognitive modes, state frontend persistent
+- [x] Celestin orchestrateur Phase 3 : prompt builder par cognitive mode, _debug dans la reponse API, eval multi-tours (11 conversations)
 
 ---
 
@@ -44,13 +47,21 @@ Source unique de verite pour les travaux produit/tech.
 
 ### Celestin — Qualite conversationnelle
 
+- [x] Phase 3 orchestrateur : prompt builder par cognitive mode + logs _debug (fait)
 - [ ] Intros de recommandation plus naturelles, moins ecrites et moins repetitives
 - [ ] Durcir l'usage des souvenirs (ne citer que si lien vraiment evident)
 - [ ] Relance conversationnelle quand contexte mets/vin incomplet, au lieu de sur-prescrire
-- [ ] Encavage conversationnel : collecte infos manquantes par echange naturel avant fiche (prix, emplacement)
+- [x] Encavage conversationnel : collecte infos manquantes par echange naturel avant fiche (prix, emplacement)
 - [ ] Mieux exploiter la richesse des notes brutes et photos de plats (pas juste les tags resumes)
 - [x] Millesime comme champ explicite des cartes de recommandation
 - [ ] Signal de style bouteille structure en remplacement du champ libre `character`
+
+### Celestin — Sommelier au resto
+
+- [ ] Photo de la carte des vins → OCR → Celestin recommande en fonction du plat et du profil utilisateur
+- [ ] Mode "hors cave" : recommandation parmi des vins que l'utilisateur n'a pas en cave (carte resto, caviste)
+- [ ] Adapter extract-wine pour lire une carte/ardoise (multi-vins sur une seule photo, format liste/prix)
+- [ ] Flow : photo carte → extraction des vins dispo → user dit son plat → Celestin choisit et explique pourquoi
 
 ### Celestin — Engagement & Proactivite
 
@@ -59,6 +70,21 @@ Source unique de verite pour les travaux produit/tech.
 - [ ] Debrief post-degustation : Celestin relance naturellement apres une notation
 - [ ] Chips de bienvenue contextuels (selon heure, saison, etat de la cave) au lieu de statiques
 - [ ] Micro-culture vin contextuelle ("Tu savais que Sancerre etait un vin rouge avant le phylloxera ?")
+
+### Celestin — Exploitation du profil questionnaire
+
+- [ ] Adapter le ton/niveau de langage de Celestin selon le segment (enthusiast = terroir/millesimes, bon vivant = simple et direct)
+- [ ] Ponderer les recommandations selon le profil (haut Terroir = appellations precises, haut Sensibilite = conseils carafage/temperature)
+- [ ] Pousser decouverte aux explorateurs, valeurs sures aux classiques
+- [ ] Onboarding personnalise post-questionnaire ("Scanne tes 5 preferees" vs "Scanne tout, on fera le tri")
+- [ ] Page profil visible dans Reglages (ProfileCard + bouton refaire le questionnaire)
+- [ ] Partage social du profil ("Je suis L'Explorateur Curieux sur Celestin") — viralite
+- [ ] Segmentation pricing : enthusiasts = cible premium naturelle (cave plus grosse/chere)
+- [ ] Analytics profils : distribution des segments pour orienter le produit
+- [ ] Evolution du profil : inciter a refaire le questionnaire apres 6 mois ("Tu as peut-etre progresse")
+- [ ] Questionnaire comme outil d'acquisition : "Decouvre ton profil vin gratuitement" (feature free tier, partageable, virale)
+- [ ] Conclusion personnalisee par profil qui pousse vers l'app (ex: Classique Exigeant → "Celestin t'aidera a ouvrir tes plus belles bouteilles au meilleur moment", Bon Vivant → "Celestin t'aidera a trouver les meilleurs accords", Explorateur → "Celestin te fera decouvrir des pepites que tu n'aurais jamais trouvees seul")
+- [ ] Version standalone du questionnaire (landing page dediee, sans inscription) → capture email + conversion vers l'app
 
 ### Celestin — Profile V2
 
@@ -71,6 +97,7 @@ Source unique de verite pour les travaux produit/tech.
 
 ### Celestin — Memoire V2
 
+- [ ] **Ameliorer utilisation et gestion des souvenirs** — selectRelevantMemories est un matching textuel fragile (stop words, ponctuation, pas de semantique). A court terme (~30 souvenirs) on pourrait tout envoyer. A moyen terme (100+) il faudra du semantic search via embeddings/pgvector. Aussi : useRecentlyDrunk limit(30) est un plafond silencieux.
 - [ ] Migration cross-session localStorage -> Supabase
 - [ ] Verification d'auth avancee dans le code des edge functions (decoder token, filtrer par user_id)
 
