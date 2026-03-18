@@ -2,247 +2,332 @@
 
 Celestin est le sommelier IA de l'app. Ce document decrit comment un message utilisateur est traite, du tap sur "Envoyer" jusqu'a la reponse affichee.
 
+## Vue d'ensemble : deux axes orthogonaux
+
+L'architecture repose sur deux dimensions independantes :
+
+- **State Machine** (6 etats) = **OU** on est dans le dialogue
+- **Cognitive Mode** (4 modes + greeting/social) = **COMMENT** le LLM doit penser
+
+Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_assistant`. Les deux axes sont independants.
+
+```
+  State Machine (dialogue)         Cognitive Mode (pensee)
+  ─────────────────────────        ────────────────────────
+  idle_smalltalk                   wine_conversation
+  active_task                      cellar_assistant
+  post_task_ack                    restaurant_assistant
+  collecting_info                  tasting_memory
+  disambiguation                   greeting
+  context_switch                   social
+```
+
 ## Flux complet
 
 ```
-╔══════════════════════════════════════════════════════════════════╗
-║                      FRONTEND (React)                           ║
-║                 CeSoirModule.tsx + libraries                    ║
-╚══════════════════════════════════════════════════════════════════╝
++================================================================+
+|                      FRONTEND (React)                           |
+|                 CeSoirModule.tsx + libraries                    |
++================================================================+
 
   User tape un message (+ photo optionnelle)
-       │
-       ▼
+       |
+       v
   buildRequestBody()
-       │
-       ├─ rankCaveBottles()              → cave triée par pertinence
-       ├─ serializeProfileForPrompt()    → profil de goût texte
-       ├─ serializeQuestionnaireForPrompt() → FWI + préfs sensorielles
-       ├─ selectRelevantMemories()       → souvenirs de dégustation
-       ├─ serializePreviousSessionsForPrompt() → sessions précédentes
-       ├─ getDayOfWeek(), getSeason()    → contexte temporel
-       └─ zones, recentDrunk            → métadonnées
-       │
-       ▼
+       |
+       +-- rankCaveBottles()              --> cave triee par pertinence
+       +-- serializeProfileForPrompt()    --> profil de gout texte
+       +-- serializeQuestionnaireForPrompt() --> FWI + prefs sensorielles
+       +-- selectRelevantMemories()       --> souvenirs de degustation
+       +-- serializePreviousSessionsForPrompt() --> sessions precedentes
+       +-- getDayOfWeek(), getSeason()    --> contexte temporel
+       +-- zones, recentDrunk             --> metadonnees
+       +-- persistedConversationState     --> etat dialogue courant
+       |
+       v
   RequestBody = {
     message, history[], cave[], profile, questionnaireProfile,
-    memories, previousSession, context, zones, image?
+    memories, previousSession, context, zones, image?,
+    conversationState?     <-- NOUVEAU : etat du dialogue
   }
-       │
-       ▼  HTTP POST → supabase.functions.invoke('celestin')
+       |
+       v  HTTP POST --> supabase.functions.invoke('celestin')
 
-╔══════════════════════════════════════════════════════════════════╗
-║              EDGE FUNCTION  celestin/index.ts                   ║
-╚══════════════════════════════════════════════════════════════════╝
-       │
-       ▼
-  ┌─────────────────────────────────────┐
-  │  classifyIntent(message, hasImage)  │  ◄── CODE, pas de LLM
-  │                                     │
-  │  greeting       → "__greeting__"    │
-  │  prefetch       → "__prefetch__"    │
-  │  conversation   → merci, questions, │
-  │                   messages courts    │
-  │  recommendation → "en blanc",       │
-  │                   "que boire", etc.  │
-  │  unknown        → le LLM décide    │
-  └────────────┬────────────────────────┘
-               │
-       ┌───────┴───────┐
-       ▼               ▼
-  buildSystemPrompt()  buildUserPrompt(body)
-       │                    │
-       │               Si conversation:
-       │               "[CONVERSATION — PAS de ui_action.
-       │                Reponds BRIEVEMENT.]"
-       │               + message brut
-       │
-       │               Si recommendation/unknown:
-       │               message brut + image hint
-       │               + contexte jour/saison
-       │
-       ▼
-  ┌──────────────────────────────────────────────┐
-  │           SYSTEM PROMPT (assemblé)           │
-  │                                              │
-  │  1. WINE_CODEX        (wine-codex.ts)        │
-  │     → accords, températures, saisons         │
-  │                                              │
-  │  2. CELESTIN_PERSONA  (persona.ts)           │
-  │     → sommelier français, opinions, ton      │
-  │     → interdits: "Ah", "Oh", questions rhét. │
-  │                                              │
-  │  3. CELESTIN_CAPABILITIES (capabilities.ts)  │
-  │     → recommander, encaver, déguster, Q&A    │
-  │                                              │
-  │  4. CELESTIN_RULES    (rules.ts)             │
-  │     → routing: quand show_recommendations    │
-  │       vs prepare_add_wine vs conversation    │
-  │     → règles cave: jamais changer couleur    │
-  │     → règles photo: carte resto ≠ cave       │
-  │                                              │
-  │  5. CELESTIN_RESPONSE_FORMAT                 │
-  │     (response-format.ts)                     │
-  │     → JSON: message + ui_action? + chips?    │
-  │                                              │
-  │  --- CONTEXTE UTILISATEUR ---                │
-  │  (buildContextBlock)                         │
-  │     → profil de goût                         │
-  │     → questionnaire FWI                      │
-  │     → souvenirs de dégustation               │
-  │     → sessions précédentes                   │
-  │     → zones de stockage                      │
-  │     → cave complète (N bouteilles triées)    │
-  └──────────────────┬───────────────────────────┘
-                     │
-                     ▼
-  ┌──────────────────────────────────────────────┐
-  │       celestinWithFallback()                 │
-  │                                              │
-  │  Provider 1: GPT-4.1 mini  (OpenAI)         │
-  │       │  structured outputs + vision         │
-  │       ▼ fail?                                │
-  │  Provider 2: Claude Haiku 4.5 (Anthropic)   │
-  │       │  meilleur suivi d'instructions       │
-  │       ▼ fail?                                │
-  │  Provider 3: Gemini 2.5 Flash (Google)       │
-  │       │  responseSchema + vision             │
-  │       ▼ fail?                                │
-  │  Mistral Small (dernier recours, no vision)  │
-  │                                              │
-  │  Chaque provider :                           │
-  │  1. Envoie system prompt                     │
-  │  2. Reconstruit history[] en messages natifs │
-  │     (avec images base64 si vision)           │
-  │  3. Ajoute userPrompt comme dernier message  │
-  │  4. Parse JSON → parseAndValidate()          │
-  └──────────────────┬───────────────────────────┘
-                     │
-                     ▼
-  CelestinResponse = {
-    message: "Bonne idée le Morgon !",
-    ui_action?: {
-      kind: "show_recommendations",
-      payload: { cards: [...] }
-    },
-    action_chips?: ["Et en blanc ?", "Autre plat"]
++================================================================+
+|              EDGE FUNCTION  celestin/index.ts                   |
++================================================================+
+       |
+       v
+  +----------------------------------------------+
+  | Turn Interpreter (turn-interpreter.ts)       |  <-- CODE, pas de LLM
+  |                                              |
+  | Inputs :                                     |
+  |   message + hasImage + conversationState     |
+  |   + lastAssistantText                        |
+  |                                              |
+  | Outputs :                                    |
+  |   turnType      (QUOI faire)                 |
+  |   cognitiveMode (COMMENT penser)             |
+  |   shouldAllowUiAction (garde-fou)            |
+  |   inferredTaskType (reco/encavage/tasting)   |
+  +--------------------+-------------------------+
+                       |
+          +------------+------------+
+          v                         v
+  buildContextBlock(              buildUserPrompt(
+    body, cognitiveMode)            body, interpretation, state)
+          |                         |
+          |  Contexte adapte        |  Prompt adapte
+          |  au mode cognitif       |  au type de tour
+          |                         |
+          v                         v
+  +----------------------------------------------+
+  |           SYSTEM PROMPT (assemble)           |
+  |                                              |
+  |  1. WINE_CODEX        (wine-codex.ts)        |
+  |  2. CELESTIN_PERSONA  (persona.ts)           |
+  |  3. CELESTIN_CAPABILITIES (capabilities.ts)  |
+  |  4. CELESTIN_RULES    (rules.ts)             |
+  |  5. CELESTIN_RESPONSE_FORMAT                 |
+  |     (response-format.ts)                     |
+  |                                              |
+  |  --- CONTEXTE UTILISATEUR ---                |
+  |  (adapte par cognitiveMode, voir tableau)    |
+  +--------------------+-------------------------+
+                       |
+                       v
+  +----------------------------------------------+
+  |       celestinWithFallback()                 |
+  |                                              |
+  |  Provider 1: GPT-4.1 mini  (OpenAI)         |
+  |       | fail?                                |
+  |  Provider 2: Claude Haiku 4.5 (Anthropic)   |
+  |       | fail?                                |
+  |  Provider 3: Gemini 2.5 Flash (Google)       |
+  |                                              |
+  |  Chaque provider :                           |
+  |  1. Envoie system prompt + contexte          |
+  |  2. Reconstruit history[] en format natif    |
+  |  3. Ajoute userPrompt comme dernier message  |
+  |  4. Parse JSON --> parseAndValidate()        |
+  +--------------------+-------------------------+
+                       |
+                       v
+  +----------------------------------------------+
+  |       applyResponsePolicy()                  |
+  |                                              |
+  |  Garde-fous deterministes post-LLM :         |
+  |  - shouldAllowUiAction=false --> strip        |
+  |  - Re-reco sur message court --> strip        |
+  |  - Extraction incomplete --> strip            |
+  +--------------------+-------------------------+
+                       |
+                       v
+  +----------------------------------------------+
+  |       computeNextState()                     |
+  |                                              |
+  |  State Machine : calcule l'etat suivant      |
+  |  en fonction du turnType + reponse LLM       |
+  +--------------------+-------------------------+
+                       |
+                       v
+  Response = {
+    message: "Bonne idee le Morgon !",
+    ui_action?: { kind, payload },
+    action_chips?: ["Et en blanc ?", "Autre plat"],
+    _nextState: { phase, taskType, ... }  <-- pour le frontend
   }
-       │
-       ▼  HTTP 200 + JSON
+       |
+       v  HTTP 200 + JSON
 
-╔══════════════════════════════════════════════════════════════════╗
-║              RESPONSE ROUTING (CeSoirModule)                    ║
-╚══════════════════════════════════════════════════════════════════╝
-       │
-       ├─ show_recommendations
-       │   → resolveBottleIds(cards, cave)
-       │   → affiche cartes de vin + action_chips
-       │
-       ├─ prepare_add_wine
-       │   → navigate('/addBottle', { prefillExtraction })
-       │
-       ├─ prepare_add_wines
-       │   → navigate('/addBottle', { prefillBatchExtractions })
-       │
-       ├─ prepare_log_tasting
-       │   → navigate('/tastingForm', { prefillExtraction })
-       │
-       └─ (pas de ui_action)
-           → affiche message texte + action_chips
-
-  persistedMessages[] ← sauvegardé (module-level + localStorage)
++================================================================+
+|         RESPONSE ROUTING (CeSoirModule.tsx)                     |
++================================================================+
+       |
+       +-- _nextState
+       |   --> persistedConversationState = _nextState
+       |
+       +-- show_recommendations
+       |   --> resolveBottleIds(cards, cave)
+       |   --> affiche cartes de vin + action_chips
+       |
+       +-- prepare_add_wine
+       |   --> affiche fiche vin inline (Valider/Modifier)
+       |
+       +-- prepare_add_wines
+       |   --> navigate('/add', { prefillBatchExtractions })
+       |
+       +-- prepare_log_tasting
+       |   --> affiche fiche degustation inline
+       |
+       +-- (pas de ui_action)
+           --> affiche message texte + action_chips
 ```
 
-## Fichiers et rôles
+## Turn Interpreter : le cerveau du routing
+
+Le Turn Interpreter (`turn-interpreter.ts`) remplace l'ancien `classifyIntent()`. Il utilise le **message**, l'**etat courant**, et le **dernier texte assistant** pour produire une interpretation riche.
+
+### Logique par etat
+
+```
+Si state === post_task_ack :
+  - message court/social ("merci") --> social_ack, mode: social
+  - raffinement ("en blanc")       --> task_continue, mode: herite du taskType
+  - sujet different                --> context_switch, mode: detecte
+
+Si state === collecting_info :
+  - "non merci"                    --> task_cancel, mode: social
+  - autre message                  --> task_continue (reponse a la question)
+
+Si state === active_task :
+  - social ack                     --> social_ack, retour idle
+  - continuation                   --> task_continue
+
+Si state === idle_smalltalk :
+  - "que boire ce soir"            --> task_request, mode: cellar_assistant
+  - image                          --> task_request, mode: cellar/restaurant
+  - "c'est quoi le chenin"         --> smalltalk, mode: wine_conversation
+  - "tu te souviens du Sancerre"   --> context_switch, mode: tasting_memory
+  - "j'ai achete du vin"           --> task_request, mode: cellar_assistant
+  - message court/ambigu           --> smalltalk, mode: wine_conversation
+```
+
+### Backward compatibility
+
+Quand le frontend n'envoie pas `conversationState` (ancien code), le backend voit `idle_smalltalk`. Le Turn Interpreter utilise alors `lastAssistantText` comme fallback (ex: detecte `[Vins proposes]` pour savoir si un raffinement est pertinent).
+
+## State Machine : 6 etats
+
+```
+              +---------------------+
+              |   IDLE_SMALLTALK    | <-- point de retour naturel
+              +---------------------+
+                ^       ^       ^
+                |       |       |
+     context_   |  post_|  disamb|iguation
+     switch     |  task_|  resolue
+                |  ack   |       |
+                v       v       v
+         +----------+  +------------+  +----------------+
+         | CONTEXT  |  | ACTIVE     |  | DISAMBIGUATION |
+         | SWITCH   |  | TASK       |  |                |
+         +----------+  +------------+  +----------------+
+                        ^       |
+                        |       v
+                   +----------------+
+                   | COLLECTING     |
+                   | INFO           |
+                   +----------------+
+                        |
+                        v
+                   +----------------+
+                   | POST_TASK      |
+                   | ACK            |
+                   +----------------+
+```
+
+### Transitions principales
+
+| Depuis | Evenement | Vers |
+|--------|-----------|------|
+| idle | task_request + response avec ui_action | post_task_ack |
+| idle | task_request + response sans ui_action | collecting_info |
+| post_task_ack | social_ack ("merci") | idle |
+| post_task_ack | task_continue ("en blanc") | active_task |
+| post_task_ack | context_switch | idle |
+| collecting_info | response avec ui_action | post_task_ack |
+| collecting_info | task_continue | collecting_info |
+| active_task | context_switch / social_ack | idle |
+| any | task_cancel ("non merci") | idle |
+| any | 3 tours sans activite | idle (auto-reset) |
+
+## Cognitive Modes : contexte adapte
+
+Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **quel prompt hint** est ajoute.
+
+### Contexte injecte par mode
+
+| Cognitive Mode | Contexte envoye | Tokens estimes |
+|----------------|-----------------|----------------|
+| `greeting` / `social` | Profil + cave count | ~50 |
+| `wine_conversation` | Profil + questionnaire | ~200 |
+| `cellar_assistant` | TOUT : cave complete + profil + souvenirs + sessions + zones + questionnaire | ~3000+ |
+| `restaurant_assistant` | Profil + questionnaire (image dans le message) | ~200 |
+| `tasting_memory` | Profil + souvenirs + sessions + cave count | ~500 |
+
+### Prompt hint par turnType
+
+| turnType | Hint ajoute au user prompt |
+|----------|---------------------------|
+| greeting | Instructions d'accueil + exemples + contexte heure/saison |
+| prefetch | "Suggestions personnalisees pour ce soir" |
+| social_ack (post-task) | "[ACQUITTEMENT — 1 phrase courte, pas de suggestion]" |
+| social_ack (idle) | "[CONVERSATION — bref, pas de ui_action]" |
+| task_cancel | "[L'utilisateur decline — bref, action_chips]" |
+| smalltalk / wine culture | "[QUESTION VIN — connaissances, pas de ui_action]" |
+| context_switch (memory) | "[SOUVENIR — utilise les souvenirs fournis]" |
+| task_request / continue / unknown | Message brut (pas de hint, le LLM decide) |
+
+## Response Policy : garde-fous post-LLM
+
+`applyResponsePolicy()` intervient **apres** la generation LLM, avant l'envoi au frontend. C'est un filet de securite deterministe :
+
+1. **shouldAllowUiAction = false** --> strip `ui_action` (le Turn Interpreter a decide que ce tour ne devait pas avoir d'action)
+2. **Re-reco sur message court** --> si le dernier tour avait `[Vins proposes]` et le message fait < 15 chars, strip `show_recommendations`
+3. **Extraction incomplete** --> si `prepare_add_wine` est genere mais sans domaine NI appellation, strip (le LLM est encore en train de collecter)
+
+## Fichiers et roles
 
 ### Edge Function (`supabase/functions/celestin/`)
 
-| Fichier | Rôle |
+| Fichier | Role |
 |---------|------|
-| `index.ts` | Handler HTTP + classifieur d'intent + providers LLM + fallback |
-| `prompt-builder.ts` | Assemble le system prompt (concatène les 5 modules) |
-| `rules.ts` | Routing ui_action : quand recommander, encaver, déguster, converser |
-| `persona.ts` | Personnalité : sommelier français, opinions, ton, interdits |
+| `index.ts` | Handler HTTP, orchestration, policy, providers LLM, fallback |
+| `turn-interpreter.ts` | **NOUVEAU** : Turn Interpreter (remplace classifyIntent) — routing state-aware |
+| `conversation-state.ts` | **NOUVEAU** : types d'etat + transitions (computeNextState) |
+| `prompt-builder.ts` | Assemble le system prompt (concatene les 5 modules) |
+| `rules.ts` | Routing ui_action : quand recommander, encaver, deguster, converser |
+| `persona.ts` | Personnalite : sommelier francais, opinions, ton, interdits |
 | `capabilities.ts` | Ce que Celestin sait faire (recommander, encaver, Q&A vin) |
 | `response-format.ts` | Format JSON attendu avec exemples (cards, extraction, chips) |
-| `wine-codex.ts` | Connaissances vin : accords, températures, saisons, styles |
+| `wine-codex.ts` | Connaissances vin : accords, temperatures, saisons, styles |
 
 ### Frontend (`src/`)
 
-| Fichier | Rôle |
+| Fichier | Role |
 |---------|------|
-| `components/discover/CeSoirModule.tsx` | Chat UI + `buildRequestBody()` + `callCelestin()` |
+| `components/discover/CeSoirModule.tsx` | Chat UI + `buildRequestBody()` + `callCelestin()` + state persistence |
 | `hooks/useRecommendations.ts` | Prefetch suggestions au lancement (`__prefetch__`) |
 | `lib/recommendationRanking.ts` | Score de pertinence par bouteille (`rankCaveBottles()`) |
-| `lib/tastingMemories.ts` | Sélection et sérialisation des souvenirs de dégustation |
-| `lib/taste-profile.ts` | Sérialisation du profil de goût |
-| `lib/questionnaire-profile.ts` | Sérialisation du questionnaire FWI |
+| `lib/tastingMemories.ts` | Selection (keyword + async semantic) et serialisation des souvenirs de degustation |
+| `lib/semanticMemory.ts` | Semantic search via embeddings pgvector + generation fire-and-forget |
+| `lib/taste-profile.ts` | Serialisation du profil de gout |
+| `lib/questionnaire-profile.ts` | Serialisation du questionnaire FWI |
 | `lib/contextHelpers.ts` | Jour, saison, `resolveBottleIds()`, `formatDrunkSummary()` |
 | `lib/crossSessionMemory.ts` | Persistance sessions (localStorage, rotation, TTL 7j) |
 | `lib/recommendationStore.ts` | Cache prefetch (module-level) |
 
-## Classifieur d'intent (code-side)
-
-Avant d'appeler le LLM, `classifyIntent()` dans `index.ts` analyse le message avec des regex :
-
-| Intent | Déclencheurs | Effet sur le prompt |
-|--------|-------------|---------------------|
-| `greeting` | `__greeting__` | Prompt spécial accueil, pas de ui_action |
-| `prefetch` | `__prefetch__` | Suggestions sans contrainte de plat |
-| `conversation` | "merci", "super", questions générales, messages < 20 chars | Injecte `[CONVERSATION — PAS de ui_action]` |
-| `recommendation` | "que boire", "en blanc", "pour accompagner", etc. | Message brut, le LLM génère des cartes |
-| `unknown` | Tout le reste, images | Le LLM décide librement |
-
-L'intent est loggé pour debug : `[celestin] message="..." intent=conversation`.
-
 ## Providers LLM
 
-| Ordre | Provider | Modèle | Particularités |
+| Ordre | Provider | Modele | Particularites |
 |-------|----------|--------|----------------|
 | 1 | OpenAI | gpt-4.1-mini | Structured outputs (JSON schema strict), vision |
 | 2 | Anthropic | claude-haiku-4-5 | Meilleur suivi d'instructions, vision |
 | 3 | Google | gemini-2.5-flash | responseSchema natif, vision, thinking budget |
-| 4 | Mistral | mistral-small | Pas de vision, dernier recours |
 
-Chaque provider reconstruit l'historique dans son format natif (messages alternés user/assistant avec images base64).
+Chaque provider reconstruit l'historique dans son format natif (messages alternes user/assistant avec images base64).
 
-## Structure du system prompt
-
-```
-WINE_CODEX                        Connaissances vin (accords, T°, saisons)
-CELESTIN_PERSONA                  Personnalité et ton
-CELESTIN_CAPABILITIES             Ce qu'il sait faire
-CELESTIN_RULES                    Routing + contraintes cave + photo
-CELESTIN_RESPONSE_FORMAT          JSON attendu + exemples
---- CONTEXTE UTILISATEUR ---      (ajouté par buildContextBlock)
-  Profil de goût                  Préférences dérivées de l'historique
-  Questionnaire FWI               Score Wine Interest + préfs sensorielles
-  Souvenirs de dégustation        Notes de dégustation passées
-  Sessions précédentes            Résumé des conversations récentes
-  Zones de stockage               Noms des zones disponibles
-  Cave complète (N btl)           Triée par local_score
-```
-
-## Structure du user prompt
-
-| Intent | Contenu du user prompt |
-|--------|------------------------|
-| conversation | `[CONVERSATION — PAS de ui_action...]` + message brut |
-| recommendation | message brut + contexte jour/saison |
-| greeting | instructions d'accueil + exemples + contexte heure/saison |
-| prefetch | "suggestions personnalisées pour ce soir" |
-| unknown | message brut + hint image + contexte jour/saison |
-
-## Types de réponse
+## Types de reponse
 
 ```typescript
 interface CelestinResponse {
-  message: string                    // Toujours présent
+  message: string                    // Toujours present
   ui_action?: {
     kind: 'show_recommendations'     // Cartes de vin
         | 'prepare_add_wine'         // Encavage single
         | 'prepare_add_wines'        // Encavage batch
-        | 'prepare_log_tasting'      // Dégustation
+        | 'prepare_log_tasting'      // Degustation
     payload: {
       cards?: RecommendationCard[]   // Pour show_recommendations
       extraction?: WineExtraction    // Pour add_wine / log_tasting
@@ -250,31 +335,39 @@ interface CelestinResponse {
     }
   }
   action_chips?: string[]            // 2-3 suggestions de relance
+  _nextState?: ConversationState     // Etat dialogue pour le frontend
 }
 ```
 
-## Mémoire : 4 couches
+## Memoire : 4 couches
 
 ```
-Couche 1 — Faits (Supabase)
+Couche 1 -- Faits (Supabase)
   bottles, tasting_tags, zones
 
-Couche 2 — Profil inféré (Supabase)
-  computeTasteProfile → appellations/domaines préférés, couleurs, prix, QPR
+Couche 2 -- Profil infere (Supabase)
+  computeTasteProfile --> appellations/domaines preferes, couleurs, prix, QPR
 
-Couche 3 — Souvenirs (Supabase + runtime)
-  selectRelevantMemories → tasting notes + tags pertinents
+Couche 3 -- Souvenirs (Supabase + runtime + semantic search)
+  selectRelevantMemoriesAsync :
+    1. Semantic search (embeddings pgvector) via generate-embedding edge fn
+    2. Fallback : selectRelevantMemories (keyword matching)
+  Embedding genere fire-and-forget a chaque sauvegarde de note de degustation
+  Colonne embedding vector(1536) sur bottles, RPC search_memories (score hybride)
+  Backfill existant via Debug.tsx
 
-Couche 4 — État conversationnel
+Couche 4 -- Etat conversationnel
+  State Machine (persistedConversationState, module-level)
   Cross-session (localStorage, TTL 7j)
-  Persistance intra-session (module-level variable)
-  Historique enrichi (cards + actions résumées dans les turns)
+  Historique enrichi (cards + actions resumees dans les turns)
+  Nettoyage images : seules les 2 dernieres photos user sont conservees
 ```
 
 ## Persistance
 
-| Mécanisme | Scope | Durée | Usage |
+| Mecanisme | Scope | Duree | Usage |
 |-----------|-------|-------|-------|
 | `persistedMessages` (module-level) | Navigation entre onglets | Session app | Chat survit au changement d'onglet |
-| `localStorage` (cross-session) | Entre sessions | 7 jours (TTL) | Résumé des conversations précédentes |
+| `persistedConversationState` (module-level) | Navigation entre onglets | Session app | Etat dialogue survit au changement d'onglet |
+| `localStorage` (cross-session) | Entre sessions | 7 jours (TTL) | Resume des conversations precedentes |
 | Prefetch cache (module-level) | Session app | Jusqu'au reload | Recommandations initiales |

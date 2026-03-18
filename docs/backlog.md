@@ -58,10 +58,11 @@ Source unique de verite pour les travaux produit/tech.
 
 ### Celestin — Sommelier au resto
 
-- [ ] Photo de la carte des vins → OCR → Celestin recommande en fonction du plat et du profil utilisateur
-- [ ] Mode "hors cave" : recommandation parmi des vins que l'utilisateur n'a pas en cave (carte resto, caviste)
-- [ ] Adapter extract-wine pour lire une carte/ardoise (multi-vins sur une seule photo, format liste/prix)
-- [ ] Flow : photo carte → extraction des vins dispo → user dit son plat → Celestin choisit et explique pourquoi
+- [x] Photo de la carte des vins → OCR → Celestin recommande en fonction du plat et du profil utilisateur
+- [x] Mode "hors cave" : recommandation parmi des vins que l'utilisateur n'a pas en cave (carte resto, caviste)
+- [x] Cognitive mode `restaurant_assistant` : turn interpreter, prompt builder sans cave, rules carte
+- [ ] Extraction structuree carte des vins (prix, format liste) — ameliorer extract-wine pour le format ardoise/carte
+- [ ] Flow multi-tour guide : photo carte → user dit son plat → Celestin choisit et explique pourquoi (persistence contexte resto)
 
 ### Celestin — Engagement & Proactivite
 
@@ -97,9 +98,10 @@ Source unique de verite pour les travaux produit/tech.
 
 ### Celestin — Memoire V2
 
-- [ ] **Ameliorer utilisation et gestion des souvenirs** — selectRelevantMemories est un matching textuel fragile (stop words, ponctuation, pas de semantique). A court terme (~30 souvenirs) on pourrait tout envoyer. A moyen terme (100+) il faudra du semantic search via embeddings/pgvector. Aussi : useRecentlyDrunk limit(30) est un plafond silencieux.
+- [x] **Semantic search via embeddings/pgvector** — pgvector + colonne embedding vector(1536) sur bottles, edge function generate-embedding (OpenAI text-embedding-3-small), RPC search_memories (score hybride cosine 0.6 + qualite 0.4), selectRelevantMemoriesAsync avec fallback keyword matching. Backfill fait (44 bouteilles).
 - [ ] Migration cross-session localStorage -> Supabase
 - [ ] Verification d'auth avancee dans le code des edge functions (decoder token, filtrer par user_id)
+- [ ] useRecentlyDrunk limit(30) est un plafond silencieux — a augmenter ou supprimer
 
 ### Tech & Qualite
 

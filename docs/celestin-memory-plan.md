@@ -506,42 +506,29 @@ Resultat attendu:
 - meilleurs suivis
 - reponses plus coherentes sur les gouts
 
-### V2
+### V2 (implemente mars 2026)
 
 Objectif: donner a Celestin une vraie memoire recuperable, pas seulement des resumes.
 
-Ce qu'on ajoute:
-- journal d'evenements utilisateur
-- vector store pour notes, souvenirs et conversations utiles
-- pipeline de creation de souvenirs a partir:
-  - degustations
-  - conversations
-  - feedbacks implicites
-- recuperation semantique avant chaque reponse
-- distinction nette entre:
-  - preferences stables
-  - tendances recentes
-  - souvenirs marquants
+**Implementation realisee :**
+- **pgvector** extension + colonne `embedding vector(1536)` sur `bottles`
+- **OpenAI text-embedding-3-small** via edge function `generate-embedding/` (2 modes : query et save)
+- **Texte composite** embeddé : identite vin + origine + note + tags structures + character
+- **RPC `search_memories()`** : score hybride (cosine similarity × 0.6 + rating/sentiment/recency × 0.4)
+- **`selectRelevantMemoriesAsync()`** : try semantic search → fallback keyword matching (zero risque)
+- **Hook fire-and-forget** : embedding genere automatiquement a chaque sauvegarde de note de degustation
+- **Backfill** via Debug.tsx (44 bouteilles, 0 erreurs)
 
-Concretement:
-- nouvelles couches:
-  - memory_events
-  - memory_snippets
-  - memory_embeddings
-- retrieval par intention:
-  - question cave
-  - recommandation
-  - souvenir
-  - comparaison
-- ranking des souvenirs par:
-  - pertinence
-  - recence
-  - importance
+**Ce qui reste du plan V2 original (non implemente) :**
+- Journal d'evenements utilisateur (memory_events)
+- Embeddings sur conversations (pas seulement degustations)
+- Distinction nette preferences stables vs tendances recentes vs souvenirs marquants
+- Retrieval par intention (question cave / recommandation / souvenir / comparaison)
 
-Resultat attendu:
-- Celestin "se souvient" mieux des experiences passees
-- meilleure qualite relationnelle
-- vraies reponses personnalisees, pas juste statistiques
+Resultat obtenu:
+- "vin italien de Noel" retrouve un Brunello deguste en decembre
+- "qu'est-ce qu'on avait bu avec l'osso bucco" retrouve le bon accord
+- fallback transparent si l'embedding echoue
 
 ### V3
 

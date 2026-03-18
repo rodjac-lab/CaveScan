@@ -15,7 +15,8 @@
 - `supabase.ts` — Supabase client instance.
 - `batchSessionStore.ts` — In-memory store for batch tasting sessions.
 - `taste-profile.ts` — User taste profile computation and serialization for AI prompts.
-- `tastingMemories.ts` — Tasting tag extraction, memory selection and serialization for Celestin.
+- `tastingMemories.ts` — Tasting tag extraction, memory selection (keyword + async semantic), and serialization for Celestin.
+- `semanticMemory.ts` — Semantic search via embeddings (pgvector). `searchSemanticMemories()` + `generateAndSaveEmbedding()` (fire-and-forget on tasting save).
 - `recommendationRanking.ts` — Local scoring of cave bottles (color, season, profile, maturity, exploration).
 - `recommendationStore.ts` — In-memory cache for recommendation responses (TTL 10 min).
 - `contextHelpers.ts` — Shared utilities: season, day of week, bottle formatting, short ID resolution.
@@ -25,6 +26,7 @@
 - `extract-wine/` — OCR label extraction (photo → structured wine data).
 - `extract-tasting-tags/` — Extract structured tags from tasting notes.
 - `enrich-wine/` — Text-only wine enrichment (aromas, pairings, temperature, character).
+- `generate-embedding/` — OpenAI text-embedding-3-small. Two modes: `{ query }` returns embedding, `{ text, bottle_id }` generates and saves to DB.
 
 ### Page component architecture
 Pages in `src/pages/` are orchestrators that compose focused sub-components:
