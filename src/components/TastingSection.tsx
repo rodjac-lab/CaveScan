@@ -9,16 +9,12 @@ import { triggerProfileRecompute } from '@/lib/taste-profile'
 import { uploadPhoto } from '@/lib/uploadPhoto'
 import { extractAndSaveTags } from '@/lib/tastingMemories'
 import { generateAndSaveEmbedding } from '@/lib/semanticMemory'
+import { shareWine, canShare as canShareWine } from '@/lib/shareWine'
 
 const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Plat', 'Ambiance', 'Autre']
 
 function buildTastingPhotoFilename(): string {
   return `${crypto.randomUUID()}-tasting.jpg`
-}
-
-function getShareEmoji(color: BottleWithZone['couleur']): string {
-  if (color === 'blanc' || color === 'bulles') return '🥂'
-  return '🍷'
 }
 
 interface TastingSectionProps {
@@ -60,7 +56,7 @@ export function TastingSection({
   const tastingPhotoGalleryRef = useRef<HTMLInputElement>(null)
   const drunkAtInputRef = useRef<HTMLInputElement>(null)
 
-  const canShare = typeof navigator !== 'undefined' && !!navigator.share
+  const canShare = canShareWine()
 
   const handleDrunkAtChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -169,78 +165,7 @@ export function TastingSection({
 
   const handleShare = async () => {
     setSharing(true)
-
-    try {
-      const title = bottle.domaine || bottle.appellation || 'Vin'
-      const lines: string[] = []
-      const shareEmoji = getShareEmoji(bottle.couleur)
-
-      lines.push(`${shareEmoji} ${title}${bottle.cuvee ? ` « ${bottle.cuvee} »` : ''}${bottle.millesime ? ` ${bottle.millesime}` : ''}`)
-      if (bottle.appellation && bottle.domaine) {
-        lines.push(bottle.appellation)
-      }
-      lines.push('')
-      if (tastingNote) {
-        lines.push(tastingNote)
-        lines.push('')
-      }
-
-      lines.push('—\nPartagé avec Celestin\nMyCelestin.com')
-
-      const text = lines.join('\n')
-
-      const photoEntries = [
-        bottle.photo_url ? { url: bottle.photo_url, label: 'principale' } : null,
-        ...(((bottle.tasting_photos as TastingPhoto[]) || []).map((photo) => ({
-          url: photo.url,
-          label: photo.label || 'degustation',
-        }))),
-      ].filter((entry): entry is { url: string; label: string } => !!entry?.url)
-
-      if (photoEntries.length > 0 && navigator.canShare) {
-        try {
-          const uniquePhotoEntries = Array.from(
-            new Map(photoEntries.map((entry) => [entry.url, entry])).values(),
-          )
-          const safeTitle = title.replace(/[^a-zA-Z0-9]/g, '_') || 'vin'
-          const downloadResults = await Promise.allSettled(
-            uniquePhotoEntries.map(async (entry, index) => {
-              const response = await fetch(entry.url)
-              const blob = await response.blob()
-              const mimeType = blob.type || 'image/jpeg'
-              const extension = mimeType.includes('png')
-                ? 'png'
-                : mimeType.includes('webp')
-                  ? 'webp'
-                  : 'jpg'
-              const safeLabel = entry.label.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
-              const fileName = `${safeTitle}_${index + 1}_${safeLabel}.${extension}`
-              return new File([blob], fileName, { type: mimeType })
-            }),
-          )
-          const files = downloadResults
-            .filter((result): result is PromiseFulfilledResult<File> => result.status === 'fulfilled')
-            .map((result) => result.value)
-
-          if (files.length > 0 && navigator.canShare({ files })) {
-            await navigator.share({ text, files })
-            track('bottle_shared')
-            setSharing(false)
-            return
-          }
-        } catch {
-          // Fall back to text-only share
-        }
-      }
-
-      if (navigator.share) {
-        await navigator.share({ text })
-        track('bottle_shared')
-      }
-    } catch (err) {
-      console.log('Share cancelled or failed:', err)
-    }
-
+    await shareWine(bottle)
     setSharing(false)
   }
 

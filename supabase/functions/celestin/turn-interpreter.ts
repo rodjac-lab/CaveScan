@@ -41,10 +41,12 @@ const CANCEL = [
 const RECOMMENDATION = [
   /\b(que? boire|recommande|propose|ce soir|pour accompagner|ouvre[- ]moi|quel vin|avec (ce|le|du|des|mon|ma|mes|un|une)|accord|accords mets)/i,
   /\b(pour aller avec|pour manger|pour d[iî]ner|pour le repas)/i,
+  /\b(qu.est-ce que j.ouvr|je pourrais ouvrir|quelque chose [àa] ouvrir|qu.est-ce qu.on ouvre|on ouvre quoi|quoi ouvrir)/i,
 ]
 
 const REFINEMENT = [
   /\b(en blanc|en rouge|en ros[ée]|en bulles|un blanc|un rouge|une bulle|autre chose|une autre|plutot un|sinon)\b/i,
+  /\b(tu en as|t.en as|d.autres?|en as[- ]tu)\b/i,
 ]
 
 const ENCAVAGE = [
@@ -127,8 +129,8 @@ export function interpretTurn(
       return { turnType: 'social_ack', cognitiveMode: 'social', shouldAllowUiAction: false }
     }
 
-    // Refinement → continue the task (only after a reco)
-    if (hadRecentReco && matchesAny(lower, REFINEMENT)) {
+    // Refinement → continue the task (state already tells us we just finished a task)
+    if (matchesAny(lower, REFINEMENT)) {
       return { turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
     }
 

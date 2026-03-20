@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test — Polaroids empiles</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  body {
+    margin: 0;
+    padding: 40px;
+    background: #2a2522;
+    display: flex;
+    justify-content: center;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .card {
+    width: 1080px;
+    height: 1350px;
+    background: #171513;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .brand {
+    position: absolute;
+    top: 44px;
+    left: 64px;
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: rgba(184, 134, 11, 0.7);
+    z-index: 2;
+  }
+
+  .wine-header {
+    padding: 100px 64px 24px;
+  }
+
+  .wine-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 48px;
+    font-weight: 700;
+    color: #F7F4EF;
+    line-height: 1.1;
+    margin-bottom: 8px;
+  }
+
+  .wine-details {
+    font-size: 20px;
+    color: #A09A93;
+    letter-spacing: 0.5px;
+  }
+
+  .wine-details .cuvee {
+    color: #D4A843;
+    font-style: italic;
+  }
+
+  /* Polaroid stack zone */
+  .polaroid-zone {
+    position: relative;
+    height: 480px;
+    margin: 0 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .polaroid {
+    position: absolute;
+    background: #f5f2ed;
+    padding: 12px 12px 40px 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2);
+  }
+
+  .polaroid img {
+    display: block;
+    object-fit: cover;
+  }
+
+  /* Back polaroid — plat, rotated, behind */
+  .polaroid-back {
+    width: 320px;
+    z-index: 1;
+    transform: rotate(6deg);
+    top: 20px;
+    right: 80px;
+  }
+
+  .polaroid-back img {
+    width: 296px;
+    height: 340px;
+  }
+
+  /* Front polaroid — etiquette, on top */
+  .polaroid-front {
+    width: 300px;
+    z-index: 2;
+    transform: rotate(-4deg);
+    top: 10px;
+    left: 120px;
+  }
+
+  .polaroid-front img {
+    width: 276px;
+    height: 370px;
+  }
+
+  /* Polaroid caption */
+  .polaroid-caption {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: #A09A93;
+    text-align: center;
+    margin-top: 8px;
+    font-style: italic;
+  }
+
+  .stars-row {
+    padding: 32px 64px 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .stars {
+    display: flex;
+    gap: 6px;
+  }
+
+  .star {
+    width: 28px;
+    height: 28px;
+    color: #B8860B;
+  }
+
+  .star.empty {
+    color: #3a3530;
+  }
+
+  .verdict {
+    font-size: 15px;
+    font-weight: 600;
+    color: #B8860B;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .tasting-quote {
+    flex: 1;
+    padding: 24px 64px 0;
+    font-family: 'Playfair Display', serif;
+    font-size: 30px;
+    font-weight: 400;
+    font-style: italic;
+    color: #F7F4EF;
+    line-height: 1.5;
+    position: relative;
+  }
+
+  .tasting-quote::before {
+    content: '\201C';
+    font-size: 100px;
+    color: #B8860B;
+    opacity: 0.25;
+    position: absolute;
+    top: -15px;
+    left: 40px;
+    font-family: 'Playfair Display', serif;
+    line-height: 1;
+  }
+
+  .card-footer {
+    padding: 24px 64px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .footer-url {
+    font-size: 18px;
+    color: #B8860B;
+    letter-spacing: 1px;
+  }
+
+  .footer-tagline {
+    font-size: 14px;
+    color: #6B6560;
+    margin-top: 2px;
+  }
+
+  .footer-date {
+    font-size: 15px;
+    color: #6B6560;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="brand">Celestin</div>
+
+  <div class="wine-header">
+    <div class="wine-name">Chateau des Tours</div>
+    <div class="wine-details"><span class="cuvee">Reserve</span> &middot; Cotes-du-Rhone 2017 &middot; Blanc</div>
+  </div>
+
+  <div class="polaroid-zone">
+    <div class="polaroid polaroid-back">
+      <img src="../Photo tests API/PXL_20251224_183321903.jpg" alt="Plat">
+      <div class="polaroid-caption">Noel 2025</div>
+    </div>
+    <div class="polaroid polaroid-front">
+      <img src="../Photo tests API/PXL_20251225_124257633.jpg" alt="Etiquette">
+    </div>
+  </div>
+
+  <div class="stars-row">
+    <div class="stars">
+      <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+    </div>
+    <div class="verdict">Pepite</div>
+  </div>
+
+  <div class="tasting-quote">
+    Incroyable complexite pour un Cotes-du-Rhone. Nez de fruits blancs, cire d'abeille et une pointe d'epices. Bouche ample et tendue a la fois. Raynaud est un genie.
+  </div>
+
+  <div class="card-footer">
+    <div>
+      <div class="footer-url">mycelestin.com</div>
+      <div class="footer-tagline">Ton sommelier IA personnel</div>
+    </div>
+    <div class="footer-date">Decembre 2025</div>
+  </div>
+</div>
+
+</body>
+</html>

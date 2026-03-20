@@ -1,237 +1,260 @@
-# CaveScan - PRD v2
+# Celestin — PRD v3
+
+_Mis a jour le 2026-03-18_
 
 ## Vision
 
-**Une cave à vin qui se gère presque toute seule** pour les amateurs qui achètent régulièrement mais ne veulent pas maintenir un inventaire à la main.
+**Celestin — ton sommelier IA personnel.**
 
-### Problème cible
+On vend un sommelier, on livre un ami.
 
-- J'achète du vin mais je ne sais plus ce que j'ai
-- Je ne sais plus où sont rangées mes bouteilles
-- Je rate des fenêtres de maturité
-- Je n'ai pas de vue simple de la valeur de ma cave
-- Les apps existantes demandent trop de saisie manuelle
+La promesse : un sommelier qui connait ta cave, tes gouts et tes souvenirs — dans ta poche. L'experience : un ami expert avec qui tu parles vin, qui se souvient de tout, qui te guide dans tes choix, et qui sublime tes meilleurs moments.
+
+Celestin rend ton experience du vin plus simple, plus plaisante et plus satisfaisante.
+
+### Ce qui compte
+
+La **qualite conversationnelle** est LA metrique produit. Pas le nombre de bouteilles encavees, pas le nombre de features — la qualite de la relation entre l'utilisateur et Celestin. Si l'utilisateur a envie de parler vin avec Celestin un mardi soir a 23h, le produit fonctionne.
+
+### Le modele
+
+```
+CE QUE LES GENS CHERCHENT     CE QUI DIFFERENCIE          CE QUI RETIENT
+(acquisition / WTP)            (activation)                (retention / moat)
+
+"Gerer ma cave"           ->   "J'ai un ami qui             -> "Celestin me connait,
+                                connait le vin !"               je ne peux plus m'en passer"
+
+CAVE MANAGEMENT                CONVERSATION                MEMOIRE + SOUVENIRS
+= le painkiller                = le plaisir quotidien       = le switching cost
+= ce qu'ils cherchent          = ce qui les fait rester     = ce qu'ils ne retrouveront
+= ce qui justifie le prix      = ce qui differencie            nulle part ailleurs
+```
 
 ### Promesse
 
-> "Photo -> c'est rangé. Photo -> c'est sorti. Le reste est automatique."
+> "Ton sommelier IA personnel — il connait ta cave, tes gouts et tes souvenirs."
+
+### Problemes resolus
+
+1. **J'ai envie de parler vin mais personne autour de moi ne s'y connait** — Celestin est toujours dispo, cultive, opiniatre
+2. **Je ne sais plus ce que j'ai en cave** — inventaire par photo, sans saisie
+3. **J'oublie les vins que j'ai aimes et les moments associes** — souvenirs sublimes, resurfaces au bon moment
+4. **Je ne sais pas quoi ouvrir ce soir** — Celestin recommande selon le plat, la saison, l'envie
+5. **Je ne sais pas quoi choisir au restaurant** — photo de la carte, Celestin conseille
+6. **Je ne sais pas quoi acheter** — Celestin connait mes gouts et ce qui manque dans ma cave
+7. **Je veux partager mes decouvertes** — belles cartes de degustation partageables
+
+---
 
 ## Utilisateur cible
 
-Amateur de vin avec 50 à 500 bouteilles qui:
+Amateur de vin avec 50 a 500 bouteilles qui achete regulierement et ne maintiendra jamais un tableur.
 
-- Achète régulièrement (cavistes, domaines, salons)
-- Stocke à plusieurs endroits (caves électriques, cartons)
-- Ne maintiendra jamais un tableur rigoureux
-- Veut retrouver vite une bouteille et savoir quand la boire
+Personas detailles dans `docs/personas.md` :
+- **Philippe** (principal) — 180 btl, veut la simplicite absolue
+- **Caroline** (secondaire) — 350 btl, veut les souvenirs et le partage
+- **Maxime** (tertiaire) — 60 btl, veut l'app moderne et intelligente
 
-Contexte initial: utilisateur solo, usage mobile Android, réseau disponible en cave.
+Anti-personas : le collectionneur-investisseur (2500+ btl, besoin patrimonial) et le buveur Vivino (pas de cave).
 
-## Décisions produit
+---
 
-| Question | Décision | Raison |
+## Ce que fait Celestin
+
+### 1. Un ami avec qui parler vin
+
+Le coeur du produit. Celestin est un interlocuteur avec qui on a **plaisir** a discuter vin. Il a des opinions tranchees (Loire, Jura, anti-cliches), de l'humour, et une vraie culture. Il ne se contente pas de repondre — il surprend, challenge, et donne envie de revenir.
+
+Il connait :
+- Ta cave (stock reel, appellations, millesimes)
+- Tes gouts (notes de degustation, tags, profil sensoriel)
+- Tes souvenirs (moments marques, vins preferes, accords reussis)
+
+Il sait recommander, expliquer, debattre, proposer des accords, raconter l'histoire d'un domaine, et engager la conversation de facon naturelle.
+
+**Architecture** : orchestrateur avec Turn Interpreter, State Machine (6 etats), 4 Cognitive Modes (wine_conversation, cellar_assistant, restaurant_assistant, tasting_memory), Response Policy post-LLM. Detail dans `docs/celestin-architecture.md`.
+
+### 2. Des souvenirs sublimes
+
+Le vin, c'est des moments. Celestin transforme des notes de degustation brutes en **souvenirs vivants** :
+
+- Tags extraits automatiquement (plats, descripteurs, occasion, sentiment, maturite)
+- Semantic search — "le vin italien de Noel" retrouve le bon souvenir
+- Souvenirs resurfaces au bon moment dans la conversation ("La derniere fois que tu as mange du canard, c'etait avec le Madiran de Montus — tu avais adore")
+- Belles cartes de degustation partageables (photo + infos + branding)
+- Wine Wrapped annuel : tes appellations preferees, ta meilleure decouverte, tes accords marquants (a faire)
+
+### 3. Une cave qui se gere toute seule
+
+Encaver = photo de l'etiquette + 2 taps. Sortir = photo + confirmation.
+
+- Inventaire consultable avec recherche et filtres
+- Localisation par zone + etagere
+- Gestion des quantites (x6, x12)
+- Enrichissement automatique (aromes, accords, temperature, cepage, caractere)
+
+### 4. Un guide au restaurant et chez le caviste
+
+- Photo de la carte des vins → Celestin recommande en fonction du plat et du profil
+- Mode "hors cave" : recommandation parmi des vins que l'utilisateur n'a pas
+- Personal wine shopper : Celestin peut chercher des bouteilles a acheter en ligne, filtrees par tes gouts et ta cave (a faire — via tool use + API de recherche)
+
+### 5. Un compagnon proactif (a faire)
+
+Celestin ne devrait pas attendre qu'on lui parle. Un vrai ami t'envoie un message au bon moment :
+- Vendredi 17h : "Ton Saint-Joseph 2021 est pile en zone. Grillades ce soir ?"
+- Apres une degustation notee : "Tu as mis 5/5. Tu en as encore 2. A racheter ?"
+- Anniversaire d'un souvenir : "Il y a 1 an, tu as bu ce Barolo incroyable chez Marc"
+- Resume hebdo : "2 bouteilles ouvertes, 1 nouvelle appellation. Cave : 47 bouteilles."
+
+---
+
+## Flows principaux
+
+### Encaver (< 10 secondes)
+Photo etiquette → extraction IA → correction rapide → zone + etagere → sauvegarde
+
+### Deguster (Cheers!)
+Photo etiquette → match en cave (ou hors cave) → notes de degustation → partage
+
+### Deguster (batch)
+Selection multiple (jusqu'a 12 photos) → extraction parallele → revue par item → sauvegarde groupee
+
+### Parler a Celestin
+Message libre → Turn Interpreter → cognitive mode → LLM avec contexte (cave, souvenirs, profil) → reponse + actions (cartes vin, ajout cave, notes)
+
+### Sommelier au resto
+Photo carte des vins → OCR → "je prends le magret" → Celestin recommande depuis la carte
+
+---
+
+## Decisions produit
+
+| Question | Decision | Raison |
 |----------|----------|--------|
-| Plateforme | PWA mobile-first | Déploiement simple, pas d'app store |
-| Offline | Non critique au MVP | Réseau dispo en cave dans le contexte cible |
-| Multi-utilisateur | Non au MVP | Priorité à la valeur solo immédiatement |
-| Localisation | Zone + étagère | Granularité utile sans surcharge de saisie |
-| RFID/NFC | Post-MVP | Friction hardware et contraintes natives |
-| Enrichissement données vin | Hors MVP | Priorité à l'entrée/sortie rapide |
+| Plateforme | PWA mobile-first | Deploiement simple, pas d'app store |
+| LLM principal | Claude Haiku 4.5 | Meilleur suivi d'instructions, bon francais |
+| LLM fallback | Gemini 2.5 Flash, puis Mistral Small | Cout reduit (free tier) / dernier recours |
+| Memoire semantique | OpenAI text-embedding-3-small + pgvector | Recherche par sens, pas juste par mots-cles |
+| Offline | Non critique | Reseau dispo en cave dans le contexte cible |
+| Multi-utilisateur | Post-lancement | Priorite a la valeur solo |
+
+---
 
 ## Stack technique
 
-- Frontend: React + Vite + TypeScript + Tailwind + shadcn/ui
-- Backend/Data: Supabase (PostgreSQL, Storage, Auth, Edge Functions)
-- Vision IA: Claude (principal) avec fallback Gemini via Edge Function
-- Hébergement front: Vercel
+- **Frontend** : React + Vite + TypeScript + Tailwind + shadcn/ui
+- **Backend** : Supabase (PostgreSQL + pgvector, Storage, Auth, Edge Functions)
+- **LLM** : Claude Haiku 4.5 (primaire), Gemini 2.5 Flash (fallback), Mistral Small (fallback 2)
+- **Embeddings** : OpenAI text-embedding-3-small (1536 dims)
+- **OCR** : Gemini 2.5 Flash (extraction etiquette)
+- **Hosting** : Vercel (frontend), Supabase (backend + edge functions)
+- **URL** : https://mycelestin.com/
 
-## Fonctionnalités
+### Edge Functions
+- `celestin/` — sommelier unifie (deploy avec `--no-verify-jwt`)
+- `extract-wine/` — OCR etiquette
+- `extract-tasting-tags/` — extraction tags degustation
+- `enrich-wine/` — enrichissement texte
+- `generate-embedding/` — embeddings OpenAI
 
-### MVP (v0.1)
+---
 
-| Fonction | Description | Friction |
-|----------|-------------|----------|
-| Entrée par photo | Photo étiquette -> extraction auto (domaine, cuvée, appellation, millésime, couleur) | 1 photo + validation |
-| Localisation simple | Choix de zone + étagère | 2 taps |
-| Inventaire consultable | Liste des bouteilles en stock avec filtres | 0 |
-| Recherche | Recherche domaine/appellation/millésime | 0 |
-| Sortie par scan | Photo étiquette -> match inventaire -> statut `drunk` | 1 photo |
-| Sorties récentes | Liste des dernières bouteilles sorties | 0 |
-| Note de dégustation | Optionnelle depuis la fiche bouteille | Optionnel |
+## Navigation
 
-### Flux Encaver
+5 onglets : **Cave** · **Degustations** · **[Scanner]** · **Celestin** · **Reglages**
 
-1. Ouvrir l'app et aller sur Encaver
-2. Prendre une photo ou choisir une photo
-3. Extraction IA des champs
-4. Corriger/valider rapidement
-5. Choisir zone + étagère
-6. Sauvegarder en base
+| Route | Ecran |
+|-------|-------|
+| `/cave` | Inventaire, recherche, filtres |
+| `/cheers` | Degustations recentes |
+| `/scanner` | Plein ecran, choix intent (Encaver / Deguster) |
+| `/decouvrir` | Celestin (chat + cartes) |
+| `/settings` | Zones, profil, debug |
+| `/bottle/:id` | Fiche bouteille |
+| `/bottle/:id/edit` | Edition bouteille |
 
-Cible: < 10 secondes du lancement au rangement.
+---
 
-### Flux Cheers! (single)
-
-1. Ouvrir l'app et aller sur Cheers!
-2. Prendre une photo de l'étiquette
-3. Extraction IA puis matching sur les bouteilles `in_stock`
-4. Si match en cave: confirmation rapide → passage en `drunk`
-5. Si pas en cave: création d'une bouteille avec statut `drunk` (permet de noter un vin goûté ailleurs)
-6. Transition vers la fiche dégustation (notes, photos, partage)
-
-### Flux Note de dégustation
-
-1. Ouvrir une bouteille déjà sortie (ou la marquer comme bue depuis la fiche)
-2. Ajouter des photos de dégustation (bouchon, bouteille, autre) — facultatif
-3. Saisir une note libre — facultatif
-4. Évaluer rapidement : note sur 5, rapport qualité/prix (Cher/Correct/Pépite), flag "À racheter" — facultatif
-5. Enregistrer
-6. Partager la note via Web Share API — facultatif
-
-Principe: aucune friction supplémentaire si l'utilisateur ne veut pas noter. Les champs structurés (rating, QPR, rebuy) permettent d'exploiter les dégustations passées pour décider quoi ouvrir ou racheter.
-
-### Flux Cheers! (batch)
-
-1. Sélectionner plusieurs photos (jusqu'à 12) depuis l'écran Cheers!
-2. Extraction IA en parallèle pour toutes les bouteilles
-3. Écran de revue avec badges : En cave (jaune) / Hors cave (gris) / Non identifié (erreur)
-4. Sauvegarde groupée en un tap
-5. Utile pour les dégustations entre amis ou les salons
-
-## Évolutions
-
-### V1
-
-- Fenêtres de maturité (enrichissement externe)
-- Valeur de cave (prix marché)
-- Import facture (photo/PDF)
-- ~~Gestion fine des quantités (x6/x12)~~ → Implémenté (champ `quantity` par ligne, +/- sur fiche)
-
-### V2
-
-- Sortie vocale
-- Reconnaissance bouteille vide
-- RFID/NFC (si migration vers app native)
-- Mode déclaration rapide
-
-## Modèle de données
+## Modele de donnees
 
 ```sql
-CREATE TABLE zones (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  description TEXT,
-  rows INT,
-  columns INT,
-  position INT DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+-- Table principale
+bottles (
+  id, user_id,
+  -- Identite vin
+  domaine, cuvee, appellation, millesime, couleur,
+  -- Localisation
+  zone_id → zones(id), shelf,
+  -- Stock
+  status (in_stock | drunk), quantity,
+  -- Photos
+  photo_url, photo_url_back,
+  -- Degustation
+  tasting_note, tasting_photos JSONB, rating (1-5), qpr (1-3), rebuy,
+  -- Enrichissement
+  grape_varieties, serving_temperature, typical_aromas, food_pairings, character,
+  -- Prix & maturite
+  purchase_price, market_value, drink_from, drink_until,
+  -- Tags & embeddings
+  tasting_tags JSONB, embedding vector(1536),
+  -- Dates
+  added_at, drunk_at, updated_at
+)
 
-CREATE TABLE bottles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE DEFAULT auth.uid(),
-  domaine TEXT,
-  cuvee TEXT,
-  appellation TEXT,
-  millesime INT,
-  couleur TEXT CHECK (couleur IN ('rouge', 'blanc', 'rose', 'bulles')),
-  raw_extraction JSONB,
-  zone_id UUID REFERENCES zones(id) ON DELETE SET NULL,
-  shelf TEXT,
-  photo_url TEXT,
-  photo_url_back TEXT,
-  status TEXT DEFAULT 'in_stock' CHECK (status IN ('in_stock', 'drunk')),
-  quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity >= 0),
-  added_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  drunk_at TIMESTAMPTZ,
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  -- Tasting
-  tasting_note TEXT,
-  tasting_photos JSONB DEFAULT '[]',
-  rating SMALLINT CHECK (rating >= 1 AND rating <= 5),
-  rebuy BOOLEAN,
-  qpr SMALLINT CHECK (qpr >= 1 AND qpr <= 3),
-  -- Enriched wine data (from OCR extraction)
-  grape_varieties TEXT,
-  serving_temperature TEXT,
-  typical_aromas TEXT,
-  food_pairings TEXT,
-  character TEXT,
-  -- Pricing & maturity
-  purchase_price DECIMAL(10,2),
-  market_value DECIMAL(10,2),
-  drink_from INT,
-  drink_until INT,
-  notes TEXT
-);
-
-CREATE TABLE events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL DEFAULT auth.uid(),
-  action TEXT NOT NULL,
-  metadata JSONB DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+zones (id, name, description, rows, columns, position)
+events (id, user_id, action, metadata JSONB, created_at)
 ```
 
-Notes:
-- RLS activé sur toutes les tables (user_id = auth.uid())
-- `tasting_photos` : tableau JSON `[{url, label?, taken_at}]`
-- `qpr` : 1 = Cher, 2 = Correct, 3 = Pépite
-- `rating` : note de dégustation sur 5
-- `quantity` : 1 ligne = N bouteilles identiques ; décrément à l'ouverture, +/- sur fiche détail
+---
 
-## Prompt extraction (référence)
+## Metriques
 
-La fonction doit retourner un JSON strict:
+| Metrique | Cible | Pourquoi |
+|----------|-------|----------|
+| **Conversations / user / semaine** | **> 3** | **Metrique #1 — si les gens parlent a Celestin, le produit fonctionne** |
+| Retention J7 | > 40% | L'utilisateur revient apres la premiere semaine |
+| Retention J30 | > 20% | L'habitude est installee |
+| Souvenirs crees / user / mois | > 2 | Les gens notent leurs degustations |
+| Temps d'ajout d'une bouteille | < 10s | La cave ne doit pas etre un frein |
+| Taux de reconnaissance etiquette | > 85% | L'OCR doit etre fiable |
+| Cout LLM / user / mois | < 1 EUR | Soutenabilite economique |
 
-```json
-{
-  "domaine": "nom du domaine/château/producteur",
-  "cuvée": "nom de la cuvée si mentionnée",
-  "appellation": "appellation d'origine",
-  "millésime": 2020,
-  "couleur": "rouge | blanc | rose | bulles",
-  "région": "région viticole",
-  "cépage": "cépage principal",
-  "confidence": 0.0
-}
-```
+---
 
-Règles:
+## Business model
 
-- `null` si information non visible
-- Réponse strictement JSON
-- Couleur déduite de l'appellation si nécessaire
+| Couche | Revenu | Source |
+|--------|--------|--------|
+| **Free** | 0 EUR | Cave management, 5 conversations Celestin/mois, notes basiques |
+| **Premium** (9.99 EUR/mois) | Abonnement | Conversations illimitees, wine search, belles cartes memoire, Wine Wrapped, notifications proactives |
+| **Affiliation** (futur) | Commission 5-8% | Bouteilles achetees via liens Celestin |
 
-## Métriques MVP
+L'affiliation est le vrai upside a terme — ca scale avec l'usage et c'est invisible pour l'utilisateur. Mais la priorite court terme est de valider que les gens veulent parler a Celestin (conversations/semaine).
 
-| Métrique | Cible |
-|----------|-------|
-| Temps d'ajout d'une bouteille | < 10 s |
-| Taux de reconnaissance étiquette | > 85% |
-| Bouteilles ajoutées après 1 mois | > 50 |
-| Sorties déclarées vs estimées | > 60% |
+---
 
-## Écrans
+## Etat actuel (mars 2026)
 
-1. Landing (présentation + CTA signup/login, visible si déconnecté)
-2. Cave (inventaire, recherche intégrée, filtres par couleur)
-3. Scanner (plein écran, choix intent : Encaver ou Déguster)
-4. Encaver (entrée par photo, single ou batch)
-5. Dégustations (sortie par photo, single ou batch)
-6. Cheers! (Le Sommelier IA + cartes d'exploration)
-7. Détail bouteille (fiche vin, dégustation, partage)
-8. Édition bouteille
-9. Réglages (zones de stockage, invitation)
+### Fait
+- Conversation Celestin (recommandations, accords, encavage, culture vin, restaurant)
+- Orchestrateur complet (state machine, turn interpreter, 4 cognitive modes, prompt builder, response policy)
+- Persona opiniatree et testee (Loire/Jura, anti-cliches, humour)
+- Memoire V1 (tasting tags, souvenirs proactifs, cross-session localStorage)
+- Memoire V2 (semantic search via pgvector + embeddings)
+- Cave complete (ajout/sortie/edition/recherche/filtres/zones)
+- OCR etiquette + enrichissement automatique
+- Notes de degustation + partage
+- Batch deguster (jusqu'a 12 photos)
+- Questionnaire profil vin
+- Performance (lazy loading, vendor splitting, error boundary)
 
-## Roadmap
+### Pas encore fait
+- Souvenirs sublimes (belles cartes, Wine Wrapped, resurfacing anniversaires)
+- Personal wine shopper (tool use + API recherche)
+- Proactivite (notifications push, micro-rituels)
+- Auth edge functions, RGPD, suivi couts
+- Monetisation (freemium + Stripe)
 
-- MVP: entrée/sortie photo + inventaire + recherche + sorties récentes + notes
-- V1: enrichissement prix/maturité + import factures
-- V2: sortie encore plus fluide (voix, RFID)
-
-## Nom
-
-CaveScan (nom de travail validé pour le développement).
+Voir `docs/backlog.md` pour le detail.

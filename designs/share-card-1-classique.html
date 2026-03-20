@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carte Partage — Classique</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  body {
+    margin: 0;
+    padding: 40px;
+    background: #2a2522;
+    display: flex;
+    justify-content: center;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .card {
+    width: 1080px;
+    height: 1350px;
+    background: #171513;
+    border-radius: 0;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Subtle top accent line */
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 80px;
+    right: 80px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #B8860B, transparent);
+  }
+
+  .card-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 80px;
+  }
+
+  /* Brand */
+  .brand {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: #B8860B;
+    margin-bottom: 60px;
+  }
+
+  /* Photo zone */
+  .photo-zone {
+    width: 100%;
+    height: 480px;
+    background: #1e1b19;
+    border-radius: 14px;
+    margin-bottom: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .photo-zone .placeholder {
+    color: #4a4540;
+    font-size: 16px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* Wine color indicator */
+  .color-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: #722F37;
+    border-radius: 0 2px 2px 0;
+  }
+
+  .color-bar.blanc { background: #C8B560; }
+  .color-bar.rose { background: #D4917A; }
+  .color-bar.bulles { background: #DAC17C; }
+
+  /* Wine info */
+  .wine-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 52px;
+    font-weight: 700;
+    color: #F7F4EF;
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+
+  .wine-cuvee {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    font-weight: 400;
+    font-style: italic;
+    color: #D4A843;
+    margin-bottom: 16px;
+  }
+
+  .wine-details {
+    font-size: 20px;
+    color: #A09A93;
+    letter-spacing: 1px;
+    margin-bottom: 40px;
+  }
+
+  /* Stars */
+  .stars {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 32px;
+  }
+
+  .star {
+    width: 32px;
+    height: 32px;
+    color: #B8860B;
+  }
+
+  .star.empty {
+    color: #3a3530;
+  }
+
+  /* Tasting note */
+  .tasting-note {
+    font-size: 24px;
+    font-weight: 300;
+    color: #ccc5bc;
+    line-height: 1.6;
+    font-style: italic;
+    border-left: 2px solid #B8860B;
+    padding-left: 24px;
+    margin-bottom: auto;
+  }
+
+  /* Footer */
+  .card-footer {
+    padding: 0 80px 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+
+  .footer-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .footer-url {
+    font-size: 18px;
+    color: #B8860B;
+    letter-spacing: 1px;
+  }
+
+  .footer-tagline {
+    font-size: 14px;
+    color: #6B6560;
+  }
+
+  .footer-date {
+    font-size: 16px;
+    color: #6B6560;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-content">
+    <div class="brand">Celestin</div>
+
+    <div class="photo-zone">
+      <div class="color-bar"></div>
+      <span class="placeholder">Photo de l'etiquette</span>
+    </div>
+
+    <div class="wine-name">Domaine Faury</div>
+    <div class="wine-cuvee">La Berne</div>
+    <div class="wine-details">Saint-Joseph 2021 &middot; Rouge</div>
+
+    <div class="stars">
+      <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      <svg class="star empty" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+    </div>
+
+    <div class="tasting-note">
+      Nez de violette et de poivre noir. Bouche soyeuse avec une belle tension, finale longue sur les epices. Superbe avec l'agneau de ce soir.
+    </div>
+  </div>
+
+  <div class="card-footer">
+    <div class="footer-left">
+      <div class="footer-url">mycelestin.com</div>
+      <div class="footer-tagline">Ton sommelier IA personnel</div>
+    </div>
+    <div class="footer-date">Mars 2026</div>
+  </div>
+</div>
+
+</body>
+</html>

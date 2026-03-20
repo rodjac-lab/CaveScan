@@ -1,4 +1,4 @@
-# CaveScan — Personas utilisateurs
+# Celestin — Personas utilisateurs
 
 _Février 2026_
 
@@ -22,7 +22,7 @@ Son système de gestion c'est sa mémoire, et ça ne marche plus. Il a acheté u
 - "Quand je reviens d'un salon avec 4 cartons, je n'ai pas le courage de tout saisir"
 - "J'ai bu un truc incroyable chez des amis, je ne me souviens plus du nom exactement"
 
-**Ce qui le ferait adopter CaveScan**
+**Ce qui le ferait adopter Celestin**
 - Zéro setup : pas de cave 3D à modéliser, pas de compte à configurer pendant 10 minutes
 - Saisie en moins de 10 secondes par bouteille : photo → c'est fait
 - Sortie aussi rapide que l'entrée : photo avant de déboucher → c'est sorti
@@ -56,7 +56,7 @@ Elle utilise Vivino de temps en temps pour identifier un vin au restaurant, mais
 - "Je voudrais savoir quoi ouvrir ce soir avec mon plat sans descendre fouiller"
 - "L'achat en primeurs c'est le chaos — je ne sais plus ce que j'attends"
 
-**Ce qui la ferait adopter CaveScan**
+**Ce qui la ferait adopter Celestin**
 - Les notes de dégustation liées à un moment (le "Wine Memories" — photo du dîner + la bouteille)
 - Le partage de cave à deux (son mari peut aussi scanner les sorties)
 - Le sommelier IA qui suggère depuis son stock réel
@@ -90,7 +90,7 @@ Il utilise Vivino pour scanner et noter les vins qu'il goûte au restaurant ou c
 - "Mon Google Sheet ne me dit pas quand ouvrir mes bouteilles"
 - "J'achète parfois des doublons parce que je ne sais plus ce que j'ai"
 
-**Ce qui le ferait adopter CaveScan**
+**Ce qui le ferait adopter Celestin**
 - L'effet tech/wahou du scan IA instantané
 - Les stats de consommation (gamification légère)
 - La PWA moderne, rapide, dark mode
@@ -155,7 +155,7 @@ Jean-Marc a une cave professionnelle climatisée, un livre de cave tenu par son 
 | **Besoin principal** | Inventaire simple | Mémoire + partage | App moderne + stats | Patrimoine | Découverte |
 | **Tolérance friction** | Très faible | Faible | Moyenne | Haute | Hors sujet |
 | **Prêt à payer** | 0-20 €/an | 20-50 €/an | 0-10 €/an | 100+ €/an | 0 € |
-| **Priorité CaveScan** | ★★★★★ | ★★★★ | ★★★ | ✗ | ✗ |
+| **Priorité Celestin** | ★★★★★ | ★★★★ | ★★★ | ✗ | ✗ |
 
 ---
 

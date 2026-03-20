@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carte Souvenir v2 — Nom en bas</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  body {
+    margin: 0;
+    padding: 40px;
+    background: #2a2522;
+    display: flex;
+    justify-content: center;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .card {
+    width: 1080px;
+    height: 1350px;
+    background: #171513;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Brand top left */
+  .brand {
+    position: absolute;
+    top: 44px;
+    left: 64px;
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: rgba(184, 134, 11, 0.7);
+    z-index: 2;
+  }
+
+  /* Date top right */
+  .date-top {
+    position: absolute;
+    top: 48px;
+    right: 64px;
+    font-size: 15px;
+    color: #6B6560;
+    z-index: 2;
+  }
+
+  /* Photo zone — large hero */
+  .photo-section {
+    position: relative;
+    height: 560px;
+  }
+
+  .photo-main {
+    width: 100%;
+    height: 100%;
+    background: #1e1b19;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .photo-main .placeholder {
+    color: #4a4540;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* Gradient fade at bottom */
+  .photo-main::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 180px;
+    background: linear-gradient(transparent, #171513);
+  }
+
+  /* Second photo medallion */
+  .photo-medallion {
+    position: absolute;
+    bottom: -28px;
+    right: 64px;
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background: #252220;
+    border: 3px solid #B8860B;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    z-index: 1;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+
+  .photo-medallion .placeholder {
+    color: #4a4540;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* Content */
+  .content {
+    flex: 1;
+    padding: 48px 64px 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Stars + verdict */
+  .stars-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stars {
+    display: flex;
+    gap: 6px;
+  }
+
+  .star {
+    width: 26px;
+    height: 26px;
+    color: #B8860B;
+  }
+
+  .star.empty {
+    color: #3a3530;
+  }
+
+  .verdict {
+    font-size: 15px;
+    font-weight: 600;
+    color: #B8860B;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* Tasting note — hero text */
+  .tasting-quote {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    font-weight: 400;
+    font-style: italic;
+    color: #F7F4EF;
+    line-height: 1.5;
+    position: relative;
+    margin-bottom: auto;
+  }
+
+  .tasting-quote::before {
+    content: '\201C';
+    font-size: 100px;
+    color: #B8860B;
+    opacity: 0.25;
+    position: absolute;
+    top: -40px;
+    left: -10px;
+    font-family: 'Playfair Display', serif;
+    line-height: 1;
+  }
+
+  /* Wine identity — bottom, secondary */
+  .wine-identity {
+    padding-top: 32px;
+    border-top: 1px solid rgba(184, 134, 11, 0.15);
+    margin-bottom: 0;
+  }
+
+  .wine-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 34px;
+    font-weight: 700;
+    color: #F7F4EF;
+    line-height: 1.1;
+    margin-bottom: 6px;
+  }
+
+  .wine-details {
+    font-size: 19px;
+    color: #A09A93;
+  }
+
+  .wine-details .cuvee {
+    color: #D4A843;
+    font-style: italic;
+  }
+
+  /* Footer */
+  .card-footer {
+    padding: 28px 64px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .footer-url {
+    font-size: 18px;
+    color: #B8860B;
+    letter-spacing: 1px;
+  }
+
+  .footer-tagline {
+    font-size: 14px;
+    color: #6B6560;
+    margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="brand">Celestin</div>
+  <div class="date-top">Mars 2026</div>
+
+  <div class="photo-section">
+    <div class="photo-main">
+      <span class="placeholder">Photo etiquette</span>
+    </div>
+    <div class="photo-medallion">
+      <span class="placeholder">Plat</span>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="stars-row">
+      <div class="stars">
+        <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <svg class="star empty" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      </div>
+      <div class="verdict">Pepite</div>
+    </div>
+
+    <div class="tasting-quote">
+      Nez de violette et de poivre noir. Bouche soyeuse avec une belle tension, finale longue sur les epices. Superbe avec l'agneau de ce soir.
+    </div>
+
+    <div class="wine-identity">
+      <div class="wine-name">Domaine Faury</div>
+      <div class="wine-details"><span class="cuvee">La Berne</span> &middot; Saint-Joseph 2021 &middot; Rouge</div>
+    </div>
+  </div>
+
+  <div class="card-footer">
+    <div>
+      <div class="footer-url">mycelestin.com</div>
+      <div class="footer-tagline">Ton sommelier IA personnel</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

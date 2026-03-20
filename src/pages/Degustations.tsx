@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Loader2, X, Share2, Star } from 'lucide-react'
 import { useDrunkBottles } from '@/hooks/useBottles'
 import { type WineColor, type BottleWithZone } from '@/lib/types'
+import { shareWine, canShare as canShareWine } from '@/lib/shareWine'
 
 type ColorFilter = WineColor | null
 type RatingFilter = 3 | 4 | 5 | null
@@ -82,6 +83,7 @@ export default function Degustations() {
   const [colorFilter, setColorFilter] = useState<ColorFilter>(null)
   const [ratingFilter, setRatingFilter] = useState<RatingFilter>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const showShare = canShareWine()
 
   const filtered = useMemo(
     () => filterBottles(bottles, colorFilter, ratingFilter, searchQuery),
@@ -91,21 +93,8 @@ export default function Degustations() {
   const handleShare = async (bottle: BottleWithZone, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-
-    if (!navigator.share) return
-
-    const title = bottle.domaine || bottle.appellation || 'Vin'
-    const lines: string[] = []
-    lines.push(`\u{1F377} ${title}${bottle.cuvee ? ` \u00AB ${bottle.cuvee} \u00BB` : ''}${bottle.millesime ? ` ${bottle.millesime}` : ''}`)
-    if (bottle.appellation && bottle.domaine) lines.push(bottle.appellation)
-    if (bottle.tasting_note) {
-      lines.push('')
-      lines.push(bottle.tasting_note)
-    }
-    lines.push('\n\u2014\nPartag\u00e9 avec Celestin\nMyCelestin.com')
-
     try {
-      await navigator.share({ text: lines.join('\n') })
+      await shareWine(bottle)
     } catch {
       // User cancelled
     }
@@ -265,7 +254,7 @@ export default function Degustations() {
                           ))}
                         </div>
                       )}
-                      {typeof navigator !== 'undefined' && !!navigator.share && (
+                      {showShare && (
                         <button
                           onClick={(e) => handleShare(bottle, e)}
                           className="p-1 text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carte finale — 1 photo vs 2 photos (nom en bas)</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  body {
+    margin: 0;
+    padding: 40px;
+    background: #2a2522;
+    display: flex;
+    gap: 60px;
+    justify-content: center;
+    flex-wrap: wrap;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  h2 {
+    width: 100%;
+    text-align: center;
+    color: #A09A93;
+    font-size: 18px;
+    font-weight: 400;
+    margin: 20px 0 0;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .card {
+    width: 1080px;
+    height: 1350px;
+    background: #171513;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Brand */
+  .brand {
+    position: absolute;
+    top: 44px;
+    left: 64px;
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: rgba(184, 134, 11, 0.7);
+    z-index: 2;
+  }
+
+  .date-top {
+    position: absolute;
+    top: 48px;
+    right: 64px;
+    font-size: 15px;
+    color: #6B6560;
+    z-index: 2;
+  }
+
+  /* ====== 1 PHOTO — portrait centre, grande ====== */
+  .photo-solo {
+    margin: 100px auto 0;
+    width: 480px;
+    height: 640px;
+    background: #1e1b19;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .photo-solo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* ====== 2 PHOTOS — portrait + bandeau ====== */
+  .photos-duo {
+    display: flex;
+    gap: 12px;
+    padding: 0 64px;
+    margin-top: 100px;
+    height: 520px;
+  }
+
+  .photo-portrait {
+    width: 380px;
+    flex-shrink: 0;
+    background: #1e1b19;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .photo-portrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .photo-secondary {
+    flex: 1;
+    background: #1e1b19;
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .photo-secondary img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .photo-label {
+    position: absolute;
+    bottom: 14px;
+    left: 16px;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+    background: rgba(0,0,0,0.4);
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  /* ====== SHARED — lower section ====== */
+  .lower {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0 64px;
+  }
+
+  /* Stars */
+  .stars-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding-top: 40px;
+  }
+
+  .stars {
+    display: flex;
+    gap: 6px;
+  }
+
+  .star {
+    width: 26px;
+    height: 26px;
+    color: #B8860B;
+  }
+
+  .star.empty {
+    color: #3a3530;
+  }
+
+  .verdict {
+    font-size: 15px;
+    font-weight: 600;
+    color: #B8860B;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* Tasting note */
+  .tasting-quote {
+    padding-top: 24px;
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    font-weight: 400;
+    font-style: italic;
+    color: #F7F4EF;
+    line-height: 1.5;
+    position: relative;
+  }
+
+  .tasting-quote::before {
+    content: '\201C';
+    font-size: 100px;
+    color: #B8860B;
+    opacity: 0.25;
+    position: absolute;
+    top: -15px;
+    left: -10px;
+    font-family: 'Playfair Display', serif;
+    line-height: 1;
+  }
+
+  /* Wine identity — bottom */
+  .wine-identity {
+    margin-top: auto;
+    padding-top: 28px;
+    border-top: 1px solid rgba(184, 134, 11, 0.15);
+  }
+
+  .wine-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: #F7F4EF;
+    line-height: 1.1;
+    margin-bottom: 6px;
+  }
+
+  .wine-details {
+    font-size: 19px;
+    color: #A09A93;
+  }
+
+  .wine-details .cuvee {
+    color: #D4A843;
+    font-style: italic;
+  }
+
+  /* Footer */
+  .card-footer {
+    padding: 32px 64px 48px;
+    margin-top: 28px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .footer-url {
+    font-size: 18px;
+    color: #B8860B;
+    letter-spacing: 1px;
+  }
+
+  .footer-tagline {
+    font-size: 14px;
+    color: #6B6560;
+    margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+
+<h2>1 photo — portrait centre</h2>
+
+<div class="card">
+  <div class="brand">Celestin</div>
+  <div class="date-top">Decembre 2025</div>
+
+  <div class="photo-solo">
+    <img src="../Photo tests API/PXL_20251225_124257633.jpg" alt="Etiquette">
+  </div>
+
+  <div class="lower">
+    <div class="stars-row">
+      <div class="stars">
+        <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      </div>
+      <div class="verdict">Pepite</div>
+    </div>
+
+    <div class="tasting-quote">
+      Incroyable complexite pour un Cotes-du-Rhone. Nez de fruits blancs, cire d'abeille et une pointe d'epices. Raynaud est un genie.
+    </div>
+
+    <div class="wine-identity">
+      <div class="wine-name">Chateau des Tours</div>
+      <div class="wine-details"><span class="cuvee">Reserve</span> &middot; Cotes-du-Rhone 2017 &middot; Blanc</div>
+    </div>
+  </div>
+
+  <div class="card-footer">
+    <div>
+      <div class="footer-url">mycelestin.com</div>
+      <div class="footer-tagline">Ton sommelier IA personnel</div>
+    </div>
+  </div>
+</div>
+
+<h2>2 photos — portrait + bandeau</h2>
+
+<div class="card">
+  <div class="brand">Celestin</div>
+  <div class="date-top">Decembre 2025</div>
+
+  <div class="photos-duo">
+    <div class="photo-portrait">
+      <img src="../Photo tests API/PXL_20251225_124257633.jpg" alt="Etiquette">
+    </div>
+    <div class="photo-secondary">
+      <img src="../Photo tests API/PXL_20251224_183321903.jpg" alt="Plat">
+      <div class="photo-label">Le moment</div>
+    </div>
+  </div>
+
+  <div class="lower">
+    <div class="stars-row">
+      <div class="stars">
+        <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      </div>
+      <div class="verdict">Pepite</div>
+    </div>
+
+    <div class="tasting-quote">
+      Incroyable complexite pour un Cotes-du-Rhone. Nez de fruits blancs, cire d'abeille et une pointe d'epices. Raynaud est un genie.
+    </div>
+
+    <div class="wine-identity">
+      <div class="wine-name">Chateau des Tours</div>
+      <div class="wine-details"><span class="cuvee">Reserve</span> &middot; Cotes-du-Rhone 2017 &middot; Blanc</div>
+    </div>
+  </div>
+
+  <div class="card-footer">
+    <div>
+      <div class="footer-url">mycelestin.com</div>
+      <div class="footer-tagline">Ton sommelier IA personnel</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
