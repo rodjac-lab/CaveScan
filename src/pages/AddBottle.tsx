@@ -19,13 +19,13 @@ import { StoragePositionPicker } from '@/components/StoragePositionPicker'
 import { PhotoPreviewCard } from '@/components/PhotoPreviewCard'
 import { WineFormFields } from '@/components/WineFormFields'
 import { QuantitySelector } from '@/components/QuantitySelector'
-import { supabase } from '@/lib/supabase'
 import { ENABLE_MULTI_BOTTLE_SCAN } from '@/lib/featureFlags'
 import { useZones } from '@/hooks/useZones'
 import { useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
 import { normalizeWineColor, type BottleVolumeOption, type WineColor, type WineExtraction, type Zone } from '@/lib/types'
-import { parseExtractWineResponse } from '@/lib/extractWineResponse'
-import { MULTI_BOTTLE_IMAGE_MAX_SIZE, fileToBase64 } from '@/lib/image'
+import { buildCellarBottleInsert, insertBottle } from '@/lib/bottleWrites'
+import { extractWineFromFile } from '@/lib/wineExtractionService'
+import { MULTI_BOTTLE_IMAGE_MAX_SIZE } from '@/lib/image'
 import { track } from '@/lib/track'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
 import { uploadPhoto } from '@/lib/uploadPhoto'
@@ -228,25 +228,9 @@ export default function AddBottle() {
     setStep('extracting')
 
     try {
-      const base64 = await fileToBase64(file)
-
-      const { data, error } = await supabase.functions.invoke('extract-wine', {
-        body: { image_base64: base64 },
+      const parsed = await extractWineFromFile(file, {
+        retryMultiBottleMaxSize: ENABLE_MULTI_BOTTLE_SCAN ? MULTI_BOTTLE_IMAGE_MAX_SIZE : undefined,
       })
-
-      if (error) throw error
-
-      let parsed = parseExtractWineResponse(data)
-
-      if (ENABLE_MULTI_BOTTLE_SCAN && parsed.kind === 'multi_bottle') {
-        const hiResBase64 = await fileToBase64(file, MULTI_BOTTLE_IMAGE_MAX_SIZE)
-        const hiResResponse = await supabase.functions.invoke('extract-wine', {
-          body: { image_base64: hiResBase64 },
-        })
-        if (!hiResResponse.error) {
-          parsed = parseExtractWineResponse(hiResResponse.data)
-        }
-      }
 
       if (ENABLE_MULTI_BOTTLE_SCAN && parsed.kind === 'multi_bottle') {
         const items = parsed.bottles.map((extraction, index) => toBatchItemData(file, extraction, index))
@@ -337,13 +321,7 @@ export default function AddBottle() {
       setBatchItems([...updatedItems])
 
       try {
-        const base64 = await fileToBase64(updatedItems[i].photoFile!)
-        const { data, error } = await supabase.functions.invoke('extract-wine', {
-          body: { image_base64: base64 },
-        })
-
-        if (error) throw error
-        const parsed = parseExtractWineResponse(data)
+        const parsed = await extractWineFromFile(updatedItems[i].photoFile!)
         const extraction = parsed.bottles[0]
 
         updatedItems[i] = {
@@ -385,22 +363,15 @@ export default function AddBottle() {
     if (!domaine || !appellation || !millesime) {
       setStep('extracting')
       try {
-        const base64 = await fileToBase64(file)
-        const { data, error } = await supabase.functions.invoke('extract-wine', {
-          body: { image_base64: base64 },
-        })
-
-        if (!error && data) {
-          const extraction = parseExtractWineResponse(data).bottles[0]
-          // Only fill in missing fields
-          if (!domaine && extraction.domaine) setDomaine(extraction.domaine)
-          if (!cuvee && extraction.cuvee) setCuvee(extraction.cuvee)
-          if (!appellation && extraction.appellation) setAppellation(extraction.appellation)
-          if (!millesime && extraction.millesime) setMillesime(extraction.millesime.toString())
-          if (!couleur && extraction.couleur) setCouleur(normalizeWineColor(extraction.couleur) || '')
-          if (!country && extraction.country) setCountry(extraction.country)
-          if (!region && extraction.region) setRegion(extraction.region)
-        }
+        const extraction = (await extractWineFromFile(file)).bottles[0]
+        // Only fill in missing fields
+        if (!domaine && extraction.domaine) setDomaine(extraction.domaine)
+        if (!cuvee && extraction.cuvee) setCuvee(extraction.cuvee)
+        if (!appellation && extraction.appellation) setAppellation(extraction.appellation)
+        if (!millesime && extraction.millesime) setMillesime(extraction.millesime.toString())
+        if (!couleur && extraction.couleur) setCouleur(normalizeWineColor(extraction.couleur) || '')
+        if (!country && extraction.country) setCountry(extraction.country)
+        if (!region && extraction.region) setRegion(extraction.region)
       } catch (err) {
         console.error('Back extraction error:', err)
       }
@@ -424,28 +395,21 @@ export default function AddBottle() {
     // If missing data, try extraction from back label
     if (!currentItem.domaine || !currentItem.appellation || !currentItem.millesime) {
       try {
-        const base64 = await fileToBase64(file)
-        const { data, error } = await supabase.functions.invoke('extract-wine', {
-          body: { image_base64: base64 },
-        })
-
-        if (!error && data) {
-          const extraction = parseExtractWineResponse(data).bottles[0]
-          const updates: Partial<BatchItemData> = {}
-          if (!currentItem.domaine && extraction.domaine) updates.domaine = extraction.domaine
-          if (!currentItem.cuvee && extraction.cuvee) updates.cuvee = extraction.cuvee
-          if (!currentItem.appellation && extraction.appellation) updates.appellation = extraction.appellation
-          if (!currentItem.millesime && extraction.millesime) updates.millesime = extraction.millesime.toString()
-          if (!currentItem.couleur && extraction.couleur) updates.couleur = normalizeWineColor(extraction.couleur) || ''
-          if (!currentItem.country && extraction.country) updates.country = extraction.country
-          if (!currentItem.region && extraction.region) updates.region = extraction.region
-          if (Object.keys(updates).length > 0) {
-            updatedItems[currentBatchIndex] = {
-              ...updatedItems[currentBatchIndex],
-              ...updates,
-            }
-            setBatchItems([...updatedItems])
+        const extraction = (await extractWineFromFile(file)).bottles[0]
+        const updates: Partial<BatchItemData> = {}
+        if (!currentItem.domaine && extraction.domaine) updates.domaine = extraction.domaine
+        if (!currentItem.cuvee && extraction.cuvee) updates.cuvee = extraction.cuvee
+        if (!currentItem.appellation && extraction.appellation) updates.appellation = extraction.appellation
+        if (!currentItem.millesime && extraction.millesime) updates.millesime = extraction.millesime.toString()
+        if (!currentItem.couleur && extraction.couleur) updates.couleur = normalizeWineColor(extraction.couleur) || ''
+        if (!currentItem.country && extraction.country) updates.country = extraction.country
+        if (!currentItem.region && extraction.region) updates.region = extraction.region
+        if (Object.keys(updates).length > 0) {
+          updatedItems[currentBatchIndex] = {
+            ...updatedItems[currentBatchIndex],
+            ...updates,
           }
+          setBatchItems([...updatedItems])
         }
       } catch (err) {
         console.error('Back extraction error:', err)
@@ -476,35 +440,26 @@ export default function AddBottle() {
       const photoUrl = photoFile ? await uploadPhoto(photoFile, `${timestamp}-front.jpg`) : null
       const photoUrlBack = photoFileBack ? await uploadPhoto(photoFileBack, `${timestamp}-back.jpg`) : null
 
-      // Create bottle records (one per quantity)
-      const bottleData = {
-        domaine: domaine || null,
-        cuvee: cuvee || null,
-        appellation: appellation || null,
-        millesime: millesime ? parseInt(millesime) : null,
-        couleur: couleur || null,
-        country: country || null,
-        region: region || null,
-        zone_id: zoneId || null,
-        shelf: shelf || null,
-        purchase_price: purchasePrice ? parseFloat(purchasePrice.replace(',', '.')) : null,
-        photo_url: photoUrl,
-        photo_url_back: photoUrlBack,
-        raw_extraction: rawExtraction,
-        status: 'in_stock',
-        grape_varieties: rawExtraction?.grape_varieties || null,
-        serving_temperature: rawExtraction?.serving_temperature || null,
-        typical_aromas: rawExtraction?.typical_aromas || null,
-        food_pairings: rawExtraction?.food_pairings || null,
-        character: rawExtraction?.character || null,
-        drink_from: rawExtraction?.drink_from || null,
-        drink_until: rawExtraction?.drink_until || null,
-        volume_l: parseFloat(volumeL),
-      }
+      const bottleData = buildCellarBottleInsert({
+        domaine,
+        cuvee,
+        appellation,
+        millesime,
+        couleur,
+        country,
+        region,
+        zoneId,
+        shelf,
+        purchasePrice,
+        photoUrl,
+        photoUrlBack,
+        rawExtraction,
+        quantity,
+        volumeL,
+      })
 
       // Keep acquisitions as separate lots; no automatic merge.
-      const { error: insertError } = await supabase.from('bottles').insert({ ...bottleData, quantity })
-      if (insertError) throw insertError
+      await insertBottle(bottleData)
 
       track('bottle_added', { couleur: couleur || null, has_photo: !!photoFile })
       triggerProfileRecompute()
@@ -536,35 +491,26 @@ export default function AddBottle() {
         ? await uploadPhoto(item.photoFileBack, `${timestamp}-${item.id}-back.jpg`)
         : null
 
-      // Create bottle record
-      const bottleData = {
-        domaine: item.domaine || null,
-        cuvee: item.cuvee || null,
-        appellation: item.appellation || null,
-        millesime: item.millesime ? parseInt(item.millesime) : null,
-        couleur: item.couleur || null,
-        country: item.country || null,
-        region: item.region || null,
-        zone_id: item.zoneId || null,
-        shelf: item.shelf || null,
-        purchase_price: item.purchasePrice ? parseFloat(item.purchasePrice.replace(',', '.')) : null,
-        photo_url: photoUrl,
-        photo_url_back: photoUrlBack,
-        raw_extraction: item.rawExtraction,
-        status: 'in_stock',
-        grape_varieties: (item.rawExtraction as WineExtraction | null)?.grape_varieties || null,
-        serving_temperature: (item.rawExtraction as WineExtraction | null)?.serving_temperature || null,
-        typical_aromas: (item.rawExtraction as WineExtraction | null)?.typical_aromas || null,
-        food_pairings: (item.rawExtraction as WineExtraction | null)?.food_pairings || null,
-        character: (item.rawExtraction as WineExtraction | null)?.character || null,
-        drink_from: (item.rawExtraction as WineExtraction | null)?.drink_from || null,
-        drink_until: (item.rawExtraction as WineExtraction | null)?.drink_until || null,
-        volume_l: parseFloat(item.volumeL),
-      }
+      const bottleData = buildCellarBottleInsert({
+        domaine: item.domaine,
+        cuvee: item.cuvee,
+        appellation: item.appellation,
+        millesime: item.millesime,
+        couleur: item.couleur,
+        country: item.country,
+        region: item.region,
+        zoneId: item.zoneId,
+        shelf: item.shelf,
+        purchasePrice: item.purchasePrice,
+        photoUrl,
+        photoUrlBack,
+        rawExtraction: item.rawExtraction as WineExtraction | null,
+        quantity: item.quantity,
+        volumeL: item.volumeL,
+      })
 
       // Keep acquisitions as separate lots; no automatic merge.
-      const { error: insertError } = await supabase.from('bottles').insert({ ...bottleData, quantity: item.quantity })
-      if (insertError) throw insertError
+      await insertBottle(bottleData)
 
       track('bottle_added', { couleur: item.couleur || null, has_photo: true, quantity: item.quantity })
 

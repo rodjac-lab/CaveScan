@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Loader2 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { ENABLE_MULTI_BOTTLE_SCAN } from '@/lib/featureFlags'
-import { MULTI_BOTTLE_IMAGE_MAX_SIZE, fileToBase64 } from '@/lib/image'
+import { MULTI_BOTTLE_IMAGE_MAX_SIZE } from '@/lib/image'
 import { type WineExtraction } from '@/lib/types'
-import { parseExtractWineResponse } from '@/lib/extractWineResponse'
+import { extractWineFromFile } from '@/lib/wineExtractionService'
 import {
   createBatchSession,
 } from '@/lib/batchSessionStore'
@@ -115,24 +114,9 @@ export default function Scanner() {
     setProcessing(true)
 
     try {
-      const base64 = await fileToBase64(file)
-      const { data, error } = await supabase.functions.invoke('extract-wine', {
-        body: { image_base64: base64 },
+      const parsed = await extractWineFromFile(file, {
+        retryMultiBottleMaxSize: ENABLE_MULTI_BOTTLE_SCAN ? MULTI_BOTTLE_IMAGE_MAX_SIZE : undefined,
       })
-
-      if (error) throw error
-
-      let parsed = parseExtractWineResponse(data)
-
-      if (ENABLE_MULTI_BOTTLE_SCAN && parsed.kind === 'multi_bottle') {
-        const hiResBase64 = await fileToBase64(file, MULTI_BOTTLE_IMAGE_MAX_SIZE)
-        const hiResResponse = await supabase.functions.invoke('extract-wine', {
-          body: { image_base64: hiResBase64 },
-        })
-        if (!hiResResponse.error) {
-          parsed = parseExtractWineResponse(hiResResponse.data)
-        }
-      }
 
       stopCamera()
 

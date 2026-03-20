@@ -6,82 +6,29 @@ import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
 import { useZones } from '@/hooks/useZones'
 import { useQuestionnaireProfile } from '@/hooks/useQuestionnaireProfile'
-import { serializeProfileForPrompt } from '@/lib/taste-profile'
-import { rankCaveBottles } from '@/lib/recommendationRanking'
-import { selectRelevantMemories, selectRelevantMemoriesAsync, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
+import { selectRelevantMemoriesAsync, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
+import { resolveBottleIds } from '@/lib/contextHelpers'
 import { getCachedRecommendation, buildQueryKey } from '@/lib/recommendationStore'
-import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
-import {
-  serializeQuestionnaireForPrompt,
-  SEQUENCE_A,
-  SEQUENCE_B,
-  SEQUENCE_C,
-  SENSORY_QUESTIONS,
-  REGION_OPTIONS,
-  computeFWIScores,
-  computeMarketingProfile,
-  buildProfileDescription,
-  getSequenceATransition,
-  getSequenceBTransition,
-  getSequenceCTransition,
-} from '@/lib/questionnaire-profile'
-import type { QuestionnaireProfile, FWIScores, SensoryPreferences } from '@/lib/questionnaire-profile'
+import type { FWIScores, SensoryPreferences } from '@/lib/questionnaire-profile'
 import type { RecommendationCard } from '@/lib/recommendationStore'
-import type { WineColor, BottleVolumeOption } from '@/lib/types'
-import { FWISlider, SensoryChips, RegionChips, ProfileCard } from './QuestionnaireWidgets'
+import { ProfileCard } from './QuestionnaireWidgets'
+import { useInlineQuestionnaire } from './useInlineQuestionnaire'
 import { fileToBase64 } from '@/lib/image'
-import { parseExtractWineResponse } from '@/lib/extractWineResponse'
-import { track } from '@/lib/track'
+import { extractWineFromFile } from '@/lib/wineExtractionService'
+import {
+  buildCelestinRequestBody,
+  type CelestinChatMessage,
+  type CelestinResponse,
+  type WineActionData,
+} from '@/lib/celestinConversation'
 
 // --- Types ---
 
-interface WineActionData {
-  intent: 'encaver' | 'deguster'
-  extraction: {
-    domaine: string | null
-    cuvee: string | null
-    appellation: string | null
-    millesime: number | null
-    couleur: WineColor | null
-    region: string | null
-    quantity: number
-    volume: BottleVolumeOption
-    grape_varieties?: string[] | null
-    serving_temperature?: string | null
-    typical_aromas?: string[] | null
-    food_pairings?: string[] | null
-    character?: string | null
-    purchase_price?: number | null
-  }
-  summary: string
-}
-
-interface ChatMessage {
-  id: string
-  role: 'celestin' | 'user'
-  text: string
-  image?: string // base64 preview
-  cards?: RecommendationCard[]
-  wineAction?: WineActionData
-  isLoading?: boolean
+interface ChatMessage extends CelestinChatMessage {
   actionChips?: string[]
   profileCard?: { fwi: FWIScores; sensory: SensoryPreferences; marketingProfile: string }
   questionLabel?: string
 }
-
-type CelestinUiAction =
-  | { kind: 'show_recommendations'; payload: { cards: RecommendationCard[] } }
-  | { kind: 'prepare_add_wine'; payload: { extraction: WineActionData['extraction'] } }
-  | { kind: 'prepare_add_wines'; payload: { extractions: WineActionData['extraction'][] } }
-  | { kind: 'prepare_log_tasting'; payload: { extraction: WineActionData['extraction'] } }
-
-interface CelestinResponse {
-  message: string
-  ui_action?: CelestinUiAction | null
-  action_chips?: string[] | null
-}
-
-type QPhase = 'seqA' | 'seqB' | 'seqC' | 'sensory' | 'done'
 
 // --- Icons ---
 
@@ -508,8 +455,7 @@ const UserBubble = memo(function UserBubble({ message }: { message: ChatMessage 
 
 // --- Conversation persistence across tab switches ---
 let persistedMessages: ChatMessage[] | null = null
-// deno-lint-ignore no-explicit-any
-let persistedConversationState: Record<string, any> | null = null
+let persistedConversationState: Record<string, unknown> | null = null
 
 // --- Cross-session memory (uses shared module) ---
 import {
@@ -555,15 +501,6 @@ export default function CeSoirModule() {
   const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
-  // --- Questionnaire inline state ---
-  const [qActive, setQActive] = useState(false)
-  const [qPhase, setQPhase] = useState<QPhase>('seqA')
-  const [qIndex, setQIndex] = useState(0)
-  const [qFwiAnswers, setQFwiAnswers] = useState<Record<string, number>>({})
-  const [qSensoryAnswers, setQSensoryAnswers] = useState<Partial<SensoryPreferences>>({})
-  const [qTyping, setQTyping] = useState(false)
-  const qProposedRef = useRef(!!persistedMessages)
-
   // Refs
   const threadRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -582,312 +519,31 @@ export default function CeSoirModule() {
     })
   }, [])
 
-  // --- Questionnaire proposal after greeting ---
-  useEffect(() => {
-    if (questionnaireLoading || questionnaireProfile || qProposedRef.current || qActive) return
-    qProposedRef.current = true
-    const dismissed = sessionStorage.getItem('questionnaire_dismissed')
-    if (dismissed) {
-      // User previously dismissed → add "Découvrir mon profil" chip to the greeting
-      setMessages(prev => {
-        const idx = prev.findIndex(m => m.role === 'celestin' && m.actionChips && m.actionChips.length > 0)
-        if (idx >= 0 && !prev[idx].actionChips!.includes('Découvrir mon profil')) {
-          const updated = [...prev]
-          updated[idx] = { ...updated[idx], actionChips: [...updated[idx].actionChips!, 'Découvrir mon profil'] }
-          return updated
-        }
-        return prev
-      })
-    } else {
-      // First visit — propose questionnaire after greeting
-      const timer = setTimeout(() => {
-        setMessages(prev => [...prev, {
-          id: genMsgId(),
-          role: 'celestin',
-          text: 'J\'aimerais mieux te connaître — quelques questions rapides pour que mes recommandations soient vraiment adaptées à toi.',
-          actionChips: ['Allons-y !', 'Pas maintenant'],
-        }])
-        scrollToBottom()
-      }, 1500)
-      return () => clearTimeout(timer)
-    }
-  }, [questionnaireLoading, questionnaireProfile, qActive, scrollToBottom])
-
-  // --- Questionnaire helpers ---
-
-  function addQMsg(text: string, extras?: Partial<ChatMessage>, keepTyping = false): Promise<void> {
-    return new Promise(resolve => {
-      const id = genMsgId()
-      setQTyping(true)
-      setMessages(prev => [...prev, { id, role: 'celestin', text: '…', isLoading: true }])
-      scrollToBottom()
-      setTimeout(() => {
-        setMessages(prev => prev.map(m => m.id === id ? { ...m, text, isLoading: false, ...extras } : m))
-        if (!keepTyping) setQTyping(false)
-        scrollToBottom()
-        resolve()
-      }, 500)
-    })
-  }
-
-  function addQUserMsg(text: string) {
-    setMessages(prev => [
-      ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
-      { id: genMsgId(), role: 'user', text },
-    ])
-    scrollToBottom()
-  }
-
-  function getQLabel(phase: QPhase, index: number): string {
-    if (phase === 'seqA' || phase === 'seqB' || phase === 'seqC') return `Question ${index + 1}/6`
-    if (phase === 'sensory') return `Question ${index + 1}/7`
-    return ''
-  }
-
-  async function startQSequence(phase: QPhase) {
-    const intros: Record<string, string> = {
-      seqA: 'Commençons par comment tu vis le moment de la dégustation...',
-      seqB: 'Maintenant, parlons de ce que tu sais sur le vin...',
-      seqC: 'Et enfin, ce que l\'origine d\'un vin représente pour toi...',
-      sensory: 'Dernière étape — tes préférences de goût. Deux choix à chaque fois, tape sur celui qui te correspond le mieux.',
-    }
-
-    await addQMsg(intros[phase], undefined, true)
-    setQPhase(phase)
-    setQIndex(0)
-
-    const seqs: Record<string, { text: string }[]> = { seqA: SEQUENCE_A, seqB: SEQUENCE_B, seqC: SEQUENCE_C }
-    if (seqs[phase]) {
-      await addQMsg(seqs[phase][0].text, { questionLabel: getQLabel(phase, 0) })
-    } else if (phase === 'sensory') {
-      await addQMsg(SENSORY_QUESTIONS[0].text, { questionLabel: getQLabel(phase, 0) })
-    }
-  }
-
-  async function startQuestionnaire() {
-    setQActive(true)
-    setQFwiAnswers({})
-    setQSensoryAnswers({})
-    await addQMsg('Je vais te proposer des affirmations — positionne-toi de 1 (pas du tout toi) à 5 (tout à fait toi). Simple et rapide.', undefined, true)
-    await startQSequence('seqA')
-  }
-
-  function handleQFWIAnswer(value: number) {
-    const seq = qPhase === 'seqA' ? SEQUENCE_A : qPhase === 'seqB' ? SEQUENCE_B : SEQUENCE_C
-    const q = seq[qIndex]
-    if (!q) return
-
-    const labelMap: Record<number, string> = { 1: 'Pas du tout moi', 2: 'Plutôt pas moi', 3: 'Neutre', 4: 'Plutôt moi', 5: 'Tout à fait moi' }
-    addQUserMsg(labelMap[value] ?? String(value))
-
-    const newAnswers = { ...qFwiAnswers, [q.id]: value }
-    setQFwiAnswers(newAnswers)
-
-    const nextIdx = qIndex + 1
-    if (nextIdx >= seq.length) {
-      // Transition to next sequence
-      const score = seq.map(item => newAnswers[item.id] ?? 3).reduce((a, b) => a + b, 0)
-      const transitionFn = qPhase === 'seqA' ? getSequenceATransition : qPhase === 'seqB' ? getSequenceBTransition : getSequenceCTransition
-      const nextPhase: QPhase = qPhase === 'seqA' ? 'seqB' : qPhase === 'seqB' ? 'seqC' : 'sensory'
-      const continueText = nextPhase === 'sensory' ? ' Allez, dernière ligne droite !' : ' On enchaîne !'
-
-      void addQMsg(transitionFn(score) + continueText, undefined, true).then(() => {
-        return startQSequence(nextPhase)
-      })
-    } else {
-      setQIndex(nextIdx)
-      void addQMsg(seq[nextIdx].text, { questionLabel: getQLabel(qPhase, nextIdx) })
-    }
-  }
-
-  function handleQSensoryAnswer(value: string) {
-    const q = SENSORY_QUESTIONS[qIndex]
-    if (!q) return
-
-    const label = q.optionA.value === value ? q.optionA.label : q.optionB.label
-    addQUserMsg(label)
-
-    const newAnswers = { ...qSensoryAnswers, [q.field]: value }
-    setQSensoryAnswers(newAnswers)
-
-    const nextIdx = qIndex + 1
-    if (nextIdx >= SENSORY_QUESTIONS.length) {
-      finishQuestionnaire(newAnswers as Record<string, string>)
-    } else {
-      setQIndex(nextIdx)
-      void addQMsg(SENSORY_QUESTIONS[nextIdx].text, { questionLabel: getQLabel('sensory', nextIdx) })
-    }
-  }
-
-  function handleQRegionConfirm(regions: string[]) {
-    const regionLabels = regions.map(r => REGION_OPTIONS.find(ro => ro.value === r)?.label ?? r)
-    addQUserMsg(regionLabels.join(', '))
-
-    const newAnswers = { ...qSensoryAnswers, regions }
-    setQSensoryAnswers(newAnswers)
-
-    const nextIdx = qIndex + 1
-    if (nextIdx >= SENSORY_QUESTIONS.length) {
-      finishQuestionnaire(newAnswers as Record<string, unknown> as Record<string, string>)
-    } else {
-      setQIndex(nextIdx)
-      void addQMsg(SENSORY_QUESTIONS[nextIdx].text, { questionLabel: getQLabel('sensory', nextIdx) })
-    }
-  }
-
-  function finishQuestionnaire(finalSensory: Record<string, string>) {
-    const fwi = computeFWIScores(qFwiAnswers)
-    const sensory: SensoryPreferences = {
-      structure: (finalSensory.structure as SensoryPreferences['structure']) ?? 'elegance',
-      aromatique: (finalSensory.aromatique as SensoryPreferences['aromatique']) ?? 'fruits_frais',
-      evolution: (finalSensory.evolution as SensoryPreferences['evolution']) ?? 'jeune',
-      elevage: (finalSensory.elevage as SensoryPreferences['elevage']) ?? 'mineral',
-      acidite: (finalSensory.acidite as SensoryPreferences['acidite']) ?? 'tendu',
-      regions: (finalSensory.regions as unknown as string[]) ?? [],
-      neophilie: (finalSensory.neophilie as SensoryPreferences['neophilie']) ?? 'decouverte',
-    }
-    const marketingProfile = computeMarketingProfile(fwi, sensory)
-    const description = buildProfileDescription(fwi, sensory, marketingProfile)
-
-    const qProfile: QuestionnaireProfile = {
-      fwi,
-      sensory,
-      marketingProfile,
-      completedAt: new Date().toISOString(),
-      version: 1,
-    }
-
-    void addQMsg(description, { profileCard: { fwi, sensory, marketingProfile } }).then(() => {
-      setQActive(false)
-      setQPhase('done')
-      track('questionnaire_completed', { segment: fwi.segment, profile: marketingProfile })
-      void saveQuestionnaireProfile(qProfile)
-    })
-  }
-
-  function getQProgress(): { current: number; total: number } | null {
-    if (!qActive || qPhase === 'done') return null
-    if (qPhase === 'seqA') return { current: qIndex + 1, total: 18 }
-    if (qPhase === 'seqB') return { current: 6 + qIndex + 1, total: 18 }
-    if (qPhase === 'seqC') return { current: 12 + qIndex + 1, total: 18 }
-    if (qPhase === 'sensory') return { current: qIndex + 1, total: 7 }
-    return null
-  }
-
-  function renderQInput() {
-    if (qTyping) return null
-
-    if (qPhase === 'seqA' || qPhase === 'seqB' || qPhase === 'seqC') {
-      const seq = qPhase === 'seqA' ? SEQUENCE_A : qPhase === 'seqB' ? SEQUENCE_B : SEQUENCE_C
-      const q = seq[qIndex]
-      if (q) return <FWISlider key={q.id} onConfirm={(v) => handleQFWIAnswer(v)} />
-    }
-
-    if (qPhase === 'sensory') {
-      const q = SENSORY_QUESTIONS[qIndex]
-      if (q) {
-        if (q.multiSelect) return <RegionChips key={q.id} onConfirm={handleQRegionConfirm} />
-        return <SensoryChips key={q.id} optionA={q.optionA} optionB={q.optionB} onSelect={handleQSensoryAnswer} />
-      }
-    }
-
-    return null
-  }
+  const inlineQuestionnaire = useInlineQuestionnaire<ChatMessage>({
+    questionnaireLoading,
+    questionnaireProfile,
+    saveQuestionnaireProfile,
+    setMessages,
+    scrollToBottom,
+    createMessageId: genMsgId,
+  })
 
   // --- Build context for the edge function ---
 
   function buildRequestBody(message: string, image?: string, memoriesOverride?: string) {
-    const cave = caveRef.current
-    const drunk = drunkRef.current
-    const prof = profileRef.current
-
-    // Rank cave bottles locally for the LLM (send all, ranked by relevance to message)
-    const ranked = rankCaveBottles('generic', message, cave, drunk, prof, cave.length)
-    const caveSummary = ranked.map(({ bottle, score }) => ({
-      id: bottle.id.substring(0, 8),
-      domaine: bottle.domaine,
-      appellation: bottle.appellation,
-      millesime: bottle.millesime,
-      couleur: bottle.couleur,
-      cuvee: bottle.cuvee,
-      quantity: bottle.quantity ?? 1,
-      volume: bottle.volume_l ?? '0.75',
-      local_score: Math.round(score * 100) / 100,
-    }))
-
-    // Build conversation history from messages, enriched with ui_action context
-    // Exclude loading messages and the initial welcome greeting (index 0)
-    const rawHistory = messages
-      .filter((m, i) => !m.isLoading && !(i === 0 && m.role === 'celestin' && !m.cards && !m.wineAction))
-      .map(m => {
-        let text = m.text || (m.image ? '(photo jointe)' : '')
-        // Enrich Celestin messages with card summaries so LLM knows what it recommended
-        if (m.role === 'celestin' && m.cards && m.cards.length > 0) {
-          const cardList = m.cards.map((c, i) => `[${i + 1}] ${c.name} (${c.appellation})`).join(', ')
-          text += `\n[Vins proposés : ${cardList}]`
-        }
-        if (m.role === 'celestin' && m.wineAction) {
-          const ext = m.wineAction.extraction
-          const wineName = [ext.domaine, ext.cuvee, ext.appellation].filter(Boolean).join(' ')
-          text += `\n[Fiche ${m.wineAction.intent === 'encaver' ? 'encavage' : 'dégustation'} : ${wineName}]`
-        }
-        return {
-          role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
-          text,
-          ...(m.image ? { image: m.image } : {}),
-        }
-      })
-
-    // Strip images from old turns — keep only the 2 most recent user images
-    // This prevents old photos from influencing responses and reduces payload size
-    const userImageIndices = rawHistory
-      .map((t, i) => (t.role === 'user' && t.image) ? i : -1)
-      .filter(i => i >= 0)
-    const keepImageFrom = new Set(userImageIndices.slice(-2))
-    const history = rawHistory.map((t, i) =>
-      t.image && !keepImageFrom.has(i) ? { ...t, image: undefined } : t
-    )
-
-
-    // Profile
-    const profileStr = prof ? serializeProfileForPrompt(prof) : undefined
-
-    // Questionnaire profile (FWI + sensory preferences)
-    const qProfile = questionnaireProfileRef.current
-    const questionnaireStr = qProfile ? serializeQuestionnaireForPrompt(qProfile) : undefined
-
-    // Memories (use override from async semantic search if provided)
-    const memoriesStr = memoriesOverride !== undefined
-      ? (memoriesOverride || undefined)
-      : (serializeMemoriesForPrompt(selectRelevantMemories('generic', message, drunk)) || undefined)
-
-    // Context
-    const recentDrunk = drunk.slice(0, 5).map(formatDrunkSummary)
-    const context = {
-      dayOfWeek: getDayOfWeek(),
-      season: getSeason(),
-      recentDrunk: recentDrunk.length > 0 ? recentDrunk : undefined,
-    }
-
-    // Previous sessions summary (cross-session memory)
-    const previousSession = serializePreviousSessionsForPrompt(previousSessionsRef.current)
-
-    // Storage zones for conversational cellar entry
-    const zoneNames = zones.map(z => z.name)
-
-    return {
+    return buildCelestinRequestBody({
       message,
-      history,
-      cave: caveSummary,
-      profile: profileStr,
-      questionnaireProfile: questionnaireStr,
-      memories: memoriesStr,
-      context,
-      previousSession,
-      zones: zoneNames.length > 0 ? zoneNames : undefined,
-      ...(persistedConversationState ? { conversationState: persistedConversationState } : {}),
-      ...(image ? { image } : {}),
-    }
+      image,
+      cave: caveRef.current,
+      drunk: drunkRef.current,
+      profile: profileRef.current,
+      questionnaireProfile: questionnaireProfileRef.current,
+      messages,
+      previousSession: serializePreviousSessionsForPrompt(previousSessionsRef.current),
+      zones: zones.map((z) => z.name),
+      memoriesOverride,
+      conversationState: persistedConversationState,
+    })
   }
 
   // --- Core submit handler ---
@@ -910,9 +566,8 @@ export default function CeSoirModule() {
 
       if (error) throw error
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const fullResponse = data as any
-      const response = fullResponse as CelestinResponse
+      const fullResponse = data as CelestinResponse & { _nextState?: Record<string, unknown> }
+      const response = fullResponse
 
       // Update conversation state from backend
       if (fullResponse?._nextState) {
@@ -1008,13 +663,13 @@ export default function CeSoirModule() {
     if (textareaRef.current) textareaRef.current.style.height = ''
 
     // Detect questionnaire request in natural language
-    if (!photo && !questionnaireProfile && !qActive && /(?:profil|questionnaire|mieux.*conna[iî]tre|d[ée]couvrir.*profil)/i.test(text)) {
+    if (!photo && !questionnaireProfile && !inlineQuestionnaire.qActive && /(?:profil|questionnaire|mieux.*conna[iî]tre|d[ée]couvrir.*profil)/i.test(text)) {
       setMessages(prev => [
         ...prev.map(m => m.actionChips ? { ...m, actionChips: undefined } : m),
         { id: genMsgId(), role: 'user', text },
       ])
       scrollToBottom()
-      void startQuestionnaire()
+      void inlineQuestionnaire.startQuestionnaire()
       return
     }
 
@@ -1069,13 +724,7 @@ export default function CeSoirModule() {
     scrollToBottom()
 
     try {
-      const base64 = await fileToBase64(photoFile)
-      const { data, error } = await supabase.functions.invoke('extract-wine', {
-        body: { image_base64: base64 },
-      })
-      if (error) throw error
-
-      const parsed = parseExtractWineResponse(data)
+      const parsed = await extractWineFromFile(photoFile)
       const extraction = parsed.bottles[0]
       const wineAction: WineActionData = {
         intent: 'encaver',
@@ -1154,15 +803,12 @@ export default function CeSoirModule() {
 
     // Questionnaire chips
     if (chipLabel === 'Allons-y !' || chipLabel === 'Découvrir mon profil') {
-      addQUserMsg(chipLabel)
-      void startQuestionnaire()
+      if (inlineQuestionnaire.handleChip(chipLabel)) return
       return
     }
 
     if (chipLabel === 'Pas maintenant') {
-      addQUserMsg('Pas maintenant')
-      sessionStorage.setItem('questionnaire_dismissed', '1')
-      void addQMsg('Pas de souci ! Tu pourras me demander quand tu voudras.')
+      if (inlineQuestionnaire.handleChip(chipLabel)) return
       return
     }
 
@@ -1241,7 +887,7 @@ export default function CeSoirModule() {
   }
 
   // --- Progress bar ---
-  const qProgress = getQProgress()
+  const qProgress = inlineQuestionnaire.qProgress
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
@@ -1293,9 +939,9 @@ export default function CeSoirModule() {
 
       {/* Bottom bar */}
       <div className="flex-shrink-0 border-t border-[var(--border-color)] bg-[var(--background)] px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        {qActive ? (
+        {inlineQuestionnaire.qActive ? (
           <div className="pt-1 pb-1">
-            {renderQInput()}
+            {inlineQuestionnaire.renderInput()}
           </div>
         ) : (
           <div>

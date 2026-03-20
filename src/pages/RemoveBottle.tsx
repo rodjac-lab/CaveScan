@@ -6,11 +6,10 @@ import { Button } from '@/components/ui/button'
 import { BatchProgress, type BatchProgressItem } from '@/components/BatchProgress'
 import { BatchTastingItemForm } from '@/components/BatchTastingItemForm'
 import { RemoveResultStep } from '@/components/RemoveResultStep'
-import { supabase } from '@/lib/supabase'
 import { useBottles, useDomainesSuggestions, useAppellationsSuggestions } from '@/hooks/useBottles'
 import { normalizeWineColor, type BottleWithZone, type WineExtraction } from '@/lib/types'
-import { parseExtractWineResponse } from '@/lib/extractWineResponse'
-import { fileToBase64 } from '@/lib/image'
+import { buildDrunkBottleInsertFromExtraction, insertBottle } from '@/lib/bottleWrites'
+import { extractWineFromFile } from '@/lib/wineExtractionService'
 import { track } from '@/lib/track'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
 import { openBottle } from '@/lib/bottleActions'
@@ -155,14 +154,7 @@ export default function RemoveBottle() {
     setStep('processing')
 
     try {
-      const base64 = await fileToBase64(file)
-      const { data, error: extractError } = await supabase.functions.invoke('extract-wine', {
-        body: { image_base64: base64 },
-      })
-
-      if (extractError) throw extractError
-
-      const parsed = parseExtractWineResponse(data)
+      const parsed = await extractWineFromFile(file)
       if (parsed.kind === 'multi_bottle') {
         throw new Error('Cette photo contient plusieurs bouteilles. Utilisez une photo par bouteille pour ce parcours.')
       }
@@ -263,14 +255,7 @@ export default function RemoveBottle() {
       updateBatchItem(sessionId, item.id, { extractionStatus: 'extracting' })
 
       try {
-        const base64 = await fileToBase64(item.photoFile)
-        const { data, error: extractError } = await supabase.functions.invoke('extract-wine', {
-          body: { image_base64: base64 },
-        })
-
-        if (extractError) throw extractError
-
-        const parsed = parseExtractWineResponse(data)
+        const parsed = await extractWineFromFile(item.photoFile)
         if (parsed.kind === 'multi_bottle') {
           throw new Error('Photo multi-bouteilles non supportee dans ce parcours')
         }
@@ -348,33 +333,12 @@ export default function RemoveBottle() {
         }
       }
 
-      const { data, error: insertError } = await supabase
-        .from('bottles')
-        .insert({
-          domaine: result.extraction.domaine || null,
-          cuvee: result.extraction.cuvee || null,
-          appellation: result.extraction.appellation || null,
-          millesime: result.extraction.millesime || null,
-          couleur: normalizeWineColor(result.extraction.couleur) || null,
-          country: result.extraction.country || null,
-          region: result.extraction.region || null,
-          photo_url: photoUrl,
-          raw_extraction: result.extraction,
-          status: 'drunk',
-          drunk_at: new Date().toISOString(),
-          grape_varieties: result.extraction.grape_varieties || null,
-          serving_temperature: result.extraction.serving_temperature || null,
-          typical_aromas: result.extraction.typical_aromas || null,
-          food_pairings: result.extraction.food_pairings || null,
-          character: result.extraction.character || null,
-        })
-        .select()
-        .single()
-
-      if (insertError) throw insertError
+      const { id } = await insertBottle(
+        buildDrunkBottleInsertFromExtraction(result.extraction, { photoUrl })
+      )
       track('bottle_opened', { matched: false })
       triggerProfileRecompute()
-      navigate(`/bottle/${data.id}`)
+      navigate(`/bottle/${id}`)
     } catch (err) {
       console.error('Save error:', err)
       setError("Echec de l'enregistrement")
@@ -423,24 +387,9 @@ export default function RemoveBottle() {
           // Photo upload failed — continue without photo
         }
 
-        await supabase.from('bottles').insert({
-          domaine: item.extraction?.domaine || null,
-          cuvee: item.extraction?.cuvee || null,
-          appellation: item.extraction?.appellation || null,
-          millesime: item.extraction?.millesime || null,
-          couleur: normalizeWineColor(item.extraction?.couleur) || null,
-          country: item.extraction?.country || null,
-          region: item.extraction?.region || null,
-          photo_url: photoUrl,
-          raw_extraction: item.extraction,
-          status: 'drunk',
-          drunk_at: new Date().toISOString(),
-          grape_varieties: item.extraction?.grape_varieties || null,
-          serving_temperature: item.extraction?.serving_temperature || null,
-          typical_aromas: item.extraction?.typical_aromas || null,
-          food_pairings: item.extraction?.food_pairings || null,
-          character: item.extraction?.character || null,
-        })
+        await insertBottle(
+          buildDrunkBottleInsertFromExtraction(item.extraction as WineExtraction, { photoUrl })
+        )
         track('bottle_opened', { matched: false, batch: true })
       }
 
@@ -533,24 +482,9 @@ export default function RemoveBottle() {
             // Photo upload failed — continue without photo
           }
 
-          await supabase.from('bottles').insert({
-            domaine: item.extraction.domaine || null,
-            cuvee: item.extraction.cuvee || null,
-            appellation: item.extraction.appellation || null,
-            millesime: item.extraction.millesime || null,
-            couleur: normalizeWineColor(item.extraction.couleur) || null,
-            country: item.extraction.country || null,
-            region: item.extraction.region || null,
-            photo_url: photoUrl,
-            raw_extraction: item.extraction,
-            status: 'drunk',
-            drunk_at: new Date().toISOString(),
-            grape_varieties: item.extraction.grape_varieties || null,
-            serving_temperature: item.extraction.serving_temperature || null,
-            typical_aromas: item.extraction.typical_aromas || null,
-            food_pairings: item.extraction.food_pairings || null,
-            character: item.extraction.character || null,
-          })
+          await insertBottle(
+            buildDrunkBottleInsertFromExtraction(item.extraction, { photoUrl })
+          )
           updateBatchItem(activeBatchSession.id, item.id, { saved: true })
         }
       }
