@@ -47,3 +47,11 @@ public/screenshot_*.png
 docs/celestin_img*.png
 docs/mockup-*.html
 docs/Redesign de Fevrier 2026/Celestin interaction/
+
+# Generated files
+evals/results/
+benchmark-results.html
+celestin-architecture.html
+
+# Screenshots (non-app assets)
+public/Sceeenshot Landing/
