@@ -67,7 +67,7 @@ export function PastTastingsSection({ bottle }: PastTastingsSectionProps) {
           {pastTastings.map((item) => {
             const drunkDate = item.drunk_at ? new Date(item.drunk_at) : null
             const tastingMeta: string[] = []
-            if (item.rating != null) tastingMeta.push(`${item.rating}/5`)
+            if (item.rating != null) tastingMeta.push(`${item.rating % 1 === 0 ? item.rating : item.rating.toFixed(1)}/5`)
             if (item.rebuy) tastingMeta.push('A racheter')
 
             return (

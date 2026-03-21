@@ -61,8 +61,7 @@ function drawImageCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x:
   ctx.restore()
 }
 
-function drawStar(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, filled: boolean) {
-  ctx.fillStyle = filled ? COLORS.accent : COLORS.starEmpty
+function starPath(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number) {
   ctx.beginPath()
   for (let i = 0; i < 5; i++) {
     const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2
@@ -70,7 +69,29 @@ function drawStar(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: n
     ctx[method](cx + size * Math.cos(angle), cy + size * Math.sin(angle))
   }
   ctx.closePath()
+}
+
+/** Draw a star: 'full' = filled, 'half' = left half filled, 'empty' = outline only */
+function drawStar(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, fill: 'full' | 'half' | 'empty') {
+  // Draw empty star background
+  ctx.fillStyle = COLORS.starEmpty
+  starPath(ctx, cx, cy, size)
   ctx.fill()
+
+  if (fill === 'full') {
+    ctx.fillStyle = COLORS.accent
+    starPath(ctx, cx, cy, size)
+    ctx.fill()
+  } else if (fill === 'half') {
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(cx - size, cy - size, size, size * 2)
+    ctx.clip()
+    ctx.fillStyle = COLORS.accent
+    starPath(ctx, cx, cy, size)
+    ctx.fill()
+    ctx.restore()
+  }
 }
 
 /** Wrap text with variable width per line (for L-layout). Returns array of lines. */
@@ -195,7 +216,9 @@ function drawStars(ctx: CanvasRenderingContext2D, bottle: BottleWithZone, cursor
   const starSize = 13
   const starGap = 34
   for (let i = 0; i < 5; i++) {
-    drawStar(ctx, PAD + 14 + i * starGap, cursorY + 14, starSize, i < bottle.rating)
+    const starVal = i + 1
+    const fill = bottle.rating! >= starVal ? 'full' : bottle.rating! >= starVal - 0.5 ? 'half' : 'empty'
+    drawStar(ctx, PAD + 14 + i * starGap, cursorY + 14, starSize, fill)
   }
 
   if (bottle.qpr && QPR_LABELS[bottle.qpr]) {

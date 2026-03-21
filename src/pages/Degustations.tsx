@@ -249,8 +249,17 @@ export default function Degustations() {
                     <div className="flex flex-col items-end gap-1 flex-shrink-0 pt-0.5">
                       {bottle.rating != null && (
                         <div className="flex items-center gap-0.5">
-                          {Array.from({ length: bottle.rating }).map((_, i) => (
-                            <Star key={i} className="h-3 w-3 fill-[var(--accent)] text-[var(--accent)]" />
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            bottle.rating! >= star ? (
+                              <Star key={star} className="h-3 w-3 fill-[var(--accent)] text-[var(--accent)]" />
+                            ) : bottle.rating! >= star - 0.5 ? (
+                              <div key={star} className="relative h-3 w-3">
+                                <Star className="absolute inset-0 h-3 w-3 fill-none text-[var(--text-muted)]" />
+                                <div className="absolute inset-0 overflow-hidden" style={{ width: '50%' }}>
+                                  <Star className="h-3 w-3 fill-[var(--accent)] text-[var(--accent)]" />
+                                </div>
+                              </div>
+                            ) : null
                           ))}
                         </div>
                       )}

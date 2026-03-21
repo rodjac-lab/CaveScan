@@ -215,7 +215,10 @@ export async function selectRelevantMemoriesAsync(
 
 function ratingStars(rating: number | null): string {
   if (!rating) return ''
-  return '★'.repeat(rating) + '☆'.repeat(5 - rating)
+  const full = Math.floor(rating)
+  const half = rating % 1 >= 0.5 ? 1 : 0
+  const empty = 5 - full - half
+  return '\u2605'.repeat(full) + (half ? '\u2BEA' : '') + '\u2606'.repeat(empty)
 }
 
 export function serializeMemoriesForPrompt(memories: Bottle[]): string {

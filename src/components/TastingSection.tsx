@@ -337,25 +337,43 @@ export function TastingSection({
         />
         {/* Rating, Rebuy, QPR controls */}
         <div className="border-t border-[var(--border-color)] px-[14px] py-3 flex flex-col gap-3">
-          {/* Rating stars */}
+          {/* Rating stars (half-star support) */}
           <div className="flex items-center gap-3">
             <span className="text-[11px] text-[var(--text-muted)] w-12 shrink-0">Note</span>
-            <div className="flex gap-1">
+            <div className="flex">
               {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  className="p-0.5 transition-colors"
-                  onClick={() => setRating(rating === star ? null : star)}
-                >
-                  <Star
-                    className={`h-[22px] w-[22px] ${
-                      rating && star <= rating
-                        ? 'fill-[var(--accent)] text-[var(--accent)]'
-                        : 'fill-none text-[var(--text-muted)]'
-                    }`}
+                <div key={star} className="relative w-[26px] h-[26px] cursor-pointer">
+                  {/* Left half = half star */}
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 left-0 w-1/2 z-10"
+                    onClick={() => {
+                      const halfVal = star - 0.5
+                      setRating(rating === halfVal ? null : halfVal)
+                    }}
                   />
-                </button>
+                  {/* Right half = full star */}
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 w-1/2 z-10"
+                    onClick={() => setRating(rating === star ? null : star)}
+                  />
+                  {/* Star icon with clip for half-fill */}
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    {rating != null && rating >= star ? (
+                      <Star className="h-[22px] w-[22px] fill-[var(--accent)] text-[var(--accent)]" />
+                    ) : rating != null && rating >= star - 0.5 ? (
+                      <div className="relative h-[22px] w-[22px]">
+                        <Star className="absolute inset-0 h-[22px] w-[22px] fill-none text-[var(--text-muted)]" />
+                        <div className="absolute inset-0 overflow-hidden" style={{ width: '50%' }}>
+                          <Star className="h-[22px] w-[22px] fill-[var(--accent)] text-[var(--accent)]" />
+                        </div>
+                      </div>
+                    ) : (
+                      <Star className="h-[22px] w-[22px] fill-none text-[var(--text-muted)]" />
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
