@@ -106,11 +106,22 @@ export function interpretTurn(
   const lower = message.toLowerCase().trim()
   const hadRecentReco = lastAssistantText?.includes('[Vins proposés')
 
-  // Image: check for restaurant context, otherwise default to cellar_assistant
+  // Image: route based on message content, not just "has image"
   if (hasImage) {
     if (/\b(carte|resto|restaurant|menu|ardoise)\b/i.test(lower)) {
       return { turnType: 'task_request', cognitiveMode: 'restaurant_assistant', shouldAllowUiAction: true }
     }
+    if (matchesAny(lower, ENCAVAGE)) {
+      return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'encavage' }
+    }
+    if (matchesAny(lower, RECOMMENDATION)) {
+      return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'recommendation' }
+    }
+    // Opinion, question, or general comment about a photo → wine conversation (no reco)
+    if (matchesAny(lower, QUESTION) || matchesAny(lower, WINE_CULTURE) || /\b(penses|avis|tu connais|c'est bien|c'est bon)\b/i.test(lower)) {
+      return { turnType: 'smalltalk', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }
+    }
+    // Default for images: cellar assistant (reco/encavage)
     return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
   }
 
@@ -161,7 +172,8 @@ export function interpretTurn(
     }
 
     // Longer message → new topic
-    return { turnType: 'context_switch', cognitiveMode: detectCognitiveMode(lower), shouldAllowUiAction: true }
+    const detectedMode = detectCognitiveMode(lower)
+    return { turnType: 'context_switch', cognitiveMode: detectedMode, shouldAllowUiAction: detectedMode === 'cellar_assistant' }
   }
 
   if (state.phase === 'collecting_info') {
