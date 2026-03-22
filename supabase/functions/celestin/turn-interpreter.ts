@@ -212,9 +212,6 @@ export function interpretTurn(
   }
 
   // === idle_smalltalk (default) ===
-  // Note: also handles backward compat when frontend doesn't send state yet
-  // (backend always sees idle_smalltalk, so we use lastAssistantText as fallback)
-  // hadRecentReco already declared above (line ~105)
 
   // Social ack — but if after a recent reco, treat as post-task ack
   if (matchesAny(lower, SOCIAL_ACK)) {
@@ -266,6 +263,6 @@ export function interpretTurn(
     return { turnType: 'smalltalk', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }
   }
 
-  // Unknown → let LLM decide with full context
-  return { turnType: 'unknown', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
+  // Unknown → conversation by default (explicit patterns already catch all task requests)
+  return { turnType: 'unknown', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }
 }

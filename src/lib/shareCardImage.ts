@@ -187,7 +187,8 @@ function drawHeader(ctx: CanvasRenderingContext2D, bottle: BottleWithZone): numb
   if (bottle.appellation && bottle.domaine) detailParts.push(bottle.appellation)
   if (bottle.millesime) detailParts.push(String(bottle.millesime))
   if (bottle.couleur) {
-    const colorLabel = bottle.couleur === 'rose' ? 'Rosé' : bottle.couleur === 'bulles' ? 'Bulles' : bottle.couleur.charAt(0).toUpperCase() + bottle.couleur.slice(1)
+    const colorLabels: Record<string, string> = { rose: 'Rosé', bulles: 'Bulles' }
+    const colorLabel = colorLabels[bottle.couleur] ?? bottle.couleur.charAt(0).toUpperCase() + bottle.couleur.slice(1)
     detailParts.push(colorLabel)
   }
 
@@ -217,7 +218,9 @@ function drawStars(ctx: CanvasRenderingContext2D, bottle: BottleWithZone, cursor
   const starGap = 34
   for (let i = 0; i < 5; i++) {
     const starVal = i + 1
-    const fill = bottle.rating! >= starVal ? 'full' : bottle.rating! >= starVal - 0.5 ? 'half' : 'empty'
+    let fill: 'full' | 'half' | 'empty' = 'empty'
+    if (bottle.rating! >= starVal) fill = 'full'
+    else if (bottle.rating! >= starVal - 0.5) fill = 'half'
     drawStar(ctx, PAD + 14 + i * starGap, cursorY + 14, starSize, fill)
   }
 

@@ -341,40 +341,42 @@ export function TastingSection({
           <div className="flex items-center gap-3">
             <span className="text-[11px] text-[var(--text-muted)] w-12 shrink-0">Note</span>
             <div className="flex">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <div key={star} className="relative w-[26px] h-[26px] cursor-pointer">
-                  {/* Left half = half star */}
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 left-0 w-1/2 z-10"
-                    onClick={() => {
-                      const halfVal = star - 0.5
-                      setRating(rating === halfVal ? null : halfVal)
-                    }}
-                  />
-                  {/* Right half = full star */}
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 w-1/2 z-10"
-                    onClick={() => setRating(rating === star ? null : star)}
-                  />
-                  {/* Star icon with clip for half-fill */}
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                    {rating != null && rating >= star ? (
-                      <Star className="h-[22px] w-[22px] fill-[var(--accent)] text-[var(--accent)]" />
-                    ) : rating != null && rating >= star - 0.5 ? (
-                      <div className="relative h-[22px] w-[22px]">
-                        <Star className="absolute inset-0 h-[22px] w-[22px] fill-none text-[var(--text-muted)]" />
-                        <div className="absolute inset-0 overflow-hidden" style={{ width: '50%' }}>
-                          <Star className="h-[22px] w-[22px] fill-[var(--accent)] text-[var(--accent)]" />
+              {[1, 2, 3, 4, 5].map((star) => {
+                const isFull = rating != null && rating >= star
+                const isHalf = !isFull && rating != null && rating >= star - 0.5
+
+                return (
+                  <div key={star} className="relative w-[26px] h-[26px] cursor-pointer">
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 left-0 w-1/2 z-10"
+                      onClick={() => {
+                        const halfVal = star - 0.5
+                        setRating(rating === halfVal ? null : halfVal)
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 w-1/2 z-10"
+                      onClick={() => setRating(rating === star ? null : star)}
+                    />
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                      {isFull ? (
+                        <Star className="h-[22px] w-[22px] fill-[var(--accent)] text-[var(--accent)]" />
+                      ) : isHalf ? (
+                        <div className="relative h-[22px] w-[22px]">
+                          <Star className="absolute inset-0 h-[22px] w-[22px] fill-none text-[var(--text-muted)]" />
+                          <div className="absolute inset-0 overflow-hidden" style={{ width: '50%' }}>
+                            <Star className="h-[22px] w-[22px] fill-[var(--accent)] text-[var(--accent)]" />
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <Star className="h-[22px] w-[22px] fill-none text-[var(--text-muted)]" />
-                    )}
+                      ) : (
+                        <Star className="h-[22px] w-[22px] fill-none text-[var(--text-muted)]" />
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 

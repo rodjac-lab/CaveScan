@@ -62,7 +62,7 @@ export function computeNextState(
 
   switch (current.phase) {
     case 'idle_smalltalk': {
-      if (turnType === 'task_request' || turnType === 'unknown') {
+      if (turnType === 'task_request') {
         if (responseHasUiAction) {
           return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0 }
         }

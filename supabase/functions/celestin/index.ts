@@ -187,12 +187,6 @@ function applyResponsePolicy(
   return response
 }
 
-// === SYSTEM PROMPT ===
-
-function buildSystemPrompt(cognitiveMode?: CognitiveMode | 'greeting' | 'social'): string {
-  return buildCelestinSystemPrompt(cognitiveMode)
-}
-
 // === CONTEXT BLOCK (driven by cognitive mode) ===
 
 function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'greeting' | 'social'): string {
@@ -211,16 +205,8 @@ function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'gr
     return parts.join('\n\n')
   }
 
-  // --- wine_conversation: profile + questionnaire (no cave, no memories) ---
-  if (cognitiveMode === 'wine_conversation') {
-    if (body.questionnaireProfile) {
-      parts.push(body.questionnaireProfile)
-    }
-    return parts.join('\n\n')
-  }
-
-  // --- restaurant_assistant: profile + questionnaire (image is in the message) ---
-  if (cognitiveMode === 'restaurant_assistant') {
+  // --- wine_conversation / restaurant_assistant: profile + questionnaire only ---
+  if (cognitiveMode === 'wine_conversation' || cognitiveMode === 'restaurant_assistant') {
     if (body.questionnaireProfile) {
       parts.push(body.questionnaireProfile)
     }
@@ -336,7 +322,7 @@ function buildUserPrompt(body: RequestBody, interpretation: TurnInterpretation, 
 
   // Smalltalk / wine culture
   else if (turnType === 'smalltalk' || (turnType === 'context_switch' && cognitiveMode === 'wine_conversation')) {
-    parts.push(`[QUESTION VIN — Reponds avec tes connaissances. PAS de ui_action. Sois concis et opinione.]`)
+    parts.push(`[QUESTION VIN — Reponds avec tes connaissances. PAS de ui_action. Sois concis et opinione. action_chips : questions pour approfondir (cepage, region, domaine), PAS de suggestions de reco cave.]`)
     parts.push(body.message)
   }
 
@@ -346,7 +332,16 @@ function buildUserPrompt(body: RequestBody, interpretation: TurnInterpretation, 
     parts.push(body.message)
   }
 
-  // Task request, task continue, disambiguation answer, unknown — just the message
+  // Unknown — conversational fallback, no cave actions
+  else if (turnType === 'unknown') {
+    parts.push(`[CONVERSATION — Reponds naturellement. PAS de ui_action. action_chips : questions pour approfondir le sujet, PAS de suggestions de reco cave.]`)
+    parts.push(body.message)
+    if (body.image) {
+      parts.push("L'utilisateur a joint une photo. Analyse-la et reponds en fonction de ce que tu vois.")
+    }
+  }
+
+  // Task request, task continue, disambiguation answer — just the message
   else {
     parts.push(body.message)
     if (body.image) {
@@ -862,7 +857,7 @@ Deno.serve(async (req) => {
 
     // Build prompt and context driven by cognitive mode
     const contextBlock = buildContextBlock(body, interpretation.cognitiveMode)
-    const systemPrompt = buildSystemPrompt(interpretation.cognitiveMode) + '\n\n--- CONTEXTE UTILISATEUR ---\n\n' + contextBlock
+    const systemPrompt = buildCelestinSystemPrompt(interpretation.cognitiveMode) + '\n\n--- CONTEXTE UTILISATEUR ---\n\n' + contextBlock
     const userPrompt = buildUserPrompt(body, interpretation, conversationState)
 
     const { provider, response: rawResponse } = await celestinWithFallback(systemPrompt, userPrompt, body.history, body.provider, body.image)
