@@ -29,6 +29,7 @@ import { MULTI_BOTTLE_IMAGE_MAX_SIZE } from '@/lib/image'
 import { track } from '@/lib/track'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
 import { uploadPhoto } from '@/lib/uploadPhoto'
+import { enrichWineAndUpdate } from '@/lib/enrichWine'
 
 type Step = 'capture' | 'extracting' | 'confirm' | 'saving' | 'batch-extracting' | 'batch-confirm'
 
@@ -510,9 +511,21 @@ export default function AddBottle() {
       })
 
       // Keep acquisitions as separate lots; no automatic merge.
-      await insertBottle(bottleData)
+      const { id: bottleId } = await insertBottle(bottleData)
 
       track('bottle_added', { couleur: item.couleur || null, has_photo: true, quantity: item.quantity })
+
+      // If enrichment fields are missing (multi-bottle extraction), enrich async
+      const raw = item.rawExtraction as WineExtraction | null
+      if (raw && !raw.character && !raw.typical_aromas?.length) {
+        enrichWineAndUpdate(bottleId, {
+          domaine: item.domaine,
+          cuvee: item.cuvee,
+          appellation: item.appellation,
+          millesime: item.millesime,
+          couleur: item.couleur,
+        })
+      }
 
       // Mark current item as saved
       const updatedItems = [...batchItems]

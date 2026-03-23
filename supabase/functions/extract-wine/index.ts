@@ -34,11 +34,12 @@ const EXTRACTION_PROMPT = `Analyse cette photo de vin et reponds UNIQUEMENT avec
 
 Regles:
 - S'il n'y a qu'une seule bouteille clairement identifiable, utilise "kind": "single_bottle" et renvoie une seule entree dans "bottles".
-- Si plusieurs bouteilles distinctes sont visibles et lisibles, utilise "kind": "multi_bottle" et renvoie une entree par bouteille identifiable.
+- Si plusieurs bouteilles distinctes sont visibles et lisibles, utilise "kind": "multi_bottle" et renvoie une entree par bouteille identifiable. Identifie CHAQUE bouteille visible, ne rate aucune etiquette lisible.
 - N'invente jamais une bouteille. Si une etiquette est trop floue ou partielle, ignore cette bouteille.
 - Si une information n'est pas visible sur l'etiquette, utilise null.
 - La cuvee est le nom specifique du vin, distinct du domaine et de l'appellation.
 - Pour la couleur, deduis-la de l'appellation si elle n'est pas explicite.
+- IMPORTANT multi-bouteilles : si tu detectes PLUSIEURS bouteilles, remplis uniquement domaine, cuvee, appellation, millesime, couleur, country, region, cepage, confidence. Laisse grape_varieties, serving_temperature, typical_aromas, food_pairings, character, drink_from, drink_until a null.
 
 # Champs enrichis - Reperes de degustation
 
@@ -185,7 +186,7 @@ async function callClaude(imageBase64: string | undefined, imageUrl: string | un
     },
     body: JSON.stringify({
       model,
-      max_tokens: 1800,
+      max_tokens: 2500,
       messages: [{
         role: 'user',
         content: [imageContent, { type: 'text', text: EXTRACTION_PROMPT }],
@@ -231,7 +232,7 @@ async function callGemini(imageBase64: string | undefined): Promise<ExtractionRe
       }],
       generationConfig: {
         temperature: 0,
-        maxOutputTokens: 1800,
+        maxOutputTokens: 2500,
         responseMimeType: 'application/json',
         responseSchema: {
           type: 'OBJECT',

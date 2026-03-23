@@ -44,6 +44,7 @@ Source unique de verite pour les travaux produit/tech.
 ### OCR & Scan
 
 - [ ] Ameliorer la qualite OCR sur cas difficiles (etiquettes inclinees, reflets, faible lumiere)
+- [ ] **Extraction multi-bouteilles** (flag OFF, ENABLE_MULTI_BOTTLE_SCAN = false) — Tentative 2026-03-23 : prompt adaptatif (enrichissement leger si multi) + enrichissement async post-save via enrich-wine. Resultats : detection 6/6 OK mais qualite OCR mauvaise (noms de cuvee inventes, donnees incorrectes). Avant ca : detection 3-4/6 avec ancien prompt. Pistes : augmenter resolution image envoyee, tester prompt dedie multi (separe du single), envoyer chaque bouteille croppee individuellement, ou deux passes (detection zones puis OCR par zone). Code frontend pret (enrichWine.ts, AddBottle.tsx enrichissement fire-and-forget) mais flag reste OFF tant que la qualite n'est pas au rendez-vous. Piege deploy : ne pas oublier --no-verify-jwt au deploy de extract-wine.
 
 ### Celestin — Qualite conversationnelle
 
