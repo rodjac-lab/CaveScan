@@ -307,7 +307,20 @@
     ]
   },
   {
-    "id": "quality_honesty_fake_appellation",
+    "id": "quality_honesty_unknown_term",
+    "type": "conversation",
+    "description": "Honnêteté intellectuelle — ne pas inventer sur un terme inconnu sans contexte",
+    "turns": [
+      {
+        "message": "Tu connais le Premnord ?",
+        "expect": {
+          "uiAction": "none",
+          "responseNotContains": ["savoie", "valais", "suisse", "enfariné", "autochtone", "assemblage", "il donne des vins", "on le trouve"]
+        }
+      }
+    ]
+  },
+  {
     "type": "conversation",
     "description": "Honnêteté intellectuelle — ne pas valider une appellation fictive",
     "turns": [
