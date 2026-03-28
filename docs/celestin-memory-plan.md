@@ -1,591 +1,153 @@
-# Memoire Celestin
+# Mémoire Celestin
 
-## Conversation
+## Vision
 
-### Question
+Celestin ne doit pas "se souvenir" tout seul. Le LLM raisonne sur une mémoire externe organisée en 4 couches :
 
-Donc on peut dire qu'on limite plus les infos qu'on lui donne sur nos gouts et nos souvenirs que sur notre cave?
+1. **Faits** (DB) — cave, dégustations, achats, tags, préférences explicites
+2. **Profil inféré** (calculé) — goûts déduits, sensibilité prix, styles aimés, préférences saisonnières
+3. **Souvenirs** (semantic search) — notes de dégustation, accords réussis, moments marquants
+4. **État conversationnel** (runtime) — sujet courant, shortlist active, contraintes, objectif du tour
 
-### Reponse
-
-Oui, clairement.
-
-C'est meme une bonne maniere de le formuler:
-- sur la cave, on lui donne presque toute la realite utile, bouteille par bouteille
-- sur les gouts et souvenirs, on filtre davantage et on lui donne une version plus synthetique et plus selective
-
-Pourquoi:
-- la cave sert a repondre a des questions factuelles precises
-- les gouts et souvenirs servent surtout a orienter la recommandation et la relation
-- donc ils passent mieux sous forme de profil + souvenirs pertinents que comme historique brut complet
-
-Donc oui:
-- moins de limitation sur la cave
-- plus de limitation sur les gouts et souvenirs
-
-### Question
-
-Elle est solide ta justification "Pourquoi". Honnetement, si on veut que celestin ait une super qualite conversationnel et une bonne connaissance de nos gouts, qu'elle est la meilleure solutions (Dans l'absolu, best in class, fait comme si on etait facebook et qu'on voulait connaitre chaque utilisateur par coeur) que faudrait-il faire?
-
-### Reponse
-
-Oui. Dans l'absolu, la meilleure solution n'est pas "un meilleur prompt". C'est une memoire utilisateur en plusieurs couches, avec mise a jour continue.
-
-La cible best-in-class:
-Il faudrait que Celestin ait en permanence 4 niveaux de connaissance sur chaque utilisateur:
-
-1. Memoire factuelle longue duree
-- cave complete
-- historique complet des achats
-- historique complet des degustations
-- preferences explicites
-- contextes de consommation recurrents
-- personnes, occasions, habitudes
-
-2. Profil infere vivant
-- gouts deduits automatiquement
-- aversions probables
-- styles aimes selon saison, humeur, contexte, budget
-- niveau d'ouverture a la nouveaute
-- sensibilite au prix, au prestige, au rapport qualite-prix
-- preferences stables vs preferences recentes
-
-3. Memoire episodique
-- souvenirs precis et dates
-- "ce champagne avait marque l'anniversaire"
-- "ce rouge avait tres bien marche avec l'osso bucco"
-- "ce producteur avait decu malgre la note attendue"
-
-4. Memoire conversationnelle
-- ce qui vient d'etre dit
-- ce qui a deja ete propose
-- ce que l'utilisateur a valide, rejete, nuance
-- l'etat implicite de la conversation
-
-Ce qu'il faudrait faire techniquement:
-- garder un journal complet d'evenements utilisateur
-  - ajout cave
-  - ouverture
-  - degustation
-  - partage
-  - clic sur reco
-  - refus
-  - achat
-  - rachat
-- construire une couche de memoire structuree au-dessus
-  - preferences stables
-  - preferences recentes
-  - exceptions
-  - contradictions
-- ajouter une memoire semantique interrogeable
-  - embeddings / retrieval sur notes, conversations, souvenirs
-- faire une selection de contexte dynamique
-  - on n'envoie pas tout au modele
-  - on lui envoie ce qui est le plus utile pour la question en cours
-- maintenir un state tracker conversationnel
-  - shortlist active
-  - bouteille discutee
-  - contraintes actuelles
-  - objectif du tour
-
-Le point le plus important:
-Best-in-class, ce n'est pas:
-- "donner plus de texte au LLM"
-
-C'est:
-- construire un systeme de memoire externe
-- puis injecter la bonne memoire au bon moment
-
-En pratique:
-Si vous etiez "Facebook-scale", je ferais:
-- un event store complet utilisateur
-- un profil utilisateur recalcule en continu
-- une memoire episodique indexee
-- un retrieval par intention
-- un orchestrateur qui choisit le bon contexte avant chaque reponse
-- et seulement ensuite le LLM
-
-Conclusion:
-Pour que Celestin connaisse chaque utilisateur "par coeur", il faut le traiter comme un assistant avec:
-- memoire factuelle
-- memoire de gout
-- memoire de souvenirs
-- memoire de conversation
-
-Le LLM ne doit pas etre la memoire.
-Le LLM doit etre le cerveau qui raisonne sur une memoire externe tres bien organisee.
-
-### Question
-
-Je comprends! Et cette memoire externe tres bien organisee, il faudrait la stocker dans notre DB c'est ca?
-
-### Reponse
-
-Oui.
-
-Dans votre cas, la base de donnees doit devenir la source de verite de cette memoire externe.
-
-En pratique:
-- une partie en tables structurees classiques
-- une partie en champs calcules / profils
-- eventuellement une partie indexee pour recherche semantique
-
-Typiquement:
-- bottles
-- tastings
-- user_preferences
-- user_taste_profile
-- conversation_memory
-- memory_events
-- eventuellement une table de memories_embeddings
-
-Donc oui:
-- la memoire ne doit pas vivre dans le prompt
-- elle doit vivre dans votre DB
-- puis etre selectionnee et injectee intelligemment au moment de la reponse
-
-Le prompt sert a cadrer le comportement.
-La DB sert a stocker la connaissance utilisateur.
-
-### Question
-
-Pourquoi tu dis "Dans votre cas"? on a dit best in class, le top, pas de contraintes.
-
-### Reponse
-
-Tu as raison.
-
-Si on parle vraiment best in class absolu, pas "dans votre cas", alors la reponse est:
-
-- oui, il faut une base de donnees
-- mais pas seulement une DB relationnelle classique
-
-Le top du top serait plutot une stack memoire complete, avec plusieurs couches specialisees:
-
-1. Base transactionnelle
-- source de verite des faits utilisateur
-- achats, cave, degustations, preferences explicites, evenements
-
-2. Store analytique / feature store
-- profils calcules
-- scores de preference
-- tendances recentes
-- segments comportementaux
-- signaux temps reel
-
-3. Memoire semantique / vector store
-- notes de degustation
-- souvenirs
-- extraits de conversations
-- situations similaires passees
-- recuperation par similarite
-
-4. Memoire conversationnelle courte duree
-- etat actif de la session
-- contexte des derniers tours
-- elements actuellement discutes
-
-5. Couche d'orchestration memoire
-- decide quoi recuperer
-- quoi resumer
-- quoi injecter
-- quoi garder pour plus tard
-
-Donc si on parle du vrai "best in class":
-- non, ce n'est pas juste "mettre ca dans la DB"
-- c'est construire une architecture memoire multi-systeme
-
-Pourquoi j'ai dit "dans votre cas":
-- parce que pour CaveScan aujourd'hui, la prochaine etape realiste est bien la DB
-- mais tu as raison, ce n'est pas la reponse ultime si on parle du niveau maximal possible
-
-La version absolue serait:
-- DB relationnelle pour les faits
-- vector store pour les souvenirs et le retrieval
-- feature store pour les preferences calculees
-- orchestrateur memoire au-dessus
-
-Donc correction:
-- best in class absolu = pas seulement une DB
-- best in class realiste pour vous aujourd'hui = commencer par structurer beaucoup mieux la memoire dans la DB, puis ajouter du retrieval semantique ensuite
-
-### Question
-
-c'est quoi concretement un vector store? feature store? si ce ne sont pas des db, de quoi s'agit il?
-
-### Reponse
-
-Ce sont quand meme des formes de stockage, mais specialisees.
-
-Vector store:
-- C'est une base optimisee pour retrouver du contenu "proche en sens", pas juste egal a une valeur.
-- On transforme un texte en vecteur numerique via des embeddings.
-- Ensuite on peut chercher:
-  - "retrouve les souvenirs de degustation proches de cette question"
-  - meme si les mots exacts ne sont pas les memes
-
-Exemple:
-- note stockee: "tres beau chenin tendu, superbe avec un poisson sauce beurre blanc"
-- question: "j'avais adore un blanc vif sur un plat de poisson, tu t'en souviens ?"
-- une DB classique ne trouve pas ca bien
-- un vector store, si
-
-Donc:
-- ce n'est pas une base "metier" classique
-- c'est une base de recherche semantique
-
-Feature store:
-- C'est un stockage de variables calculees sur l'utilisateur ou l'objet.
-- Une "feature", c'est un signal exploitable par des modeles ou des regles.
-
-Exemples de features utilisateur:
-- pourcentage de blancs bus en ete
-- note moyenne des pinots noirs
-- propension a racheter des champagnes
-- sensibilite au prix
-- affinite avec la Loire
-- ouverture aux accords audacieux
-
-Ce ne sont pas des evenements bruts.
-Ce sont des indicateurs derives, calcules a partir des donnees brutes.
-
-Donc:
-- un feature store sert a centraliser ces signaux calcules
-- pour qu'ils soient coherents, reutilisables, et mis a jour proprement
-
-Si ce ne sont pas des DB, alors quoi ?
-En pratique, ce sont souvent quand meme des systemes de stockage ou des bases specialisees:
-- un vector store peut etre:
-  - Pinecone
-  - Weaviate
-  - pgvector dans Postgres
-- un feature store peut etre:
-  - une couche dediee type Feast
-  - ou des tables bien organisees dans votre data stack
-
-Donc:
-- ce ne sont pas des concepts "magiques"
-- ce sont des infrastructures specialisees pour des usages precis
-
-En resume:
-- DB classique = stocker les faits
-- vector store = retrouver les souvenirs proches en sens
-- feature store = stocker les signaux calcules utiles a la personnalisation
-
-### Question
-
-Je crois beaucoup a ce que tu as dis sur les 4 niveaux de connaissances et la stack memoire complete. Et donc oui, je veux bien que tu me fasses un schema concret pour que Celestin connaissent ses utilisateurs par coeur et avec la precision d'un best in Class!
-
-### Reponse
-
-Oui. Voici le schema concret que je ferais pour que Celestin tende vers un vrai niveau best-in-class.
-
-Vue d'ensemble:
-Celestin ne doit pas "se souvenir" tout seul.
-Il doit raisonner sur une memoire externe organisee en 4 couches:
-
-1. faits utilisateur
-2. profil infere
-3. souvenirs recuperables
-4. etat conversationnel
-
-1. Base de faits
-C'est la verite brute.
-
-A stocker:
-- utilisateur
-- bouteilles en cave
-- achats
-- ouvertures
-- degustations
-- notes libres
-- tags extraits
-- preferences explicites
-- conversations importantes
-- actions produit
-
-Exemples de tables:
-- users
-- bottles
-- purchases
-- tastings
-- tasting_photos
-- user_preferences
-- conversation_events
-- assistant_feedback
-
-Role:
-- repondre aux questions factuelles
-- recalculer les profils
-- rejouer l'historique si besoin
-
-2. Profil infere
-C'est ce que le systeme deduit sur l'utilisateur.
-
-A calculer en continu:
-- couleurs preferees
-- regions preferees
-- producteurs preferes
-- styles aimes
-- niveau d'audace
-- sensibilite au prix
-- taux de rachat
-- accords qui marchent souvent
-- preferences saisonnieres
-- preferences recentes vs stables
-
-Exemples de stockage:
-- user_taste_profile
-- user_preference_features
-- user_context_features
-
-Exemples de features:
-- likes_loire_whites = high
-- rebuy_champagne_rate = 0.72
-- summer_prefers_white_or_bubbles = true
-- price_sensitivity = medium
-- prefers_classic_pairings = high
-
-Role:
-- guider la recommandation
-- personnaliser sans relire tout l'historique
-
-3. Memoire semantique
-C'est la memoire "souvenir".
-
-A indexer:
-- notes de degustation
-- souvenirs marquants
-- moments de vie
-- extraits de conversation utiles
-- accords reussis ou rates
-- raisons d'aimer ou non un vin
-
-Exemples:
-- "ce vouvray avec le poisson ce soir-la etait superbe"
-- "le barolo avait ete juge trop austere"
-- "le champagne pour l'anniversaire avait marque"
-
-Stockage:
-- table de memoire
-- embeddings associes
-- recherche semantique
-
-Exemples de tables:
-- memory_snippets
-- memory_embeddings
-
-Chaque memoire contiendrait:
-- user_id
-- source_type
-- text
-- importance
-- recency
-- entities detectees
-- embedding
-
-Role:
-- retrouver les bons souvenirs selon la question
-- donner a Celestin une vraie continuite relationnelle
-
-4. Etat conversationnel
-C'est la memoire courte.
-
-A stocker:
-- sujet courant
-- shortlist active
-- bouteille en discussion
-- contrainte en cours
-- objectif du tour
-- dernieres validations / refus
-
-Exemples:
-- "on parle d'un osso bucco"
-- "la shortlist affichee = 3 vins"
-- "l'utilisateur prefere finalement un blanc"
-- "on compare la 2e bouteille"
-
-Exemples de stockage:
-- conversation_sessions
-- conversation_state
-
-Role:
-- eviter que Celestin oublie le fil
-- bien gerer les suivis
-
-Pipeline ideal:
-A chaque message utilisateur:
-
-1. lire l'etat conversationnel court
-2. recuperer les faits utiles
-3. recuperer le profil infere
-4. faire une recherche semantique sur les souvenirs pertinents
-5. construire un contexte compact
-6. envoyer ce contexte au LLM
-7. enregistrer ce qui merite d'etre retenu
-
-Exemple concret:
-Utilisateur:
-- "Je fais une paella, tu me conseilles quoi ?"
-
-Le systeme recupere:
-- cave reelle
-- profil: aime les blancs tendus, evite les rouges tanniques
-- souvenirs: "a adore un blanc salin avec fruits de mer"
-- contexte: un blanc a deja ete propose ou non
-
-Celestin repond alors avec:
-- precision factuelle
-- vraie personnalisation
-- memoire relationnelle
-
-Ce qui va ou:
-- DB classique:
-  - bouteilles
-  - degustations
-  - achats
-  - preferences explicites
-  - sessions
-- Feature store:
-  - scores et preferences calculees
-  - signaux comportementaux
-  - tendances
-- Vector store:
-  - souvenirs
-  - notes
-  - passages de conversation
-  - experiences passees similaires
-
-Version best-in-class:
-Si on pousse au maximum:
-- event store complet
-- profils recalcules en continu
-- memoire semantique avec importance/récence
-- orchestration memoire avant chaque reponse
-- apprentissage des feedbacks implicites
-- separation nette entre:
-  - faits
-  - gouts
-  - souvenirs
-  - conversation
-
-En une phrase:
-Pour que Celestin connaisse ses utilisateurs "par coeur", il faut le batir comme un assistant pilote par une memoire externe multi-couches, pas comme un simple LLM avec un bon prompt.
+Le LLM ne doit pas être la mémoire. Le LLM doit être le cerveau qui raisonne sur une mémoire externe bien organisée.
 
 ## Plan
 
-### V1
+### V1 (quasi terminée)
 
-Objectif: rendre Celestin nettement meilleur sans changer toute l'architecture.
+Objectif : rendre Celestin nettement meilleur sans changer toute l'architecture.
 
-Ce qu'on met en place:
-- garder la cave complete condensee
-- ameliorer le user_taste_profile
-- mieux structurer les preferences explicites
-- mieux extraire les tags de degustation
-- stocker quelques souvenirs "forts" en base
-- ameliorer la selection dynamique des souvenirs selon la question
-- ajouter un vrai etat conversationnel court
+Ce qu'on met en place :
+- Garder la cave complète condensée
+- Améliorer le user_taste_profile
+- Mieux structurer les préférences explicites
+- Mieux extraire les tags de dégustation
+- Stocker quelques souvenirs "forts" en base
+- Améliorer la sélection dynamique des souvenirs selon la question
+- Ajouter un vrai état conversationnel court
 
-Concretement:
-- tables solides pour:
-  - bottles
-  - tastings
-  - user_taste_profiles
-  - user_preferences
-  - conversation_state
-  - memory_snippets
-- Celestin recoit:
-  - cave condensee
-  - profil synthetique
-  - 3 a 5 souvenirs pertinents
-  - etat de conversation actif
+Concrètement :
+- Tables solides pour : bottles, tastings, user_taste_profiles, user_preferences, conversation_state, memory_snippets
+- Celestin reçoit : cave condensée, profil synthétique, 3 à 5 souvenirs pertinents, état de conversation actif
 
-Resultat attendu:
-- meilleure personnalisation
-- meilleurs suivis
-- reponses plus coherentes sur les gouts
+### V2 (implémentée mars 2026)
 
-### V2 (implemente mars 2026)
+Objectif : donner à Celestin une vraie mémoire récupérable, pas seulement des résumés.
 
-Objectif: donner a Celestin une vraie memoire recuperable, pas seulement des resumes.
-
-**Implementation realisee :**
+**Implémentation réalisée :**
 - **pgvector** extension + colonne `embedding vector(1536)` sur `bottles`
 - **OpenAI text-embedding-3-small** via edge function `generate-embedding/` (2 modes : query et save)
-- **Texte composite** embeddé : identite vin + origine + note + tags structures + character
+- **Texte composite** embeddé : identité vin + origine + note + tags structurés + character
 - **RPC `search_memories()`** : score hybride (cosine similarity × 0.6 + rating/sentiment/recency × 0.4)
 - **`selectRelevantMemoriesAsync()`** : try semantic search → fallback keyword matching (zero risque)
-- **Hook fire-and-forget** : embedding genere automatiquement a chaque sauvegarde de note de degustation
+- **Hook fire-and-forget** : embedding généré automatiquement à chaque sauvegarde de note de dégustation
 - **Backfill** via Debug.tsx (44 bouteilles, 0 erreurs)
 
-**Ce qui reste du plan V2 original (non implemente) :**
-- Journal d'evenements utilisateur (memory_events)
-- Embeddings sur conversations (pas seulement degustations)
-- Distinction nette preferences stables vs tendances recentes vs souvenirs marquants
+### Détails techniques implémentés
+
+#### selectRelevantMemories() — scoring keyword
+
+| Mode | Plats | Descripteurs | Keywords |
+|------|-------|-------------|----------|
+| food | ×4 | — | ×2 |
+| wine | — | ×4 | ×2 |
+| generic | ×3 | ×3 | ×2 |
+
+Bonus additionnels :
+- **Identity match** (domaine/appellation/cuvée) : +5 par mot
+- **Tasting note text match** : +2 par mot
+- **Sentiment** : excellent +3, bon +1
+- **Rating** : ≥4★ +1.5, 5★ +1.0 (cumulatif)
+- **Recency** : <30j +1.5, <90j +0.8, <180j +0.3
+- **Sans query** : retourne top-scored proactivement (meilleurs notés, plus récents)
+
+#### searchSemanticMemories() — params
+
+- `similarity_threshold` : 0.3
+- `match_count` par défaut : 7
+- Fallback : si query < 3 chars → keyword direct
+
+#### buildCompositeText() — contenu embeddé
+
+```
+domaine | cuvee | appellation | millesime | couleur
+country, region
+Note: "tasting note"
+Plats: plat1, plat2
+Occasion: occasion
+Sentiment: excellent/bon
+Descripteurs: desc1, desc2
+Keywords: kw1, kw2
+Caractère: character field
+```
+
+#### rankCaveBottles() — formule de scoring
+
+Basé sur `src/lib/recommendationRanking.ts`.
+
+Composantes du score :
+1. **Color weight** (mode + query dépendant) :
+   - Food mode : poisson/fruits de mer → blanc/rosé/bulles +2, rouge -2 ; viande rouge → rouge +2 ; etc.
+   - Wine mode : couleur mentionnée dans la query → +3
+2. **Profile affinity** (max ~2.8) : top appellation +2 décroissant (-0.15×index), top domaine idem, distribution couleur
+3. **Recency penalty** : bouteille exacte bue récemment → -4, même domaine+appellation → -2.5
+4. **Query match** : tokens dans domaine/cuvée/appellation/notes → +0.8/token, cap 2.5
+5. **Generic mode uniquement :**
+   - Temporal : été blanc/rosé/bulles +0.8, hiver rouge +0.8, weekend bulles +0.5
+   - Maturity window : dans fenêtre +1.0, avant drink_from -1.2, après drink_until -0.6
+   - Value : prix > avg×1.35 en semaine → -0.4, prix ≤ avg×0.85 → +0.35
+   - Exploration : couleur ≤10% distribution → +0.45
+
+**Ce qui reste du plan V2 original (non implémenté) :**
+- Journal d'événements utilisateur (memory_events)
+- Embeddings sur conversations (pas seulement dégustations)
+- Distinction nette préférences stables vs tendances récentes vs souvenirs marquants
 - Retrieval par intention (question cave / recommandation / souvenir / comparaison)
 
-Resultat obtenu:
-- "vin italien de Noel" retrouve un Brunello deguste en decembre
+Résultat obtenu :
+- "vin italien de Noël" retrouve un Brunello dégusté en décembre
 - "qu'est-ce qu'on avait bu avec l'osso bucco" retrouve le bon accord
-- fallback transparent si l'embedding echoue
+- fallback transparent si l'embedding échoue
 
 ### V3
 
-Objectif: niveau best-in-class.
+Objectif : niveau best-in-class.
 
-Ce qu'on ajoute:
-- feature store complet
-- profils recalcules en continu
-- segmentation fine des gouts
-- memoire multi-horizon:
-  - court terme
-  - moyen terme
-  - long terme
-- apprentissage sur feedback implicite
-- orchestration memoire avancee avant chaque appel LLM
-- eventuellement modeles specialises pour:
-  - scoring des preferences
-  - importance des souvenirs
-  - detection de changement de gout
+Ce qu'on ajoute :
+- Feature store complet
+- Profils recalculés en continu
+- Segmentation fine des goûts
+- Mémoire multi-horizon (court/moyen/long terme)
+- Apprentissage sur feedback implicite
+- Orchestration mémoire avancée avant chaque appel LLM
+- Éventuellement modèles spécialisés pour : scoring des préférences, importance des souvenirs, détection de changement de goût
 
-Concretement:
-- stack complete:
-  - DB transactionnelle
-  - feature store
-  - vector store
-  - conversation state store
-  - orchestrateur memoire
-- Celestin recoit un contexte assemble sur mesure a chaque tour
-
-Resultat attendu:
-- assistant qui connait tres finement l'utilisateur
-- forte continuite conversationnelle
-- recommandations ultra personnalisees
-- impression qu'il "connait la personne", pas juste sa cave
+Concrètement :
+- Stack complète : DB transactionnelle, feature store, vector store, conversation state store, orchestrateur mémoire
+- Celestin reçoit un contexte assemblé sur mesure à chaque tour
 
 ## Avancement V1 (mars 2026)
 
-V1 quasi terminee. Voici ce qui a ete implemente et valide :
+V1 quasi terminée. Voici ce qui a été implémenté et validé :
 
 ### Fait
-- **Profil de gout enrichi** : agregation des tasting_tags (plats vecus, descripteurs recurrents, occasions typiques) dans ComputedTasteProfile, serialise dans le prompt Celestin
-- **Souvenirs proactifs** : quand aucun souvenir ne matche la question par mot-cle, fallback sur les souvenirs les mieux notes / plus recents / sentiment fort — permet a Celestin de citer spontanement de bonnes experiences
-- **Historique conversationnel enrichi** : les cards de recommandation et les fiches vin (encavage/degustation) sont resumees dans l'historique envoye au LLM, pour que Celestin comprenne "le deuxieme" ou "celui de droite"
-- **Memoire cross-session** : les derniers echanges sont sauves dans localStorage, puis injectes comme contexte lors de la session suivante (rotation automatique, TTL 7 jours)
-- **Prompt relationship** mis a jour pour guider l'utilisation des plats vecus, descripteurs, et de la session precedente
+- **Profil de goût enrichi** : agrégation des tasting_tags (plats vécus, descripteurs récurrents, occasions typiques) dans ComputedTasteProfile, sérialisé dans le prompt Celestin
+- **Souvenirs proactifs** : quand aucun souvenir ne matche la question par mot-clé, fallback sur les souvenirs les mieux notés / plus récents / sentiment fort — permet à Celestin de citer spontanément de bonnes expériences
+- **Historique conversationnel enrichi** : les cards de recommandation et les fiches vin (encavage/dégustation) sont résumées dans l'historique envoyé au LLM, pour que Celestin comprenne "le deuxième" ou "celui de droite"
+- **Mémoire cross-session** : les derniers échanges sont sauvés dans localStorage, puis injectés comme contexte lors de la session suivante (rotation automatique, TTL 7 jours)
+- **Prompt relationship** mis à jour pour guider l'utilisation des plats vécus, descripteurs, et de la session précédente
 
-### Reste a faire (non fondamental)
-- **Preferences explicites (UI)** : le type `ExplicitPreferences` existe (regions aimees/evitees, accords custom, notes libres) et est deja serialise dans le prompt, mais il n'y a aucun ecran pour que l'utilisateur les renseigne. Necessite une UI dans les Reglages. Non bloquant — les donnees vecues (P1 tasting tags) couvrent deja l'essentiel.
-- **Migration memoire cross-session localStorage → Supabase** : le prototype localStorage fonctionne mais ne survit pas a un changement de device ou un clear du navigateur. Migrer vers une table Supabase rendrait la memoire cross-session persistante et multi-device. Non bloquant — la valeur est deja la avec localStorage.
+### Reste à faire (non fondamental)
+- **Préférences explicites (UI)** : le type `ExplicitPreferences` existe (régions aimées/évitées, accords custom, notes libres) et est déjà sérialisé dans le prompt, mais il n'y a aucun écran pour que l'utilisateur les renseigne. Nécessite une UI dans les Réglages. Non bloquant — les données vécues (tasting tags) couvrent déjà l'essentiel.
+- **Migration mémoire cross-session localStorage → Supabase** : le prototype localStorage fonctionne mais ne survit pas à un changement de device ou un clear du navigateur. Migrer vers une table Supabase rendrait la mémoire cross-session persistante et multi-device. Non bloquant — la valeur est déjà là avec localStorage.
 
 ## Recommandation
 
-- V1 quasi terminee — valider en usage reel avant d'aller plus loin
-- V2 ensuite si vous voyez que Celestin devient central dans l'usage
-- V3 seulement si vous voulez construire un vrai moat produit autour de la memoire utilisateur
+- V1 quasi terminée — valider en usage réel avant d'aller plus loin
+- V2 implémentée — semantic search + keyword fallback opérationnels
+- V3 seulement si on veut construire un vrai moat produit autour de la mémoire utilisateur
 
-En une phrase:
-- V1 = bon sommelier personnalise (quasi fait)
-- V2 = sommelier avec memoire reelle
-- V3 = assistant best-in-class qui connait l'utilisateur presque par coeur
+En une phrase :
+- V1 = bon sommelier personnalisé (quasi fait)
+- V2 = sommelier avec mémoire réelle (fait)
+- V3 = assistant best-in-class qui connaît l'utilisateur presque par cœur

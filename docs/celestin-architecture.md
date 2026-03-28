@@ -168,6 +168,18 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
 
 Le Turn Interpreter (`turn-interpreter.ts`) remplace l'ancien `classifyIntent()`. Il utilise le **message**, l'**etat courant**, et le **dernier texte assistant** pour produire une interpretation riche.
 
+### Routing image
+
+Quand `hasImage === true`, le Turn Interpreter route selon le contenu du message :
+
+| Condition message | turnType | cognitiveMode | inferredTaskType |
+|-------------------|----------|---------------|------------------|
+| `/carte\|resto\|restaurant\|menu\|ardoise/i` | task_request | restaurant_assistant | — |
+| Match ENCAVAGE patterns | task_request | cellar_assistant | encavage |
+| Match RECOMMENDATION patterns | task_request | cellar_assistant | recommendation |
+| Match QUESTION / WINE_CULTURE / opinion | smalltalk | wine_conversation | — (no ui_action) |
+| Défaut (aucun match) | task_request | cellar_assistant | — |
+
 ### Logique par etat
 
 ```
@@ -267,7 +279,8 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 | task_cancel | "[L'utilisateur decline — bref, action_chips]" |
 | smalltalk / wine culture | "[QUESTION VIN — connaissances, pas de ui_action]" |
 | context_switch (memory) | "[SOUVENIR — utilise les souvenirs fournis]" |
-| task_request / continue / unknown | Message brut (pas de hint, le LLM decide) |
+| unknown | "Respond naturally. No ui_action. action_chips for deepening subject, NOT cave reco." |
+| task_request / continue | Message brut (pas de hint, le LLM decide) |
 
 ## Response Policy : garde-fous post-LLM
 
@@ -287,9 +300,9 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 | `turn-interpreter.ts` | **NOUVEAU** : Turn Interpreter (remplace classifyIntent) — routing state-aware |
 | `conversation-state.ts` | **NOUVEAU** : types d'etat + transitions (computeNextState) |
 | `prompt-builder.ts` | Assemble le system prompt (concatene les 5 modules) |
-| `rules.ts` | Routing ui_action : quand recommander, encaver, deguster, converser |
+| `rules.ts` | Routing ui_action : quand recommander, encaver, deguster, converser. 2 exports : `CELESTIN_RULES` (complet) + `CELESTIN_RULES_MEMORY_ONLY` (mode tasting_memory) |
 | `persona.ts` | Personnalite : sommelier francais, opinions, ton, interdits |
-| `capabilities.ts` | Ce que Celestin sait faire (recommander, encaver, Q&A vin) |
+| `capabilities.ts` | Ce que Celestin sait faire (recommander, encaver, Q&A vin). Inclus **uniquement** pour `cellar_assistant` |
 | `response-format.ts` | Format JSON attendu avec exemples (cards, extraction, chips) |
 | `wine-codex.ts` | Connaissances vin : accords, temperatures, saisons, styles |
 
@@ -307,6 +320,8 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 | `lib/contextHelpers.ts` | Jour, saison, `resolveBottleIds()`, `formatDrunkSummary()` |
 | `lib/crossSessionMemory.ts` | Persistance sessions (localStorage, rotation, TTL 7j) |
 | `lib/recommendationStore.ts` | Cache prefetch (module-level) |
+| `lib/celestinConversation.ts` | `buildCelestinRequestBody()` — assemble le payload (cave rankée, profil, mémoires, questionnaire, état) |
+| `lib/enrichWine.ts` | Enrichissement async post-save (fire-and-forget) : arômes, accords, température, pays/région, maturité |
 
 ## Providers LLM
 
@@ -314,7 +329,10 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 |-------|----------|--------|----------------|
 | 1 | OpenAI | gpt-4.1-mini | Structured outputs (JSON schema strict), vision |
 | 2 | Anthropic | claude-haiku-4-5 | Meilleur suivi d'instructions, vision |
-| 3 | Google | gemini-2.5-flash | responseSchema natif, vision, thinking budget |
+| 3 | Google | gemini-2.5-flash | responseSchema natif, vision, thinkingBudget 1024 si image / 0 sinon |
+| 4 | Mistral | mistral-small-latest | Uniquement via forcedProvider (mode eval), pas dans la chaîne de prod |
+
+Temperature : 0.5 pour tous les providers.
 
 Chaque provider reconstruit l'historique dans son format natif (messages alternes user/assistant avec images base64).
 
@@ -336,8 +354,15 @@ interface CelestinResponse {
   }
   action_chips?: string[]            // 2-3 suggestions de relance
   _nextState?: ConversationState     // Etat dialogue pour le frontend
+  _debug?: {                         // Toujours inclus dans la reponse
+    turnType: string
+    cognitiveMode: string
+    provider: string
+  }
 }
 ```
+
+**Note :** La réponse HTTP est toujours `200`, même en cas d'erreur (raison : éviter l'échec du CORS preflight sur les 4xx/5xx). En cas d'erreur, seul `{ message }` est renvoyé, sans `ui_action`.
 
 ## Memoire : 4 couches
 

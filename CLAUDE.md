@@ -1,4 +1,46 @@
-# Cavescan - Project Memory
+# Celestin (ex-CaveScan)
+
+## Stack technique
+
+- Frontend : React PWA (Vite, TypeScript, Tailwind, shadcn/ui)
+- Backend : Supabase (Postgres + pgvector, Edge Functions Deno, Auth, Storage)
+- Hosting : Vercel
+- LLM Celestin : GPT-4.1 mini (primaire) → Claude Haiku 4.5 → Gemini 2.5 Flash
+- LLM OCR scan : Gemini 2.5 Flash (primaire en prod) → Claude Haiku 4.5 (fallback)
+- LLM enrichissement : Gemini 2.5 Flash
+
+## Architecture Celestin (résumé)
+
+Message utilisateur → `buildCelestinRequestBody()` (cave rankée + profil + mémoires + questionnaire + état) → Edge function `celestin/` → **Turn Interpreter** (routing déterministe state-aware, pas de LLM) → **Prompt Builder** (system prompt adapté au cognitive mode) → **LLM** (fallback chain 3 providers, temp 0.5) → **Response Policy** (garde-fous déterministes post-LLM) → **computeNextState()** (state machine 6 états) → JSON response avec message + ui_action + action_chips + _nextState.
+
+## Structure Supabase
+
+- Tables principales : bottles, zones, events, user_taste_profiles
+- Edge functions : celestin (--no-verify-jwt), extract-wine (--no-verify-jwt), enrich-wine, extract-tasting-tags, generate-embedding, notify-signup
+- pgvector : colonne embedding vector(1536) sur bottles
+- Deploy : `npx supabase functions deploy <nom> --project-ref flqsprbdcycweshvrcyx`
+
+## Documentation — Lecture IMPÉRATIVE
+
+| Tâche | Docs à lire AVANT |
+|-------|-------------------|
+| Toucher à Celestin (edge function, prompt, routing, state) | `docs/celestin-architecture.md` |
+| Toucher à la mémoire, profil, embeddings, ranking | `docs/celestin-memory-plan.md` |
+| Toucher à l'UI, composants, styles | `docs/design-system.md` |
+| Toucher aux flows utilisateur, navigation, pages | `docs/ux-spec.md` |
+| Comprendre la vision produit, persona, décisions | `docs/prd.md` |
+| Prioriser le travail | `docs/backlog.md` |
+| Conventions de code | `docs/agents.md` |
+
+## Décisions techniques actées
+
+- Celestin : GPT-4.1 mini en primaire (meilleur structured output), fallback Claude puis Gemini
+- OCR scan : Gemini Flash en primaire prod (10× moins cher, suffisant en single-bottle), Claude Haiku en fallback (benchmark fév 2026 : 19/20, légèrement plus fiable). Switch via secret `PRIMARY_PROVIDER`
+- `extract-wine` et `celestin` déployés avec `--no-verify-jwt` (obligatoire, sinon 401)
+- Multi-bouteilles : feature-flagged OFF (`ENABLE_MULTI_BOTTLE_SCAN = false`) — qualité OCR insuffisante
+- Mémoire : semantic search (pgvector) avec fallback keyword matching — zero-risk
+- Cross-session : localStorage TTL 7j, max 4 sessions
+- Rating : demi-étoiles NUMERIC 0.5-5
 
 ## About the User
 
@@ -35,8 +77,8 @@ The user is not a professional developer but is learning quickly and wants to im
 
 When making UI changes, remind the user to test the relevant flows:
 - **Encaver** : photo étiquette → OCR → correction manuelle → choix zone/étagère → sauvegarde
-- **Cheers! (single)** : photo → OCR → match en cave ou hors cave → notes de dégustation → partage
-- **Cheers! (batch)** : sélection multiple → traitement parallèle → revue des résultats → sauvegarde groupée
+- **Déguster (single)** : photo → OCR → match en cave ou hors cave → notes de dégustation → partage
+- **Déguster (batch)** : sélection multiple → traitement parallèle → revue des résultats → sauvegarde groupée
 - **Détail bouteille** : consulter infos, ajouter/modifier notes, photos dégustation, partager
 - **Édition bouteille** : modifier domaine, cuvée, appellation, millésime, emplacement
 - **Réglages** : gestion des zones de stockage (grille lignes × colonnes)
@@ -46,17 +88,6 @@ When making UI changes, remind the user to test the relevant flows:
 - Do not stop until the bug is fully fixed AND verified
 - If fixing one thing might break another, check the connected code
 - Tell the user exactly what you fixed and what they should test
-
-## Documentation de référence
-
-Le dossier `docs/` contient la documentation détaillée du projet. Consulter au besoin :
-- `docs/prd.md` — Vision produit, décisions, cible utilisateur
-- `docs/ux-spec.md` — Spécifications UX et navigation
-- `docs/design-system.md` — Palette, typographie, composants
-- `docs/backlog.md` — Backlog priorisé (P0/P1/P2)
-- `docs/agents.md` — Conventions de code et structure projet
-- `docs/personas.md` — Persona cible (Philippe)
-- `docs/benchmark-ocr-notes.md` — Benchmark OCR (Claude vs Gemini)
 
 ## Règle de fin de session
 

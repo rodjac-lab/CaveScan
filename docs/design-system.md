@@ -181,7 +181,7 @@ Position fixe en bas, avec fond semi-transparent et blur.
 1. Cave (🏠)
 2. Dégustations (📅)
 3. Scanner (📷) — bouton central surélevé (52px), gradient doré, pas de NavLink
-4. Cheers! (😊)
+4. Celestin (😏)
 5. Réglages (⚙️)
 
 ### 5.2 Header d'écran
@@ -278,7 +278,7 @@ Structure :
 - **Color bar** : 3×32px, indique le type de vin
 - **Info** : flex: 1, nom en 13px/500, détail en 11px muted
 - **Quantité** (écran Cave) : Playfair 15px/600 + "btl" en DM Sans 10px
-- **Contexte** (écran Cheers!) : source en 10px
+- **Contexte** (écran Dégustations) : source en 10px
 
 ```css
 .wine-list-item {
@@ -333,7 +333,14 @@ Séparateur horizontal avec texte centré.
 }
 ```
 
-### 5.8 Scan Zone (écran Cheers!)
+### 5.8 Rating demi-étoiles
+
+Support demi-étoiles (0.5 à 5 par incréments de 0.5) :
+- **Input** : tap gauche = demi-étoile, tap droite = étoile pleine
+- **Affichage** : `clip-path: inset(0 50% 0 0)` pour les demi-étoiles
+- **Stockage** : colonne `rating NUMERIC` (migré depuis SMALLINT)
+
+### 5.9 Scan Zone
 
 Carte flottante au-dessus de la nav bar.
 
@@ -417,7 +424,7 @@ Carré arrondi avec croix centrée.
 </svg>
 ```
 
-#### Cheers! (Smiley malicieux) ⭐
+#### Celestin (Smiley malicieux) ⭐
 **Icône signature de l'app** — Visage souriant avec des yeux en tirets horizontaux, donnant une expression malicieuse/complice, comme quelqu'un qui savoure un bon vin.
 
 ```svg
@@ -433,7 +440,7 @@ Carré arrondi avec croix centrée.
 </svg>
 ```
 
-**Note importante** : Les yeux sont des tirets courts (line de 0.01 de long) qui, avec stroke-width: 2 et linecap: round, créent des petits points/tirets. Cette subtilité donne l'expression "yeux plissés" caractéristique d'une dégustation appréciée.
+**Note importante** : Les yeux sont des tirets courts (line de 0.01 de long) qui, avec stroke-width: 2 et linecap: round, créent des petits points/tirets. Cette subtilité donne l'expression "yeux plissés" caractéristique d'une dégustation appréciée. Cette icône sert désormais pour l'onglet **Celestin** (ex "Cheers!").
 
 #### Réglages (Settings)
 Engrenage classique avec cercle central.
@@ -482,7 +489,7 @@ Appareil photo avec objectif central.
 ---
 
 ### Source des icônes
-Les icônes sont basées sur [Feather Icons](https://feathericons.com/) / [Lucide](https://lucide.dev/), avec une personnalisation pour le smiley "Cheers!".
+Les icônes sont basées sur [Feather Icons](https://feathericons.com/) / [Lucide](https://lucide.dev/), avec une personnalisation pour le smiley Celestin.
 
 **⚠️ Ne pas utiliser d'emojis** — Toutes les icônes doivent être des SVG stroke pour garantir la cohérence visuelle et le bon fonctionnement des états actif/inactif avec le changement de couleur.
 
