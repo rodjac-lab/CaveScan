@@ -1,0 +1,1424 @@
+{
+  "metadata": {
+    "name": "CelestinBench - Wine Knowledge Benchmark",
+    "version": "1.0",
+    "date": "2026-03-28",
+    "sources": [
+      "CMS Introductory Sommelier Course Practice Exam (2024)",
+      "CMS Theory Level Comparison - Example Questions (2023)",
+      "Custom expert questions (Celestin-specific scenarios)"
+    ],
+    "total_questions": 100,
+    "categories": {
+      "regions": "Wine regions, geography, climate",
+      "grapes": "Grape varieties, characteristics",
+      "winemaking": "Viticulture, vinification, techniques",
+      "classification": "AOPs, DOCs, classifications, labels",
+      "service": "Food pairing, service, tasting",
+      "spirits": "Spirits, beer, sake",
+      "producers": "Specific producers, estates, history",
+      "advanced": "Expert-level deep knowledge"
+    }
+  },
+  "questions": [
+    {
+      "id": 1,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "The Pays Nantais, Touraine, and Anjou-Saumur regions are all located in which area?",
+      "choices": {
+        "a": "The Loire Valley",
+        "b": "Champagne",
+        "c": "Burgundy",
+        "d": "The Rhône Valley"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 2,
+      "level": "introductory",
+      "category": "grapes",
+      "source": "CMS-intro",
+      "question": "Which of the following is a grape species?",
+      "choices": {
+        "a": "Cabernet Sauvignon",
+        "b": "Vitis vinifera",
+        "c": "Brettanomyces",
+        "d": "Quercus suber"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 3,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "Which mountains create a rain shadow effect for the vineyards of the Mendoza IG?",
+      "choices": {
+        "a": "Sierra Cantabria",
+        "b": "Santa Cruz",
+        "c": "Andes",
+        "d": "Coastal"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 4,
+      "level": "introductory",
+      "category": "classification",
+      "source": "CMS-intro",
+      "question": "Which label term indicates a traditional, theoretically superior vineyard area within a DOC or DOCG?",
+      "choices": {
+        "a": "Frizzante",
+        "b": "Dolce",
+        "c": "Secco",
+        "d": "Classico"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 5,
+      "level": "introductory",
+      "category": "winemaking",
+      "source": "CMS-intro",
+      "question": "Cooler climates generally produce wines with what characteristic?",
+      "choices": {
+        "a": "Elevated acidity",
+        "b": "Higher residual sugar",
+        "c": "Elevated alcohol",
+        "d": "Lower tannins"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 6,
+      "level": "introductory",
+      "category": "winemaking",
+      "source": "CMS-intro",
+      "question": "Winemakers wanting increased butter flavor and creamier texture in white wines promote what process?",
+      "choices": {
+        "a": "Carbonic maceration",
+        "b": "Acidification",
+        "c": "Malolactic fermentation",
+        "d": "Chaptalization"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 7,
+      "level": "introductory",
+      "category": "grapes",
+      "source": "CMS-intro",
+      "question": "The primary grape variety of the Rheingau is which of the following?",
+      "choices": {
+        "a": "Grüner Veltliner",
+        "b": "Riesling",
+        "c": "Spätburgunder",
+        "d": "Müller-Thurgau"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 8,
+      "level": "introductory",
+      "category": "grapes",
+      "source": "CMS-intro",
+      "question": "Which grape variety produces wine with intense aromas of bell pepper and blackcurrant?",
+      "choices": {
+        "a": "Syrah",
+        "b": "Nebbiolo",
+        "c": "Cabernet Sauvignon",
+        "d": "Merlot"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 9,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "Amongst the following California AVAs, which is most renowned for producing sparkling wine?",
+      "choices": {
+        "a": "Calistoga",
+        "b": "Dry Creek",
+        "c": "Paso Robles",
+        "d": "Anderson Valley"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 10,
+      "level": "introductory",
+      "category": "classification",
+      "source": "CMS-intro",
+      "question": "A wine labeled SGN (or Sélection de Grains Nobles) is what type of wine?",
+      "choices": {
+        "a": "Sweet",
+        "b": "Sparkling",
+        "c": "Fortified",
+        "d": "Dry Red"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 11,
+      "level": "introductory",
+      "category": "grapes",
+      "source": "CMS-intro",
+      "question": "Carmenère is most commonly associated with wine produced in which country?",
+      "choices": {
+        "a": "Chile",
+        "b": "United States",
+        "c": "New Zealand",
+        "d": "South Africa"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 12,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "Which of the following regions has the coolest climate?",
+      "choices": {
+        "a": "Châteauneuf-du-Pape",
+        "b": "Barossa Valley",
+        "c": "Mosel",
+        "d": "Napa Valley"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 13,
+      "level": "introductory",
+      "category": "service",
+      "source": "CMS-intro",
+      "question": "The aromas of TCA (or 'corked wine') are generally described as smelling like what?",
+      "choices": {
+        "a": "Spoiled egg and/or struck matchstick",
+        "b": "Moldy cardboard and/or must",
+        "c": "Band-Aid and/or barnyard",
+        "d": "Vinegar and/or nail polish remover"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 14,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "Which DOP in Portugal is most associated with the Alvarinho grape variety?",
+      "choices": {
+        "a": "Vinho Verde",
+        "b": "Maule",
+        "c": "Rueda",
+        "d": "Mendoza"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 15,
+      "level": "introductory",
+      "category": "classification",
+      "source": "CMS-intro",
+      "question": "Château Cheval Blanc is classified as what per the Saint-Émilion Classification of 2012?",
+      "choices": {
+        "a": "Vin Ordinaire",
+        "b": "Gran Reserva",
+        "c": "Premier Grand Cru Classé 'A'",
+        "d": "Kabinett"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 16,
+      "level": "introductory",
+      "category": "winemaking",
+      "source": "CMS-intro",
+      "question": "Alcoholic fermentation requires the interaction of which two elements?",
+      "choices": {
+        "a": "Oak barrels / Dead yeast cells",
+        "b": "Water / Alcoholic spirit",
+        "c": "Sugar / Yeast",
+        "d": "Carbon dioxide / Oxygen"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 17,
+      "level": "introductory",
+      "category": "spirits",
+      "source": "CMS-intro",
+      "question": "Which spirit can be distilled from corn, potatoes, wheat, and/or rice?",
+      "choices": {
+        "a": "Vodka",
+        "b": "Rum",
+        "c": "Brandy",
+        "d": "Tequila"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 18,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "Which country features the Southern Alps mountain range?",
+      "choices": {
+        "a": "Chile",
+        "b": "South Africa",
+        "c": "New Zealand",
+        "d": "Argentina"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 19,
+      "level": "introductory",
+      "category": "classification",
+      "source": "CMS-intro",
+      "question": "What refers to a white Champagne made from Pinot Noir and/or Meunier?",
+      "choices": {
+        "a": "Demi-sec",
+        "b": "Monopole",
+        "c": "Tête du Cuvée",
+        "d": "Blanc de Noirs"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 20,
+      "level": "introductory",
+      "category": "service",
+      "source": "CMS-intro",
+      "question": "Which aspect of wine will make meats and cheeses feel less rich and fatty?",
+      "choices": {
+        "a": "Moderately high tannin",
+        "b": "Bone dry",
+        "c": "Low acid",
+        "d": "Ripe fruit"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 21,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "The primary color(s) of Wachau DAC wine is/are what?",
+      "choices": {
+        "a": "White",
+        "b": "White and Rosé",
+        "c": "Rosé and Red",
+        "d": "Red"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 22,
+      "level": "introductory",
+      "category": "classification",
+      "source": "CMS-intro",
+      "question": "What on a bottle of Rioja DOCa indicates the longest amount of aging before release?",
+      "choices": {
+        "a": "Denominación de Origen Calificada",
+        "b": "Vino",
+        "c": "Gran Reserva",
+        "d": "Tinto"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 23,
+      "level": "introductory",
+      "category": "winemaking",
+      "source": "CMS-intro",
+      "question": "Schist, marl, and silt are types of what?",
+      "choices": {
+        "a": "Vine clones",
+        "b": "Trellising",
+        "c": "Fertilizer",
+        "d": "Soil"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 24,
+      "level": "introductory",
+      "category": "winemaking",
+      "source": "CMS-intro",
+      "question": "Relative to the general harvest timing in Bordeaux, grapes used in the production of Sauternes AOP are picked when?",
+      "choices": {
+        "a": "Early",
+        "b": "At the same time",
+        "c": "Late",
+        "d": "When frozen"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 25,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "Which of the following is located in South Africa?",
+      "choices": {
+        "a": "Marlborough",
+        "b": "Stellenbosch",
+        "c": "Margaret River",
+        "d": "Russian River Valley"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 26,
+      "level": "introductory",
+      "category": "service",
+      "source": "CMS-intro",
+      "question": "Which description most indicates extended barrel and bottle aging of a white wine?",
+      "choices": {
+        "a": "Golden color",
+        "b": "Primary, fresh fruit flavors",
+        "c": "Short finish",
+        "d": "High acid"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 27,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "The Morgon, Moulin-à-Vent, and Brouilly AOPs are all located in which area?",
+      "choices": {
+        "a": "Chablis",
+        "b": "Côte d'Or",
+        "c": "Beaujolais",
+        "d": "Côte Chalonnaise"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 28,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "The climate of the Columbia Valley AVA can best be categorized as what?",
+      "choices": {
+        "a": "Subtropical",
+        "b": "Mediterranean",
+        "c": "Maritime",
+        "d": "Continental"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 29,
+      "level": "introductory",
+      "category": "classification",
+      "source": "CMS-intro",
+      "question": "Which of the following is NEVER a consideration in defining an AOP?",
+      "choices": {
+        "a": "Geographic boundaries",
+        "b": "Production methods",
+        "c": "Price per bottle",
+        "d": "Grape variety"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 30,
+      "level": "introductory",
+      "category": "spirits",
+      "source": "CMS-intro",
+      "question": "Which label term indicates that a sake is unpasteurized?",
+      "choices": {
+        "a": "Daiginjo",
+        "b": "Nigori",
+        "c": "Ginjo",
+        "d": "Namazake"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 31,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "Alto Adige is most known for producing what type of wines?",
+      "choices": {
+        "a": "Sweet, still red",
+        "b": "Dry, still white",
+        "c": "Sweet, sparkling white",
+        "d": "Fortified, aromatized red"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 32,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "Which of the following AOPs features the greatest percentage of steep hillside vineyards?",
+      "choices": {
+        "a": "Côte-Rôtie",
+        "b": "Pauillac",
+        "c": "Puligny-Montrachet",
+        "d": "Champagne"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 33,
+      "level": "introductory",
+      "category": "service",
+      "source": "CMS-intro",
+      "question": "Which wine is a classic pairing with fresh goat cheese?",
+      "choices": {
+        "a": "Barolo",
+        "b": "10-Year Tawny Port",
+        "c": "Sancerre",
+        "d": "Napa Valley Cabernet Sauvignon"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 34,
+      "level": "introductory",
+      "category": "classification",
+      "source": "CMS-intro",
+      "question": "To which fortified wine does the concept of 'Running the Scales' (solera system) apply?",
+      "choices": {
+        "a": "Port",
+        "b": "Muscat de Beaumes-de-Venise",
+        "c": "Madeira",
+        "d": "Sherry"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 35,
+      "level": "introductory",
+      "category": "grapes",
+      "source": "CMS-intro",
+      "question": "Which grape is most commonly associated with white wine production in Argentina?",
+      "choices": {
+        "a": "Albariño",
+        "b": "Torrontés",
+        "c": "Verdejo",
+        "d": "Carricante"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 36,
+      "level": "introductory",
+      "category": "winemaking",
+      "source": "CMS-intro",
+      "question": "What is the removal of unwanted items and damaged fruit from desired grape bunches arriving at the winery after picking?",
+      "choices": {
+        "a": "Maceration",
+        "b": "Fermentation",
+        "c": "Crushing",
+        "d": "Sorting"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 37,
+      "level": "introductory",
+      "category": "grapes",
+      "source": "CMS-intro",
+      "question": "What are the primary grape varieties grown in the Priorat DOCa?",
+      "choices": {
+        "a": "Garnacha / Cariñena",
+        "b": "Torrontés / Verdejo",
+        "c": "Tempranillo / Albariño",
+        "d": "Cabernet Sauvignon / Tempranillo"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 38,
+      "level": "introductory",
+      "category": "classification",
+      "source": "CMS-intro",
+      "question": "What is the minimum number of months of lees aging required to produce Champagne AOP?",
+      "choices": {
+        "a": "6",
+        "b": "9",
+        "c": "12",
+        "d": "36"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 39,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "Tokaji Aszú is a sweet, white wine from which country?",
+      "choices": {
+        "a": "Italy",
+        "b": "United States",
+        "c": "Canada",
+        "d": "Hungary"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 40,
+      "level": "introductory",
+      "category": "spirits",
+      "source": "CMS-intro",
+      "question": "The base material in the production of rum is what?",
+      "choices": {
+        "a": "Grain",
+        "b": "Grapes",
+        "c": "Blue Agave",
+        "d": "Sugarcane"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 41,
+      "level": "introductory",
+      "category": "grapes",
+      "source": "CMS-intro",
+      "question": "Riesling generally produces wines with elevated what?",
+      "choices": {
+        "a": "Alcohol",
+        "b": "Color",
+        "c": "Acidity",
+        "d": "Tannins"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 42,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "What is the local name for the most renowned soil of the Coonawarra GI of Australia?",
+      "choices": {
+        "a": "Terra Rossa",
+        "b": "Galets",
+        "c": "Silex",
+        "d": "Galestro"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 43,
+      "level": "introductory",
+      "category": "grapes",
+      "source": "CMS-intro",
+      "question": "What is the primary grape variety used to produce Chinon AOP?",
+      "choices": {
+        "a": "Cabernet Franc",
+        "b": "Pinot Noir",
+        "c": "Syrah",
+        "d": "Gamay Noir"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 44,
+      "level": "introductory",
+      "category": "classification",
+      "source": "CMS-intro",
+      "question": "Quinta is best defined as what?",
+      "choices": {
+        "a": "Vintage",
+        "b": "Variety",
+        "c": "Vineyard",
+        "d": "Country"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 45,
+      "level": "introductory",
+      "category": "service",
+      "source": "CMS-intro",
+      "question": "At 10 years of age, which red wine would most likely require decanting due to sediment?",
+      "choices": {
+        "a": "Beaujolais-Villages (Gamay Noir)",
+        "b": "Rioja (Tempranillo)",
+        "c": "Chianti (Sangiovese)",
+        "d": "Hermitage (Syrah)"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 46,
+      "level": "introductory",
+      "category": "classification",
+      "source": "CMS-intro",
+      "question": "What color is Vintage Port when bottled?",
+      "choices": {
+        "a": "White",
+        "b": "Pink",
+        "c": "Purple",
+        "d": "Brown"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 47,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "The Maipo Valley DO is located in which country?",
+      "choices": {
+        "a": "Chile",
+        "b": "Spain",
+        "c": "Argentina",
+        "d": "Portugal"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 48,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "The climate of the Champagne AOP can best be categorized as what?",
+      "choices": {
+        "a": "Subtropical",
+        "b": "Mediterranean",
+        "c": "Maritime",
+        "d": "Continental"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 49,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "Which physical feature most affects the vineyards of Pauillac AOP in Bordeaux?",
+      "choices": {
+        "a": "Vosges Mountains",
+        "b": "Gironde Estuary",
+        "c": "Rhône River",
+        "d": "Limousin Forest"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 50,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "Which Italian term refers to the fog that rolls off the Alps into Piedmont vineyards?",
+      "choices": {
+        "a": "Riserva",
+        "b": "Nebbia",
+        "c": "Spumante",
+        "d": "Appassimento"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 51,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "The Kamptal and Kremstal regions are located in which country?",
+      "choices": {
+        "a": "Germany",
+        "b": "France",
+        "c": "Italy",
+        "d": "Austria"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 52,
+      "level": "introductory",
+      "category": "service",
+      "source": "CMS-intro",
+      "question": "Alcohol in wine is perceived as what in the mouth, throat, and chest?",
+      "choices": {
+        "a": "Astringency",
+        "b": "Tartness",
+        "c": "Fruitiness",
+        "d": "Heat"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 53,
+      "level": "introductory",
+      "category": "spirits",
+      "source": "CMS-intro",
+      "question": "Which spirit is most likely to age in oak barrels?",
+      "choices": {
+        "a": "Gin",
+        "b": "Cognac",
+        "c": "Tequila",
+        "d": "Vodka"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 54,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "Which is a prominent sub-region of the Hawke's Bay GI in New Zealand?",
+      "choices": {
+        "a": "Gimblett Gravels",
+        "b": "McLaren Vale",
+        "c": "Marlborough",
+        "d": "Paarl"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 55,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "The predominant soil type found in the Mosel is what?",
+      "choices": {
+        "a": "Volcanic basalt",
+        "b": "Slate",
+        "c": "Gravel",
+        "d": "Limestone / Chalk"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 56,
+      "level": "introductory",
+      "category": "classification",
+      "source": "CMS-intro",
+      "question": "Le Musigny is classified as what?",
+      "choices": {
+        "a": "Village",
+        "b": "First Growth",
+        "c": "Vin de Table",
+        "d": "Grand Cru"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 57,
+      "level": "introductory",
+      "category": "grapes",
+      "source": "CMS-intro",
+      "question": "The majority of Alsace Grand Cru AOP wines are made from what?",
+      "choices": {
+        "a": "A blend of white grape varieties",
+        "b": "A single white grape variety",
+        "c": "A blend of red wine grape varieties",
+        "d": "A single red grape variety"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 58,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-intro",
+      "question": "The Rías Baixas DO produces mostly what type of wines?",
+      "choices": {
+        "a": "Sweet, still red",
+        "b": "Dry, still white",
+        "c": "Sweet, sparkling white",
+        "d": "Fortified, aromatized red"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 59,
+      "level": "introductory",
+      "category": "service",
+      "source": "CMS-intro",
+      "question": "Sugar in food will make wine taste more what?",
+      "choices": {
+        "a": "Tart and/or Bitter",
+        "b": "Fruity",
+        "c": "Aged",
+        "d": "Oaky"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 60,
+      "level": "introductory",
+      "category": "producers",
+      "source": "CMS-intro",
+      "question": "Which person is largely considered the 'Father of Modern Napa Valley'?",
+      "choices": {
+        "a": "Robert Mondavi",
+        "b": "Baron Le Roy",
+        "c": "Piero Antinori",
+        "d": "David Lett"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 61,
+      "level": "introductory",
+      "category": "grapes",
+      "source": "CMS-intro",
+      "question": "Which grape variety produces wine in both Stellenbosch WO and Vouvray AOP?",
+      "choices": {
+        "a": "Riesling",
+        "b": "Pinot Gris",
+        "c": "Chenin Blanc",
+        "d": "Chardonnay"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 62,
+      "level": "certified",
+      "category": "producers",
+      "source": "CMS-comparison",
+      "question": "Which of the following is a producer located in Tuscany?",
+      "choices": {
+        "a": "Ca' del Bosco",
+        "b": "Sassicaia",
+        "c": "Zenato"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 63,
+      "level": "certified",
+      "category": "spirits",
+      "source": "CMS-comparison",
+      "question": "Which European country produces Lambic beer?",
+      "choices": {
+        "a": "France",
+        "b": "Germany",
+        "c": "Czech Republic",
+        "d": "Belgium"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 64,
+      "level": "certified",
+      "category": "spirits",
+      "source": "CMS-comparison",
+      "question": "IBU level generally refers to the what of a beer?",
+      "choices": {
+        "a": "Tartness",
+        "b": "Balance",
+        "c": "Sweetness",
+        "d": "Bitterness"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 65,
+      "level": "introductory",
+      "category": "classification",
+      "source": "CMS-comparison",
+      "question": "Sherry DO wine is aged via what method?",
+      "choices": {
+        "a": "Arrested fermentation",
+        "b": "Solera",
+        "c": "Late harvest",
+        "d": "Secondary fermentation"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 66,
+      "level": "introductory",
+      "category": "classification",
+      "source": "CMS-comparison",
+      "question": "Château Mouton-Rothschild is classified as what per the 1855 Classification of the Médoc and Graves?",
+      "choices": {
+        "a": "Premier Grand Cru Classé 'A'",
+        "b": "Graves AOP",
+        "c": "Grand Cru AOP",
+        "d": "First Growth"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 67,
+      "level": "introductory",
+      "category": "spirits",
+      "source": "CMS-comparison",
+      "question": "What is a primary determiner of quality in the production of all Sake?",
+      "choices": {
+        "a": "Trapping CO2 from a secondary fermentation in bottle",
+        "b": "2 years of aging in new French oak",
+        "c": "The addition of grape spirit to stop fermentation while there is residual sugar",
+        "d": "Percentage of rice polishing"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 68,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-comparison",
+      "question": "Which is an example of an appellation in the Côte de Nuits?",
+      "choices": {
+        "a": "Morgon",
+        "b": "Pauillac",
+        "c": "Cornas",
+        "d": "Gevrey-Chambertin"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 69,
+      "level": "certified",
+      "category": "regions",
+      "source": "CMS-comparison",
+      "question": "What is the predominant soil type found in Chablis Grand Cru Les Clos?",
+      "choices": {
+        "a": "Chalk/Limestone",
+        "b": "Gravel",
+        "c": "Sand",
+        "d": "Slate"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 70,
+      "level": "introductory",
+      "category": "classification",
+      "source": "CMS-comparison",
+      "question": "The terms Kabinett, Spätlese, and Auslese on a label of German wine all refer to what?",
+      "choices": {
+        "a": "Single vineyard source",
+        "b": "Alcohol levels of final wine",
+        "c": "Minimum periods of barrel aging",
+        "d": "Sugar level in grapes at harvest"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 71,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-comparison",
+      "question": "The Wachau DAC is located in which country?",
+      "choices": {
+        "a": "Spain",
+        "b": "Germany",
+        "c": "Austria",
+        "d": "Portugal"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 72,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-comparison",
+      "question": "What is the chief reason for the multiple ownership of portions of single vineyards in Burgundy?",
+      "choices": {
+        "a": "Original AOP requirements",
+        "b": "Historic donations to the Cistercian Monks",
+        "c": "Large vineyard sizes",
+        "d": "Napoléonic Law of Inheritance"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 73,
+      "level": "introductory",
+      "category": "spirits",
+      "source": "CMS-comparison",
+      "question": "Which spirit is flavored with juniper?",
+      "choices": {
+        "a": "Rye",
+        "b": "Gin",
+        "c": "Bourbon",
+        "d": "Rum"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 74,
+      "level": "certified",
+      "category": "spirits",
+      "source": "CMS-comparison",
+      "question": "What is Grappa?",
+      "choices": {
+        "a": "Wine produced from dried grapes",
+        "b": "Vermouth",
+        "c": "Dessert wine",
+        "d": "Pomace brandy"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 75,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-comparison",
+      "question": "What is the principal physical reason Chile has little-to-no phylloxera in its vineyards?",
+      "choices": {
+        "a": "Geographic isolation has prevented louse spread from other countries' vineyards",
+        "b": "Warm growing season kills louse eggs",
+        "c": "Wind blows louse away",
+        "d": "Strong UV rays at high altitude kills adult louse"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 76,
+      "level": "introductory",
+      "category": "grapes",
+      "source": "CMS-comparison",
+      "question": "Which grape variety produces wine in both Barossa Valley GI and Hermitage AOP?",
+      "choices": {
+        "a": "Pinot Noir",
+        "b": "Sauvignon Blanc",
+        "c": "Syrah",
+        "d": "Chardonnay"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 77,
+      "level": "certified",
+      "category": "producers",
+      "source": "CMS-comparison",
+      "question": "Which winery is largely credited as establishing Central Otago as a leading region for Pinot Noir?",
+      "choices": {
+        "a": "Penfolds",
+        "b": "Stag's Leap Wine Cellars",
+        "c": "Felton Road",
+        "d": "Klein Constantia"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 78,
+      "level": "introductory",
+      "category": "grapes",
+      "source": "CMS-comparison",
+      "question": "What is the primary grape variety used to produce Sancerre AOP?",
+      "choices": {
+        "a": "Pinot Gris",
+        "b": "Chardonnay",
+        "c": "Sauvignon Blanc",
+        "d": "Riesling"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 79,
+      "level": "introductory",
+      "category": "classification",
+      "source": "CMS-comparison",
+      "question": "Which category of Champagne AOP is the driest?",
+      "choices": {
+        "a": "Doux",
+        "b": "Brut",
+        "c": "Demi-Sec",
+        "d": "Brut Nature"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 80,
+      "level": "certified",
+      "category": "regions",
+      "source": "CMS-comparison",
+      "question": "Champagne AOP features predominantly what type of soils?",
+      "choices": {
+        "a": "Schist",
+        "b": "Slate",
+        "c": "Gravel",
+        "d": "Limestone / Chalk"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 81,
+      "level": "certified",
+      "category": "producers",
+      "source": "CMS-comparison",
+      "question": "Which winemaker most directly influenced winemaking in Napa Valley?",
+      "choices": {
+        "a": "Dr. Konstantin Frank",
+        "b": "David Lett",
+        "c": "André Tchelistcheff",
+        "d": "Max Schubert"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 82,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-comparison",
+      "question": "Which of the following wine regions is located in Central Italy?",
+      "choices": {
+        "a": "Barbaresco",
+        "b": "Valpolicella",
+        "c": "Brunello di Montalcino",
+        "d": "Etna"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 83,
+      "level": "introductory",
+      "category": "regions",
+      "source": "CMS-comparison",
+      "question": "Which of the following AVAs is located within the Napa Valley?",
+      "choices": {
+        "a": "Finger Lakes",
+        "b": "Carneros",
+        "c": "Willamette Valley",
+        "d": "Oakville"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 84,
+      "level": "advanced",
+      "category": "classification",
+      "source": "CMS-comparison",
+      "question": "Which of the following is integral to the existence of flor (in Sherry production)?",
+      "choices": {
+        "a": "High humidity levels",
+        "b": "Anaerobic environment",
+        "c": "18% or higher alcohol by volume",
+        "d": "12% or lower alcohol by volume"
+      },
+      "answer": "d"
+    },
+    {
+      "id": 85,
+      "level": "advanced",
+      "category": "grapes",
+      "source": "CMS-comparison",
+      "question": "Which grape variety is most commonly found in Red Mountain AVA?",
+      "choices": {
+        "a": "Zinfandel",
+        "b": "Pinot Noir",
+        "c": "Cabernet Sauvignon",
+        "d": "Gamay Noir"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 86,
+      "level": "advanced",
+      "category": "regions",
+      "source": "CMS-comparison",
+      "question": "Which country uses the Controliran (also known as DGO) classification?",
+      "choices": {
+        "a": "Bulgaria",
+        "b": "Romania",
+        "c": "Greece",
+        "d": "Croatia"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 87,
+      "level": "advanced",
+      "category": "regions",
+      "source": "CMS-comparison",
+      "question": "Bekaa Valley is located in which country?",
+      "choices": {
+        "a": "England",
+        "b": "China",
+        "c": "Lebanon",
+        "d": "Israel"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 88,
+      "level": "advanced",
+      "category": "regions",
+      "source": "CMS-comparison",
+      "question": "What is the permitted range of residual sugar allowed for an Extra Brut Champagne?",
+      "choices": {
+        "a": "0-6 g/l",
+        "b": "0-15 g/l",
+        "c": "12-17 g/l",
+        "d": "14-38 g/l"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 89,
+      "level": "advanced",
+      "category": "regions",
+      "source": "CMS-comparison",
+      "question": "Choose the sub-region located in the Rías Baixas DO:",
+      "choices": {
+        "a": "O Rosal",
+        "b": "Gratallops",
+        "c": "Sanlúcar de Barrameda",
+        "d": "Alavesa"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 90,
+      "level": "certified",
+      "category": "regions",
+      "source": "CMS-comparison",
+      "question": "Which region contains the highest altitude vineyards?",
+      "choices": {
+        "a": "Stellenbosch",
+        "b": "La Salta",
+        "c": "Howell Mountain",
+        "d": "Martinborough"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 91,
+      "level": "advanced",
+      "category": "producers",
+      "source": "custom",
+      "question": "Domaine du Prieuré Roch is located in which French wine region?",
+      "choices": {
+        "a": "Languedoc",
+        "b": "Burgundy",
+        "c": "Rhône Valley",
+        "d": "Loire Valley"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 92,
+      "level": "advanced",
+      "category": "producers",
+      "source": "custom",
+      "question": "Henri-Frédéric Roch, co-founder of Domaine Prieuré Roch, was also co-owner of which legendary Burgundy estate?",
+      "choices": {
+        "a": "Domaine Leroy",
+        "b": "Domaine de la Romanée-Conti",
+        "c": "Domaine Leflaive",
+        "d": "Domaine Armand Rousseau"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 93,
+      "level": "advanced",
+      "category": "winemaking",
+      "source": "custom",
+      "question": "Which viticultural practice is Domaine Prieuré Roch most known for pioneering in Burgundy?",
+      "choices": {
+        "a": "Machine harvesting",
+        "b": "Biodynamic viticulture",
+        "c": "Carbonic maceration",
+        "d": "High-density planting"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 94,
+      "level": "advanced",
+      "category": "producers",
+      "source": "custom",
+      "question": "Jayer-Gilles, Marcel Lapierre, and Pierre Overnoy are all associated with which winemaking philosophy?",
+      "choices": {
+        "a": "New World modernist",
+        "b": "Natural wine / minimal intervention",
+        "c": "Flying winemaker movement",
+        "d": "Precision viticulture"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 95,
+      "level": "advanced",
+      "category": "regions",
+      "source": "custom",
+      "question": "The Jura wine region is best known for producing which unique style of wine?",
+      "choices": {
+        "a": "Vin jaune (oxidative style aged under voile)",
+        "b": "Late harvest Riesling",
+        "c": "Amarone-style dried grape wines",
+        "d": "Méthode ancestrale rosé"
+      },
+      "answer": "a"
+    },
+    {
+      "id": 96,
+      "level": "advanced",
+      "category": "grapes",
+      "source": "custom",
+      "question": "Savagnin is the signature white grape variety of which French wine region?",
+      "choices": {
+        "a": "Alsace",
+        "b": "Savoie",
+        "c": "Jura",
+        "d": "Provence"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 97,
+      "level": "advanced",
+      "category": "service",
+      "source": "custom",
+      "question": "When pairing wine with a dish featuring truffle, which wine style is generally most appropriate?",
+      "choices": {
+        "a": "Young, tannic Cabernet Sauvignon",
+        "b": "Aged Pinot Noir from Burgundy",
+        "c": "Off-dry Riesling",
+        "d": "Rosé from Provence"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 98,
+      "level": "advanced",
+      "category": "producers",
+      "source": "custom",
+      "question": "Which of the following producers is NOT associated with Burgundy?",
+      "choices": {
+        "a": "Domaine Coche-Dury",
+        "b": "Domaine Raveneau",
+        "c": "Château Rayas",
+        "d": "Domaine Georges Roumier"
+      },
+      "answer": "c"
+    },
+    {
+      "id": 99,
+      "level": "advanced",
+      "category": "winemaking",
+      "source": "custom",
+      "question": "What does the term 'élevage' refer to in winemaking?",
+      "choices": {
+        "a": "The blending of different vintages",
+        "b": "The aging and maturation process between fermentation and bottling",
+        "c": "The addition of sulfur dioxide before bottling",
+        "d": "The selection of grape clones for planting"
+      },
+      "answer": "b"
+    },
+    {
+      "id": 100,
+      "level": "advanced",
+      "category": "regions",
+      "source": "custom",
+      "question": "In which commune would you find the Grand Cru vineyard 'La Tâche'?",
+      "choices": {
+        "a": "Gevrey-Chambertin",
+        "b": "Vosne-Romanée",
+        "c": "Chambolle-Musigny",
+        "d": "Morey-Saint-Denis"
+      },
+      "answer": "b"
+    }
+  ]
+}

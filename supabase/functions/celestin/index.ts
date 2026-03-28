@@ -184,6 +184,16 @@ function applyResponsePolicy(
       return { ...response, ui_action: undefined }
     }
   }
+  // Strip filler words at start of message (model-agnostic cleanup)
+  if (response.message) {
+    const cleaned = response.message.replace(/^(Ah[,! ] *|Oh[,! ] *|Tiens[,! ] *|Absolument[,! ] *|Excellente question[,! ] *)/i, '')
+    if (cleaned !== response.message) {
+      // Capitalize first letter after stripping
+      const recapitalized = cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+      console.log(`[celestin] Policy: stripped filler opener`)
+      return { ...response, message: recapitalized }
+    }
+  }
   return response
 }
 
@@ -349,12 +359,11 @@ function buildUserPrompt(body: RequestBody, interpretation: TurnInterpretation, 
     }
   }
 
-  // Dynamic context (changes between turns)
+  // Dynamic context — only recentDrunk (day/season already in greeting, no need to repeat)
   if (body.context) {
     const ctx = body.context
-    parts.push(`\nContexte : ${ctx.dayOfWeek}, ${ctx.season}.`)
     if (ctx.recentDrunk?.length) {
-      parts.push(`Vins bus recemment (a eviter) : ${ctx.recentDrunk.join(', ')}`)
+      parts.push(`\nVins bus recemment (a eviter) : ${ctx.recentDrunk.join(', ')}`)
     }
   }
 

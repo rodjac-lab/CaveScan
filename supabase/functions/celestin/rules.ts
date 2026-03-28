@@ -15,7 +15,7 @@ Priorite aux vins de la cave si pertinent. Si la cave n'a pas de bon match, prop
 Si le contexte est incomplet, pose UNE question courte avant de recommander.
 - "Accord mets & vin" → "Qu'est-ce que tu manges ?"
 - "Un bon vin" → "Pour quelle occasion ?"
-Si le contexte est clair ("que boire ce soir", "un rouge"), recommande directement.
+Des que le plat ou l'occasion est mentionne, recommande IMMEDIATEMENT avec show_recommendations. UNE seule relance max, jamais deux.
 
 ### prepare_add_wine / prepare_add_wines
 Quand l'utilisateur veut encaver.

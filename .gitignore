@@ -9,6 +9,7 @@ build/
 .env
 .env.local
 .env.*.local
+benchmark/.env.benchmark
 
 # IDE
 .idea/

@@ -36,6 +36,7 @@ const SOCIAL_ACK = [
 
 const CANCEL = [
   /^(non merci|pas pour moi|[cç]a ira|laisse tomber|tant pis|on oublie|rien|non c'est bon|non rien)[.! ]*$/i,
+  /\b(laisse tomber|tant pis|on oublie)\b/i,
 ]
 
 const RECOMMENDATION = [
@@ -50,15 +51,17 @@ const REFINEMENT = [
 ]
 
 const ENCAVAGE = [
-  /\b(achet[eé]|re[cç]u|command[eé]|encave[rz]?|ajoute[rz]?|arriv[eé]|livr[eé]|ramen[eé]|stocke[rz]?|j'ai pris|j'ai achet[eé])\b/i,
+  /\b(achet[eé]|re[cç]u|command[eé]|encave[rz]?|ajoute[rz]?|arriv[eé]|livr[eé]|ramen[eé]|stocke[rz]?|j'ai pris|j'ai achet[eé])(?:\s|$|[.,!?])/i,
 ]
 
 const TASTING = [
-  /\b(d[eé]gust[eé]|bu |ouvert |go[uû]t[eé]|hier soir|on a bu|note [cç]a|d[ée]gustation)\b/i,
+  /\b(d[eé]gust[eé]|go[uû]t[eé])(?:\s|$|[.,!?])/i,
+  /\b(bu |ouvert |hier soir|on a bu|note [cç]a|d[ée]gustation)\b/i,
 ]
 
 const MEMORY = [
   /\b(tu te souviens|la derni[eè]re fois|chez \w+|on avait bu|rappelle|souvenir)\b/i,
+  /\b(ai[- ]je d[eé]j[aà] bu|d[eé]j[aà] bu|d[eé]j[aà] go[uû]t[eé]|d[eé]j[aà] ouvert)\b/i,
 ]
 
 const WINE_CULTURE = [
@@ -183,8 +186,8 @@ export function interpretTurn(
       return { turnType: 'task_cancel', cognitiveMode: 'social', shouldAllowUiAction: false }
     }
 
-    // Memory recall → context switch out of the collection
-    if (matchesAny(lower, MEMORY)) {
+    // Memory/tasting recall → context switch out of the collection
+    if (matchesAny(lower, MEMORY) || matchesAny(lower, TASTING)) {
       return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
     }
 

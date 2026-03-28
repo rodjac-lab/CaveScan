@@ -29,6 +29,7 @@ function parseArgs(argv) {
     conversations: null,
     outDir: DEFAULT_OUT_DIR,
     dryRun: false,
+    provider: null,
   }
 
   for (let i = 2; i < argv.length; i++) {
@@ -37,6 +38,7 @@ function parseArgs(argv) {
     else if (arg === '--scenarios' && argv[i + 1]) args.scenarios = path.resolve(argv[++i])
     else if (arg === '--conversations' && argv[i + 1]) args.conversations = path.resolve(argv[++i])
     else if (arg === '--out-dir' && argv[i + 1]) args.outDir = path.resolve(argv[++i])
+    else if (arg === '--provider' && argv[i + 1]) args.provider = argv[++i]
     else if (arg === '--dry-run') args.dryRun = true
   }
 
@@ -65,7 +67,7 @@ function loadJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'))
 }
 
-function buildRequestBody(fixture, message, history, conversationState) {
+function buildRequestBody(fixture, message, history, conversationState, provider) {
   return {
     message,
     history,
@@ -74,11 +76,12 @@ function buildRequestBody(fixture, message, history, conversationState) {
     memories: fixture.memories,
     context: fixture.context,
     ...(conversationState ? { conversationState } : {}),
+    ...(provider ? { provider } : {}),
   }
 }
 
 // Legacy: build body from single-turn scenario format
-function buildSingleTurnBody(fixture, scenario) {
+function buildSingleTurnBody(fixture, scenario, provider) {
   const history = (scenario.history ?? fixture.history ?? []).map((turn) => ({
     role: turn.role,
     text: turn.content,
@@ -91,6 +94,7 @@ function buildSingleTurnBody(fixture, scenario) {
     profile: fixture.profile,
     memories: fixture.memories,
     context: fixture.context,
+    ...(provider ? { provider } : {}),
   }
 }
 
@@ -235,6 +239,32 @@ function analyzeTurnResult(turn, response) {
     }
   }
 
+  // Check responseNotContains — verify specific words/phrases do NOT appear
+  if (Array.isArray(turn.expect.responseNotContains)) {
+    const responseText = (response.message ?? '').toLowerCase()
+    for (const term of turn.expect.responseNotContains) {
+      const found = responseText.includes(term.toLowerCase())
+      checks.push({
+        check: 'not_contains',
+        expected: `absent: "${term}"`,
+        actual: found ? 'found (bad)' : 'absent (good)',
+        pass: !found,
+      })
+    }
+  }
+
+  // Check responseMaxLength — verify response isn't too long
+  if (typeof turn.expect.responseMaxLength === 'number') {
+    const len = (response.message ?? '').length
+    const pass = len <= turn.expect.responseMaxLength
+    checks.push({
+      check: 'maxLength',
+      expected: `≤${turn.expect.responseMaxLength}`,
+      actual: `${len}`,
+      pass,
+    })
+  }
+
   return {
     uiActionKind: actualUiAction,
     nextPhase: actualPhase,
@@ -264,7 +294,7 @@ function summarizeAssistantMessage(response) {
   return text
 }
 
-async function runConversation(conversation, fixture, baseUrl, anonKey, dryRun) {
+async function runConversation(conversation, fixture, baseUrl, anonKey, dryRun, provider) {
   const turns = conversation.turns
   const turnResults = []
   let history = []
@@ -277,7 +307,7 @@ async function runConversation(conversation, fixture, baseUrl, anonKey, dryRun) 
     const turn = turns[i]
     console.log(`    Turn ${i + 1}/${turns.length}: "${turn.message}"`)
 
-    const body = buildRequestBody(fixture, turn.message, history, conversationState)
+    const body = buildRequestBody(fixture, turn.message, history, conversationState, provider)
 
     if (dryRun) {
       turnResults.push({
@@ -604,6 +634,10 @@ async function main() {
 
   ensureDir(args.outDir)
 
+  if (args.provider) {
+    console.log(`\n🔧 Forced provider: ${args.provider}`)
+  }
+
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
   const singleResults = []
   const conversationResults = []
@@ -612,7 +646,7 @@ async function main() {
   if (scenarios && scenarios.length > 0) {
     console.log(`\n=== Single-turn scenarios (${scenarios.length}) ===`)
     for (const scenario of scenarios) {
-      const body = buildSingleTurnBody(fixture, scenario)
+      const body = buildSingleTurnBody(fixture, scenario, args.provider)
       console.log(`Running ${scenario.id}: ${scenario.message}`)
       if (args.dryRun) {
         singleResults.push({
@@ -665,7 +699,7 @@ async function main() {
   if (conversations && conversations.length > 0) {
     console.log(`\n=== Multi-turn conversations (${conversations.length}) ===`)
     for (const conversation of conversations) {
-      const result = await runConversation(conversation, fixture, supabaseUrl, supabaseAnonKey, args.dryRun)
+      const result = await runConversation(conversation, fixture, supabaseUrl, supabaseAnonKey, args.dryRun, args.provider)
       conversationResults.push(result)
     }
 

@@ -2,10 +2,16 @@
   {
     "id": "reco_merci",
     "type": "conversation",
-    "description": "Reco → merci → idle, pas de re-reco",
+    "description": "Reco vague → relance ou reco directe acceptées → merci → idle",
     "turns": [
       {
         "message": "Que boire ce soir ?",
+        "expect": {
+          "uiAction": null
+        }
+      },
+      {
+        "message": "Un truc léger, en rouge",
         "expect": {
           "uiAction": "show_recommendations",
           "nextPhase": "post_task_ack"
@@ -23,10 +29,16 @@
   {
     "id": "reco_refinement",
     "type": "conversation",
-    "description": "Reco → refinement en blanc → nouvelles cartes",
+    "description": "Reco vague → relance → précision → cartes → refinement blanc",
     "turns": [
       {
         "message": "Je cherche un vin pour ce soir",
+        "expect": {
+          "uiAction": null
+        }
+      },
+      {
+        "message": "Ce soir c'est poulet rôti",
         "expect": {
           "uiAction": "show_recommendations",
           "nextPhase": "post_task_ack"
@@ -44,27 +56,24 @@
   {
     "id": "reco_merci_culture",
     "type": "conversation",
-    "description": "Reco → merci → question culture vin → texte sans cartes",
+    "description": "Reco ou relance → merci → question culture vin → texte sans cartes",
     "turns": [
       {
         "message": "Qu'est-ce que j'ouvre ce soir ?",
         "expect": {
-          "uiAction": "show_recommendations",
-          "nextPhase": "post_task_ack"
+          "uiAction": null
         }
       },
       {
         "message": "Merci !",
         "expect": {
-          "uiAction": "none",
-          "nextPhase": "idle_smalltalk"
+          "uiAction": "none"
         }
       },
       {
         "message": "Au fait, c'est quoi le chenin ?",
         "expect": {
-          "uiAction": "none",
-          "nextPhase": null
+          "uiAction": "none"
         }
       }
     ]
@@ -72,13 +81,12 @@
   {
     "id": "reco_cancel",
     "type": "conversation",
-    "description": "Reco → annulation → retour idle",
+    "description": "Reco vague → relance ou reco acceptées → annulation → retour idle",
     "turns": [
       {
         "message": "Qu'est-ce que je pourrais ouvrir ?",
         "expect": {
-          "uiAction": "show_recommendations",
-          "nextPhase": "post_task_ack"
+          "uiAction": null
         }
       },
       {
@@ -93,20 +101,18 @@
   {
     "id": "encavage_flow",
     "type": "conversation",
-    "description": "Encavage conversationnel — collecte d'infos progressive",
+    "description": "Encavage conversationnel — 'acheté' doit router vers cellar_assistant et encaver",
     "turns": [
       {
         "message": "J'ai acheté du vin aujourd'hui",
         "expect": {
-          "uiAction": null,
-          "nextPhase": null
+          "cognitiveMode": "cellar_assistant"
         }
       },
       {
         "message": "Un Sancerre 2023 du Domaine Vacheron",
         "expect": {
-          "uiAction": null,
-          "nextPhase": null
+          "uiAction": "prepare_add_wine"
         }
       }
     ]
@@ -191,13 +197,12 @@
   {
     "id": "reco_then_memory",
     "type": "conversation",
-    "description": "Reco → question souvenir — le mode doit switcher vers tasting_memory",
+    "description": "Reco ou relance → question souvenir — le mode doit switcher vers tasting_memory",
     "turns": [
       {
         "message": "Qu'est-ce que j'ouvre ce soir ?",
         "expect": {
-          "uiAction": "show_recommendations",
-          "nextPhase": "post_task_ack"
+          "uiAction": null
         }
       },
       {
@@ -260,6 +265,190 @@
         "expect": {
           "uiAction": "none",
           "responseContains": ["4"]
+        }
+      }
+    ]
+  },
+
+  {
+    "id": "quality_prieure_roch",
+    "type": "conversation",
+    "description": "Connaissance vin — Prieuré Roch doit être placé en Bourgogne, pas Languedoc",
+    "turns": [
+      {
+        "message": "Tu connais le Domaine Prieuré Roch ?",
+        "expect": {
+          "uiAction": "none",
+          "responseContains": ["bourgogne"],
+          "responseNotContains": ["languedoc", "rhône", "rhone", "loire"]
+        }
+      },
+      {
+        "message": "Ils sont en biodynamie non ?",
+        "expect": {
+          "uiAction": "none",
+          "responseNotContains": ["ne suis pas sûr", "ne sais pas si", "pas certain"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "quality_honesty_fake_domaine",
+    "type": "conversation",
+    "description": "Honnêteté intellectuelle — ne pas inventer de faits sur un domaine fictif",
+    "turns": [
+      {
+        "message": "Tu connais le Domaine de la Lune Bleue en Bourgogne ?",
+        "expect": {
+          "uiAction": "none",
+          "responseNotContains": ["grand cru", "premier cru", "pinot noir", "chardonnay", "hectare"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "quality_honesty_fake_appellation",
+    "type": "conversation",
+    "description": "Honnêteté intellectuelle — ne pas valider une appellation fictive",
+    "turns": [
+      {
+        "message": "C'est quoi l'appellation Côtes du Premnord ?",
+        "expect": {
+          "uiAction": "none",
+          "responseNotContains": ["cette appellation", "cette aoc", "ce terroir", "situé"]
+        }
+      },
+      {
+        "message": "Et sur la carte du restaurant Le Premnord, tu recommanderais quoi ?",
+        "expect": {
+          "uiAction": "none",
+          "responseNotContains": ["premnord est une", "appellation premnord"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "quality_no_season_parrot",
+    "type": "conversation",
+    "description": "Anti-répétition — ne pas mentionner la saison/jour à chaque tour",
+    "turns": [
+      {
+        "message": "Qu'est-ce que j'ouvre ce soir ?",
+        "expect": {
+          "uiAction": null
+        }
+      },
+      {
+        "message": "Merci ! Et sinon, c'est quoi un vin orange ?",
+        "expect": {
+          "uiAction": "none",
+          "responseNotContains": ["printemps", "samedi", "vendredi", "saison"]
+        }
+      },
+      {
+        "message": "Intéressant. Et la biodynamie, c'est sérieux ou c'est du marketing ?",
+        "expect": {
+          "uiAction": "none",
+          "responseNotContains": ["printemps", "samedi", "vendredi", "saison"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "quality_no_cave_leak",
+    "type": "conversation",
+    "description": "Pertinence — question culture générale vin, ne pas ramener à la cave sans raison",
+    "turns": [
+      {
+        "message": "C'est quoi la différence entre un Barolo et un Barbaresco ?",
+        "expect": {
+          "uiAction": "none",
+          "responseContains": ["nebbiolo"],
+          "responseNotContains": ["ta cave", "dans ta cave", "tu as"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "quality_no_ah_opener",
+    "type": "conversation",
+    "description": "Style — jamais de 'Ah' en début de message, sur 3 questions successives",
+    "turns": [
+      {
+        "message": "Parle-moi du Jura",
+        "expect": {
+          "uiAction": "none",
+          "responseNotContains": ["ah,", "ah "],
+          "responseContains": ["jura"]
+        }
+      },
+      {
+        "message": "Et le vin jaune, c'est quoi exactement ?",
+        "expect": {
+          "uiAction": "none",
+          "responseNotContains": ["ah,", "ah "]
+        }
+      },
+      {
+        "message": "C'est vrai que le savagnin et le traminer c'est le même cépage ?",
+        "expect": {
+          "uiAction": "none",
+          "responseNotContains": ["ah,", "ah "]
+        }
+      }
+    ]
+  },
+  {
+    "id": "quality_concise_responses",
+    "type": "conversation",
+    "description": "Concision — les réponses ne doivent pas être des dissertations",
+    "turns": [
+      {
+        "message": "C'est quoi le chenin ?",
+        "expect": {
+          "uiAction": "none",
+          "responseMaxLength": 600
+        }
+      },
+      {
+        "message": "Et le gamay ?",
+        "expect": {
+          "uiAction": "none",
+          "responseMaxLength": 600
+        }
+      }
+    ]
+  },
+  {
+    "id": "quality_direct_answer",
+    "type": "conversation",
+    "description": "Réponse directe — commence par l'info demandée, pas par du fluff",
+    "turns": [
+      {
+        "message": "Quelle température pour servir un Morgon ?",
+        "expect": {
+          "uiAction": "none",
+          "responseMaxLength": 500
+        }
+      },
+      {
+        "message": "Et un Champagne ?",
+        "expect": {
+          "uiAction": "none",
+          "responseMaxLength": 500
+        }
+      }
+    ]
+  },
+  {
+    "id": "quality_no_permission_seeking",
+    "type": "conversation",
+    "description": "Raclette — doit recommander directement, pas demander permission",
+    "turns": [
+      {
+        "message": "Ce soir c'est raclette",
+        "expect": {
+          "uiAction": "show_recommendations"
         }
       }
     ]

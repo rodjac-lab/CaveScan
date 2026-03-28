@@ -1,0 +1,777 @@
+{
+  "date": "2026-03-28T11:23:42.774Z",
+  "questionsCount": 100,
+  "results": [
+    {
+      "model": {
+        "id": "gemini-pro",
+        "label": "Gemini 2.5 Pro",
+        "provider": "google",
+        "model": "gemini-2.5-pro"
+      },
+      "scores": {
+        "total": 100,
+        "correct": 99,
+        "pct": 99,
+        "byLevel": {
+          "introductory": {
+            "correct": 75,
+            "total": 75,
+            "pct": 100
+          },
+          "certified": {
+            "correct": 9,
+            "total": 9,
+            "pct": 100
+          },
+          "advanced": {
+            "correct": 15,
+            "total": 16,
+            "pct": 94
+          }
+        },
+        "byCategory": {
+          "regions": {
+            "correct": 37,
+            "total": 37,
+            "pct": 100
+          },
+          "grapes": {
+            "correct": 14,
+            "total": 14,
+            "pct": 100
+          },
+          "classification": {
+            "correct": 15,
+            "total": 16,
+            "pct": 94
+          },
+          "winemaking": {
+            "correct": 8,
+            "total": 8,
+            "pct": 100
+          },
+          "service": {
+            "correct": 8,
+            "total": 8,
+            "pct": 100
+          },
+          "spirits": {
+            "correct": 9,
+            "total": 9,
+            "pct": 100
+          },
+          "producers": {
+            "correct": 8,
+            "total": 8,
+            "pct": 100
+          }
+        },
+        "avgLatencyMs": 5899,
+        "errors": 0
+      },
+      "details": [
+        {
+          "questionId": 1,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 6907,
+          "raw": "a"
+        },
+        {
+          "questionId": 2,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 4473,
+          "raw": "b"
+        },
+        {
+          "questionId": 3,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 5649,
+          "raw": "c"
+        },
+        {
+          "questionId": 4,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 5635,
+          "raw": "d"
+        },
+        {
+          "questionId": 5,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 7873,
+          "raw": "a"
+        },
+        {
+          "questionId": 6,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 5219,
+          "raw": "c"
+        },
+        {
+          "questionId": 7,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 4945,
+          "raw": "b"
+        },
+        {
+          "questionId": 8,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 5064,
+          "raw": "c"
+        },
+        {
+          "questionId": 9,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 5343,
+          "raw": "d"
+        },
+        {
+          "questionId": 10,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 6248,
+          "raw": "a"
+        },
+        {
+          "questionId": 11,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 3734,
+          "raw": "a"
+        },
+        {
+          "questionId": 12,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 6211,
+          "raw": "c"
+        },
+        {
+          "questionId": 13,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 5707,
+          "raw": "b"
+        },
+        {
+          "questionId": 14,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 5627,
+          "raw": "a"
+        },
+        {
+          "questionId": 15,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 8087,
+          "raw": "c"
+        },
+        {
+          "questionId": 16,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 3576,
+          "raw": "c"
+        },
+        {
+          "questionId": 17,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 4299,
+          "raw": "a"
+        },
+        {
+          "questionId": 18,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 3383,
+          "raw": "c"
+        },
+        {
+          "questionId": 19,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 4204,
+          "raw": "d"
+        },
+        {
+          "questionId": 20,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 8977,
+          "raw": "a"
+        },
+        {
+          "questionId": 21,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 6056,
+          "raw": "a"
+        },
+        {
+          "questionId": 22,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 6762,
+          "raw": "c"
+        },
+        {
+          "questionId": 23,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 4609,
+          "raw": "d"
+        },
+        {
+          "questionId": 24,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 6858,
+          "raw": "c"
+        },
+        {
+          "questionId": 25,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 4343,
+          "raw": "b"
+        },
+        {
+          "questionId": 26,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 6895,
+          "raw": "a"
+        },
+        {
+          "questionId": 27,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 6468,
+          "raw": "c"
+        },
+        {
+          "questionId": 28,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 5315,
+          "raw": "d"
+        },
+        {
+          "questionId": 29,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 6202,
+          "raw": "c"
+        },
+        {
+          "questionId": 30,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 5071,
+          "raw": "d"
+        },
+        {
+          "questionId": 31,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 7512,
+          "raw": "b"
+        },
+        {
+          "questionId": 32,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 7340,
+          "raw": "a"
+        },
+        {
+          "questionId": 33,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 6962,
+          "raw": "c"
+        },
+        {
+          "questionId": 34,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 8566,
+          "raw": "d"
+        },
+        {
+          "questionId": 35,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 4877,
+          "raw": "b"
+        },
+        {
+          "questionId": 36,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 4275,
+          "raw": "d"
+        },
+        {
+          "questionId": 37,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 6756,
+          "raw": "a"
+        },
+        {
+          "questionId": 38,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 5558,
+          "raw": "c"
+        },
+        {
+          "questionId": 39,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 4467,
+          "raw": "d"
+        },
+        {
+          "questionId": 40,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 2972,
+          "raw": "d"
+        },
+        {
+          "questionId": 41,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 5935,
+          "raw": "c"
+        },
+        {
+          "questionId": 42,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 5931,
+          "raw": "a"
+        },
+        {
+          "questionId": 43,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 5788,
+          "raw": "a"
+        },
+        {
+          "questionId": 44,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 5202,
+          "raw": "c"
+        },
+        {
+          "questionId": 45,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 9399,
+          "raw": "d"
+        },
+        {
+          "questionId": 46,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 4958,
+          "raw": "c"
+        },
+        {
+          "questionId": 47,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 3614,
+          "raw": "a"
+        },
+        {
+          "questionId": 48,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 5532,
+          "raw": "d"
+        },
+        {
+          "questionId": 49,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 6761,
+          "raw": "b"
+        },
+        {
+          "questionId": 50,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 5077,
+          "raw": "b"
+        },
+        {
+          "questionId": 51,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 3857,
+          "raw": "d"
+        },
+        {
+          "questionId": 52,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 5743,
+          "raw": "d"
+        },
+        {
+          "questionId": 53,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 4975,
+          "raw": "b"
+        },
+        {
+          "questionId": 54,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 7006,
+          "raw": "a"
+        },
+        {
+          "questionId": 55,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 6815,
+          "raw": "b"
+        },
+        {
+          "questionId": 56,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 4505,
+          "raw": "d"
+        },
+        {
+          "questionId": 57,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 6560,
+          "raw": "b"
+        },
+        {
+          "questionId": 58,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 5117,
+          "raw": "b"
+        },
+        {
+          "questionId": 59,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 5109,
+          "raw": "a"
+        },
+        {
+          "questionId": 60,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 6527,
+          "raw": "a"
+        },
+        {
+          "questionId": 61,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 6796,
+          "raw": "c"
+        },
+        {
+          "questionId": 62,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 4061,
+          "raw": "b"
+        },
+        {
+          "questionId": 63,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 7821,
+          "raw": "d"
+        },
+        {
+          "questionId": 64,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 3560,
+          "raw": "d"
+        },
+        {
+          "questionId": 65,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 6361,
+          "raw": "b"
+        },
+        {
+          "questionId": 66,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 5733,
+          "raw": "d"
+        },
+        {
+          "questionId": 67,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 6353,
+          "raw": "d"
+        },
+        {
+          "questionId": 68,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 4881,
+          "raw": "d"
+        },
+        {
+          "questionId": 69,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 7292,
+          "raw": "a"
+        },
+        {
+          "questionId": 70,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 7785,
+          "raw": "d"
+        },
+        {
+          "questionId": 71,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 4085,
+          "raw": "c"
+        },
+        {
+          "questionId": 72,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 8364,
+          "raw": "d"
+        },
+        {
+          "questionId": 73,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 3912,
+          "raw": "b"
+        },
+        {
+          "questionId": 74,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 4611,
+          "raw": "d"
+        },
+        {
+          "questionId": 75,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 6856,
+          "raw": "a"
+        },
+        {
+          "questionId": 76,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 7167,
+          "raw": "c"
+        },
+        {
+          "questionId": 77,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 6557,
+          "raw": "c"
+        },
+        {
+          "questionId": 78,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 6550,
+          "raw": "c"
+        },
+        {
+          "questionId": 79,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 6984,
+          "raw": "d"
+        },
+        {
+          "questionId": 80,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 6423,
+          "raw": "d"
+        },
+        {
+          "questionId": 81,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 6041,
+          "raw": "c"
+        },
+        {
+          "questionId": 82,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 6024,
+          "raw": "c"
+        },
+        {
+          "questionId": 83,
+          "modelAnswer": "d",
+          "correct": true,
+          "latencyMs": 9298,
+          "raw": "d"
+        },
+        {
+          "questionId": 84,
+          "modelAnswer": "a",
+          "correct": false,
+          "latencyMs": 8431,
+          "raw": "a"
+        },
+        {
+          "questionId": 85,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 4910,
+          "raw": "c"
+        },
+        {
+          "questionId": 86,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 5529,
+          "raw": "a"
+        },
+        {
+          "questionId": 87,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 3994,
+          "raw": "c"
+        },
+        {
+          "questionId": 88,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 5592,
+          "raw": "a"
+        },
+        {
+          "questionId": 89,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 5768,
+          "raw": "a"
+        },
+        {
+          "questionId": 90,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 5622,
+          "raw": "b"
+        },
+        {
+          "questionId": 91,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 6443,
+          "raw": "b"
+        },
+        {
+          "questionId": 92,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 7273,
+          "raw": "b"
+        },
+        {
+          "questionId": 93,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 9617,
+          "raw": "b"
+        },
+        {
+          "questionId": 94,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 8604,
+          "raw": "b"
+        },
+        {
+          "questionId": 95,
+          "modelAnswer": "a",
+          "correct": true,
+          "latencyMs": 4489,
+          "raw": "a"
+        },
+        {
+          "questionId": 96,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 4102,
+          "raw": "c"
+        },
+        {
+          "questionId": 97,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 5927,
+          "raw": "b"
+        },
+        {
+          "questionId": 98,
+          "modelAnswer": "c",
+          "correct": true,
+          "latencyMs": 6125,
+          "raw": "c"
+        },
+        {
+          "questionId": 99,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 5860,
+          "raw": "b"
+        },
+        {
+          "questionId": 100,
+          "modelAnswer": "b",
+          "correct": true,
+          "latencyMs": 4695,
+          "raw": "b"
+        }
+      ]
+    }
+  ]
+}
