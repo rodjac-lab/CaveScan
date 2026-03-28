@@ -813,11 +813,12 @@ async function celestinWithFallback(systemPrompt: string, userPrompt: string, hi
     return { provider: selected.name, response }
   }
 
+  // Provider chain: Gemini Flash (primary) → GPT-4.1 mini (fallback)
+  // Claude and Mistral kept in code but not in chain (available via forcedProvider for eval)
   const providers: Array<{ name: string; call: () => Promise<CelestinResponse> }> = []
 
-  if (OPENAI_API_KEY) providers.push({ name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history, image) })
-  if (ANTHROPIC_API_KEY) providers.push({ name: 'Claude', call: () => callClaude(systemPrompt, userPrompt, history, image) })
   if (GEMINI_API_KEY) providers.push({ name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history, image) })
+  if (OPENAI_API_KEY) providers.push({ name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history, image) })
 
   if (providers.length === 0) {
     throw new Error('No API keys configured.')
