@@ -159,42 +159,49 @@ function detectMediaType(base64: string): 'image/jpeg' | 'image/png' {
 
 // === RESPONSE POLICY (post-generation guard) ===
 
+function stripFillerOpener(message: string): string {
+  const cleaned = message.replace(/^(Ah[,! ] *|Oh[,! ] *|Tiens[,! ] *|Absolument[,! ] *|Excellente question[,! ] *)/i, '')
+  if (cleaned !== message) {
+    console.log(`[celestin] Policy: stripped filler opener`)
+    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+  }
+  return message
+}
+
 function applyResponsePolicy(
   response: CelestinResponse,
   interpretation: TurnInterpretation,
   lastAssistantText?: string,
   messageLength?: number,
 ): CelestinResponse {
+  let result = { ...response }
+
+  // Strip filler words at start of message (model-agnostic cleanup, always applied)
+  if (result.message) {
+    result.message = stripFillerOpener(result.message)
+  }
+
   // Primary: Turn Interpreter decision
-  if (!interpretation.shouldAllowUiAction && response.ui_action) {
-    console.log(`[celestin] Policy: stripped ui_action (${response.ui_action.kind}) — turnType=${interpretation.turnType}, mode=${interpretation.cognitiveMode}`)
-    return { ...response, ui_action: undefined }
+  if (!interpretation.shouldAllowUiAction && result.ui_action) {
+    console.log(`[celestin] Policy: stripped ui_action (${result.ui_action.kind}) — turnType=${interpretation.turnType}, mode=${interpretation.cognitiveMode}`)
+    result.ui_action = undefined
   }
   // Fallback safety net: prevent re-reco on very short messages after a reco
   const hadRecentReco = lastAssistantText?.includes('[Vins proposés')
-  if (hadRecentReco && (messageLength ?? 0) < 15 && response.ui_action?.kind === 'show_recommendations') {
+  if (hadRecentReco && (messageLength ?? 0) < 15 && result.ui_action?.kind === 'show_recommendations') {
     console.log('[celestin] Policy: fallback — stripped re-reco on very short post-reco message')
-    return { ...response, ui_action: undefined }
+    result.ui_action = undefined
   }
   // Strip premature prepare_add_wine with incomplete extraction (no domaine AND no appellation)
-  if (response.ui_action?.kind === 'prepare_add_wine' || response.ui_action?.kind === 'prepare_log_tasting') {
-    const ext = response.ui_action.payload.extraction
+  if (result.ui_action?.kind === 'prepare_add_wine' || result.ui_action?.kind === 'prepare_log_tasting') {
+    const ext = result.ui_action.payload.extraction
     if (!ext?.domaine && !ext?.appellation) {
-      console.log(`[celestin] Policy: stripped ${response.ui_action.kind} — extraction too incomplete (no domaine, no appellation)`)
-      return { ...response, ui_action: undefined }
+      console.log(`[celestin] Policy: stripped ${result.ui_action.kind} — extraction too incomplete (no domaine, no appellation)`)
+      result.ui_action = undefined
     }
   }
-  // Strip filler words at start of message (model-agnostic cleanup)
-  if (response.message) {
-    const cleaned = response.message.replace(/^(Ah[,! ] *|Oh[,! ] *|Tiens[,! ] *|Absolument[,! ] *|Excellente question[,! ] *)/i, '')
-    if (cleaned !== response.message) {
-      // Capitalize first letter after stripping
-      const recapitalized = cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
-      console.log(`[celestin] Policy: stripped filler opener`)
-      return { ...response, message: recapitalized }
-    }
-  }
-  return response
+
+  return result
 }
 
 // === CONTEXT BLOCK (driven by cognitive mode) ===

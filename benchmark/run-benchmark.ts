@@ -15,10 +15,6 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 interface Question {
   id: number;
   level: string;
@@ -48,10 +44,6 @@ interface ModelConfig {
   provider: "openai" | "anthropic" | "google";
   model: string;
 }
-
-// ---------------------------------------------------------------------------
-// Model registry
-// ---------------------------------------------------------------------------
 
 const MODELS: ModelConfig[] = [
   {
@@ -92,96 +84,90 @@ const MODELS: ModelConfig[] = [
   },
 ];
 
-// ---------------------------------------------------------------------------
-// API callers
-// ---------------------------------------------------------------------------
-
 const SYSTEM_PROMPT = `You are taking a wine knowledge exam. For each question, respond with ONLY the letter of the correct answer (a, b, c, or d). Do not explain your reasoning. Just the letter.`;
 
-async function callOpenAI(
-  model: string,
-  question: string,
-  apiKey: string
-): Promise<{ answer: string; raw: string }> {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0,
-      max_tokens: 5,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: question },
-      ],
-    }),
-  });
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`OpenAI ${res.status}: ${errText.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  const raw = data.choices?.[0]?.message?.content?.trim() ?? "";
-  return { answer: extractLetter(raw), raw };
+interface ProviderRequest {
+  url: string;
+  headers: Record<string, string>;
+  body: unknown;
+  extractRaw: (data: unknown) => string;
+  errorLabel: string;
 }
 
-async function callAnthropic(
+function buildProviderRequest(
+  provider: "openai" | "anthropic" | "google",
   model: string,
   question: string,
   apiKey: string
-): Promise<{ answer: string; raw: string }> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 10,
-      temperature: 0,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: question }],
-    }),
-  });
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Anthropic ${res.status}: ${errText.slice(0, 200)}`);
+): ProviderRequest {
+  if (provider === "openai") {
+    return {
+      url: "https://api.openai.com/v1/chat/completions",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: {
+        model,
+        temperature: 0,
+        max_tokens: 5,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: question },
+        ],
+      },
+      extractRaw: (data: any) => data.choices?.[0]?.message?.content?.trim() ?? "",
+      errorLabel: "OpenAI",
+    };
   }
-  const data = await res.json();
-  const raw = data.content?.[0]?.text?.trim() ?? "";
-  return { answer: extractLetter(raw), raw };
-}
-
-async function callGoogle(
-  model: string,
-  question: string,
-  apiKey: string
-): Promise<{ answer: string; raw: string }> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-  const res = await fetch(url, {
-    method: "POST",
+  if (provider === "anthropic") {
+    return {
+      url: "https://api.anthropic.com/v1/messages",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: {
+        model,
+        max_tokens: 10,
+        temperature: 0,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: question }],
+      },
+      extractRaw: (data: any) => data.content?.[0]?.text?.trim() ?? "",
+      errorLabel: "Anthropic",
+    };
+  }
+  // google
+  return {
+    url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+    body: {
       systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: [{ parts: [{ text: question }] }],
-      generationConfig: {
-        temperature: 0,
-        maxOutputTokens: 1024,
-      },
-    }),
+      generationConfig: { temperature: 0, maxOutputTokens: 1024 },
+    },
+    extractRaw: (data: any) => data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "",
+    errorLabel: "Google",
+  };
+}
+
+async function callProvider(
+  provider: "openai" | "anthropic" | "google",
+  model: string,
+  question: string,
+  apiKey: string
+): Promise<{ answer: string; raw: string }> {
+  const req = buildProviderRequest(provider, model, question, apiKey);
+  const res = await fetch(req.url, {
+    method: "POST",
+    headers: req.headers,
+    body: JSON.stringify(req.body),
   });
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Google ${res.status}: ${errText.slice(0, 200)}`);
+    throw new Error(`${req.errorLabel} ${res.status}: ${errText.slice(0, 200)}`);
   }
   const data = await res.json();
-  const raw =
-    data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+  const raw = req.extractRaw(data);
   return { answer: extractLetter(raw), raw };
 }
 
@@ -192,10 +178,6 @@ function extractLetter(raw: string): string {
   return match ? match[1] : cleaned.charAt(0);
 }
 
-// ---------------------------------------------------------------------------
-// Question formatter
-// ---------------------------------------------------------------------------
-
 function formatQuestion(q: Question): string {
   const choiceLines = Object.entries(q.choices)
     .map(([letter, text]) => `${letter}) ${text}`)
@@ -203,9 +185,11 @@ function formatQuestion(q: Question): string {
   return `${q.question}\n\n${choiceLines}`;
 }
 
-// ---------------------------------------------------------------------------
-// Main benchmark runner
-// ---------------------------------------------------------------------------
+const PROVIDER_KEY_MAP: Record<string, string> = {
+  openai: "OPENAI_API_KEY",
+  anthropic: "ANTHROPIC_API_KEY",
+  google: "GEMINI_API_KEY",
+};
 
 async function runBenchmark(
   modelConfig: ModelConfig,
@@ -214,6 +198,7 @@ async function runBenchmark(
 ): Promise<ModelResult[]> {
   const results: ModelResult[] = [];
   const total = questions.length;
+  const apiKey = apiKeys[PROVIDER_KEY_MAP[modelConfig.provider] as keyof typeof apiKeys];
 
   for (let i = 0; i < questions.length; i++) {
     const q = questions[i];
@@ -221,18 +206,12 @@ async function runBenchmark(
     const start = Date.now();
 
     try {
-      let res: { answer: string; raw: string };
-      switch (modelConfig.provider) {
-        case "openai":
-          res = await callOpenAI(modelConfig.model, prompt, apiKeys.OPENAI_API_KEY);
-          break;
-        case "anthropic":
-          res = await callAnthropic(modelConfig.model, prompt, apiKeys.ANTHROPIC_API_KEY);
-          break;
-        case "google":
-          res = await callGoogle(modelConfig.model, prompt, apiKeys.GEMINI_API_KEY);
-          break;
-      }
+      const res = await callProvider(
+        modelConfig.provider,
+        modelConfig.model,
+        prompt,
+        apiKey
+      );
 
       const latencyMs = Date.now() - start;
       const correct = res.answer === q.answer;
@@ -272,10 +251,6 @@ async function runBenchmark(
 
   return results;
 }
-
-// ---------------------------------------------------------------------------
-// Reporting
-// ---------------------------------------------------------------------------
 
 interface ScoreBreakdown {
   total: number;
@@ -417,36 +392,27 @@ function printReport(
       `| ${cat.padEnd(13)} | ${cells.join(" | ")} |`
     );
   }
-
-  // Wrong answers detail
-  console.log("\n## Errors Detail (wrong answers)\n");
-  for (const { model, scores } of allScores) {
-    // This is handled at save time, not here
-  }
 }
 
-// ---------------------------------------------------------------------------
-// CLI entry point
-// ---------------------------------------------------------------------------
-
-async function main() {
-  // Load env from benchmark/.env.benchmark or .env.local
-  const envPaths = [
-    path.resolve(__dirname, ".env.benchmark"),
-    path.resolve(process.cwd(), ".env.local"),
-  ];
-  for (const envPath of envPaths) {
-    if (fs.existsSync(envPath)) {
-      const envContent = fs.readFileSync(envPath, "utf-8");
-      for (const line of envContent.split("\n")) {
-        const match = line.match(/^([^#=]+)=(.*)$/);
-        if (match && !process.env[match[1].trim()]) {
-          process.env[match[1].trim()] = match[2].trim();
-        }
-      }
-      console.log(`Loaded env from: ${envPath}`);
+function loadEnvFile(filePath: string): void {
+  if (!fs.existsSync(filePath)) return;
+  const lines = fs.readFileSync(filePath, "utf-8").split(/\r?\n/);
+  for (const line of lines) {
+    if (!line || line.trim().startsWith("#")) continue;
+    const idx = line.indexOf("=");
+    if (idx === -1) continue;
+    const key = line.slice(0, idx).trim();
+    const value = line.slice(idx + 1).trim();
+    if (!process.env[key]) {
+      process.env[key] = value;
     }
   }
+  console.log(`Loaded env from: ${filePath}`);
+}
+
+async function main() {
+  loadEnvFile(path.resolve(__dirname, ".env.benchmark"));
+  loadEnvFile(path.resolve(process.cwd(), ".env.local"));
 
   const apiKeys = {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
@@ -494,12 +460,7 @@ async function main() {
 
   // Check API keys
   for (const m of models) {
-    const keyMap: Record<string, string> = {
-      openai: "OPENAI_API_KEY",
-      anthropic: "ANTHROPIC_API_KEY",
-      google: "GEMINI_API_KEY",
-    };
-    const keyName = keyMap[m.provider];
+    const keyName = PROVIDER_KEY_MAP[m.provider];
     if (!apiKeys[keyName as keyof typeof apiKeys]) {
       console.error(`Missing ${keyName} for ${m.label}. Skipping.`);
       models = models.filter((x) => x.id !== m.id);
