@@ -234,10 +234,21 @@ function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'gr
     return parts.join('\n\n')
   }
 
-  // --- wine_conversation / restaurant_assistant: profile + questionnaire only ---
-  if (cognitiveMode === 'wine_conversation' || cognitiveMode === 'restaurant_assistant') {
+  // --- restaurant_assistant: profile + questionnaire only ---
+  if (cognitiveMode === 'restaurant_assistant') {
     if (body.questionnaireProfile) {
       parts.push(body.questionnaireProfile)
+    }
+    return parts.join('\n\n')
+  }
+
+  // --- wine_conversation: profile + questionnaire + tasting memories ---
+  if (cognitiveMode === 'wine_conversation') {
+    if (body.questionnaireProfile) {
+      parts.push(body.questionnaireProfile)
+    }
+    if (body.memories) {
+      parts.push(`Souvenirs de degustation :\n${body.memories}`)
     }
     return parts.join('\n\n')
   }

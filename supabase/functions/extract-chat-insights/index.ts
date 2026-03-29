@@ -150,7 +150,7 @@ async function callGemini(userPrompt: string): Promise<ExtractionResult> {
       contents: [{ parts: [{ text: userPrompt }] }],
       generationConfig: {
         temperature: 0.2,
-        maxOutputTokens: 800,
+        maxOutputTokens: 1200,
         responseMimeType: 'application/json',
         responseSchema: {
           type: 'OBJECT',
@@ -207,7 +207,7 @@ async function callClaude(userPrompt: string): Promise<ExtractionResult> {
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 800,
+      max_tokens: 1200,
       system: EXTRACTION_PROMPT,
       messages: [{ role: 'user', content: userPrompt }],
     }),
