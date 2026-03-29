@@ -170,7 +170,7 @@ function extractPreviousSessionIfNeeded(): void {
         .from('chat_sessions')
         .select('id, turn_count')
         .is('summary', null)
-        .gt('turn_count', 2)
+        .gte('turn_count', 2)
         .order('started_at', { ascending: false })
         .limit(1)
 
