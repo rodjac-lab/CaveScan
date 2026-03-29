@@ -262,11 +262,13 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 
 | Cognitive Mode | Contexte envoye | Tokens estimes |
 |----------------|-----------------|----------------|
-| `greeting` / `social` | Profil + cave count | ~50 |
-| `wine_conversation` | Profil + questionnaire | ~200 |
-| `cellar_assistant` | TOUT : cave complete + profil + souvenirs + sessions + zones + questionnaire | ~3000+ |
-| `restaurant_assistant` | Profil + questionnaire (image dans le message) | ~200 |
-| `tasting_memory` | Profil + souvenirs + sessions + cave count | ~500 |
+| `greeting` / `social` | Memory facts + profil + cave count | ~250 |
+| `wine_conversation` | Memory facts + profil + questionnaire + souvenirs de degustation | ~500 |
+| `cellar_assistant` | Memory facts + TOUT : cave complete + profil + souvenirs + sessions + zones + questionnaire | ~3000+ |
+| `restaurant_assistant` | Memory facts + profil + questionnaire (image dans le message) | ~400 |
+| `tasting_memory` | Memory facts + profil + souvenirs + sessions + cave count | ~700 |
+
+**Note V2.5** : Memory facts (preferences extraites des conversations) sont injectes dans TOUS les modes. Souvenirs de degustation (verbatim, tags) disponibles en `wine_conversation`, `tasting_memory` et `cellar_assistant`.
 
 ### Prompt hint par turnType
 

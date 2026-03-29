@@ -53,7 +53,7 @@ Source unique de verite pour les travaux produit/tech.
 - [ ] Durcir l'usage des souvenirs (ne citer que si lien vraiment evident)
 - [ ] Relance conversationnelle quand contexte mets/vin incomplet, au lieu de sur-prescrire
 - [x] Encavage conversationnel : collecte infos manquantes par echange naturel avant fiche (prix, emplacement)
-- [ ] Mieux exploiter la richesse des notes brutes et photos de plats (pas juste les tags resumes)
+- [x] Mieux exploiter la richesse des notes brutes et photos de plats (pas juste les tags resumes) — souvenirs de degustation (verbatim) injectes en wine_conversation + tasting_memory + cellar_assistant
 - [x] Millesime comme champ explicite des cartes de recommandation
 - [ ] Signal de style bouteille structure en remplacement du champ libre `character`
 
