@@ -462,91 +462,121 @@
   <!-- ==================== CONTEXTE INJECTÉ DANS LE PROMPT ==================== -->
 
   <!-- Section title -->
-  <text x="30" y="530" class="section-label" fill="#c49a6c" opacity="0.6">Ce que le LLM reçoit à chaque tour</text>
+  <text x="30" y="530" class="section-label" fill="#c49a6c" opacity="0.6">Contexte injecté dans le Prompt Builder</text>
 
-  <!-- ── Groupe gauche : Toujours injecté (chaque message) ── -->
-  <rect x="30" y="545" width="310" height="185" rx="12" ry="12" fill="none" stroke="#c49a6c" stroke-width="1" stroke-dasharray="5 3" opacity="0.2"/>
-  <text x="48" y="560" font-family="Inter" font-size="9" font-weight="600" fill="#c49a6c" opacity="0.5">Toujours injecté (chaque message)</text>
+  <!-- ── Groupe gauche : Toujours injectés ── -->
+  <rect x="30" y="545" width="220" height="175" rx="12" ry="12" fill="none" stroke="#c49a6c" stroke-width="1" stroke-dasharray="5 3" opacity="0.2"/>
+  <text x="48" y="560" font-family="Inter" font-size="9" font-weight="600" fill="#c49a6c" opacity="0.5">Toujours présents</text>
+
+  <!-- Layer 1: Historique -->
+  <rect x="40" y="568" width="200" height="40" class="box cat-memory" filter="url(#glow-memory)"
+        onclick="showDetail('conversation-history')"/>
+  <text x="56" y="588" class="box-title" font-size="11">L1 Historique Conv.</text>
+  <text x="56" y="600" class="box-detail">In-memory + localStorage</text>
+
+  <!-- Layer 2: Cross-Session -->
+  <rect x="40" y="616" width="200" height="40" class="box cat-memory" filter="url(#glow-memory)"
+        onclick="showDetail('cross-session')"/>
+  <text x="56" y="636" class="box-title" font-size="11">L2 Sessions Supabase</text>
+  <text x="56" y="648" class="box-detail">Summaries + fallback localStorage</text>
+
+  <!-- Profil Gustatif -->
+  <rect x="40" y="664" width="96" height="46" class="box cat-data" filter="url(#glow-data)"
+        onclick="showDetail('taste-profile')"/>
+  <text x="50" y="684" class="box-title" font-size="10">Profil Goût</text>
+  <text x="50" y="698" class="box-detail">Calculé</text>
+
+  <!-- Profil Questionnaire -->
+  <rect x="144" y="664" width="96" height="46" class="box cat-data" filter="url(#glow-data)"
+        onclick="showDetail('questionnaire-profile')"/>
+  <text x="152" y="684" class="box-title" font-size="10">Questionnaire</text>
+  <text x="152" y="698" class="box-detail">FWI + Sensoriel</text>
+
+  <!-- Arrow from "toujours présents" group → Prompt Builder (D) -->
+  <path d="M140,545 L140,510 L35,510 L35,466 L78,466" class="arrow arrow-memory flow-dash" marker-end="url(#arrow-brain)"/>
+
+  <!-- ── Groupe centre : Mémoire Conversationnelle V2.5 (NOUVEAU) ── -->
+  <rect x="265" y="545" width="220" height="175" rx="12" ry="12" fill="none" stroke="#c49a6c" stroke-width="1" stroke-dasharray="5 3" opacity="0.2"/>
+  <text x="283" y="560" font-family="Inter" font-size="9" font-weight="600" fill="#c49a6c" opacity="0.5">Mémoire Conv. V2.5 (tous modes)</text>
 
   <!-- Memory Facts -->
-  <rect x="42" y="568" width="286" height="40" class="box cat-memory" filter="url(#glow-memory)"
+  <rect x="275" y="568" width="200" height="40" class="box cat-memory" filter="url(#glow-memory)"
         onclick="showDetail('memory-facts')"/>
-  <text x="62" y="586" class="box-title">Memory Facts</text>
-  <text x="62" y="600" class="box-detail">Préférences + faits extraits des conversations • tous modes</text>
+  <text x="291" y="588" class="box-title" font-size="11">Memory Facts</text>
+  <text x="291" y="600" class="box-detail">Préférences + faits extraits par LLM</text>
 
-  <!-- Session Summaries -->
-  <rect x="42" y="616" width="286" height="40" class="box cat-memory" filter="url(#glow-memory)"
-        onclick="showDetail('cross-session')"/>
-  <text x="62" y="634" class="box-title">Session Summaries</text>
-  <text x="62" y="648" class="box-detail">1 ligne par session précédente • Supabase (fallback localStorage)</text>
-
-  <!-- Historique conversation en cours -->
-  <rect x="42" y="664" width="286" height="40" class="box cat-memory" filter="url(#glow-memory)"
-        onclick="showDetail('conversation-history')"/>
-  <text x="62" y="682" class="box-title">Historique Conversation</text>
-  <text x="62" y="696" class="box-detail">Messages de la session en cours • in-memory</text>
-
-  <!-- Profils side by side -->
-  <rect x="42" y="712" width="139" height="40" class="box cat-data" filter="url(#glow-data)"
-        onclick="showDetail('taste-profile')"/>
-  <text x="54" y="730" class="box-title" font-size="11">Profil Goût</text>
-  <text x="54" y="742" class="box-detail">Stats de cave calculées</text>
-
-  <rect x="189" y="712" width="139" height="40" class="box cat-data" filter="url(#glow-data)"
-        onclick="showDetail('questionnaire-profile')"/>
-  <text x="201" y="730" class="box-title" font-size="11">Questionnaire</text>
-  <text x="201" y="742" class="box-detail">FWI + Sensoriel</text>
-
-  <!-- Arrow from "toujours" group → Prompt Builder (D) -->
-  <path d="M185,545 L185,510 L35,510 L35,466 L78,466" class="arrow arrow-memory flow-dash" marker-end="url(#arrow-brain)"/>
-
-  <!-- ── Groupe droit : À la demande (si pertinent) ── -->
-  <rect x="360" y="545" width="310" height="185" rx="12" ry="12" fill="none" stroke="#c49a6c" stroke-width="1" stroke-dasharray="5 3" opacity="0.2"/>
-  <text x="378" y="560" font-family="Inter" font-size="9" font-weight="600" fill="#c49a6c" opacity="0.5">À la demande (si pertinent)</text>
-
-  <!-- Tasting Memories (semantic) -->
-  <rect x="372" y="568" width="286" height="46" class="box cat-memory" filter="url(#glow-memory)"
-        onclick="showDetail('semantic-memory')"/>
-  <text x="392" y="586" class="box-title">Souvenirs de Dégustation</text>
-  <text x="392" y="602" class="box-detail">pgvector semantic search → fallback keyword • Top 5</text>
+  <!-- Chat Persistence -->
+  <rect x="275" y="616" width="200" height="40" class="box cat-memory" filter="url(#glow-memory)"
+        onclick="showDetail('chat-persistence')"/>
+  <text x="291" y="636" class="box-title" font-size="11">Chat Persistence</text>
+  <text x="291" y="648" class="box-detail">chat_sessions + chat_messages</text>
 
   <!-- Conversation Retrieval -->
-  <rect x="372" y="622" width="286" height="46" class="box cat-memory" filter="url(#glow-memory)"
+  <rect x="275" y="664" width="200" height="46" class="box cat-memory" filter="url(#glow-memory)"
         onclick="showDetail('conversation-retrieval')"/>
-  <text x="392" y="640" class="box-title">Conversation Complète</text>
-  <text x="392" y="656" class="box-detail">Quand l'utilisateur référence le passé • semantic search</text>
+  <text x="291" y="684" class="box-title" font-size="11">Retrieval Conv.</text>
+  <text x="291" y="698" class="box-detail">Semantic search → full messages</text>
 
-  <!-- Cave rankée -->
-  <rect x="372" y="676" width="286" height="46" class="box cat-data" filter="url(#glow-data)"
-        onclick="showDetail('ranking')"/>
-  <text x="392" y="694" class="box-title">Cave Rankée</text>
-  <text x="392" y="710" class="box-detail">Bouteilles triées par local_score • cellar_assistant only</text>
+  <!-- Arrow from V2.5 group → Prompt Builder (D) -->
+  <path d="M375,545 L375,510 L140,510" class="arrow arrow-memory flow-dash"/>
+  <text x="260" y="506" font-family="Inter" font-size="8" fill="#c49a6c" opacity="0.4" text-anchor="middle">Facts + retrieved conv.</text>
 
-  <!-- Arrow from "à la demande" group → Prompt Builder (D) -->
-  <path d="M515,545 L515,510 L185,510" class="arrow arrow-memory flow-dash"/>
+  <!-- ── Groupe droit : Mémoires de dégustation (sélection dynamique) ── -->
+  <rect x="500" y="545" width="220" height="175" rx="12" ry="12" fill="none" stroke="#c49a6c" stroke-width="1" stroke-dasharray="5 3" opacity="0.2"/>
+  <text x="518" y="560" font-family="Inter" font-size="9" font-weight="600" fill="#c49a6c" opacity="0.5">Mémoires dégustation (sélection)</text>
 
-  <!-- Labels on arrows -->
-  <text x="280" y="506" font-family="Inter" font-size="8" fill="#c49a6c" opacity="0.4" text-anchor="middle">~400-600 tokens</text>
-  <text x="440" y="506" font-family="Inter" font-size="8" fill="#c49a6c" opacity="0.4" text-anchor="middle">~500-3000 tokens si activé</text>
+  <!-- Layer 4: Semantic (default) -->
+  <rect x="510" y="572" width="200" height="52" class="box cat-memory" filter="url(#glow-memory)"
+        onclick="showDetail('semantic-memory')"/>
+  <text x="526" y="592" class="box-title" font-size="11">Sémantique (défaut)</text>
+  <text x="526" y="608" class="box-detail">pgvector + embeddings • cosine</text>
+
+  <!-- Fallback arrow L4 → L3 -->
+  <path d="M610,624 L610,640" class="arrow arrow-memory" marker-end="url(#arrow-memory)" opacity="0.8"/>
+  <rect x="622" y="624" width="52" height="16" rx="4" fill="#1e1a2e" stroke="#c49a6c" stroke-width="0.8" opacity="0.6"/>
+  <text x="628" y="635" font-family="Inter" font-size="8" font-weight="600" fill="#c49a6c" opacity="0.9">si échec</text>
+
+  <!-- Layer 3: Keyword (fallback) -->
+  <rect x="510" y="644" width="200" height="52" class="box cat-memory" filter="url(#glow-memory)"
+        onclick="showDetail('tasting-memories')"/>
+  <text x="526" y="664" class="box-title" font-size="11">Keyword (fallback)</text>
+  <text x="526" y="680" class="box-detail">Scoring : food/desc +4 • récence</text>
+
+  <!-- Arrow from "mémoires" group → Prompt Builder (D) -->
+  <path d="M610,545 L610,510 L375,510" class="arrow arrow-memory flow-dash"/>
+  <text x="500" y="506" font-family="Inter" font-size="8" fill="#c49a6c" opacity="0.4" text-anchor="middle">Top 5 souvenirs</text>
 
   <!-- ==================== ROW 4: SOURCES DE DONNÉES ==================== -->
 
-  <text x="30" y="780" class="section-label" fill="#ffd93d" opacity="0.6">Sources de données (Supabase)</text>
+  <text x="30" y="760" class="section-label" fill="#ffd93d" opacity="0.6">Sources de données</text>
 
   <!-- Supabase -->
-  <rect x="40" y="795" width="300" height="70" class="box cat-data" filter="url(#glow-data)"
+  <rect x="40" y="775" width="200" height="70" class="box cat-data" filter="url(#glow-data)"
         onclick="showDetail('supabase')"/>
-  <text x="68" y="823" class="box-emoji">🗄️</text>
-  <text x="90" y="825" class="box-title">Supabase PostgreSQL + pgvector</text>
-  <text x="58" y="842" class="box-subtitle">bottles • chat_sessions • chat_messages • user_memory_facts</text>
-  <text x="58" y="855" class="box-detail">RPC search_memories() • search_sessions() • Edge Functions</text>
+  <text x="68" y="803" class="box-emoji">🗄️</text>
+  <text x="90" y="805" class="box-title">Supabase</text>
+  <text x="58" y="822" class="box-subtitle">Bouteilles • Zones • Profils</text>
+  <text x="58" y="835" class="box-detail">RPC search_memories() • search_sessions()</text>
+
+  <!-- Ranking -->
+  <rect x="280" y="775" width="200" height="70" class="box cat-data" filter="url(#glow-data)"
+        onclick="showDetail('ranking')"/>
+  <text x="308" y="803" class="box-emoji">📊</text>
+  <text x="330" y="805" class="box-title">Ranking Bouteilles</text>
+  <text x="298" y="822" class="box-subtitle">rankCaveBottles() — local_score</text>
+  <text x="298" y="835" class="box-detail">Couleur • Appellation • QPR • Rating</text>
 
   <!-- Supabase → memory layers (source) -->
-  <path d="M185,795 L185,760" class="arrow arrow-data flow-dash" marker-end="url(#arrow-memory)"/>
-  <path d="M280,795 L515,735" class="arrow arrow-data flow-dash" marker-end="url(#arrow-memory)"/>
+  <path d="M140,775 L140,720" class="arrow arrow-data flow-dash" marker-end="url(#arrow-memory)"/>
+  <path d="M180,775 L375,720" class="arrow arrow-data flow-dash" marker-end="url(#arrow-memory)"/>
+  <path d="M220,775 L610,700" class="arrow arrow-data flow-dash" marker-end="url(#arrow-memory)"/>
+
+  <!-- Ranking → Prompt Builder (right side, avoids green return arrow at x=610) -->
+  <path d="M480,810 L740,810 L740,510 L610,510" class="arrow arrow-data flow-dash" marker-end="url(#arrow-brain)" opacity="0.4"/>
+  <text x="748" y="700" font-family="Inter" font-size="8" fill="#ffd93d" opacity="0.35" transform="rotate(-90 748 700)">cave rankée dans la requête</text>
 
   <!-- Supabase → Hooks React (initial load, subtle) -->
-  <path d="M40,830 L20,830 L20,145 L40,145" class="arrow arrow-data flow-dash" marker-end="url(#arrow-ui)" opacity="0.25"/>
+  <path d="M40,810 L20,810 L20,145 L40,145" class="arrow arrow-data flow-dash" marker-end="url(#arrow-ui)" opacity="0.25"/>
   <text x="12" y="500" font-family="Inter" font-size="8" fill="#ffd93d" opacity="0.3" transform="rotate(-90 12 500)">chargement initial → hooks React</text>
 
   <!-- ==================== GLOBAL FLOW NUMBERS (right side) ==================== -->
@@ -572,11 +602,11 @@
   <text x="645" y="148" font-family="Inter" font-size="9" fill="#a8e6cf" opacity="0.7">Retour UI</text>
 
   <!-- ==================== DATA FLOW ANNOTATION ==================== -->
-  <rect x="40" y="885" width="1020" height="50" rx="8" fill="#1a1a2e" stroke="#2a2840" opacity="0.6"/>
-  <text x="550" y="903" text-anchor="middle" font-family="Inter" font-size="10" fill="#8a8696">
+  <rect x="40" y="860" width="1020" height="50" rx="8" fill="#1a1a2e" stroke="#2a2840" opacity="0.6"/>
+  <text x="550" y="878" text-anchor="middle" font-family="Inter" font-size="10" fill="#8a8696">
     Flux : Message → (A) Turn Interpreter → (B) Machine à États → (C) Mode Cognitif → (D) Prompt Builder [+ mémoires + facts + profils] → LLM → Response Policy → UI
   </text>
-  <text x="550" y="923" text-anchor="middle" font-family="Inter" font-size="9" fill="#c49a6c" opacity="0.5">
+  <text x="550" y="898" text-anchor="middle" font-family="Inter" font-size="9" fill="#c49a6c" opacity="0.5">
     V2.5 : Memory Facts injectés dans tous les modes • Conversations persistées en Supabase • Extraction d'insights par LLM • Retrieval sémantique
   </text>
 
