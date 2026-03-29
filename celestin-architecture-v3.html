@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Celestin - Architecture V3</title>
+<style>
+  :root{
+    --bg:#09101d;--panel:#10192b;--card:#121d31;--line:#23314f;--text:#eef3ff;--muted:#9eb1d2;
+    --ui:#72a8ff;--brain:#59d0c3;--prompt:#c29aff;--memory:#d7a56b;--data:#efc34d;--llm:#ff7f7f;--guard:#95e4a4;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;color:var(--text);font-family:Inter,system-ui,sans-serif;
+    background:
+      radial-gradient(circle at top,rgba(114,168,255,.08),transparent 25%),
+      radial-gradient(circle at 85% 15%,rgba(194,154,255,.08),transparent 22%),
+      linear-gradient(180deg,#09101d,#08111a 62%,#071018);
+  }
+  .page{max-width:1440px;margin:0 auto;padding:32px 20px 64px}
+  h1{margin:0;font-size:clamp(30px,4vw,44px);letter-spacing:-.03em}
+  .intro{max-width:980px;margin-top:10px;color:var(--muted);line-height:1.6}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 24px}
+  .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-size:12px;color:var(--muted)}
+  .dot{width:10px;height:10px;border-radius:3px}
+  .diagram{display:grid;gap:18px}
+  .lane{
+    border:1px solid rgba(255,255,255,.08);border-radius:24px;padding:18px;
+    background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015));
+    box-shadow:0 22px 60px rgba(0,0,0,.28);
+  }
+  .lane-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:flex-end;margin-bottom:14px}
+  .lane-title{font-size:12px;letter-spacing:.18em;text-transform:uppercase;font-weight:800;color:rgba(255,255,255,.56)}
+  .lane-desc{font-size:13px;color:var(--muted);max-width:820px}
+  .flow-row{display:flex;align-items:stretch;gap:12px;overflow:auto;padding-bottom:4px}
+  .stack{display:flex;flex-direction:column;gap:10px}
+  .box{
+    min-width:170px;padding:14px 14px 12px;border-radius:18px;border:1.5px solid transparent;
+    background:var(--card);cursor:pointer;text-align:left;transition:transform .18s ease,filter .18s ease;
+  }
+  .box:hover{transform:translateY(-1px);filter:brightness(1.06)}
+  .box.small{min-width:150px}
+  .box.wide{min-width:210px}
+  .box .k{font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px}
+  .box .s{font-size:11px;color:#d4def7;opacity:.8;margin-bottom:6px}
+  .box .d{font-size:12px;color:var(--muted);line-height:1.45}
+  .ui{background:#13203a;border-color:var(--ui)}
+  .brain{background:#112525;border-color:var(--brain)}
+  .prompt{background:#1d1735;border-color:var(--prompt)}
+  .memory{background:#2a2118;border-color:var(--memory)}
+  .data{background:#2a2616;border-color:var(--data)}
+  .llm{background:#331c22;border-color:var(--llm)}
+  .guard{background:#14261b;border-color:var(--guard)}
+  .arrow{
+    flex:0 0 auto;display:flex;align-items:center;justify-content:center;min-width:42px;
+    color:rgba(255,255,255,.45);font-size:24px;font-weight:800
+  }
+  .arrow.note{font-size:11px;min-width:auto;padding:0 6px;text-transform:uppercase;letter-spacing:.08em}
+  .callout{
+    margin-top:14px;padding:12px 14px;border-radius:16px;border:1px solid rgba(255,255,255,.08);
+    background:rgba(255,255,255,.03);color:var(--muted);font-size:13px;line-height:1.6
+  }
+  .mini-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .subgroup{
+    border:1px dashed rgba(255,255,255,.12);border-radius:18px;padding:14px;background:rgba(255,255,255,.015)
+  }
+  .subgroup h3{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:rgba(255,255,255,.52)}
+  .source-row{display:flex;align-items:stretch;gap:12px;overflow:auto}
+  .upnote{font-size:11px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.08em;margin-top:6px}
+  .overlay{position:fixed;inset:0;background:rgba(4,8,18,.62);opacity:0;pointer-events:none;transition:opacity .2s;z-index:39}
+  .overlay.open{opacity:1;pointer-events:auto}
+  .panel{
+    position:fixed;top:0;right:-420px;width:min(420px,100vw);height:100vh;z-index:40;padding:24px;
+    background:rgba(10,16,29,.98);border-left:1px solid rgba(255,255,255,.08);overflow-y:auto;transition:right .25s;
+  }
+  .panel.open{right:0}
+  .close{width:34px;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03);color:var(--text);cursor:pointer;display:block;margin-left:auto}
+  .panel h2{margin:12px 0 8px;font-size:24px}
+  .tag{display:inline-block;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:800;margin-bottom:14px}
+  .panel p,.panel li{color:var(--muted);line-height:1.65}
+  .panel h3{margin:18px 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.76)}
+  .panel ul{margin:0;padding-left:18px}
+  @media (max-width:900px){.mini-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+  <div class="page">
+    <h1>Celestin - Architecture V3</h1>
+    <p class="intro">Cette version privilegie la lecture. Le flux principal tient sur une seule ligne. Le User Model Resolver reste une brique technique interne. Le bloc injecte au prompt est le Portrait utilisateur actuel.</p>
+
+    <div class="legend">
+      <span class="pill"><span class="dot" style="background:var(--ui)"></span>UI / app</span>
+      <span class="pill"><span class="dot" style="background:var(--brain)"></span>Orchestration backend</span>
+      <span class="pill"><span class="dot" style="background:var(--prompt)"></span>Injecte au prompt</span>
+      <span class="pill"><span class="dot" style="background:var(--memory)"></span>Memoire</span>
+      <span class="pill"><span class="dot" style="background:var(--data)"></span>Donnees produit</span>
+      <span class="pill"><span class="dot" style="background:var(--llm)"></span>LLM</span>
+      <span class="pill"><span class="dot" style="background:var(--guard)"></span>Garde-fous</span>
+    </div>
+
+    <div class="diagram">
+      <section class="lane">
+        <div class="lane-head">
+          <div class="lane-title">1. Flux Principal</div>
+          <div class="lane-desc">Un seul chemin pour suivre le tour de bout en bout. Les fleches montrent le hot path, celui qui doit rester simple et rapide.</div>
+        </div>
+        <div class="flow-row">
+          <button class="box ui" data-key="user-input"><div class="k">Message utilisateur</div><div class="s">Entree du tour</div><div class="d">Texte, image, intention</div></button>
+          <div class="arrow">-&gt;</div>
+          <button class="box ui wide" data-key="request-builder"><div class="k">Request Builder</div><div class="s">Frontend</div><div class="d">Prepare le payload complet</div></button>
+          <div class="arrow">-&gt;</div>
+          <div class="stack">
+            <button class="box guard small" data-key="conversation-state"><div class="k">Etat courant</div><div class="d">Aide a lire le tour</div></button>
+            <button class="box brain wide" data-key="turn-interpreter"><div class="k">Turn Interpreter</div><div class="s">Code deterministe</div><div class="d">Sort turnType + cognitiveMode</div></button>
+          </div>
+          <div class="arrow">-&gt;</div>
+          <button class="box brain wide" data-key="resolver"><div class="k">User Model Resolver</div><div class="s">Brique technique backend</div><div class="d">Transforme la memoire brute en lecture actuelle</div></button>
+          <div class="arrow">-&gt;</div>
+          <button class="box brain wide" data-key="prompt-builder"><div class="k">Prompt Builder</div><div class="s">Assemblage final</div><div class="d">Choisit les blocs a injecter</div></button>
+          <div class="arrow">-&gt;</div>
+          <button class="box llm small" data-key="providers"><div class="k">LLM</div><div class="s">Generation</div><div class="d">Produit la reponse</div></button>
+          <div class="arrow">-&gt;</div>
+          <div class="stack">
+            <button class="box guard small" data-key="response-policy"><div class="k">Response Policy</div><div class="d">Nettoie et borne</div></button>
+            <button class="box guard small" data-key="next-state"><div class="k">Next state</div><div class="d">Revient au dialogue</div></button>
+          </div>
+          <div class="arrow">-&gt;</div>
+          <button class="box ui wide" data-key="ui-router"><div class="k">UI Router</div><div class="s">Frontend</div><div class="d">Affiche texte, cartes et actions</div></button>
+        </div>
+        <div class="callout">Lecture simple : l'etat courant aide le Turn Interpreter. Le resolver produit une lecture propre de l'utilisateur. Le Prompt Builder decide ensuite ce qui part au modele. La Response Policy valide la sortie et renvoie le prochain etat.</div>
+      </section>
+
+      <section class="lane">
+        <div class="lane-head">
+          <div class="lane-title">2. Ce Que Le Prompt Recoit</div>
+          <div class="lane-desc">Ici, on se place du point de vue du LLM. Le resolver n'apparait plus. On ne montre que les blocs qui peuvent vraiment etre injectes.</div>
+        </div>
+        <div class="mini-grid">
+          <div class="subgroup">
+            <h3>Toujours prioritaire</h3>
+            <div class="flow-row">
+              <button class="box prompt wide" data-key="portrait"><div class="k">Portrait utilisateur actuel</div><div class="s">Resultat du resolver</div><div class="d">Couche memoire prioritaire du prompt</div></button>
+              <div class="arrow note">puis</div>
+              <button class="box prompt" data-key="profile-context"><div class="k">Profil et questionnaire</div><div class="s">Si disponibles</div><div class="d">Profil de gout, FWI, sensoriel</div></button>
+            </div>
+          </div>
+          <div class="subgroup">
+            <h3>Selon le mode du tour</h3>
+            <div class="flow-row">
+              <button class="box prompt" data-key="cave-context"><div class="k">Cave classee</div><div class="s">Cellar assistant</div><div class="d">Pour reco ou action cave</div></button>
+              <button class="box prompt" data-key="memory-context"><div class="k">Souvenirs degustation</div><div class="s">Si pertinents</div><div class="d">Bouteilles, accords, reactions</div></button>
+              <button class="box prompt" data-key="conversation-context"><div class="k">Conversation passee</div><div class="s">A la demande</div><div class="d">Quand l'utilisateur y fait reference</div></button>
+            </div>
+          </div>
+        </div>
+        <div class="callout">Le point cle de cette V3 : le User Model Resolver n'est pas dans cette section. Ce qui entre ici, c'est son produit fini : le Portrait utilisateur actuel.</div>
+      </section>
+
+      <section class="lane">
+        <div class="lane-head">
+          <div class="lane-title">3. Sources Et Boucle Memoire</div>
+          <div class="lane-desc">Les sources du bas nourrissent le resolver et le prompt. Apres la reponse, une boucle asynchrone peut enrichir les facts et les summaries pour les tours suivants.</div>
+        </div>
+        <div class="source-row">
+          <div class="stack">
+            <button class="box memory" data-key="memory-facts"><div class="k">Memory Facts</div><div class="s">Memoire longue</div><div class="d">Preferences, aversions, temporaire, style relationnel</div></button>
+            <div class="upnote">alimente le resolver</div>
+          </div>
+          <div class="stack">
+            <button class="box memory" data-key="session-summaries"><div class="k">Session Summaries</div><div class="s">Memoire cross-session</div><div class="d">Resume compact des sessions precedentes</div></button>
+            <div class="upnote">alimente le resolver</div>
+          </div>
+          <div class="stack">
+            <button class="box memory" data-key="tasting-memories"><div class="k">Souvenirs degustation</div><div class="s">Memoire a la demande</div><div class="d">Retrieval semantique ou fallback</div></button>
+            <div class="upnote">alimente le prompt si utile</div>
+          </div>
+          <div class="stack">
+            <button class="box data" data-key="cave-data"><div class="k">Cave, profil, questionnaire</div><div class="s">Donnees produit</div><div class="d">Bouteilles dispo et connaissance declarative</div></button>
+            <div class="upnote">alimente le prompt</div>
+          </div>
+          <div class="stack">
+            <button class="box brain wide" data-key="async-memory"><div class="k">Extraction memoire async</div><div class="s">Apres la reponse</div><div class="d">Rafraichit facts et summaries</div></button>
+            <div class="upnote">reboucle vers la memoire</div>
+          </div>
+        </div>
+        <div class="callout">En une phrase : facts + session summaries servent a comprendre qui est l'utilisateur aujourd'hui. Les souvenirs degustation, eux, servent surtout a enrichir certaines reponses quand ils ont une vraie valeur.</div>
+      </section>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay"></div>
+  <aside class="panel" id="panel">
+    <button class="close" id="closeBtn" aria-label="Fermer">X</button>
+    <div id="panelContent"></div>
+  </aside>
+
+  <script>
+    const details = {
+      "user-input": {title:"Message utilisateur",tag:"Point de depart",color:"var(--ui)",desc:"Le tour commence ici. Le sens du message depend souvent de l'etat courant et du tour precedent.",points:["Peut etre tres court ou tres implicite.","Peut contenir une image ou une demande d'action."]},
+      "request-builder": {title:"Request Builder",tag:"Frontend",color:"var(--ui)",desc:"Le frontend prepare la matiere. Il assemble le payload qui part vers l'edge function Celestin.",points:["Historique en cours.","Cave, profil, questionnaire.","Memory facts bruts, session summaries, souvenirs utiles."]},
+      "conversation-state": {title:"Etat courant",tag:"Runtime",color:"var(--guard)",desc:"C'est la memoire courte du dialogue lui-meme. Elle aide a lire le sens exact du prochain message.",points:["Exemple: 'en blanc' n'a pas le meme sens apres une reco qu'en ouverture de chat."]},
+      "turn-interpreter": {title:"Turn Interpreter",tag:"Backend deterministe",color:"var(--brain)",desc:"Il comprend le type de tour sans appel LLM.",points:["Produit turnType.","Produit cognitiveMode.","Cadre le reste du pipeline."]},
+      "resolver": {title:"User Model Resolver",tag:"Brique technique",color:"var(--brain)",desc:"Il transforme la memoire brute en lecture actuelle de l'utilisateur. C'est un moteur interne, pas un bloc injecte au prompt.",points:["Prend facts + session summaries + message courant.","Fait primer le recent si tension.","Sort un portrait adapte au type de tour."]},
+      "prompt-builder": {title:"Prompt Builder",tag:"Assemblage final",color:"var(--brain)",desc:"Il assemble le system prompt et les blocs de contexte utiles pour ce tour.",points:["Ajoute toujours le portrait resolu.","Ajoute les autres blocs seulement si le mode le justifie."]},
+      "providers": {title:"LLM",tag:"Generation",color:"var(--llm)",desc:"Le modele recoit deja une memoire hierarchisee. Il n'a pas a arbitrer seul une liste brute de facts contradictoires.",points:["Le LLM se concentre sur la qualite conversationnelle et l'aide utile."]},
+      "response-policy": {title:"Response Policy",tag:"Garde-fous",color:"var(--guard)",desc:"Cette couche nettoie et borne la sortie apres generation.",points:["Retire une action UI non autorisee.","Evite certaines sorties parasites."]},
+      "next-state": {title:"Next state",tag:"Retour au dialogue",color:"var(--guard)",desc:"Le tour produit un etat suivant qui servira de point d'appui pour le prochain message.",points:["Ferme la boucle de la memoire courte conversationnelle."]},
+      "ui-router": {title:"UI Router",tag:"Frontend",color:"var(--ui)",desc:"Le frontend transforme la reponse validee en experience concrete.",points:["Affiche texte, cartes, chips et formulaires inline.","Persiste le prochain etat."]},
+      "portrait": {title:"Portrait utilisateur actuel",tag:"Injecte au prompt",color:"var(--prompt)",desc:"C'est le resultat du resolver. Ce bloc devient la couche memoire prioritaire du prompt.",points:["Gouts stables.","Evolutions recentes.","A eviter maintenant.","Contexte social et relationnel utile."]},
+      "profile-context": {title:"Profil et questionnaire",tag:"Injecte au prompt",color:"var(--prompt)",desc:"Ces blocs viennent des donnees produit deja calculees ou declarees par l'utilisateur.",points:["Profil de gout.","FWI et preferences sensorielles."]},
+      "cave-context": {title:"Cave classee",tag:"Contexte optionnel",color:"var(--prompt)",desc:"Bloc utile surtout pour recommendation, ouverture, encavage ou actions cave.",points:["N'a pas besoin d'etre lourd pour tous les tours."]},
+      "memory-context": {title:"Souvenirs degustation",tag:"Contexte optionnel",color:"var(--prompt)",desc:"Ces souvenirs enrichissent certaines reponses quand un rappel concret apporte de la valeur.",points:["Exemples: bouteille adoree, accord rate, surprise stylistique."]},
+      "conversation-context": {title:"Conversation passee",tag:"Contexte optionnel",color:"var(--prompt)",desc:"Bloc charge seulement quand l'utilisateur fait reference a un echange precedent.",points:["Evite d'injecter inutilement de longues conversations a chaque tour."]},
+      "memory-facts": {title:"Memory Facts",tag:"Memoire longue",color:"var(--memory)",desc:"Preferences, aversions, signaux temporaires, style relationnel, intentions cave.",points:["Source brute du resolver.","Ne doivent pas etre la couche prioritaire du prompt tels quels."]},
+      "session-summaries": {title:"Session Summaries",tag:"Memoire cross-session",color:"var(--memory)",desc:"Resume compact des sessions precedentes. Ils donnent le parcours recent de l'utilisateur sans reinjecter tout l'historique.",points:["Tres utiles pour la continuite multi-device."]},
+      "tasting-memories": {title:"Souvenirs degustation",tag:"Memoire a la demande",color:"var(--memory)",desc:"Memoire de bouteilles, accords, reactions et notes passees.",points:["Enrichissement ponctuel.","Pas la couche memoire prioritaire."]},
+      "cave-data": {title:"Cave, profil, questionnaire",tag:"Donnees produit",color:"var(--data)",desc:"Le coeur metier declaratif de l'application.",points:["Bouteilles disponibles.","Profil calcule.","Questionnaire utilisateur."]},
+      "async-memory": {title:"Extraction memoire async",tag:"Apres la reponse",color:"var(--brain)",desc:"Une fois le tour termine, l'application peut extraire de nouveaux insights et mettre a jour facts et summaries.",points:["Ne doit pas alourdir le hot path.","Ameliore les tours suivants."]}
+    };
+
+    const panel = document.getElementById('panel');
+    const overlay = document.getElementById('overlay');
+    const panelContent = document.getElementById('panelContent');
+
+    function openDetail(key){
+      const d = details[key];
+      if(!d) return;
+      panelContent.innerHTML = `
+        <h2>${d.title}</h2>
+        <span class="tag" style="background:${d.color};color:#08101c">${d.tag}</span>
+        <p>${d.desc}</p>
+        <h3>Points cle</h3>
+        <ul>${d.points.map(point => `<li>${point}</li>`).join('')}</ul>
+      `;
+      panel.classList.add('open');
+      overlay.classList.add('open');
+    }
+
+    function closeDetail(){
+      panel.classList.remove('open');
+      overlay.classList.remove('open');
+    }
+
+    document.querySelectorAll('[data-key]').forEach(node => {
+      node.addEventListener('click', () => openDetail(node.getAttribute('data-key')));
+    });
+    document.getElementById('closeBtn').addEventListener('click', closeDetail);
+    overlay.addEventListener('click', closeDetail);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeDetail();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Celestin - Architecture V2</title>
+<style>
+  :root{--bg:#0b1020;--panel:#11182b;--line:#24304d;--text:#edf2ff;--muted:#9eb0d3;--ui:#6ea8ff;--brain:#4fd1c5;--prompt:#b692ff;--memory:#d8a56a;--data:#f0c24b;--llm:#ff7a7a;--guard:#8ae3a1}
+  *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,rgba(110,168,255,.08),transparent 28%),radial-gradient(circle at 85% 15%,rgba(182,146,255,.08),transparent 25%),linear-gradient(180deg,#0b1020,#08101c);color:var(--text);font-family:Inter,system-ui,sans-serif}
+  .page{max-width:1500px;margin:0 auto;padding:34px 24px 64px}.hero h1{margin:0;font-size:clamp(30px,4vw,46px);letter-spacing:-.03em}.hero p,.footer{margin:10px 0 0;color:var(--muted);font-size:15px;line-height:1.6;max-width:980px}
+  .legend,.notes{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}.pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid rgba(255,255,255,.08);border-radius:999px;background:rgba(255,255,255,.03);color:var(--muted);font-size:12px}.dot{width:11px;height:11px;border-radius:3px}
+  .shell{margin-top:22px;border:1px solid rgba(255,255,255,.08);border-radius:28px;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015));overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.35)}.inner{padding:16px}svg{width:100%;height:auto;display:block}
+  .group{fill:rgba(255,255,255,.01);stroke:rgba(255,255,255,.12);stroke-width:1.2;stroke-dasharray:7 5}.box{rx:18;ry:18;stroke-width:1.6;cursor:pointer}.box:hover{filter:brightness(1.08);stroke-width:2.2}
+  .ui{fill:#13203a;stroke:var(--ui)}.brain{fill:#122425;stroke:var(--brain)}.prompt{fill:#1f1837;stroke:var(--prompt)}.memory{fill:#2b2116;stroke:var(--memory)}.data{fill:#2d2815;stroke:var(--data)}.llm{fill:#331c22;stroke:var(--llm)}.guard{fill:#14271a;stroke:var(--guard)}
+  .t{font-size:16px;font-weight:700;fill:var(--text)}.s{font-size:11px;font-weight:500;fill:#c5d2ef;opacity:.78}.d{font-size:11px;fill:var(--muted)}.sec{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;fill:rgba(255,255,255,.52)}.flow{font-size:11px;font-weight:600;fill:rgba(255,255,255,.42)}
+  .a{fill:none;stroke-width:2;opacity:.9}.aui{stroke:var(--ui)}.abrain{stroke:var(--brain)}.aprompt{stroke:var(--prompt)}.amemory{stroke:var(--memory)}.adata{stroke:var(--data)}.allm{stroke:var(--llm)}.aguard{stroke:var(--guard)}.opt{stroke-dasharray:8 5;opacity:.66}
+  .overlay{position:fixed;inset:0;background:rgba(4,8,18,.65);opacity:0;pointer-events:none;transition:opacity .25s;z-index:39}.overlay.visible{opacity:1;pointer-events:auto}
+  .panel{position:fixed;top:0;right:-430px;width:min(430px,100vw);height:100vh;padding:26px 24px;background:rgba(11,16,32,.98);border-left:1px solid rgba(255,255,255,.08);transition:right .3s;z-index:40;overflow-y:auto}.panel.open{right:0}
+  .close{width:34px;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03);color:var(--text);cursor:pointer;margin-left:auto;display:block}.panel h2{margin:12px 0 8px;font-size:24px}.tag{display:inline-block;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;margin-bottom:18px}.panel p,.panel li{color:var(--muted);font-size:14px;line-height:1.65}.panel h3{margin:20px 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.76)}.panel ul{padding-left:18px;margin:0}
+  @media (max-width:960px){.page{padding-inline:14px}.inner{padding:10px}}
+</style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <h1>Celestin - Architecture V2</h1>
+      <p>Cette vue se concentre sur le flux juste. Le User Model Resolver est une brique technique backend. Ce qui est injecte au LLM, c'est le portrait utilisateur actuel qu'il produit.</p>
+    </div>
+    <div class="legend">
+      <div class="pill"><span class="dot" style="background:var(--ui)"></span>UI / application</div>
+      <div class="pill"><span class="dot" style="background:var(--brain)"></span>Orchestration backend</div>
+      <div class="pill"><span class="dot" style="background:var(--prompt)"></span>Injecte au prompt</div>
+      <div class="pill"><span class="dot" style="background:var(--memory)"></span>Memoire</div>
+      <div class="pill"><span class="dot" style="background:var(--data)"></span>Donnees cave / profil</div>
+      <div class="pill"><span class="dot" style="background:var(--llm)"></span>LLM</div>
+      <div class="pill"><span class="dot" style="background:var(--guard)"></span>Garde-fous</div>
+    </div>
+    <div class="notes">
+      <div class="pill">Fleches pleines = chemin principal</div>
+      <div class="pill">Fleches pointillees = flux optionnels ou async</div>
+      <div class="pill">Clique sur une boite pour voir son role</div>
+    </div>
+    <div class="shell"><div class="inner">
+      <svg viewBox="0 0 1500 1010" role="img" aria-label="Schema Celestin V2">
+        <defs>
+          <marker id="m-ui" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--ui)"/></marker>
+          <marker id="m-brain" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--brain)"/></marker>
+          <marker id="m-prompt" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--prompt)"/></marker>
+          <marker id="m-memory" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--memory)"/></marker>
+          <marker id="m-data" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--data)"/></marker>
+          <marker id="m-llm" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--llm)"/></marker>
+          <marker id="m-guard" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--guard)"/></marker>
+        </defs>
+        <text x="40" y="44" class="sec">Chemin principal</text>
+        <text x="40" y="462" class="sec">Ce qui entre vraiment dans le prompt</text>
+        <text x="40" y="772" class="sec">Sources et boucle memoire</text>
+        <rect x="28" y="58" width="1444" height="300" class="group"/><rect x="28" y="478" width="1444" height="220" class="group"/><rect x="28" y="790" width="1444" height="184" class="group"/>
+        <text x="44" y="82" class="flow">Le backend comprend le tour, calcule le portrait utile, assemble le prompt, puis securise la sortie.</text>
+        <text x="44" y="500" class="flow">Le resolver est un moteur interne. Ce qui part au LLM est son resultat, pas le resolver lui-meme.</text>
+        <text x="44" y="812" class="flow">Les facts et les summaries alimentent le resolver. Les nouveaux tours enrichissent ensuite cette memoire.</text>
+
+        <rect x="48" y="136" width="170" height="92" class="box ui" onclick="showDetail('user-input')"/><text x="68" y="168" class="t">Message utilisateur</text><text x="68" y="190" class="s">Texte, photo, intention</text><text x="68" y="208" class="d">Point de depart du tour</text>
+        <rect x="266" y="126" width="204" height="112" class="box ui" onclick="showDetail('request-builder')"/><text x="286" y="158" class="t">Request Builder</text><text x="286" y="180" class="s">Frontend</text><text x="286" y="198" class="d">Prepare cave, profil, memories,</text><text x="286" y="214" class="d">sessions et etat courant</text>
+        <rect x="528" y="66" width="182" height="70" class="box guard" onclick="showDetail('conversation-state')"/><text x="548" y="94" class="t">Etat de conversation</text><text x="548" y="114" class="d">Etat courant + prochain etat</text>
+        <rect x="528" y="136" width="204" height="92" class="box brain" onclick="showDetail('turn-interpreter')"/><text x="548" y="168" class="t">Turn Interpreter</text><text x="548" y="190" class="s">Code deterministe</text><text x="548" y="208" class="d">Produit turnType + cognitiveMode</text>
+        <rect x="790" y="126" width="214" height="112" class="box brain" onclick="showDetail('resolver')"/><text x="810" y="158" class="t">User Model Resolver</text><text x="810" y="180" class="s">Brique technique backend</text><text x="810" y="198" class="d">Arbitre facts, sessions, recence</text><text x="810" y="214" class="d">et changements de gout</text>
+        <rect x="1062" y="126" width="208" height="112" class="box brain" onclick="showDetail('prompt-builder')"/><text x="1082" y="158" class="t">Prompt Builder</text><text x="1082" y="180" class="s">Assemblage final</text><text x="1082" y="198" class="d">System prompt + contexte utile</text><text x="1082" y="214" class="d">selon le mode du tour</text>
+        <rect x="1328" y="126" width="138" height="112" class="box llm" onclick="showDetail('providers')"/><text x="1348" y="164" class="t">LLM</text><text x="1348" y="186" class="s">Provider chain</text><text x="1348" y="206" class="d">Generation de reponse</text>
+        <rect x="1328" y="302" width="138" height="108" class="box guard" onclick="showDetail('response-policy')"/><text x="1348" y="338" class="t">Response Policy</text><text x="1348" y="360" class="s">Post LLM</text><text x="1348" y="380" class="d">Valide, nettoie, borne</text>
+        <rect x="1062" y="302" width="208" height="108" class="box ui" onclick="showDetail('ui-router')"/><text x="1082" y="338" class="t">UI Router</text><text x="1082" y="360" class="s">Frontend</text><text x="1082" y="380" class="d">Affiche texte, cartes et actions</text>
+
+        <path d="M218,182 L266,182" class="a aui" marker-end="url(#m-ui)"/><path d="M470,182 L528,182" class="a aui" marker-end="url(#m-brain)"/><path d="M732,182 L790,182" class="a abrain" marker-end="url(#m-brain)"/><path d="M732,148 C850,112 954,112 1062,148" class="a abrain opt" marker-end="url(#m-brain)"/><path d="M1004,182 L1062,182" class="a abrain" marker-end="url(#m-brain)"/><path d="M1270,182 L1328,182" class="a allm" marker-end="url(#m-llm)"/><path d="M1397,238 L1397,302" class="a aguard" marker-end="url(#m-guard)"/><path d="M1328,356 L1270,356" class="a aguard" marker-end="url(#m-guard)"/>
+        <path d="M1397,302 L1397,96 L710,96" class="a aguard opt" marker-end="url(#m-guard)"/><text x="1220" y="88" class="flow">nextState revient dans la machine a etats</text>
+        <text x="580" y="258" class="flow">turnType + cognitiveMode</text><text x="914" y="120" class="flow">mode du tour</text><text x="860" y="258" class="flow">portrait resolu</text><text x="1102" y="258" class="flow">prompt final</text>
+
+        <rect x="702" y="530" width="256" height="100" class="box prompt" onclick="showDetail('portrait')"/><text x="722" y="564" class="t">Portrait utilisateur actuel</text><text x="722" y="586" class="s">Injecte au prompt</text><text x="722" y="604" class="d">Resultat du resolver, prioritaire</text>
+        <rect x="984" y="530" width="212" height="100" class="box prompt" onclick="showDetail('profile-context')"/><text x="1004" y="564" class="t">Profil et questionnaire</text><text x="1004" y="586" class="s">Injectes si disponibles</text><text x="1004" y="604" class="d">Profil de gout, FWI, sensoriel</text>
+        <rect x="1222" y="530" width="212" height="100" class="box prompt" onclick="showDetail('optional-context')"/><text x="1242" y="564" class="t">Contextes optionnels</text><text x="1242" y="586" class="s">Selon le mode et le besoin</text><text x="1242" y="604" class="d">Cave, souvenirs, past convo</text>
+        <path d="M897,238 L897,530" class="a aprompt" marker-end="url(#m-prompt)"/><path d="M1100,530 L1166,238" class="a aprompt" marker-end="url(#m-prompt)"/><path d="M1328,530 L1182,238" class="a aprompt opt" marker-end="url(#m-prompt)"/>
+        <text x="734" y="508" class="flow">1. Le resolver produit ce bloc</text><text x="1000" y="508" class="flow">2. Le prompt ajoute les autres contextes utiles</text>
+
+        <rect x="66" y="844" width="242" height="88" class="box memory" onclick="showDetail('memory-facts')"/><text x="86" y="878" class="t">Memory Facts</text><text x="86" y="900" class="s">Preferences, aversions, temporaire</text>
+        <rect x="342" y="844" width="242" height="88" class="box memory" onclick="showDetail('session-summaries')"/><text x="362" y="878" class="t">Session Summaries</text><text x="362" y="900" class="s">Resume compact des sessions</text>
+        <rect x="618" y="844" width="242" height="88" class="box memory" onclick="showDetail('tasting-memories')"/><text x="638" y="878" class="t">Souvenirs degustation</text><text x="638" y="900" class="s">Retrieval semantique ou fallback</text>
+        <rect x="894" y="844" width="242" height="88" class="box data" onclick="showDetail('cave-data')"/><text x="914" y="878" class="t">Cave, profil, questionnaire</text><text x="914" y="900" class="s">Donnees metier et declaratives</text>
+        <rect x="1170" y="844" width="264" height="88" class="box brain" onclick="showDetail('async-memory')"/><text x="1190" y="878" class="t">Extraction memoire async</text><text x="1190" y="900" class="s">Rafraichit facts et summaries</text>
+        <path d="M188,844 L188,734 L860,734 L860,238" class="a amemory" marker-end="url(#m-memory)"/><path d="M463,844 L463,754 L920,754 L920,238" class="a amemory" marker-end="url(#m-memory)"/><path d="M739,844 L739,720 L1288,720 L1288,630" class="a amemory opt" marker-end="url(#m-memory)"/><path d="M1015,844 L1015,630" class="a adata" marker-end="url(#m-data)"/><path d="M1270,410 L1270,844" class="a abrain opt" marker-end="url(#m-brain)"/><path d="M1170,890 L584,890" class="a amemory opt" marker-end="url(#m-memory)"/><path d="M1170,912 L308,912" class="a amemory opt" marker-end="url(#m-memory)"/>
+        <text x="134" y="742" class="flow">facts structures</text><text x="404" y="762" class="flow">summaries structures</text><text x="1000" y="742" class="flow">profil / questionnaire</text><text x="1288" y="732" class="flow">post-turn async</text>
+        <rect x="58" y="958" width="1384" height="40" rx="14" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.08)"/><text x="750" y="983" text-anchor="middle" class="flow">Flux cle: message -> request builder -> turn interpreter (+ etat courant) -> user model resolver -> prompt builder -> LLM -> response policy -> UI</text>
+      </svg>
+    </div></div>
+    <p class="footer">Lecture simple: le resolver est un moteur interne. Son produit fini est le portrait utilisateur actuel. C'est ce portrait, plus les autres contextes juges utiles, qui est envoye au modele.</p>
+  </div>
+  <div class="overlay" id="overlay" onclick="closeDetail()"></div>
+  <aside class="panel" id="panel"><button class="close" onclick="closeDetail()" aria-label="Fermer">X</button><div id="content"></div></aside>
+  <script>
+    const details={
+      'user-input':['Message utilisateur','Point de depart','var(--ui)',"Le tour commence ici. Le sens du message depend souvent de l etat courant.",['Peut etre tres court ou contextuel.','Peut contenir texte et image.']],
+      'request-builder':['Request Builder','Frontend','var(--ui)',"Le frontend assemble la matiere. Il ne decide pas seul de la logique conversationnelle.",['Historique, cave, profil, questionnaire.','Memory facts bruts et session summaries structures.']],
+      'conversation-state':['Etat de conversation','Runtime','var(--guard)',"C est la memoire courte du dialogue lui-meme.",['Aide a comprendre le prochain message.','Recupere le nextState apres la reponse.']],
+      'turn-interpreter':['Turn Interpreter','Backend deterministe','var(--brain)',"Il classe le tour sans LLM.",['Produit turnType.','Produit cognitiveMode.']],
+      'resolver':['User Model Resolver','Brique technique','var(--brain)',"Il transforme la memoire brute en lecture actuelle de l utilisateur.",['Prend facts + sessions + message courant.','Fait primer le recent si tension.','Sort un portrait adapte au tour.']],
+      'prompt-builder':['Prompt Builder','Assemblage final','var(--brain)',"Il assemble le prompt final selon le mode du tour.",['Ajoute le portrait resolu.','Ajoute les autres contextes utiles seulement si necessaire.']],
+      'providers':['LLM','Generation','var(--llm)',"Le modele recoit deja une memoire nettoyee et hierarchisee.",['Le LLM se concentre sur la conversation.']],
+      'response-policy':['Response Policy','Garde-fous','var(--guard)',"Cette couche nettoie et borne la sortie apres generation.",['Retire une action UI non autorisee.','Evite certaines sorties parasites.']],
+      'ui-router':['UI Router','Frontend','var(--ui)',"Le frontend transforme la reponse en experience concrete.",['Texte, cartes, chips, formulaires.','Met a jour l etat pour le prochain tour.']],
+      'portrait':['Portrait utilisateur actuel','Injecte au prompt','var(--prompt)',"C est le resultat du resolver. C est lui qui devient la couche memoire prioritaire du prompt.",['Gouts stables.','Evolutions recentes.','A eviter maintenant.','Contexte social utile.']],
+      'profile-context':['Profil et questionnaire','Injectes au prompt','var(--prompt)',"Ces blocs viennent des donnees produit deja calculees ou declarees.",['Profil de gout.','Questionnaire FWI et sensoriel.']],
+      'optional-context':['Contextes optionnels','Injectes selon le mode','var(--prompt)',"Ces blocs ne doivent pas partir a tous les tours.",['Cave classee.','Souvenirs degustation.','Conversation passee retrouvee.']],
+      'memory-facts':['Memory Facts','Memoire longue','var(--memory)',"Preferences, aversions, contexte temporaire, signaux relationnels.",['Source brute pour le resolver.']],
+      'session-summaries':['Session Summaries','Memoire cross-session','var(--memory)',"Resume compact des sessions precedentes.",['Aide a la continuite multi-device.','Nourrit le resolver.']],
+      'tasting-memories':['Souvenirs degustation','Memoire a la demande','var(--memory)',"Utiles quand la reponse gagne a rappeler une bouteille, un accord ou une reaction deja vecue.",['Enrichissement ponctuel, pas memoire prioritaire.']],
+      'cave-data':['Cave, profil, questionnaire','Donnees produit','var(--data)',"Le coeur metier declaratif de l application.",['Bouteilles disponibles.','Profil calcule.','Questionnaire utilisateur.']],
+      'async-memory':['Extraction memoire async','Apres la reponse','var(--brain)',"Une fois le tour termine, le systeme peut rafraichir les facts et les summaries.",['Ne ralentit pas le hot path.','Ameliore les tours suivants.']]
+    };
+    function showDetail(key){const d=details[key];if(!d)return;document.getElementById('content').innerHTML=`<h2>${d[0]}</h2><span class="tag" style="background:${d[2]};color:#08101c">${d[1]}</span><p>${d[3]}</p><h3>Points cle</h3><ul>${d[4].map(i=>`<li>${i}</li>`).join('')}</ul>`;document.getElementById('overlay').classList.add('visible');document.getElementById('panel').classList.add('open')}
+    function closeDetail(){document.getElementById('overlay').classList.remove('visible');document.getElementById('panel').classList.remove('open')}
+    document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDetail()})
+  </script>
+</body>
+</html>
