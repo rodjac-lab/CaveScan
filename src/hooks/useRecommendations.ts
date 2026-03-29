@@ -7,6 +7,7 @@ import {
   setCachedRecommendation,
 } from '@/lib/recommendationStore'
 import type { RecommendationCard } from '@/lib/recommendationStore'
+import type { CelestinResponse } from '@/lib/celestinConversation'
 import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
 import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
 import { getCachedBottles } from '@/hooks/useBottles'
@@ -89,12 +90,15 @@ export async function prefetchDefaultRecommendations(): Promise<void> {
 
     if (error) throw error
     if (!data) throw new Error('No data from celestin')
-    if (data.error) throw new Error(data.error)
+    if ('error' in data && typeof data.error === 'string') throw new Error(data.error)
 
     // Resolve bottle IDs (short 8-char → full UUID)
-    const cards = resolveBottleIds((data.cards ?? []) as RecommendationCard[], caveBottles)
+    const response = data as CelestinResponse
+    const cards = response.ui_action?.kind === 'show_recommendations'
+      ? resolveBottleIds((response.ui_action.payload.cards ?? []) as RecommendationCard[], caveBottles)
+      : []
 
-    const text: string | null = typeof data.text === 'string' ? data.text : null
+    const text: string | null = typeof response.message === 'string' ? response.message : null
     setCachedRecommendation(queryKey, { text, cards })
     console.log('[prefetch] Default recommendations cached via celestin')
   } catch (err) {
