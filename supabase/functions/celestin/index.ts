@@ -48,6 +48,8 @@ interface RequestBody {
   questionnaireProfile?: string
   memories?: string
   previousSession?: string
+  memoryFacts?: string // extracted facts from past conversations (always injected)
+  retrievedConversation?: string // full past conversation when user references it
   provider?: string // "claude" | "gemini" | "mistral" — force a specific provider (for eval)
   image?: string // base64-encoded image (JPEG or PNG)
   conversationState?: ConversationState // sent by frontend, tracks dialogue phase
@@ -208,6 +210,16 @@ function applyResponsePolicy(
 
 function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'greeting' | 'social'): string {
   const parts: string[] = []
+
+  // Memory facts — ALWAYS injected in ALL modes (~200-300 tokens)
+  if (body.memoryFacts) {
+    parts.push(body.memoryFacts)
+  }
+
+  // Retrieved conversation — injected when user references a past conversation
+  if (body.retrievedConversation) {
+    parts.push(`Conversation passee pertinente :\n${body.retrievedConversation}`)
+  }
 
   // Profile — always included (small, ~2-3 lines)
   if (body.profile) {

@@ -15,8 +15,8 @@ Message utilisateur → `buildCelestinRequestBody()` (cave rankée + profil + m�
 
 ## Structure Supabase
 
-- Tables principales : bottles, zones, events, user_taste_profiles
-- Edge functions : celestin (--no-verify-jwt), extract-wine (--no-verify-jwt), enrich-wine, extract-tasting-tags, generate-embedding, notify-signup
+- Tables principales : bottles, zones, events, user_taste_profiles, chat_sessions, chat_messages, user_memory_facts
+- Edge functions : celestin (--no-verify-jwt), extract-wine (--no-verify-jwt), enrich-wine, extract-tasting-tags, extract-chat-insights, generate-embedding, notify-signup
 - pgvector : colonne embedding vector(1536) sur bottles
 - Deploy : `npx supabase functions deploy <nom> --project-ref flqsprbdcycweshvrcyx`
 
@@ -36,7 +36,7 @@ Message utilisateur → `buildCelestinRequestBody()` (cave rankée + profil + m�
 
 - Celestin : GPT-4.1 mini en primaire (meilleur structured output), fallback Claude puis Gemini
 - OCR scan : Gemini Flash en primaire prod (10× moins cher, suffisant en single-bottle), Claude Haiku en fallback (benchmark fév 2026 : 19/20, légèrement plus fiable). Switch via secret `PRIMARY_PROVIDER`
-- `extract-wine` et `celestin` déployés avec `--no-verify-jwt` (obligatoire, sinon 401)
+- `extract-wine`, `celestin`, `extract-chat-insights` et `generate-embedding` déployés avec `--no-verify-jwt` (obligatoire, sinon 401)
 - Multi-bouteilles : feature-flagged OFF (`ENABLE_MULTI_BOTTLE_SCAN = false`) — qualité OCR insuffisante
 - Mémoire : semantic search (pgvector) avec fallback keyword matching — zero-risk
 - Cross-session : localStorage TTL 7j, max 4 sessions

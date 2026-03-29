@@ -99,10 +99,10 @@ Composantes du score :
    - Exploration : couleur ≤10% distribution → +0.45
 
 **Ce qui reste du plan V2 original (non implémenté) :**
-- Journal d'événements utilisateur (memory_events)
-- Embeddings sur conversations (pas seulement dégustations)
-- Distinction nette préférences stables vs tendances récentes vs souvenirs marquants
-- Retrieval par intention (question cave / recommandation / souvenir / comparaison)
+- ~~Journal d'événements utilisateur (memory_events)~~ → remplacé par `user_memory_facts` (V2.5, mars 2026)
+- ~~Embeddings sur conversations (pas seulement dégustations)~~ → fait (V2.5, embeddings sur `chat_sessions.summary`)
+- ~~Distinction nette préférences stables vs tendances récentes vs souvenirs marquants~~ → fait (V2.5, catégories + `is_temporary` + `superseded_by`)
+- Retrieval par intention (question cave / recommandation / souvenir / comparaison) — partiellement fait (regex frontend + semantic search)
 
 Résultat obtenu :
 - "vin italien de Noël" retrouve un Brunello dégusté en décembre
@@ -139,15 +139,36 @@ V1 quasi terminée. Voici ce qui a été implémenté et validé :
 
 ### Reste à faire (non fondamental)
 - **Préférences explicites (UI)** : le type `ExplicitPreferences` existe (régions aimées/évitées, accords custom, notes libres) et est déjà sérialisé dans le prompt, mais il n'y a aucun écran pour que l'utilisateur les renseigne. Nécessite une UI dans les Réglages. Non bloquant — les données vécues (tasting tags) couvrent déjà l'essentiel.
-- **Migration mémoire cross-session localStorage → Supabase** : le prototype localStorage fonctionne mais ne survit pas à un changement de device ou un clear du navigateur. Migrer vers une table Supabase rendrait la mémoire cross-session persistante et multi-device. Non bloquant — la valeur est déjà là avec localStorage.
+- ~~**Migration mémoire cross-session localStorage → Supabase**~~ → fait (V2.5)
+
+### V2.5 (implémentée 29 mars 2026)
+
+Objectif : Celestin se souvient de tout — conversations, préférences implicites, expériences.
+
+**Implémentation réalisée :**
+- **Persistence des conversations** : tables `chat_sessions` + `chat_messages` en Supabase, fire-and-forget à chaque message, fallback localStorage offline
+- **Extraction d'insights** : edge function `extract-chat-insights/` (Gemini Flash → Claude Haiku) extrait les préférences et faits durables des conversations toutes les 4 messages user. Table `user_memory_facts` avec catégories (preference, aversion, context, life_event, wine_knowledge, social, cellar_intent), supersedure, expiration temporelle
+- **Summaries + embeddings** : chaque session reçoit un summary d'une phrase + embedding pgvector pour recherche sémantique
+- **Injection universelle** : les memory facts sont injectés dans TOUS les cognitive modes (y compris `wine_conversation`, `greeting`, `restaurant_assistant` — corrige le manque V2)
+- **Retrieval de conversations complètes** : quand l'utilisateur référence une conversation passée (regex frontend), recherche sémantique sur les summaries → chargement des messages complets → injection dans le prompt
+- **Persona mise à jour** : instructions d'usage proactif des souvenirs et préférences
+
+**Fichiers clés :**
+- `supabase/migrations/20260329_chat_memory.sql` — tables + RPC `search_sessions`
+- `src/lib/chatPersistence.ts` — CRUD sessions/messages, extraction, retrieval
+- `src/lib/memoryFactsSerializer.ts` — sérialisation des facts pour prompt
+- `supabase/functions/extract-chat-insights/index.ts` — edge function extraction
+- `supabase/functions/generate-embedding/index.ts` — étendu pour support `chat_session`
 
 ## Recommandation
 
 - V1 quasi terminée — valider en usage réel avant d'aller plus loin
 - V2 implémentée — semantic search + keyword fallback opérationnels
+- V2.5 implémentée — persistence conversations, extraction insights, injection universelle
 - V3 seulement si on veut construire un vrai moat produit autour de la mémoire utilisateur
 
 En une phrase :
 - V1 = bon sommelier personnalisé (quasi fait)
 - V2 = sommelier avec mémoire réelle (fait)
+- V2.5 = sommelier qui se souvient de chaque conversation (fait)
 - V3 = assistant best-in-class qui connaît l'utilisateur presque par cœur

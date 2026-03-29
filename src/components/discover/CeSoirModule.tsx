@@ -21,6 +21,17 @@ import {
   type CelestinResponse,
   type WineActionData,
 } from '@/lib/celestinConversation'
+import {
+  createSession,
+  saveMessage as persistMessage,
+  loadActiveMemoryFacts,
+  extractInsights,
+  searchRelevantSessions,
+  loadSessionMessages,
+  serializeConversationForPrompt,
+  type MemoryFact,
+} from '@/lib/chatPersistence'
+import { serializeMemoryFactsForPrompt } from '@/lib/memoryFactsSerializer'
 
 // --- Types ---
 
@@ -512,6 +523,35 @@ export default function CeSoirModule() {
   drunkRef.current = drunkBottles
   profileRef.current = profile
 
+  // Chat persistence (Supabase)
+  const sessionIdRef = useRef<string | null>(null)
+  const userTurnCountRef = useRef(0)
+  const memoryFactsRef = useRef<string | undefined>(undefined)
+  const memoryFactsRawRef = useRef<MemoryFact[]>([])
+
+  // Initialize session + load memory facts on mount
+  // Extract insights on unmount (user leaves chat tab or closes app)
+  useEffect(() => {
+    createSession().then(id => { sessionIdRef.current = id })
+    loadActiveMemoryFacts().then(facts => {
+      memoryFactsRawRef.current = facts
+      memoryFactsRef.current = serializeMemoryFactsForPrompt(facts)
+    })
+
+    return () => {
+      // Trigger extraction for any unprocessed messages when leaving the chat
+      if (sessionIdRef.current && userTurnCountRef.current > 0) {
+        const recent = (persistedMessages ?? [])
+          .filter(m => !m.isLoading && m.text.length > 1)
+          .slice(-12)
+          .map(m => ({ role: m.role === 'user' ? 'user' : 'celestin', content: m.text }))
+        if (recent.length >= 2) {
+          extractInsights(sessionIdRef.current, recent, memoryFactsRawRef.current)
+        }
+      }
+    }
+  }, [])
+
   // Auto-scroll to bottom
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -530,7 +570,7 @@ export default function CeSoirModule() {
 
   // --- Build context for the edge function ---
 
-  function buildRequestBody(message: string, image?: string, memoriesOverride?: string) {
+  function buildRequestBody(message: string, image?: string, memoriesOverride?: string, retrievedConversation?: string) {
     return buildCelestinRequestBody({
       message,
       image,
@@ -543,13 +583,21 @@ export default function CeSoirModule() {
       zones: zones.map((z) => z.name),
       memoriesOverride,
       conversationState: persistedConversationState,
+      memoryFacts: memoryFactsRef.current,
+      retrievedConversation,
     })
   }
 
   // --- Core submit handler ---
 
+  // Patterns that indicate user is referencing a past conversation
+  const PAST_REFERENCE_PATTERN = /(?:tu te souviens|la derni[eè]re fois|on avait parl[eé]|on avait bu|c'[eé]tait quoi le vin|tu m'avais (?:dit|recommand|conseill)|la fois o[uù]|dej[aà] discut)/i
+
   async function callCelestin(message: string, loadingMsgId: string, image?: string) {
     try {
+      // Persist user message (fire-and-forget)
+      persistMessage(sessionIdRef.current, 'user', message, { hasImage: !!image })
+
       // Try async semantic memory search, then fall back to sync keyword matching inside buildRequestBody
       let memoriesOverride: string | undefined
       try {
@@ -561,7 +609,23 @@ export default function CeSoirModule() {
         // Semantic search failed — buildRequestBody will use keyword fallback
       }
 
-      const body = buildRequestBody(message, image, memoriesOverride)
+      // Retrieve past conversation if user references one
+      let retrievedConversation: string | undefined
+      if (PAST_REFERENCE_PATTERN.test(message)) {
+        try {
+          const sessions = await searchRelevantSessions(message, 1)
+          if (sessions.length > 0) {
+            const msgs = await loadSessionMessages(sessions[0].id)
+            if (msgs.length > 0) {
+              retrievedConversation = serializeConversationForPrompt(msgs, sessions[0].started_at)
+            }
+          }
+        } catch {
+          // Retrieval failed — continue without it
+        }
+      }
+
+      const body = buildRequestBody(message, image, memoriesOverride, retrievedConversation)
       const { data, error } = await supabase.functions.invoke('celestin', { body })
 
       if (error) throw error
@@ -608,6 +672,25 @@ export default function CeSoirModule() {
       }
 
       setMessages(prev => prev.map(m => m.id === loadingMsgId ? { ...m, ...update } : m))
+
+      // Persist Celestin response (fire-and-forget)
+      const debugInfo = (fullResponse as unknown as Record<string, unknown>)?._debug as
+        Record<string, unknown> | undefined
+      persistMessage(sessionIdRef.current, 'celestin', response.message, {
+        uiActionKind: response.ui_action?.kind,
+        cognitiveMode: debugInfo?.cognitiveMode as string | undefined,
+      })
+
+      // Trigger insight extraction every 4 user turns
+      userTurnCountRef.current++
+      if (userTurnCountRef.current >= 4) {
+        userTurnCountRef.current = 0
+        const recentMessages = messages
+          .filter(m => !m.isLoading && m.text.length > 1)
+          .slice(-12)
+          .map(m => ({ role: m.role === 'user' ? 'user' : 'celestin', content: m.text }))
+        extractInsights(sessionIdRef.current, recentMessages, memoryFactsRawRef.current)
+      }
     } catch (err) {
       console.error('[CeSoirModule] celestin error:', err)
       let debugMessage = err instanceof Error ? err.message : String(err)

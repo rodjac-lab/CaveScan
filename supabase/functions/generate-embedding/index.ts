@@ -25,7 +25,12 @@ interface SaveRequest {
   bottle_id: string
 }
 
-type RequestBody = QueryRequest | SaveRequest
+interface SaveSessionRequest {
+  text: string
+  session_id: string
+}
+
+type RequestBody = QueryRequest | SaveRequest | SaveSessionRequest
 
 // === UTILS ===
 
@@ -137,8 +142,39 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Mode 3: Save session — generate embedding and store it in the chat_sessions row
+    if ('text' in body && 'session_id' in body && body.text && (body as SaveSessionRequest).session_id) {
+      const text = body.text.trim()
+      const sessionId = (body as SaveSessionRequest).session_id
+      if (text.length === 0) {
+        return new Response(
+          JSON.stringify({ error: 'text is required' }),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
+        )
+      }
+
+      console.log(`[generate-embedding] Save mode for session ${sessionId} (${text.length} chars)`)
+      const embedding = await generateEmbedding(text)
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+      const { error: updateError } = await supabase
+        .from('chat_sessions')
+        .update({ summary_embedding: JSON.stringify(embedding) })
+        .eq('id', sessionId)
+
+      if (updateError) {
+        console.error(`[generate-embedding] DB update failed:`, updateError)
+        throw new Error(`Failed to save session embedding: ${updateError.message}`)
+      }
+
+      console.log(`[generate-embedding] Embedding saved for session ${sessionId}`)
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      })
+    }
+
     return new Response(
-      JSON.stringify({ error: 'Request must contain either { query } or { text, bottle_id }' }),
+      JSON.stringify({ error: 'Request must contain { query }, { text, bottle_id }, or { text, session_id }' }),
       { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     )
   } catch (error) {

@@ -318,9 +318,11 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 | `lib/taste-profile.ts` | Serialisation du profil de gout |
 | `lib/questionnaire-profile.ts` | Serialisation du questionnaire FWI |
 | `lib/contextHelpers.ts` | Jour, saison, `resolveBottleIds()`, `formatDrunkSummary()` |
-| `lib/crossSessionMemory.ts` | Persistance sessions (localStorage, rotation, TTL 7j) |
+| `lib/crossSessionMemory.ts` | Persistance sessions (localStorage fallback + Supabase primary) |
+| `lib/chatPersistence.ts` | **V2.5** : persistence conversations Supabase, extraction insights, retrieval semantique |
+| `lib/memoryFactsSerializer.ts` | **V2.5** : serialisation des memory facts pour injection prompt |
 | `lib/recommendationStore.ts` | Cache prefetch (module-level) |
-| `lib/celestinConversation.ts` | `buildCelestinRequestBody()` — assemble le payload (cave rankée, profil, mémoires, questionnaire, état) |
+| `lib/celestinConversation.ts` | `buildCelestinRequestBody()` — assemble le payload (cave rankée, profil, mémoires, questionnaire, état, memoryFacts, retrievedConversation) |
 | `lib/enrichWine.ts` | Enrichissement async post-save (fire-and-forget) : arômes, accords, température, pays/région, maturité |
 
 ## Providers LLM
@@ -364,26 +366,34 @@ interface CelestinResponse {
 
 **Note :** La réponse HTTP est toujours `200`, même en cas d'erreur (raison : éviter l'échec du CORS preflight sur les 4xx/5xx). En cas d'erreur, seul `{ message }` est renvoyé, sans `ui_action`.
 
-## Memoire : 4 couches
+## Memoire : 5 couches
 
 ```
-Couche 1 -- Faits (Supabase)
+Couche 1 -- Faits vin (Supabase)
   bottles, tasting_tags, zones
 
 Couche 2 -- Profil infere (Supabase)
   computeTasteProfile --> appellations/domaines preferes, couleurs, prix, QPR
 
-Couche 3 -- Souvenirs (Supabase + runtime + semantic search)
+Couche 3 -- Souvenirs de degustation (Supabase + runtime + semantic search)
   selectRelevantMemoriesAsync :
     1. Semantic search (embeddings pgvector) via generate-embedding edge fn
     2. Fallback : selectRelevantMemories (keyword matching)
   Embedding genere fire-and-forget a chaque sauvegarde de note de degustation
   Colonne embedding vector(1536) sur bottles, RPC search_memories (score hybride)
-  Backfill existant via Debug.tsx
 
-Couche 4 -- Etat conversationnel
+Couche 4 -- Memoire conversationnelle (Supabase, V2.5)
+  chat_sessions + chat_messages : persistence complete des conversations
+  user_memory_facts : preferences/faits extraits par LLM (extract-chat-insights/)
+    Categories : preference, aversion, context, life_event, wine_knowledge, social, cellar_intent
+    Supersedure : quand une preference evolue, l'ancienne est marquee superseded_by
+    Temporalite : is_temporary + expires_at pour les contextes ephemeres
+  summary_embedding : embedding du summary de session pour retrieval semantique
+  Injection : memoryFacts injectes dans TOUS les cognitive modes
+  Retrieval : regex frontend detecte references au passe -> semantic search -> messages complets
+
+Couche 5 -- Etat conversationnel (runtime)
   State Machine (persistedConversationState, module-level)
-  Cross-session (localStorage, TTL 7j)
   Historique enrichi (cards + actions resumees dans les turns)
   Nettoyage images : seules les 2 dernieres photos user sont conservees
 ```
@@ -394,5 +404,7 @@ Couche 4 -- Etat conversationnel
 |-----------|-------|-------|-------|
 | `persistedMessages` (module-level) | Navigation entre onglets | Session app | Chat survit au changement d'onglet |
 | `persistedConversationState` (module-level) | Navigation entre onglets | Session app | Etat dialogue survit au changement d'onglet |
-| `localStorage` (cross-session) | Entre sessions | 7 jours (TTL) | Resume des conversations precedentes |
+| `chat_sessions` + `chat_messages` (Supabase) | Multi-device | Indefini | Conversations completes |
+| `user_memory_facts` (Supabase) | Multi-device | Indefini (sauf temporaires) | Preferences et faits extraits |
+| `localStorage` (cross-session) | Entre sessions | 7 jours (TTL) | Fallback offline |
 | Prefetch cache (module-level) | Session app | Jusqu'au reload | Recommandations initiales |

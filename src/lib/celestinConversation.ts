@@ -164,6 +164,8 @@ export function buildCelestinRequestBody(input: {
   zones: string[]
   memoriesOverride?: string
   conversationState?: Record<string, unknown> | null
+  memoryFacts?: string
+  retrievedConversation?: string
 }) {
   const ranked = rankCaveBottles('generic', input.message, input.cave, input.drunk, input.profile, input.cave.length)
   const caveSummary = ranked.map(({ bottle, score }) => ({
@@ -201,6 +203,8 @@ export function buildCelestinRequestBody(input: {
     zones: input.zones.length > 0 ? input.zones : undefined,
     ...(input.conversationState ? { conversationState: input.conversationState } : {}),
     ...(input.image ? { image: input.image } : {}),
+    ...(input.memoryFacts ? { memoryFacts: input.memoryFacts } : {}),
+    ...(input.retrievedConversation ? { retrievedConversation: input.retrievedConversation } : {}),
   }
 }
 

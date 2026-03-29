@@ -1,12 +1,14 @@
 /**
  * Cross-session memory for Célestin.
  *
- * Stores up to MAX_SESSIONS conversation summaries in localStorage,
- * each with a TTL. Sessions older than TTL_MS are pruned on read.
+ * Primary source: Supabase chat_sessions (persistent, multi-device).
+ * Fallback: localStorage (offline, same-device).
  *
  * Configurable via setCrossSessionConfig() — useful for testing
  * different retention strategies from the Debug page.
  */
+
+import { loadRecentSessions } from '@/lib/chatPersistence'
 
 // --- Configuration (adjustable at runtime for testing) ---
 
@@ -182,6 +184,41 @@ export function serializePreviousSessionsForPrompt(sessions: SessionSummary[]): 
   })
 
   return `Resume des conversations precedentes :\n\n${blocks.join('\n\n---\n\n')}`
+}
+
+/**
+ * Load previous sessions from Supabase (summaries only).
+ * Returns a compact format that replaces the raw turns with 1-line summaries.
+ * Falls back to localStorage if Supabase is unavailable.
+ */
+export async function loadPreviousSessionsFromSupabase(): Promise<string | undefined> {
+  try {
+    const sessions = await loadRecentSessions(5)
+    if (sessions.length === 0) {
+      // Fallback to localStorage
+      const localSessions = loadPreviousSessions()
+      return serializePreviousSessionsForPrompt(localSessions)
+    }
+
+    const lines = sessions
+      .filter(s => s.summary)
+      .map(s => {
+        const date = new Date(s.started_at)
+        const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+        return `- ${dateStr} : ${s.summary}`
+      })
+
+    if (lines.length === 0) {
+      const localSessions = loadPreviousSessions()
+      return serializePreviousSessionsForPrompt(localSessions)
+    }
+
+    return `Conversations recentes :\n${lines.join('\n')}`
+  } catch {
+    // Fallback to localStorage
+    const localSessions = loadPreviousSessions()
+    return serializePreviousSessionsForPrompt(localSessions)
+  }
 }
 
 /** Clear all session memory (for debug/testing) */

@@ -100,7 +100,10 @@ Source unique de verite pour les travaux produit/tech.
 ### Celestin — Memoire V2
 
 - [x] **Semantic search via embeddings/pgvector** — pgvector + colonne embedding vector(1536) sur bottles, edge function generate-embedding (OpenAI text-embedding-3-small), RPC search_memories (score hybride cosine 0.6 + qualite 0.4), selectRelevantMemoriesAsync avec fallback keyword matching. Backfill fait (44 bouteilles).
-- [ ] Migration cross-session localStorage -> Supabase
+- [x] **Migration cross-session localStorage -> Supabase** — tables chat_sessions + chat_messages, fire-and-forget, fallback localStorage offline
+- [x] **Extraction d'insights conversationnels** — edge function extract-chat-insights (Gemini Flash → Claude Haiku), table user_memory_facts avec categories/supersedure/expiration, declenchement tous les 4 messages user
+- [x] **Injection memoire universelle** — memory facts injectes dans TOUS les cognitive modes (corrige le manque en wine_conversation/restaurant_assistant)
+- [x] **Retrieval de conversations completes** — regex detection + semantic search sur session summaries + chargement messages complets
 - [ ] Verification d'auth avancee dans le code des edge functions (decoder token, filtrer par user_id)
 - [ ] useRecentlyDrunk limit(30) est un plafond silencieux — a augmenter ou supprimer
 
