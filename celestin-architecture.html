@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Céléstin — Architecture du Chatbot</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #0f0f14;
+    color: #e8e6e3;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    padding: 48px 24px 32px;
+  }
+  .header h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #c49a6c, #e8c99b, #c49a6c);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .header p {
+    color: #8a8696;
+    font-size: 0.95rem;
+    font-weight: 300;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    padding: 0 24px 32px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: #8a8696;
+  }
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+  }
+
+  /* Main SVG container */
+  .diagram-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px 60px;
+  }
+
+  svg {
+    width: 100%;
+    height: auto;
+    filter: drop-shadow(0 0 60px rgba(196, 154, 108, 0.05));
+  }
+
+  /* SVG Styles */
+  .box {
+    rx: 12;
+    ry: 12;
+    stroke-width: 1.5;
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+  .box:hover {
+    filter: brightness(1.15);
+    stroke-width: 2.5;
+  }
+
+  /* Category colors */
+  .cat-ui { fill: #1a1a2e; stroke: #6c63ff; }
+  .cat-brain { fill: #1a1e2e; stroke: #4ecdc4; }
+  .cat-memory { fill: #1e1a2e; stroke: #c49a6c; }
+  .cat-llm { fill: #2e1a1e; stroke: #ff6b6b; }
+  .cat-guard { fill: #1a2e1e; stroke: #a8e6cf; }
+  .cat-data { fill: #2e2a1a; stroke: #ffd93d; }
+
+  .box-title {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    fill: #ffffff;
+  }
+  .box-subtitle {
+    font-family: 'Inter', sans-serif;
+    font-weight: 300;
+    font-size: 10px;
+    fill: #8a8696;
+  }
+  .box-detail {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 9.5px;
+    fill: #a09cae;
+  }
+  .box-emoji {
+    font-size: 18px;
+  }
+  .section-label {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  /* Arrows */
+  .arrow {
+    stroke-width: 1.8;
+    fill: none;
+    opacity: 0.5;
+    transition: opacity 0.3s;
+  }
+  .arrow:hover { opacity: 1; }
+  .arrow-ui { stroke: #6c63ff; }
+  .arrow-brain { stroke: #4ecdc4; }
+  .arrow-memory { stroke: #c49a6c; }
+  .arrow-llm { stroke: #ff6b6b; }
+  .arrow-guard { stroke: #a8e6cf; }
+  .arrow-data { stroke: #ffd93d; }
+
+  /* Animated dashes for data flow */
+  .flow-dash {
+    stroke-dasharray: 6 4;
+    animation: flowDash 1.5s linear infinite;
+  }
+  @keyframes flowDash {
+    to { stroke-dashoffset: -20; }
+  }
+
+  /* Tooltip */
+  .tooltip-group { opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  .tooltip-group.visible { opacity: 1; }
+  .tooltip-bg { fill: #1e1e2e; stroke: #3a3650; rx: 8; ry: 8; }
+  .tooltip-text {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    fill: #c8c4d4;
+  }
+
+  /* Detail panel */
+  .detail-panel {
+    position: fixed;
+    top: 0;
+    right: -480px;
+    width: 460px;
+    height: 100vh;
+    background: #16161e;
+    border-left: 1px solid #2a2840;
+    padding: 32px 28px;
+    transition: right 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    overflow-y: auto;
+    z-index: 100;
+  }
+  .detail-panel.open { right: 0; }
+  .detail-panel .close-btn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: none;
+    border: 1px solid #3a3650;
+    color: #8a8696;
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .detail-panel .close-btn:hover { background: #2a2840; color: #fff; }
+  .detail-panel h2 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #fff;
+  }
+  .detail-panel .tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+  }
+  .detail-panel p {
+    font-size: 0.88rem;
+    line-height: 1.7;
+    color: #a09cae;
+    margin-bottom: 14px;
+  }
+  .detail-panel .file-list {
+    list-style: none;
+    margin-top: 12px;
+  }
+  .detail-panel .file-list li {
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem;
+    color: #c49a6c;
+    padding: 5px 0;
+    border-bottom: 1px solid #1e1e2e;
+  }
+  .detail-panel h3 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #c8c4d4;
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+  .overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 99;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .overlay.visible { opacity: 1; pointer-events: all; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .header h1 { font-size: 1.5rem; }
+    .detail-panel { width: 100%; right: -100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Céléstin — Architecture du Chatbot Sommelier</h1>
+  <p>Schéma interactif — Cliquez sur un bloc pour voir les détails</p>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#6c63ff"></div>Interface (UI)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#4ecdc4"></div>Orchestration</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#c49a6c"></div>Mémoire</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ff6b6b"></div>LLM Providers</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#a8e6cf"></div>Gardes-fous</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ffd93d"></div>Données</div>
+</div>
+
+<div class="diagram-container">
+<svg viewBox="0 0 1100 960" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow-ui" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#6c63ff" opacity="0.7"/>
+    </marker>
+    <marker id="arrow-brain" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#4ecdc4" opacity="0.7"/>
+    </marker>
+    <marker id="arrow-memory" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#c49a6c" opacity="0.7"/>
+    </marker>
+    <marker id="arrow-llm" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#ff6b6b" opacity="0.7"/>
+    </marker>
+    <marker id="arrow-guard" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#a8e6cf" opacity="0.7"/>
+    </marker>
+    <marker id="arrow-data" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#ffd93d" opacity="0.7"/>
+    </marker>
+
+    <!-- Glow filters -->
+    <filter id="glow-ui"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#6c63ff" flood-opacity="0.3"/></filter>
+    <filter id="glow-brain"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#4ecdc4" flood-opacity="0.3"/></filter>
+    <filter id="glow-memory"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#c49a6c" flood-opacity="0.3"/></filter>
+    <filter id="glow-llm"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#ff6b6b" flood-opacity="0.3"/></filter>
+    <filter id="glow-guard"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#a8e6cf" flood-opacity="0.3"/></filter>
+    <filter id="glow-data"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#ffd93d" flood-opacity="0.3"/></filter>
+  </defs>
+
+  <!-- ==================== SECTION LABELS ==================== -->
+  <text x="30" y="30" class="section-label" fill="#6c63ff" opacity="0.6">Frontend</text>
+  <text x="650" y="230" class="section-label" fill="#ff6b6b" opacity="0.6">LLM Providers</text>
+  <text x="650" y="470" class="section-label" fill="#a8e6cf" opacity="0.6">Gardes-fous</text>
+
+  <!-- ==================== ROW 1: FRONTEND ==================== -->
+
+  <!-- User Input -->
+  <rect x="40" y="50" width="200" height="90" class="box cat-ui" filter="url(#glow-ui)"
+        onclick="showDetail('user-input')"/>
+  <text x="70" y="78" class="box-emoji">💬</text>
+  <text x="92" y="80" class="box-title">Message Utilisateur</text>
+  <text x="60" y="100" class="box-subtitle">Texte + photo optionnelle (étiquette, carte)</text>
+  <text x="60" y="118" class="box-detail">Base64 JPEG/PNG • Historique in-memory</text>
+
+  <!-- CeSoirModule -->
+  <rect x="280" y="50" width="220" height="90" class="box cat-ui" filter="url(#glow-ui)"
+        onclick="showDetail('cesoir-module')"/>
+  <text x="310" y="78" class="box-emoji">🧩</text>
+  <text x="332" y="80" class="box-title">CeSoirModule</text>
+  <text x="300" y="100" class="box-subtitle">Composant principal du chat (54 KB)</text>
+  <text x="300" y="118" class="box-detail">buildRequestBody() • UI Bulles • Carrousel</text>
+
+  <!-- Chat UI Components -->
+  <rect x="540" y="50" width="200" height="90" class="box cat-ui" filter="url(#glow-ui)"
+        onclick="showDetail('chat-ui')"/>
+  <text x="570" y="78" class="box-emoji">🎨</text>
+  <text x="592" y="80" class="box-title">Composants UI</text>
+  <text x="560" y="100" class="box-subtitle">CelestinBubble, UserBubble</text>
+  <text x="560" y="118" class="box-detail">WineActionCard • ChatCarousel • ActionChips</text>
+
+  <!-- Hooks -->
+  <rect x="780" y="50" width="200" height="90" class="box cat-data" filter="url(#glow-data)"
+        onclick="showDetail('hooks')"/>
+  <text x="810" y="78" class="box-emoji">🪝</text>
+  <text x="832" y="80" class="box-title">Hooks React</text>
+  <text x="800" y="100" class="box-subtitle">useBottles, useTasteProfile</text>
+  <text x="800" y="118" class="box-detail">useZones • useQuestionnaireProfile</text>
+
+  <!-- Arrows Row 1 -->
+  <path d="M240,95 L275,95" class="arrow arrow-ui flow-dash" marker-end="url(#arrow-ui)"/>
+  <path d="M500,95 L535,95" class="arrow arrow-ui" marker-end="url(#arrow-ui)"/>
+  <path d="M780,95 L745,95" class="arrow arrow-data flow-dash" marker-end="url(#arrow-data)"/>
+
+  <!-- ==================== DIVIDER ==================== -->
+  <line x1="40" y1="170" x2="1060" y2="170" stroke="#2a2840" stroke-width="1" stroke-dasharray="4 4"/>
+  <text x="500" y="185" font-family="Inter" font-size="9" fill="#3a3650" text-anchor="middle">— POST /celestin —</text>
+
+  <!-- ==================== ROW 2: ORCHESTRATION — PIPELINE SÉQUENTIEL ==================== -->
+
+  <!-- Encadré "edge function celestin/" -->
+  <rect x="30" y="200" width="580" height="270" rx="16" ry="16" fill="none" stroke="#4ecdc4" stroke-width="1" stroke-dasharray="6 3" opacity="0.25"/>
+  <text x="50" y="218" font-family="Courier New" font-size="10" fill="#4ecdc4" opacity="0.4">supabase/functions/celestin/</text>
+
+  <!-- Arrow from frontend into pipeline -->
+  <path d="M390,160 L390,195 L170,195 L170,238" class="arrow arrow-ui flow-dash" marker-end="url(#arrow-brain)"/>
+
+  <!-- ── STEP A: Turn Interpreter ── -->
+  <circle cx="60" cy="268" r="14" fill="#0f0f14" stroke="#4ecdc4" stroke-width="2"/>
+  <text x="60" y="273" text-anchor="middle" font-family="Inter" font-weight="700" font-size="12" fill="#4ecdc4">A</text>
+
+  <rect x="82" y="244" width="220" height="48" class="box cat-brain" filter="url(#glow-brain)"
+        onclick="showDetail('turn-interpreter')"/>
+  <text x="102" y="266" class="box-title">Turn Interpreter</text>
+  <text x="102" y="282" class="box-detail">Regex → turnType (21 types) + cognitiveMode</text>
+
+  <!-- Arrow A → B -->
+  <path d="M192,292 L192,308" class="arrow arrow-brain flow-dash" marker-end="url(#arrow-brain)"/>
+
+  <!-- ── STEP B: State Machine ── -->
+  <circle cx="60" cy="332" r="14" fill="#0f0f14" stroke="#4ecdc4" stroke-width="2"/>
+  <text x="60" y="337" text-anchor="middle" font-family="Inter" font-weight="700" font-size="12" fill="#4ecdc4">B</text>
+
+  <rect x="82" y="310" width="220" height="48" class="box cat-brain" filter="url(#glow-brain)"
+        onclick="showDetail('state-machine')"/>
+  <text x="102" y="332" class="box-title">Machine à États</text>
+  <text x="102" y="348" class="box-detail">Transition phase (idle → active → post_ack ...)</text>
+
+  <!-- Arrow B → C -->
+  <path d="M192,358 L192,374" class="arrow arrow-brain flow-dash" marker-end="url(#arrow-brain)"/>
+
+  <!-- ── STEP C: Cognitive Mode ── -->
+  <circle cx="60" cy="398" r="14" fill="#0f0f14" stroke="#4ecdc4" stroke-width="2"/>
+  <text x="60" y="403" text-anchor="middle" font-family="Inter" font-weight="700" font-size="12" fill="#4ecdc4">C</text>
+
+  <rect x="82" y="376" width="220" height="48" class="box cat-brain" filter="url(#glow-brain)"
+        onclick="showDetail('cognitive-mode')"/>
+  <text x="102" y="398" class="box-title">Mode Cognitif</text>
+  <text x="102" y="414" class="box-detail">Choisit le niveau de contexte (50 → 3000+ tokens)</text>
+
+  <!-- Arrow C → D -->
+  <path d="M192,424 L192,440" class="arrow arrow-brain flow-dash" marker-end="url(#arrow-brain)"/>
+
+  <!-- ── STEP D: Prompt Builder ── -->
+  <circle cx="60" cy="462" r="14" fill="#0f0f14" stroke="#4ecdc4" stroke-width="2"/>
+  <text x="60" y="467" text-anchor="middle" font-family="Inter" font-weight="700" font-size="12" fill="#4ecdc4">D</text>
+
+  <rect x="82" y="442" width="220" height="48" class="box cat-brain" filter="url(#glow-brain)"
+        onclick="showDetail('prompt-builder')"/>
+  <text x="102" y="462" class="box-title">Prompt Builder</text>
+  <text x="102" y="478" class="box-detail">Assemble : Persona + Codex + Rules + Context</text>
+
+  <!-- ── Side labels for context ── -->
+  <text x="320" y="270" font-family="Inter" font-size="9" fill="#4ecdc4" opacity="0.5">"j'ai acheté" → encavage</text>
+  <text x="320" y="336" font-family="Inter" font-size="9" fill="#4ecdc4" opacity="0.5">idle → active_task</text>
+  <text x="320" y="400" font-family="Inter" font-size="9" fill="#4ecdc4" opacity="0.5">→ cellar_assistant</text>
+  <text x="320" y="466" font-family="Inter" font-size="9" fill="#4ecdc4" opacity="0.5">+ cave + profil + mémoires + facts</text>
+
+  <!-- ── Arrow from memory layers into Prompt Builder (D) ── -->
+  <!-- (these come from the memory section below) -->
+
+  <!-- Arrow D → LLM -->
+  <path d="M302,466 L530,466 Q560,466 560,430 L560,310 Q560,290 590,290 L645,290" class="arrow arrow-llm flow-dash" marker-end="url(#arrow-llm)"/>
+
+  <!-- ==================== LLM PROVIDERS ==================== -->
+
+  <rect x="650" y="250" width="180" height="80" class="box cat-llm" filter="url(#glow-llm)"
+        onclick="showDetail('llm-providers')"/>
+  <text x="678" y="278" class="box-emoji">🤖</text>
+  <text x="700" y="280" class="box-title">LLM Providers</text>
+  <text x="670" y="300" class="box-subtitle">Chaîne de fallback (15s timeout)</text>
+  <text x="670" y="314" class="box-detail">Gemini Flash → GPT-4.1-mini → Claude Haiku</text>
+
+  <!-- Prompt Modules -->
+  <rect x="870" y="250" width="180" height="80" class="box cat-llm" filter="url(#glow-llm)"
+        onclick="showDetail('prompt-modules')"/>
+  <text x="898" y="278" class="box-emoji">📚</text>
+  <text x="920" y="280" class="box-title">Modules Prompt</text>
+  <text x="890" y="300" class="box-subtitle">Persona Céléstin (sommelier FR)</text>
+  <text x="890" y="314" class="box-detail">Wine Codex • Capabilities • Rules</text>
+
+  <!-- Arrow LLM to Prompt Modules -->
+  <path d="M850,290 L865,290" class="arrow arrow-llm" marker-end="url(#arrow-llm)"/>
+
+  <!-- ==================== RESPONSE FLOW ==================== -->
+
+  <!-- Response Format -->
+  <rect x="650" y="360" width="180" height="70" class="box cat-llm" filter="url(#glow-llm)"
+        onclick="showDetail('response-format')"/>
+  <text x="678" y="388" class="box-emoji">📦</text>
+  <text x="700" y="390" class="box-title">Réponse Structurée</text>
+  <text x="670" y="408" class="box-detail">{ message, ui_action, action_chips }</text>
+  <text x="670" y="420" class="box-detail">show_reco • add_wine • log_tasting</text>
+
+  <path d="M740,330 L740,355" class="arrow arrow-llm flow-dash" marker-end="url(#arrow-llm)"/>
+
+  <!-- ==================== GUARDS ==================== -->
+
+  <rect x="650" y="490" width="180" height="80" class="box cat-guard" filter="url(#glow-guard)"
+        onclick="showDetail('response-policy')"/>
+  <text x="678" y="520" class="box-emoji">🛡️</text>
+  <text x="700" y="522" class="box-title">Response Policy</text>
+  <text x="670" y="542" class="box-subtitle">Gardes-fous post-génération</text>
+  <text x="670" y="556" class="box-detail">Strip ui_action • Re-reco prevention</text>
+
+  <rect x="870" y="490" width="180" height="80" class="box cat-guard" filter="url(#glow-guard)"
+        onclick="showDetail('debug-logs')"/>
+  <text x="898" y="520" class="box-emoji">🔎</text>
+  <text x="920" y="522" class="box-title">Debug Logs</text>
+  <text x="890" y="542" class="box-subtitle">Observabilité par tour</text>
+  <text x="890" y="556" class="box-detail">state • turnType • provider • timing</text>
+
+  <path d="M740,430 L740,485" class="arrow arrow-guard flow-dash" marker-end="url(#arrow-guard)"/>
+  <path d="M830,530 L865,530" class="arrow arrow-guard" marker-end="url(#arrow-guard)"/>
+
+  <!-- Return arrow -->
+  <path d="M650,530 L625,530 Q610,530 610,500 L610,160 Q610,145 590,145 L510,145 L510,155" class="arrow arrow-guard flow-dash" marker-end="url(#arrow-ui)"/>
+  <text x="594" y="340" font-family="Inter" font-size="9" fill="#a8e6cf" opacity="0.5" transform="rotate(-90 594 340)">réponse validée</text>
+
+  <!-- ==================== CONTEXTE INJECTÉ DANS LE PROMPT ==================== -->
+
+  <!-- Section title -->
+  <text x="30" y="530" class="section-label" fill="#c49a6c" opacity="0.6">Contexte injecté dans le Prompt Builder</text>
+
+  <!-- ── Groupe gauche : Toujours injectés ── -->
+  <rect x="30" y="545" width="220" height="175" rx="12" ry="12" fill="none" stroke="#c49a6c" stroke-width="1" stroke-dasharray="5 3" opacity="0.2"/>
+  <text x="48" y="560" font-family="Inter" font-size="9" font-weight="600" fill="#c49a6c" opacity="0.5">Toujours présents</text>
+
+  <!-- Layer 1: Historique -->
+  <rect x="40" y="568" width="200" height="40" class="box cat-memory" filter="url(#glow-memory)"
+        onclick="showDetail('conversation-history')"/>
+  <text x="56" y="588" class="box-title" font-size="11">L1 Historique Conv.</text>
+  <text x="56" y="600" class="box-detail">In-memory + localStorage</text>
+
+  <!-- Layer 2: Cross-Session -->
+  <rect x="40" y="616" width="200" height="40" class="box cat-memory" filter="url(#glow-memory)"
+        onclick="showDetail('cross-session')"/>
+  <text x="56" y="636" class="box-title" font-size="11">L2 Sessions Supabase</text>
+  <text x="56" y="648" class="box-detail">Summaries + fallback localStorage</text>
+
+  <!-- Profil Gustatif -->
+  <rect x="40" y="664" width="96" height="46" class="box cat-data" filter="url(#glow-data)"
+        onclick="showDetail('taste-profile')"/>
+  <text x="50" y="684" class="box-title" font-size="10">Profil Goût</text>
+  <text x="50" y="698" class="box-detail">Calculé</text>
+
+  <!-- Profil Questionnaire -->
+  <rect x="144" y="664" width="96" height="46" class="box cat-data" filter="url(#glow-data)"
+        onclick="showDetail('questionnaire-profile')"/>
+  <text x="152" y="684" class="box-title" font-size="10">Questionnaire</text>
+  <text x="152" y="698" class="box-detail">FWI + Sensoriel</text>
+
+  <!-- Arrow from "toujours présents" group → Prompt Builder (D) -->
+  <path d="M140,545 L140,510 L35,510 L35,466 L78,466" class="arrow arrow-memory flow-dash" marker-end="url(#arrow-brain)"/>
+
+  <!-- ── Groupe centre : Mémoire Conversationnelle V2.5 (NOUVEAU) ── -->
+  <rect x="265" y="545" width="220" height="175" rx="12" ry="12" fill="none" stroke="#c49a6c" stroke-width="1" stroke-dasharray="5 3" opacity="0.2"/>
+  <text x="283" y="560" font-family="Inter" font-size="9" font-weight="600" fill="#c49a6c" opacity="0.5">Mémoire Conv. V2.5 (tous modes)</text>
+
+  <!-- Memory Facts -->
+  <rect x="275" y="568" width="200" height="40" class="box cat-memory" filter="url(#glow-memory)"
+        onclick="showDetail('memory-facts')"/>
+  <text x="291" y="588" class="box-title" font-size="11">Memory Facts</text>
+  <text x="291" y="600" class="box-detail">Préférences + faits extraits par LLM</text>
+
+  <!-- Chat Persistence -->
+  <rect x="275" y="616" width="200" height="40" class="box cat-memory" filter="url(#glow-memory)"
+        onclick="showDetail('chat-persistence')"/>
+  <text x="291" y="636" class="box-title" font-size="11">Chat Persistence</text>
+  <text x="291" y="648" class="box-detail">chat_sessions + chat_messages</text>
+
+  <!-- Conversation Retrieval -->
+  <rect x="275" y="664" width="200" height="46" class="box cat-memory" filter="url(#glow-memory)"
+        onclick="showDetail('conversation-retrieval')"/>
+  <text x="291" y="684" class="box-title" font-size="11">Retrieval Conv.</text>
+  <text x="291" y="698" class="box-detail">Semantic search → full messages</text>
+
+  <!-- Arrow from V2.5 group → Prompt Builder (D) -->
+  <path d="M375,545 L375,510 L140,510" class="arrow arrow-memory flow-dash"/>
+  <text x="260" y="506" font-family="Inter" font-size="8" fill="#c49a6c" opacity="0.4" text-anchor="middle">Facts + retrieved conv.</text>
+
+  <!-- ── Groupe droit : Mémoires de dégustation (sélection dynamique) ── -->
+  <rect x="500" y="545" width="220" height="175" rx="12" ry="12" fill="none" stroke="#c49a6c" stroke-width="1" stroke-dasharray="5 3" opacity="0.2"/>
+  <text x="518" y="560" font-family="Inter" font-size="9" font-weight="600" fill="#c49a6c" opacity="0.5">Mémoires dégustation (sélection)</text>
+
+  <!-- Layer 4: Semantic (default) -->
+  <rect x="510" y="572" width="200" height="52" class="box cat-memory" filter="url(#glow-memory)"
+        onclick="showDetail('semantic-memory')"/>
+  <text x="526" y="592" class="box-title" font-size="11">Sémantique (défaut)</text>
+  <text x="526" y="608" class="box-detail">pgvector + embeddings • cosine</text>
+
+  <!-- Fallback arrow L4 → L3 -->
+  <path d="M610,624 L610,640" class="arrow arrow-memory" marker-end="url(#arrow-memory)" opacity="0.8"/>
+  <rect x="622" y="624" width="52" height="16" rx="4" fill="#1e1a2e" stroke="#c49a6c" stroke-width="0.8" opacity="0.6"/>
+  <text x="628" y="635" font-family="Inter" font-size="8" font-weight="600" fill="#c49a6c" opacity="0.9">si échec</text>
+
+  <!-- Layer 3: Keyword (fallback) -->
+  <rect x="510" y="644" width="200" height="52" class="box cat-memory" filter="url(#glow-memory)"
+        onclick="showDetail('tasting-memories')"/>
+  <text x="526" y="664" class="box-title" font-size="11">Keyword (fallback)</text>
+  <text x="526" y="680" class="box-detail">Scoring : food/desc +4 • récence</text>
+
+  <!-- Arrow from "mémoires" group → Prompt Builder (D) -->
+  <path d="M610,545 L610,510 L375,510" class="arrow arrow-memory flow-dash"/>
+  <text x="500" y="506" font-family="Inter" font-size="8" fill="#c49a6c" opacity="0.4" text-anchor="middle">Top 5 souvenirs</text>
+
+  <!-- ==================== ROW 4: SOURCES DE DONNÉES ==================== -->
+
+  <text x="30" y="760" class="section-label" fill="#ffd93d" opacity="0.6">Sources de données</text>
+
+  <!-- Supabase -->
+  <rect x="40" y="775" width="200" height="70" class="box cat-data" filter="url(#glow-data)"
+        onclick="showDetail('supabase')"/>
+  <text x="68" y="803" class="box-emoji">🗄️</text>
+  <text x="90" y="805" class="box-title">Supabase</text>
+  <text x="58" y="822" class="box-subtitle">Bouteilles • Zones • Profils</text>
+  <text x="58" y="835" class="box-detail">RPC search_memories() • search_sessions()</text>
+
+  <!-- Ranking -->
+  <rect x="280" y="775" width="200" height="70" class="box cat-data" filter="url(#glow-data)"
+        onclick="showDetail('ranking')"/>
+  <text x="308" y="803" class="box-emoji">📊</text>
+  <text x="330" y="805" class="box-title">Ranking Bouteilles</text>
+  <text x="298" y="822" class="box-subtitle">rankCaveBottles() — local_score</text>
+  <text x="298" y="835" class="box-detail">Couleur • Appellation • QPR • Rating</text>
+
+  <!-- Supabase → memory layers (source) -->
+  <path d="M140,775 L140,720" class="arrow arrow-data flow-dash" marker-end="url(#arrow-memory)"/>
+  <path d="M180,775 L375,720" class="arrow arrow-data flow-dash" marker-end="url(#arrow-memory)"/>
+  <path d="M220,775 L610,700" class="arrow arrow-data flow-dash" marker-end="url(#arrow-memory)"/>
+
+  <!-- Ranking → Prompt Builder (right side, avoids green return arrow at x=610) -->
+  <path d="M480,810 L740,810 L740,510 L610,510" class="arrow arrow-data flow-dash" marker-end="url(#arrow-brain)" opacity="0.4"/>
+  <text x="748" y="700" font-family="Inter" font-size="8" fill="#ffd93d" opacity="0.35" transform="rotate(-90 748 700)">cave rankée dans la requête</text>
+
+  <!-- Supabase → Hooks React (initial load, subtle) -->
+  <path d="M40,810 L20,810 L20,145 L40,145" class="arrow arrow-data flow-dash" marker-end="url(#arrow-ui)" opacity="0.25"/>
+  <text x="12" y="500" font-family="Inter" font-size="8" fill="#ffd93d" opacity="0.3" transform="rotate(-90 12 500)">chargement initial → hooks React</text>
+
+  <!-- ==================== GLOBAL FLOW NUMBERS (right side) ==================== -->
+
+  <!-- 1: Request -->
+  <circle cx="260" cy="170" r="14" fill="#0f0f14" stroke="#6c63ff" stroke-width="1.5"/>
+  <text x="260" y="175" text-anchor="middle" font-family="Inter" font-weight="700" font-size="12" fill="#6c63ff">1</text>
+  <text x="282" y="175" font-family="Inter" font-size="9" fill="#6c63ff" opacity="0.7">Requête POST</text>
+
+  <!-- 2: LLM call -->
+  <circle cx="740" cy="345" r="14" fill="#0f0f14" stroke="#ff6b6b" stroke-width="1.5"/>
+  <text x="740" y="350" text-anchor="middle" font-family="Inter" font-weight="700" font-size="12" fill="#ff6b6b">2</text>
+  <text x="756" y="348" font-family="Inter" font-size="9" fill="#ff6b6b" opacity="0.7">Génération</text>
+
+  <!-- 3: Validation -->
+  <circle cx="740" cy="470" r="14" fill="#0f0f14" stroke="#a8e6cf" stroke-width="1.5"/>
+  <text x="740" y="475" text-anchor="middle" font-family="Inter" font-weight="700" font-size="12" fill="#a8e6cf">3</text>
+  <text x="756" y="468" font-family="Inter" font-size="9" fill="#a8e6cf" opacity="0.7">Validation</text>
+
+  <!-- 4: Return -->
+  <circle cx="625" cy="145" r="14" fill="#0f0f14" stroke="#a8e6cf" stroke-width="1.5"/>
+  <text x="625" y="150" text-anchor="middle" font-family="Inter" font-weight="700" font-size="12" fill="#a8e6cf">4</text>
+  <text x="645" y="148" font-family="Inter" font-size="9" fill="#a8e6cf" opacity="0.7">Retour UI</text>
+
+  <!-- ==================== DATA FLOW ANNOTATION ==================== -->
+  <rect x="40" y="860" width="1020" height="50" rx="8" fill="#1a1a2e" stroke="#2a2840" opacity="0.6"/>
+  <text x="550" y="878" text-anchor="middle" font-family="Inter" font-size="10" fill="#8a8696">
+    Flux : Message → (A) Turn Interpreter → (B) Machine à États → (C) Mode Cognitif → (D) Prompt Builder [+ mémoires + facts + profils] → LLM → Response Policy → UI
+  </text>
+  <text x="550" y="898" text-anchor="middle" font-family="Inter" font-size="9" fill="#c49a6c" opacity="0.5">
+    V2.5 : Memory Facts injectés dans tous les modes • Conversations persistées en Supabase • Extraction d'insights par LLM • Retrieval sémantique
+  </text>
+
+</svg>
+</div>
+
+<!-- Detail Panel -->
+<div class="overlay" id="overlay" onclick="closeDetail()"></div>
+<div class="detail-panel" id="detail-panel">
+  <button class="close-btn" onclick="closeDetail()">✕</button>
+  <div id="detail-content"></div>
+</div>
+
+<script>
+const details = {
+  'user-input': {
+    title: 'Message Utilisateur',
+    tag: 'Frontend',
+    tagColor: '#6c63ff',
+    description: `L'utilisateur envoie un message texte, optionnellement accompagné d'une photo (étiquette de vin, carte des vins au restaurant). Les images sont encodées en base64 (JPEG/PNG) et seules les 2 dernières images sont conservées en mémoire pour limiter la taille du payload.`,
+    sections: [
+      { title: 'Types de messages reconnus', content: 'Salutation, demande de recommandation ("que boire ce soir"), encavage ("j\'ai acheté"), dégustation ("on a bu hier"), question culturelle ("parle-moi du Chenin"), mémoire ("tu te souviens")...' },
+      { title: 'Fichier clé', files: ['src/components/discover/CeSoirModule.tsx'] }
+    ]
+  },
+  'cesoir-module': {
+    title: 'CeSoirModule',
+    tag: 'Frontend — 54 KB',
+    tagColor: '#6c63ff',
+    description: `Le composant principal du chat. Il orchestre tout le frontend : affichage des bulles, gestion de l'état des messages, et surtout la construction du corps de requête via buildRequestBody(). C'est lui qui assemble toutes les couches de contexte avant d'envoyer la requête à l'edge function.`,
+    sections: [
+      { title: 'Responsabilités', content: 'Assemblage du contexte (cave rankée, profil, mémoires, memory facts, sessions, zones), persistance Supabase (fire-and-forget), extraction d\'insights (tous les 4 messages), retrieval de conversations passées, affichage des réponses (bulles, carrousels, formulaires inline).' },
+      { title: 'Fichier', files: ['src/components/discover/CeSoirModule.tsx'] }
+    ]
+  },
+  'chat-ui': {
+    title: 'Composants UI du Chat',
+    tag: 'Frontend',
+    tagColor: '#6c63ff',
+    description: `Ensemble de sous-composants React pour le rendu du chat : bulles de message, carrousel de recommandations, formulaires inline d'action (encaver, déguster), chips d'action suggérées, et carte de profil.`,
+    sections: [
+      { title: 'Composants', content: 'CelestinBubble (réponse IA avec cards, actions), UserBubble (message utilisateur + image), ChatCarousel (scroll horizontal + dots), WineActionCard (formulaire extraction inline), TypingDots (animation de chargement), RecommendationCardItem.' },
+    ]
+  },
+  'hooks': {
+    title: 'Hooks React',
+    tag: 'Données',
+    tagColor: '#ffd93d',
+    description: `Les hooks fournissent les données live au composant de chat : bouteilles en cave, profil gustatif calculé, profil questionnaire, zones de stockage, et pré-chargement des recommandations.`,
+    sections: [
+      { title: 'Hooks principaux', content: 'useBottles() — bouteilles in-stock + récemment bues\nuseTasteProfile() — profil calculé + préférences explicites\nuseQuestionnaireProfile() — scores FWI + préférences sensorielles\nuseZones() — zones de stockage\nuseRecommendations() — pré-fetch au lancement' },
+      { title: 'Dossier', files: ['src/hooks/'] }
+    ]
+  },
+  'turn-interpreter': {
+    title: 'Turn Interpreter',
+    tag: 'Orchestration — Regex-based',
+    tagColor: '#4ecdc4',
+    description: `Le cerveau de routage. Sans appeler le LLM, il analyse chaque message utilisateur via des banques de regex pour déterminer le type de tour (21 types possibles) et le mode cognitif associé. C'est ce qui permet de n'injecter que le contexte nécessaire et d'économiser des tokens.`,
+    sections: [
+      { title: 'Exemples de patterns', content: 'SOCIAL_ACK: "merci", "super", "ok"\nRECOMMENDATION: "que boire", "ce soir", "pour accompagner"\nENCAVAGE: "acheté", "reçu", "encaver"\nTASTING: "dégusté", "bu", "ouvert"\nMEMORY: "tu te souviens", "la dernière fois"' },
+      { title: 'Fichier', files: ['supabase/functions/celestin/turn-interpreter.ts'] }
+    ]
+  },
+  'state-machine': {
+    title: 'Machine à États',
+    tag: 'Orchestration — Déterministe',
+    tagColor: '#4ecdc4',
+    description: `Une machine à états finis qui suit la phase du dialogue. Elle garantit des transitions cohérentes et empêche les états bloqués grâce à un auto-reset après 3 tours sans action.`,
+    sections: [
+      { title: 'Les 6 phases', content: 'idle_smalltalk — pas de tâche active\nactive_task — recommandation/encavage en cours\npost_task_ack — tâche terminée, attente de réaction\ncollecting_info — collecte d\'infos manquantes\ndisambiguation — clarification nécessaire\ncontext_switch — changement de sujet (transitoire)' },
+      { title: 'Fichier', files: ['supabase/functions/celestin/conversation-state.ts'] }
+    ]
+  },
+  'prompt-builder': {
+    title: 'Prompt Builder',
+    tag: 'Orchestration',
+    tagColor: '#4ecdc4',
+    description: `Assemble le prompt système final en combinant les modules nécessaires selon le mode cognitif. Un message "greeting" n'aura que la persona, tandis qu'un "cellar_assistant" aura tout : Codex, Persona, Capabilities, Rules, Format.`,
+    sections: [
+      { title: 'Modules combinables', content: 'Persona (identité Céléstin)\nWine Codex (accords, températures, régions)\nCapabilities (ce que Céléstin sait faire)\nRules (quand recommander, encaver, etc.)\nResponse Format (schéma JSON strict)' },
+      { title: 'Fichier', files: ['supabase/functions/celestin/prompt-builder.ts'] }
+    ]
+  },
+  'cognitive-mode': {
+    title: 'Modes Cognitifs',
+    tag: 'Orchestration — 5 niveaux',
+    tagColor: '#4ecdc4',
+    description: `Dimension orthogonale à la machine à états : le mode cognitif détermine COMBIEN de contexte injecter. D'un simple "bonjour" (~50 tokens) à une recommandation complète (~3000+ tokens avec toute la cave).`,
+    sections: [
+      { title: 'Les 5 modes', content: 'greeting/social — Memory facts + profil + nb bouteilles (~250 tokens)\nwine_conversation — + questionnaire (~400 tokens)\nrestaurant_assistant — + image carte (~400 tokens)\ntasting_memory — + mémoires dégustation + sessions (~700 tokens)\ncellar_assistant — TOUT : cave + profil + mémoires + zones (~3000+ tokens)\n\nV2.5 : Memory facts injectés dans TOUS les modes' },
+    ]
+  },
+  'llm-providers': {
+    title: 'LLM Providers',
+    tag: 'IA — Fallback Chain',
+    tagColor: '#ff6b6b',
+    description: `Céléstin utilise une chaîne de fallback multi-providers avec un timeout de 15 secondes par appel. Chaque provider reconstruit l'historique dans son format natif, encode les images en base64, et parse la réponse JSON.`,
+    sections: [
+      { title: 'Chaîne de fallback', content: '1. Google Gemini 2.5 Flash — responseSchema natif, rapide, économique\n2. OpenAI GPT-4.1-mini — Structured outputs (JSON strict)\n3. Anthropic Claude Haiku 4.5 — Meilleur suivi d\'instructions' },
+      { title: 'Fichier', files: ['supabase/functions/celestin/index.ts'] }
+    ]
+  },
+  'prompt-modules': {
+    title: 'Modules de Prompt',
+    tag: 'IA — Persona',
+    tagColor: '#ff6b6b',
+    description: `La personnalité de Céléstin est définie dans des modules séparés. Sommelier français, chaleureux mais avec des opinions tranchées. Il ne commence jamais par "Ah" ou "Oh", ne pose jamais de questions rhétoriques en fin de message, et donne toujours du contenu concret en priorité.`,
+    sections: [
+      { title: 'Fichiers', files: ['supabase/functions/celestin/persona.ts', 'supabase/functions/celestin/wine-codex.ts', 'supabase/functions/celestin/capabilities.ts', 'supabase/functions/celestin/rules.ts', 'supabase/functions/celestin/response-format.ts'] }
+    ]
+  },
+  'response-format': {
+    title: 'Réponse Structurée',
+    tag: 'IA — JSON',
+    tagColor: '#ff6b6b',
+    description: `Le LLM retourne toujours un JSON structuré avec un message texte, une action UI optionnelle, et des chips d'action suggérées. Cela permet un rendu déterministe côté frontend.`,
+    sections: [
+      { title: 'Actions UI possibles', content: 'show_recommendations — Carrousel de vins recommandés\nprepare_add_wine — Formulaire inline pour encaver 1 bouteille\nprepare_add_wines — Encavage batch (2+ bouteilles)\nprepare_log_tasting — Formulaire de note de dégustation' },
+      { title: 'Structure', content: '{\n  message: string,\n  ui_action?: { kind, payload },\n  action_chips?: string[]\n}' }
+    ]
+  },
+  'response-policy': {
+    title: 'Response Policy',
+    tag: 'Gardes-fous — Post-génération',
+    tagColor: '#a8e6cf',
+    description: `Couche de sécurité déterministe qui s'applique APRÈS la génération LLM. Même si le modèle "hallucine" une action, cette couche peut la supprimer si le type de tour ne la permet pas.`,
+    sections: [
+      { title: 'Règles appliquées', content: '1. Si shouldAllowUiAction=false → supprime ui_action\n2. Prévention re-recommandation : si le dernier message avait déjà des vins et le nouveau message fait <15 chars, strip\n3. Extraction incomplète : si prepare_add_wine mais ni domaine ni appellation → strip' },
+      { title: 'Fichier', files: ['supabase/functions/celestin/index.ts'] }
+    ]
+  },
+  'debug-logs': {
+    title: 'Debug Logs',
+    tag: 'Observabilité',
+    tagColor: '#a8e6cf',
+    description: `Chaque tour génère des logs structurés pour faciliter le debugging sans avoir accès au LLM en direct.`,
+    sections: [
+      { title: 'Données loguées', content: 'message + hasImage\npreviousState → stateAfterTurn\ninterpretedTurnType + promptMode\nshouldAllowUiAction\nchosenProvider + responseTime\nrawUiActionKind → finalUiActionKind' },
+    ]
+  },
+  'conversation-history': {
+    title: 'Layer 1 — Historique Conversation',
+    tag: 'Mémoire — Session courante',
+    tagColor: '#c49a6c',
+    description: `La mémoire immédiate : les messages de la session en cours, persistés en localStorage. Survit aux changements d'onglet. Les images base64 des 2 derniers messages sont conservées, les plus anciennes sont nettoyées pour limiter la taille.`,
+    sections: [
+      { title: 'Stockage', content: 'persistedMessages — état module-level\npersist après chaque tour dans localStorage\npersistedConversationState — état de la machine à états' },
+    ]
+  },
+  'cross-session': {
+    title: 'Layer 2 — Sessions Supabase',
+    tag: 'Mémoire — Persistent multi-device',
+    tagColor: '#c49a6c',
+    description: `Sessions précédentes avec summaries générés par LLM. Source primaire : Supabase (table chat_sessions). Fallback : localStorage (offline). Les summaries compacts (~1 ligne chacun) remplacent les 12 tours tronqués à 200 chars de l'ancien système.`,
+    sections: [
+      { title: 'Fonctions', content: 'loadPreviousSessionsFromSupabase() — summaries Supabase (primaire)\nserializePreviousSessionsForPrompt() — fallback localStorage\nFormat injecté : "27 mars : Discussion accords osso bucco"' },
+      { title: 'Fichiers', files: ['src/lib/crossSessionMemory.ts', 'src/lib/chatPersistence.ts'] }
+    ]
+  },
+  'memory-facts': {
+    title: 'Memory Facts',
+    tag: 'Mémoire V2.5 — Tous les modes',
+    tagColor: '#c49a6c',
+    description: `Faits et préférences extraits automatiquement des conversations par LLM (extract-chat-insights). Injectés dans TOUS les modes cognitifs, y compris greeting et wine_conversation. Gère la supersédure (quand une préférence évolue) et les faits temporaires (contexte éphémère).`,
+    sections: [
+      { title: 'Catégories', content: 'preference — ce que l\'utilisateur aime\naversion — ce qu\'il n\'aime pas\ncontext — situation éphémère (repas ce soir)\nlife_event — événements liés au vin\nwine_knowledge — connaissances/observations\nsocial — entourage et préférences des proches\ncellar_intent — intentions d\'achat' },
+      { title: 'Table', content: 'user_memory_facts : fact, category, confidence, source_quote, is_temporary, expires_at, superseded_by' },
+      { title: 'Fichiers', files: ['src/lib/chatPersistence.ts', 'src/lib/memoryFactsSerializer.ts', 'supabase/functions/extract-chat-insights/'] }
+    ]
+  },
+  'chat-persistence': {
+    title: 'Chat Persistence',
+    tag: 'Mémoire V2.5 — Supabase',
+    tagColor: '#c49a6c',
+    description: `Chaque message (user + Céléstin) est sauvegardé en fire-and-forget dans Supabase. Permet la persistance multi-device et le retrieval de conversations complètes. L'extraction d'insights se déclenche tous les 4 messages user + à la fin de session + au démarrage de la session suivante.`,
+    sections: [
+      { title: 'Tables', content: 'chat_sessions — id, started_at, summary, summary_embedding, turn_count\nchat_messages — session_id, role, content, has_image, ui_action_kind, cognitive_mode' },
+      { title: 'Triggers extraction', content: '1. Tous les 4 messages user (compteur useRef)\n2. Au unmount du composant (quitte l\'onglet chat)\n3. Au démarrage session suivante (extractPreviousSessionIfNeeded)' },
+      { title: 'Fichier', files: ['src/lib/chatPersistence.ts'] }
+    ]
+  },
+  'conversation-retrieval': {
+    title: 'Retrieval de Conversations',
+    tag: 'Mémoire V2.5 — Sémantique',
+    tagColor: '#c49a6c',
+    description: `Quand l'utilisateur référence une conversation passée ("tu te souviens de ce qu'on avait dit sur le Morgon ?"), le frontend détecte le pattern via regex, recherche la session la plus pertinente via embedding similarity sur les summaries, puis charge les messages complets et les injecte dans le prompt (~500-800 tokens).`,
+    sections: [
+      { title: 'Pipeline', content: '1. Regex frontend détecte référence au passé\n2. searchRelevantSessions() — embedding query → RPC search_sessions\n3. loadSessionMessages() — charge tous les messages\n4. serializeConversationForPrompt() — formate pour injection' },
+      { title: 'Patterns détectés', content: '"tu te souviens", "la dernière fois", "on avait parlé", "on avait bu", "c\'était quoi le vin", "tu m\'avais dit/recommandé"' },
+      { title: 'Fichier', files: ['src/lib/chatPersistence.ts', 'src/components/discover/CeSoirModule.tsx'] }
+    ]
+  },
+  'tasting-memories': {
+    title: 'Layer 3 — Mémoires de Dégustation',
+    tag: 'Mémoire — Keyword scoring',
+    tagColor: '#c49a6c',
+    description: `Retrouve les dégustations passées pertinentes pour le contexte actuel via un scoring multi-critères. Essaie d'abord la recherche sémantique, puis fallback sur le keyword matching.`,
+    sections: [
+      { title: 'Scoring', content: 'Match identité (domaine/appellation) = +5\nFood tag match = +4\nDescriptor match = +4\nSentiment excellent = +3, bon = +1\nRating ≥4 = +1.5, rating=5 = +1\nRécent (<30j) = +1.5, <90j = +0.8, <180j = +0.3' },
+      { title: 'Fichier', files: ['src/lib/tastingMemories.ts'] }
+    ]
+  },
+  'semantic-memory': {
+    title: 'Layer 4 — Mémoire Sémantique',
+    tag: 'Mémoire — pgvector (Mars 2026)',
+    tagColor: '#c49a6c',
+    description: `La couche la plus récente : recherche sémantique via embeddings vectoriels. Utilise pgvector (extension PostgreSQL) avec les embeddings OpenAI text-embedding-3-small. Score hybride : 60% similarité cosinus + 40% signaux explicites (note, sentiment, récence).`,
+    sections: [
+      { title: 'Fonctionnement', content: 'Texte composite : identité + origine + note + tags + caractère\nEmbedding généré en fire-and-forget à la sauvegarde\nRecherche via RPC search_memories()\nFallback automatique sur keyword si échec' },
+      { title: 'Fichiers', files: ['src/lib/semanticMemory.ts', 'supabase/functions/generate-embedding/'] }
+    ]
+  },
+  'taste-profile': {
+    title: 'Profil Gustatif',
+    tag: 'Données — Calculé',
+    tagColor: '#ffd93d',
+    description: `Profil dynamique calculé à partir de toutes les bouteilles (en cave + bues). Donne à Céléstin une compréhension des goûts de l'utilisateur.`,
+    sections: [
+      { title: 'Données agrégées', content: 'topAppellations, topDomaines\ncolorDistribution, priceRange\navgRating, rebuyRate, seasonalPattern\nlivedPairings — plats associés (fréquence)\nuserDescriptors — descripteurs de dégustation\ntypicalOccasions — occasions typiques' },
+      { title: 'Fichier', files: ['src/lib/taste-profile.ts'] }
+    ]
+  },
+  'questionnaire-profile': {
+    title: 'Profil Questionnaire',
+    tag: 'Données — FWI',
+    tagColor: '#ffd93d',
+    description: `Score FWI (Fine Wine Index) calculé à partir de 3 séquences de 6 questions chacune, plus 5 questions de préférences sensorielles binaires.`,
+    sections: [
+      { title: 'FWI Scoring (18–90)', content: 'Séq. A : Rituel de dégustation (6–30)\nSéq. B : Connaissances vin (6–30)\nSéq. C : Terroir/provenance (6–30)\n→ Segment : enthusiast | aspirant | nofrills' },
+      { title: 'Préférences sensorielles', content: 'Structure : puissance vs élégance\nAromatique : fruits mûrs vs fruits frais\nÉvolution : jeune vs tertiaire\nÉlevage : bois vs minéral\nAcidité : tendu vs rond' },
+      { title: 'Fichier', files: ['src/lib/questionnaire-profile.ts'] }
+    ]
+  },
+  'supabase': {
+    title: 'Supabase (Backend)',
+    tag: 'Données — PostgreSQL',
+    tagColor: '#ffd93d',
+    description: `Backend complet : base de données PostgreSQL pour les bouteilles, zones, profils utilisateurs. Extension pgvector pour la recherche sémantique. Edge Functions pour le traitement côté serveur.`,
+    sections: [
+      { title: 'Tables principales', content: 'bottles — Bouteilles avec statut (in_stock/drunk)\nzones — Zones de stockage (grille lignes×colonnes)\nuser_taste_profiles — Profil gustatif calculé\nchat_sessions — Sessions de conversation (V2.5)\nchat_messages — Messages individuels (V2.5)\nuser_memory_facts — Faits extraits (V2.5)' },
+      { title: 'Edge Functions', content: 'celestin/ — Orchestrateur principal du chatbot\ngenerate-embedding/ — Embeddings pgvector (bottles + sessions)\nextract-tasting-tags/ — Extraction tags depuis notes\nextract-chat-insights/ — Extraction insights + summaries (V2.5)' },
+    ]
+  },
+  'ranking': {
+    title: 'Ranking des Bouteilles',
+    tag: 'Données — Scoring',
+    tagColor: '#ffd93d',
+    description: `Algorithme de scoring qui classe les bouteilles de la cave par pertinence pour le contexte actuel. Le résultat (local_score) est envoyé au LLM comme signal de recommandation.`,
+    sections: [
+      { title: 'Critères de scoring', content: 'Match couleur (si plat connu) : +2 à +5\nAppellation préférée : +1 à +3\nQPR (pépite=+2, correct=+1, cher=-1)\nRating (5=+1, 4=+0.5)\nPénalité si bu récemment avec bonne note\nQuantité disponible\nPénalité si recommandé dans les 2 derniers tours' },
+      { title: 'Fichier', files: ['src/lib/recommendationRanking.ts'] }
+    ]
+  },
+};
+
+function showDetail(id) {
+  const d = details[id];
+  if (!d) return;
+  const panel = document.getElementById('detail-panel');
+  const content = document.getElementById('detail-content');
+
+  let html = `<h2>${d.title}</h2>`;
+  html += `<span class="tag" style="background:${d.tagColor}22; color:${d.tagColor}; border: 1px solid ${d.tagColor}44">${d.tag}</span>`;
+  html += `<p>${d.description}</p>`;
+
+  for (const s of (d.sections || [])) {
+    html += `<h3>${s.title}</h3>`;
+    if (s.content) {
+      html += `<p style="white-space:pre-line; font-size:0.82rem;">${s.content}</p>`;
+    }
+    if (s.files) {
+      html += '<ul class="file-list">';
+      for (const f of s.files) {
+        html += `<li>${f}</li>`;
+      }
+      html += '</ul>';
+    }
+  }
+
+  content.innerHTML = html;
+  panel.classList.add('open');
+  document.getElementById('overlay').classList.add('visible');
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('open');
+  document.getElementById('overlay').classList.remove('visible');
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeDetail();
+});
+</script>
+</body>
+</html>
