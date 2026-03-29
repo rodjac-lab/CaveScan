@@ -127,6 +127,24 @@ export function RegionChips({ onConfirm }: { onConfirm: (regions: string[]) => v
   )
 }
 
+function GaugeBar({ label, value, max }: { label: string; value: number; max: number }) {
+  const pct = Math.min(100, (value / max) * 100)
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-[11px]">
+        <span className="text-[var(--text-secondary)] font-medium">{label}</span>
+        <span className="text-[var(--text-muted)]">{value}/{max}</span>
+      </div>
+      <div className="h-[6px] rounded-full bg-[var(--border-color)] overflow-hidden">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-light)] transition-all duration-700"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
 // --- Profile Result Card ---
 
 export const ProfileCard = memo(function ProfileCard({ fwi, sensory, marketingProfile }: {
@@ -160,24 +178,6 @@ export const ProfileCard = memo(function ProfileCard({ fwi, sensory, marketingPr
     sensoryLabels[sensory.neophilie],
     ...regionLabels,
   ].filter(Boolean)
-
-  function GaugeBar({ label, value, max }: { label: string; value: number; max: number }) {
-    const pct = Math.min(100, (value / max) * 100)
-    return (
-      <div className="space-y-1">
-        <div className="flex justify-between text-[11px]">
-          <span className="text-[var(--text-secondary)] font-medium">{label}</span>
-          <span className="text-[var(--text-muted)]">{value}/{max}</span>
-        </div>
-        <div className="h-[6px] rounded-full bg-[var(--border-color)] overflow-hidden">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-light)] transition-all duration-700"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="mt-2 rounded-[14px] border border-[var(--border-color)] bg-[var(--bg-card)] shadow-sm overflow-hidden">

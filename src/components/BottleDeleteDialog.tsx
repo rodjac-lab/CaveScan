@@ -6,7 +6,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
 import { type BottleWithZone } from '@/lib/types'
 import { track } from '@/lib/track'
-import { showToast } from '@/components/Toast'
+import { showToast } from '@/lib/toast'
 
 interface BottleDeleteDialogProps {
   bottle: BottleWithZone

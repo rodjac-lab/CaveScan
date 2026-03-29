@@ -87,8 +87,14 @@ export default function Scanner() {
   }, [])
 
   useEffect(() => {
-    startCamera()
-    return () => stopCamera()
+    const timer = window.setTimeout(() => {
+      void startCamera()
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timer)
+      stopCamera()
+    }
   }, [startCamera, stopCamera])
 
   // Toggle flash

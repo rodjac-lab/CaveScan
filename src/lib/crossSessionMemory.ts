@@ -8,7 +8,7 @@
  * different retention strategies from the Debug page.
  */
 
-import { loadRecentSessions } from '@/lib/chatPersistence'
+import { loadRecentSessions, type SessionRow } from '@/lib/chatPersistence'
 
 // --- Configuration (adjustable at runtime for testing) ---
 
@@ -32,6 +32,13 @@ const DEFAULT_CONFIG: CrossSessionConfig = {
 export interface SessionSummary {
   turns: Array<{ role: 'user' | 'celestin'; text: string }>
   savedAt: string
+}
+
+export interface ConversationMemorySummary {
+  summary: string
+  started_at: string
+  turn_count?: number | null
+  source: 'supabase' | 'local'
 }
 
 // --- Config management ---
@@ -186,6 +193,59 @@ export function serializePreviousSessionsForPrompt(sessions: SessionSummary[]): 
   return `Resume des conversations precedentes :\n\n${blocks.join('\n\n---\n\n')}`
 }
 
+function summarizeLocalSession(session: SessionSummary): ConversationMemorySummary | null {
+  if (session.turns.length === 0) return null
+
+  const userTurns = session.turns
+    .filter(turn => turn.role === 'user')
+    .map(turn => turn.text.trim())
+    .filter(Boolean)
+
+  const celestinTurns = session.turns
+    .filter(turn => turn.role === 'celestin')
+    .map(turn => turn.text.trim())
+    .filter(Boolean)
+
+  const parts: string[] = []
+  if (userTurns[0]) parts.push(userTurns[0])
+  if (userTurns[1]) parts.push(userTurns[1])
+  if (celestinTurns[0]) parts.push(`Celestin: ${celestinTurns[0]}`)
+
+  return {
+    summary: parts.join(' | ').slice(0, 320),
+    started_at: session.savedAt,
+    turn_count: session.turns.length,
+    source: 'local',
+  }
+}
+
+export function getLocalPreviousSessionSummaries(): ConversationMemorySummary[] {
+  return loadPreviousSessions()
+    .map(summarizeLocalSession)
+    .filter((session): session is ConversationMemorySummary => session !== null)
+}
+
+function normalizeSupabaseSessions(sessions: SessionRow[]): ConversationMemorySummary[] {
+  return sessions
+    .filter(session => typeof session.summary === 'string' && session.summary.trim().length > 0)
+    .map(session => ({
+      summary: session.summary!.trim(),
+      started_at: session.started_at,
+      turn_count: session.turn_count,
+      source: 'supabase' as const,
+    }))
+}
+
+export async function loadPreviousSessionSummariesFromSupabase(): Promise<ConversationMemorySummary[]> {
+  try {
+    const sessions = await loadRecentSessions(5)
+    const summaries = normalizeSupabaseSessions(sessions)
+    return summaries.length > 0 ? summaries : getLocalPreviousSessionSummaries()
+  } catch {
+    return getLocalPreviousSessionSummaries()
+  }
+}
+
 /**
  * Load previous sessions from Supabase (summaries only).
  * Returns a compact format that replaces the raw turns with 1-line summaries.
@@ -193,16 +253,14 @@ export function serializePreviousSessionsForPrompt(sessions: SessionSummary[]): 
  */
 export async function loadPreviousSessionsFromSupabase(): Promise<string | undefined> {
   try {
-    const sessions = await loadRecentSessions(5)
-    if (sessions.length === 0) {
+    const summaries = await loadPreviousSessionSummariesFromSupabase()
+    if (summaries.length === 0) {
       // Fallback to localStorage
       const localSessions = loadPreviousSessions()
       return serializePreviousSessionsForPrompt(localSessions)
     }
 
-    const lines = sessions
-      .filter(s => s.summary)
-      .map(s => {
+    const lines = summaries.map(s => {
         const date = new Date(s.started_at)
         const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
         return `- ${dateStr} : ${s.summary}`

@@ -4,6 +4,8 @@ import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastin
 import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
 import { serializeQuestionnaireForPrompt, type QuestionnaireProfile } from '@/lib/questionnaire-profile'
 import type { RecommendationCard } from '@/lib/recommendationStore'
+import type { MemoryFact } from '@/lib/chatPersistence'
+import type { ConversationMemorySummary } from '@/lib/crossSessionMemory'
 import type { Bottle, BottleVolumeOption, TasteProfile, WineColor, WineExtraction } from '@/lib/types'
 
 export interface WineActionData {
@@ -165,7 +167,9 @@ export function buildCelestinRequestBody(input: {
   memoriesOverride?: string
   conversationState?: Record<string, unknown> | null
   memoryFacts?: string
+  memoryFactsRaw?: MemoryFact[]
   retrievedConversation?: string
+  previousSessionSummaries?: ConversationMemorySummary[]
 }) {
   const ranked = rankCaveBottles('generic', input.message, input.cave, input.drunk, input.profile, input.cave.length)
   const caveSummary = ranked.map(({ bottle, score }) => ({
@@ -204,7 +208,11 @@ export function buildCelestinRequestBody(input: {
     ...(input.conversationState ? { conversationState: input.conversationState } : {}),
     ...(input.image ? { image: input.image } : {}),
     ...(input.memoryFacts ? { memoryFacts: input.memoryFacts } : {}),
+    ...(input.memoryFactsRaw && input.memoryFactsRaw.length > 0 ? { memoryFactsRaw: input.memoryFactsRaw } : {}),
     ...(input.retrievedConversation ? { retrievedConversation: input.retrievedConversation } : {}),
+    ...(input.previousSessionSummaries && input.previousSessionSummaries.length > 0
+      ? { previousSessionSummaries: input.previousSessionSummaries }
+      : {}),
   }
 }
 

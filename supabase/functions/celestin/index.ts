@@ -2,6 +2,11 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { buildCelestinSystemPrompt } from "./prompt-builder.ts"
 import { interpretTurn, type TurnInterpretation, type CognitiveMode } from "./turn-interpreter.ts"
 import { computeNextState, INITIAL_STATE, type ConversationState } from "./conversation-state.ts"
+import {
+  buildResolvedUserModel,
+  type ConversationSummaryInput,
+  type StructuredMemoryFact,
+} from "../../../shared/celestin/user-model-resolver.ts"
 
 // === CONFIG ===
 const MISTRAL_API_KEY = Deno.env.get('MISTRAL_API_KEY')
@@ -49,10 +54,13 @@ interface RequestBody {
   memories?: string
   previousSession?: string
   memoryFacts?: string // extracted facts from past conversations (always injected)
+  memoryFactsRaw?: StructuredMemoryFact[]
+  previousSessionSummaries?: ConversationSummaryInput[]
   retrievedConversation?: string // full past conversation when user references it
   provider?: string // "claude" | "gemini" | "mistral" — force a specific provider (for eval)
   image?: string // base64-encoded image (JPEG or PNG)
   conversationState?: ConversationState // sent by frontend, tracks dialogue phase
+  resolvedUserModel?: string
   context?: {
     dayOfWeek: string
     season: string
@@ -101,6 +109,20 @@ interface CelestinResponse {
   ui_action?: CelestinUiAction | null
   action_chips?: string[] | null
 }
+
+type GeminiTextPart = { text: string }
+type GeminiInlineDataPart = { inline_data: { mime_type: string; data: string } }
+type GeminiPart = GeminiTextPart | GeminiInlineDataPart
+type GeminiContent = { role: 'user' | 'model'; parts: GeminiPart[] }
+
+type ClaudeTextContent = { type: 'text'; text: string }
+type ClaudeImageContent = { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+type ClaudeContent = string | Array<ClaudeTextContent | ClaudeImageContent>
+type ClaudeMessage = { role: 'user' | 'assistant'; content: ClaudeContent }
+
+type OpenAITextContent = { type: 'text'; text: string }
+type OpenAIImageContent = { type: 'image_url'; image_url: { url: string } }
+type OpenAIMessage = { role: 'system' | 'user' | 'assistant'; content: string | Array<OpenAITextContent | OpenAIImageContent> }
 
 // === UTILS ===
 
@@ -176,7 +198,7 @@ function applyResponsePolicy(
   lastAssistantText?: string,
   messageLength?: number,
 ): CelestinResponse {
-  let result = { ...response }
+  const result = { ...response }
 
   // Strip filler words at start of message (model-agnostic cleanup, always applied)
   if (result.message) {
@@ -212,7 +234,9 @@ function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'gr
   const parts: string[] = []
 
   // Memory facts — ALWAYS injected in ALL modes (~200-300 tokens)
-  if (body.memoryFacts) {
+  if (body.resolvedUserModel) {
+    parts.push(body.resolvedUserModel)
+  } else if (body.memoryFacts) {
     parts.push(body.memoryFacts)
   }
 
@@ -512,20 +536,16 @@ function extractErrorMessage(errorText: string): string {
   }
 }
 
-// deno-lint-ignore no-explicit-any
-function buildGeminiContents(history: ConversationTurn[], message: string, image?: string): Array<{ role: string; parts: any[] }> {
-  // deno-lint-ignore no-explicit-any
-  const contents: Array<{ role: string; parts: any[] }> = history.map((turn) => {
-    // deno-lint-ignore no-explicit-any
-    const parts: any[] = []
+function buildGeminiContents(history: ConversationTurn[], message: string, image?: string): GeminiContent[] {
+  const contents: GeminiContent[] = history.map((turn) => {
+    const parts: GeminiPart[] = []
     if (turn.image && turn.role === 'user') {
       parts.push({ inline_data: { mime_type: detectMediaType(turn.image), data: turn.image } })
     }
     parts.push({ text: turn.text })
     return { role: turn.role === 'user' ? 'user' : 'model', parts }
   })
-  // deno-lint-ignore no-explicit-any
-  const userParts: any[] = []
+  const userParts: GeminiPart[] = []
   if (image) {
     userParts.push({ inline_data: { mime_type: detectMediaType(image), data: image } })
   }
@@ -534,10 +554,8 @@ function buildGeminiContents(history: ConversationTurn[], message: string, image
   return contents
 }
 
-// deno-lint-ignore no-explicit-any
-function buildClaudeMessages(history: ConversationTurn[], message: string, image?: string): Array<{ role: string; content: any }> {
-  // deno-lint-ignore no-explicit-any
-  const messages: Array<{ role: string; content: any }> = history.map((turn) => {
+function buildClaudeMessages(history: ConversationTurn[], message: string, image?: string): ClaudeMessage[] {
+  const messages: ClaudeMessage[] = history.map((turn) => {
     if (turn.image && turn.role === 'user') {
       return {
         role: 'user',
@@ -770,8 +788,7 @@ const OPENAI_RESPONSE_SCHEMA = {
 async function callOpenAI(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string): Promise<CelestinResponse> {
   if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not configured')
 
-  // deno-lint-ignore no-explicit-any
-  const messages: Array<{ role: string; content: any }> = [
+  const messages: OpenAIMessage[] = [
     { role: 'system', content: systemPrompt },
   ]
   for (const turn of history) {
@@ -895,10 +912,22 @@ Deno.serve(async (req) => {
     const interpretation = interpretTurn(body.message, !!body.image, conversationState, lastAssistantText)
     console.log(`[celestin] message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} state=${conversationState.phase} history=${body.history.length} cave=${body.cave.length} image=${body.image ? 'yes' : 'no'}`)
 
+    const resolvedUserModel = buildResolvedUserModel({
+      message: body.message,
+      cognitiveMode: interpretation.cognitiveMode,
+      turnType: interpretation.turnType,
+      facts: body.memoryFactsRaw,
+      previousSessions: body.previousSessionSummaries,
+    })
+
+    const resolvedBody: RequestBody = resolvedUserModel
+      ? { ...body, resolvedUserModel }
+      : body
+
     // Build prompt and context driven by cognitive mode
-    const contextBlock = buildContextBlock(body, interpretation.cognitiveMode)
+    const contextBlock = buildContextBlock(resolvedBody, interpretation.cognitiveMode)
     const systemPrompt = buildCelestinSystemPrompt(interpretation.cognitiveMode) + '\n\n--- CONTEXTE UTILISATEUR ---\n\n' + contextBlock
-    const userPrompt = buildUserPrompt(body, interpretation, conversationState)
+    const userPrompt = buildUserPrompt(resolvedBody, interpretation, conversationState)
 
     const { provider, response: rawResponse } = await celestinWithFallback(systemPrompt, userPrompt, body.history, body.provider, body.image)
 
@@ -913,9 +942,9 @@ Deno.serve(async (req) => {
       response.ui_action?.kind,
       interpretation.inferredTaskType,
     )
-    console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} nextState=${nextState.phase} msg="${response.message.slice(0, 120)}"`)
+    console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} nextState=${nextState.phase} msg="${response.message.slice(0, 120)}" resolved=${resolvedUserModel ? 'yes' : 'no'}`)
 
-    return new Response(JSON.stringify({ ...response, _nextState: nextState, _debug: { turnType: interpretation.turnType, cognitiveMode: interpretation.cognitiveMode, provider } }), {
+    return new Response(JSON.stringify({ ...response, _nextState: nextState, _debug: { turnType: interpretation.turnType, cognitiveMode: interpretation.cognitiveMode, provider, resolvedUserModel: !!resolvedUserModel } }), {
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     })
   } catch (error) {

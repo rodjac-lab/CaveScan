@@ -21,7 +21,7 @@ import { useZones } from '@/hooks/useZones'
 import { supabase } from '@/lib/supabase'
 import { BOTTLE_VOLUMES, WINE_COLORS, type BottleVolumeOption, type WineColor } from '@/lib/types'
 import { uploadPhoto } from '@/lib/uploadPhoto'
-import { showToast } from '@/components/Toast'
+import { showToast } from '@/lib/toast'
 
 function SectionCard({
   title,

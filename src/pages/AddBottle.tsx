@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Camera, Loader2, Check, X, Wine, Plus, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -84,6 +84,10 @@ function toBatchItemData(file: File | null, extraction: Partial<WineExtraction>,
   }
 }
 
+function createUploadStamp(): string {
+  return String(Date.now())
+}
+
 export default function AddBottle() {
   const location = useLocation()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -132,7 +136,13 @@ export default function AddBottle() {
   useEffect(() => {
     if (!prefillExtraction?.zone_name || zones.length === 0 || zoneId) return
     const match = zones.find(z => z.name.toLowerCase() === prefillExtraction.zone_name!.toLowerCase())
-    if (match) setZoneId(match.id)
+    if (!match) return
+
+    const timer = window.setTimeout(() => {
+      setZoneId(match.id)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [prefillExtraction?.zone_name, zones, zoneId])
   const [purchasePrice, setPurchasePrice] = useState(prefillExtraction?.purchase_price ? String(prefillExtraction.purchase_price) : '')
   const [quantity, setQuantity] = useState(prefillQuantity ?? 1)
@@ -164,6 +174,48 @@ export default function AddBottle() {
   const [batchExtractionIndex, setBatchExtractionIndex] = useState(0)
   const batchInitRef = useRef(false)
 
+  async function extractBatchSequentially(items: BatchItemData[]) {
+    const updatedItems = [...items]
+
+    for (let i = 0; i < updatedItems.length; i++) {
+      setBatchExtractionIndex(i)
+
+      // Update status to extracting
+      updatedItems[i] = { ...updatedItems[i], extractionStatus: 'extracting' }
+      setBatchItems([...updatedItems])
+
+      try {
+        const parsed = await extractWineFromFile(updatedItems[i].photoFile!)
+        const extraction = parsed.bottles[0]
+
+        updatedItems[i] = {
+          ...updatedItems[i],
+          extractionStatus: 'extracted',
+          domaine: extraction.domaine || '',
+          cuvee: extraction.cuvee || '',
+          appellation: extraction.appellation || '',
+          millesime: extraction.millesime?.toString() || '',
+          couleur: normalizeWineColor(extraction.couleur) || '',
+          country: extraction.country || '',
+          region: extraction.region || '',
+          rawExtraction: extraction,
+        }
+      } catch (err) {
+        console.error(`Extraction error for item ${i}:`, err)
+        updatedItems[i] = {
+          ...updatedItems[i],
+          extractionStatus: 'error',
+          extractionError: 'Échec de l\'extraction. Saisissez manuellement.',
+        }
+      }
+
+      setBatchItems([...updatedItems])
+    }
+
+    // All extractions done, move to batch confirm
+    setStep('batch-confirm')
+  }
+
   useEffect(() => {
     if (!prefillBatchExtractions || prefillBatchExtractions.length === 0 || batchInitRef.current) return
     batchInitRef.current = true
@@ -172,11 +224,15 @@ export default function AddBottle() {
       .slice(0, MAX_BATCH_SIZE)
       .map((extraction, index) => toBatchItemData(prefillPhotoFile ?? null, extraction, index))
 
-    setBatchItems(items)
-    setCurrentBatchIndex(0)
-    setBatchExtractionIndex(0)
-    setError(null)
-    setStep('batch-confirm')
+    const timer = window.setTimeout(() => {
+      setBatchItems(items)
+      setCurrentBatchIndex(0)
+      setBatchExtractionIndex(0)
+      setError(null)
+      setStep('batch-confirm')
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [prefillBatchExtractions, prefillPhotoFile])
 
   // Auto-start batch when arriving from Scanner with multiple files
@@ -209,14 +265,17 @@ export default function AddBottle() {
       skipped: false,
     }))
 
-    setBatchItems(items)
-    setCurrentBatchIndex(0)
-    setBatchExtractionIndex(0)
-    setError(null)
-    track('scan_batch', { count: selectedFiles.length })
-    setStep('batch-extracting')
+    const timer = window.setTimeout(() => {
+      setBatchItems(items)
+      setCurrentBatchIndex(0)
+      setBatchExtractionIndex(0)
+      setError(null)
+      track('scan_batch', { count: selectedFiles.length })
+      setStep('batch-extracting')
+      void extractBatchSequentially(items)
+    }, 0)
 
-    extractBatchSequentially(items)
+    return () => window.clearTimeout(timer)
   }, [prefillBatchFiles])
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -311,48 +370,6 @@ export default function AddBottle() {
     await extractBatchSequentially(items)
   }
 
-  const extractBatchSequentially = async (items: BatchItemData[]) => {
-    const updatedItems = [...items]
-
-    for (let i = 0; i < updatedItems.length; i++) {
-      setBatchExtractionIndex(i)
-
-      // Update status to extracting
-      updatedItems[i] = { ...updatedItems[i], extractionStatus: 'extracting' }
-      setBatchItems([...updatedItems])
-
-      try {
-        const parsed = await extractWineFromFile(updatedItems[i].photoFile!)
-        const extraction = parsed.bottles[0]
-
-        updatedItems[i] = {
-          ...updatedItems[i],
-          extractionStatus: 'extracted',
-          domaine: extraction.domaine || '',
-          cuvee: extraction.cuvee || '',
-          appellation: extraction.appellation || '',
-          millesime: extraction.millesime?.toString() || '',
-          couleur: normalizeWineColor(extraction.couleur) || '',
-          country: extraction.country || '',
-          region: extraction.region || '',
-          rawExtraction: extraction,
-        }
-      } catch (err) {
-        console.error(`Extraction error for item ${i}:`, err)
-        updatedItems[i] = {
-          ...updatedItems[i],
-          extractionStatus: 'error',
-          extractionError: 'Échec de l\'extraction. Saisissez manuellement.',
-        }
-      }
-
-      setBatchItems([...updatedItems])
-    }
-
-    // All extractions done, move to batch confirm
-    setStep('batch-confirm')
-  }
-
   const handleBackPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -437,7 +454,7 @@ export default function AddBottle() {
     setError(null)
 
     try {
-      const timestamp = Date.now()
+      const timestamp = createUploadStamp()
       const photoUrl = photoFile ? await uploadPhoto(photoFile, `${timestamp}-front.jpg`) : null
       const photoUrlBack = photoFileBack ? await uploadPhoto(photoFileBack, `${timestamp}-back.jpg`) : null
 
@@ -486,7 +503,7 @@ export default function AddBottle() {
     setError(null)
 
     try {
-      const timestamp = Date.now()
+      const timestamp = createUploadStamp()
       const photoUrl = item.photoFile ? await uploadPhoto(item.photoFile, `${timestamp}-${item.id}-front.jpg`) : null
       const photoUrlBack = item.photoFileBack
         ? await uploadPhoto(item.photoFileBack, `${timestamp}-${item.id}-back.jpg`)
@@ -618,7 +635,11 @@ export default function AddBottle() {
 
   useEffect(() => {
     if (!zoneId && zones.length === 1) {
-      setZoneId(zones[0].id)
+      const timer = window.setTimeout(() => {
+        setZoneId(zones[0].id)
+      }, 0)
+
+      return () => window.clearTimeout(timer)
     }
   }, [zoneId, zones])
 

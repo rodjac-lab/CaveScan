@@ -400,6 +400,28 @@ Couche 5 -- Etat conversationnel (runtime)
   Nettoyage images : seules les 2 dernieres photos user sont conservees
 ```
 
+## Update 29 mars 2026 - User Model Resolver
+
+Nouvelle couche partagee :
+
+- `shared/celestin/user-model-resolver.ts`
+
+Role :
+- prendre `memoryFactsRaw` + `previousSessionSummaries`
+- produire un `portrait utilisateur actuel`
+- adapter ce portrait au `cognitiveMode`
+- faire primer les evolutions recentes et contextes temporaires sur les signaux plus anciens
+
+Ce qui change :
+- le frontend envoie des facts structures et des summaries structures
+- l'edge function Celestin construit un portrait resolu juste apres le Turn Interpreter
+- ce portrait devient la couche memoire prioritaire du prompt
+- les facts sauvegardes sont dedoublonnes et peuvent superseder les anciens
+- la memoire active est rechargee pendant la session apres extraction
+
+Doc de reference :
+- `docs/celestin-user-model-resolver.md`
+
 ## Persistance
 
 | Mecanisme | Scope | Duree | Usage |

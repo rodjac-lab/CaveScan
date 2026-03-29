@@ -221,7 +221,7 @@ export function getSequenceCTransition(score: number): string {
 
 // --- Final profile description (style Célestin) ---
 
-export function buildProfileDescription(fwi: FWIScores, sensory: SensoryPreferences, _marketingProfile: string): string {
+export function buildProfileDescription(fwi: FWIScores, sensory: SensoryPreferences): string {
   const parts: string[] = []
 
   // Opening

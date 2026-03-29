@@ -473,7 +473,11 @@ import {
   saveCurrentSession as saveCrossSession,
   rotateSessions,
   loadPreviousSessions,
+  loadPreviousSessionsFromSupabase,
+  loadPreviousSessionSummariesFromSupabase,
+  getLocalPreviousSessionSummaries,
   serializePreviousSessionsForPrompt,
+  type ConversationMemorySummary,
 } from '@/lib/crossSessionMemory'
 
 // --- Main Component ---
@@ -502,9 +506,16 @@ export default function CeSoirModule() {
     persistedMessages = messages
     saveCrossSession(messages)
   }, [messages])
+  const messagesRef = useRef(messages)
+  messagesRef.current = messages
 
-  // Previous sessions context (loaded once)
-  const previousSessionsRef = useRef(loadPreviousSessions())
+  // Previous sessions context: local fallback immediately, Supabase summaries when ready
+  const previousSessionContextRef = useRef<string | undefined>(
+    serializePreviousSessionsForPrompt(loadPreviousSessions())
+  )
+  const previousSessionSummariesRef = useRef<ConversationMemorySummary[]>(
+    getLocalPreviousSessionSummaries()
+  )
   const [queryInput, setQueryInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [expandedCard, setExpandedCard] = useState<RecommendationCard | null>(null)
@@ -537,16 +548,26 @@ export default function CeSoirModule() {
       memoryFactsRawRef.current = facts
       memoryFactsRef.current = serializeMemoryFactsForPrompt(facts)
     })
+    loadPreviousSessionsFromSupabase().then(context => {
+      if (context) {
+        previousSessionContextRef.current = context
+      }
+    })
+    loadPreviousSessionSummariesFromSupabase().then(summaries => {
+      if (summaries.length > 0) {
+        previousSessionSummariesRef.current = summaries
+      }
+    })
 
     return () => {
       // Trigger extraction for any unprocessed messages when leaving the chat
       if (sessionIdRef.current && userTurnCountRef.current > 0) {
-        const recent = (persistedMessages ?? [])
+        const recent = (messagesRef.current ?? [])
           .filter(m => !m.isLoading && m.text.length > 1)
           .slice(-12)
           .map(m => ({ role: m.role === 'user' ? 'user' : 'celestin', content: m.text }))
         if (recent.length >= 2) {
-          extractInsights(sessionIdRef.current, recent, memoryFactsRawRef.current)
+          void extractInsights(sessionIdRef.current, recent, memoryFactsRawRef.current)
         }
       }
     }
@@ -570,6 +591,34 @@ export default function CeSoirModule() {
 
   // --- Build context for the edge function ---
 
+  function syncActiveMemoryFacts(facts: MemoryFact[]) {
+    memoryFactsRawRef.current = facts
+    memoryFactsRef.current = serializeMemoryFactsForPrompt(facts)
+  }
+
+  function buildTranscriptSnapshot(
+    pendingUserMessage: string,
+    assistantMessage?: string,
+  ): Array<{ role: string; content: string }> {
+    const nextTurns = messagesRef.current
+      .filter(m => !m.isLoading && m.text.length > 1)
+      .map(m => ({ role: m.role === 'user' ? 'user' : 'celestin', content: m.text }))
+
+    const lastTurn = nextTurns[nextTurns.length - 1]
+    if (!lastTurn || lastTurn.role !== 'user' || lastTurn.content !== pendingUserMessage) {
+      nextTurns.push({ role: 'user', content: pendingUserMessage })
+    }
+
+    if (assistantMessage && assistantMessage.length > 1) {
+      const lastAssistantTurn = nextTurns[nextTurns.length - 1]
+      if (!lastAssistantTurn || lastAssistantTurn.role !== 'celestin' || lastAssistantTurn.content !== assistantMessage) {
+        nextTurns.push({ role: 'celestin', content: assistantMessage })
+      }
+    }
+
+    return nextTurns.slice(-12)
+  }
+
   function buildRequestBody(message: string, image?: string, memoriesOverride?: string, retrievedConversation?: string) {
     return buildCelestinRequestBody({
       message,
@@ -578,12 +627,14 @@ export default function CeSoirModule() {
       drunk: drunkRef.current,
       profile: profileRef.current,
       questionnaireProfile: questionnaireProfileRef.current,
-      messages,
-      previousSession: serializePreviousSessionsForPrompt(previousSessionsRef.current),
+      messages: messagesRef.current,
+      previousSession: previousSessionContextRef.current,
+      previousSessionSummaries: previousSessionSummariesRef.current,
       zones: zones.map((z) => z.name),
       memoriesOverride,
       conversationState: persistedConversationState,
       memoryFacts: memoryFactsRef.current,
+      memoryFactsRaw: memoryFactsRawRef.current,
       retrievedConversation,
     })
   }
@@ -685,11 +736,9 @@ export default function CeSoirModule() {
       userTurnCountRef.current++
       if (userTurnCountRef.current >= 4) {
         userTurnCountRef.current = 0
-        const recentMessages = messages
-          .filter(m => !m.isLoading && m.text.length > 1)
-          .slice(-12)
-          .map(m => ({ role: m.role === 'user' ? 'user' : 'celestin', content: m.text }))
-        extractInsights(sessionIdRef.current, recentMessages, memoryFactsRawRef.current)
+        const recentMessages = buildTranscriptSnapshot(message, response.message)
+        void extractInsights(sessionIdRef.current, recentMessages, memoryFactsRawRef.current)
+          .then(syncActiveMemoryFacts)
       }
     } catch (err) {
       console.error('[CeSoirModule] celestin error:', err)

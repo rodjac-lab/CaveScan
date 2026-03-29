@@ -1,25 +1,12 @@
 import { useEffect, useState } from 'react'
-
-interface ToastMessage {
-  id: number
-  text: string
-  type: 'error' | 'success'
-}
-
-let toastId = 0
-let addToastFn: ((msg: ToastMessage) => void) | null = null
-
-/** Show a toast notification from anywhere (no hooks needed) */
-export function showToast(text: string, type: 'error' | 'success' = 'error') {
-  addToastFn?.({ id: ++toastId, text, type })
-}
+import { registerToastHandler, type ToastMessage } from '@/lib/toast'
 
 export function ToastContainer() {
   const [toasts, setToasts] = useState<ToastMessage[]>([])
 
   useEffect(() => {
-    addToastFn = (msg) => setToasts((prev) => [...prev, msg])
-    return () => { addToastFn = null }
+    registerToastHandler((msg) => setToasts((prev) => [...prev, msg]))
+    return () => { registerToastHandler(null) }
   }, [])
 
   useEffect(() => {

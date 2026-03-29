@@ -91,7 +91,7 @@ export default function RemoveBottle() {
     if (step === 'batch-review' && (!batchSession || batchSession.status === 'done')) {
       navigate('/degustations')
     }
-  }, [batchSession, step])
+  }, [batchSession, navigate, step])
 
   const activeBatchSession = useMemo(() => {
     return batchSession && batchSession.status !== 'done' ? batchSession : null

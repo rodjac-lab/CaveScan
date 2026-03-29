@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/hooks/useAuth'
 import { serializeProfileForPrompt } from '@/lib/taste-profile'
 import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
 import { formatDrunkSummary, getDayOfWeek, getSeason } from '@/lib/contextHelpers'
@@ -186,7 +185,6 @@ function formatRelativeDate(dateStr: string): string {
 
 export default function Debug() {
   const navigate = useNavigate()
-  const { session } = useAuth()
 
   // Cross-session memory state
   const [memoryInfo, setMemoryInfo] = useState(() => getMemoryDebugInfo())
@@ -231,9 +229,6 @@ export default function Debug() {
   const [analyzingMemories, setAnalyzingMemories] = useState(false)
   const [memoryWeightStatus, setMemoryWeightStatus] = useState<string | null>(null)
   const [memoryWeightReport, setMemoryWeightReport] = useState<MemoryWeightReport | null>(null)
-
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
   // --- Cross-session memory handlers ---
 
@@ -363,8 +358,22 @@ export default function Debug() {
     setEvalStatus('Lecture de la fixture...')
 
     try {
-      if (!session?.access_token) throw new Error('Session utilisateur absente pour lancer l eval.')
-      if (!supabaseUrl || !supabaseAnonKey) throw new Error('Configuration Supabase manquante.')
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) throw sessionError
+
+      let activeSession = sessionData.session
+      const expiresAtMs = activeSession?.expires_at ? activeSession.expires_at * 1000 : null
+      const shouldRefresh = !activeSession || (expiresAtMs != null && expiresAtMs <= Date.now() + 60_000)
+
+      if (shouldRefresh) {
+        const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession()
+        if (refreshError) throw refreshError
+        activeSession = refreshedData.session
+      }
+
+      if (!activeSession?.access_token) {
+        throw new Error('Session utilisateur absente ou expirée pour lancer l eval.')
+      }
 
       const fixtureFile = await fixtureHandle.getFile()
       const fixture = JSON.parse(await fixtureFile.text()) as CelestinEvalFixture
@@ -378,26 +387,28 @@ export default function Debug() {
           setEvalStatus(`[${currentStep}/${totalSteps}] ${scenario.id} — ${provider}...`)
           const body = buildCelestinEvalRequest(fixture, scenario, provider)
           const startedAt = Date.now()
-          const response = await fetch(`${supabaseUrl}/functions/v1/celestin`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
-              apikey: supabaseAnonKey,
-            },
-            body: JSON.stringify(body),
+          const { data, error: fnErr, response } = await supabase.functions.invoke<Record<string, unknown>>('celestin', {
+            body,
           })
           const elapsedMs = Date.now() - startedAt
-          const rawText = await response.text()
+          let rawText = ''
+          if (response && !response.ok) {
+            try {
+              rawText = await response.clone().text()
+            } catch {
+              rawText = ''
+            }
+          }
 
-          let data: Record<string, unknown> | null = null
-          try { data = rawText ? JSON.parse(rawText) as Record<string, unknown> : null } catch { data = null }
-
-          if (!response.ok || !data || data.error) {
+          if (fnErr || !data || data.error) {
             const errorResponse = {
-              message: !response.ok
+              message: response && !response.ok
                 ? `HTTP ${response.status}${rawText ? `: ${rawText}` : ''}`
-                : typeof data?.error === 'string' ? data.error : rawText || 'Erreur inconnue',
+                : typeof data?.error === 'string'
+                  ? data.error
+                  : fnErr instanceof Error
+                    ? fnErr.message
+                    : rawText || 'Erreur inconnue',
               ui_action: null,
             }
             results.push({

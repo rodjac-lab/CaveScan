@@ -1,8 +1,11 @@
 [functions.celestin]
-verify_jwt = true
+verify_jwt = false
 
 [functions.extract-wine]
-verify_jwt = true
+verify_jwt = false
 
 [functions.enrich-wine]
-verify_jwt = true
+verify_jwt = false
+
+[functions.extract-chat-insights]
+verify_jwt = false

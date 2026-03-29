@@ -184,7 +184,7 @@ export function useInlineQuestionnaire<T extends ChatMessageLike>({
       neophilie: (finalSensory.neophilie as SensoryPreferences['neophilie']) ?? 'decouverte',
     }
     const marketingProfile = computeMarketingProfile(fwi, sensory)
-    const description = buildProfileDescription(fwi, sensory, marketingProfile)
+    const description = buildProfileDescription(fwi, sensory)
 
     const qProfile: QuestionnaireProfile = {
       fwi,

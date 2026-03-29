@@ -74,7 +74,9 @@ export function useQuestionnaireProfile() {
 
       if (existing) {
         const existingPrefs = (existing.explicit_preferences as Record<string, unknown>) ?? {}
-        const { questionnaire: _, ...rest } = existingPrefs
+        const rest = Object.fromEntries(
+          Object.entries(existingPrefs).filter(([key]) => key !== 'questionnaire'),
+        )
         await supabase
           .from('user_taste_profiles')
           .update({ explicit_preferences: rest, updated_at: new Date().toISOString() })

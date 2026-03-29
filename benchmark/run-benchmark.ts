@@ -94,6 +94,18 @@ interface ProviderRequest {
   errorLabel: string;
 }
 
+type OpenAICompletionResponse = {
+  choices?: Array<{ message?: { content?: string | null } }>;
+};
+
+type AnthropicMessageResponse = {
+  content?: Array<{ text?: string | null }>;
+};
+
+type GeminiGenerateContentResponse = {
+  candidates?: Array<{ content?: { parts?: Array<{ text?: string | null }> } }>;
+};
+
 function buildProviderRequest(
   provider: "openai" | "anthropic" | "google",
   model: string,
@@ -113,7 +125,8 @@ function buildProviderRequest(
           { role: "user", content: question },
         ],
       },
-      extractRaw: (data: any) => data.choices?.[0]?.message?.content?.trim() ?? "",
+      extractRaw: (data: unknown) =>
+        (data as OpenAICompletionResponse).choices?.[0]?.message?.content?.trim() ?? "",
       errorLabel: "OpenAI",
     };
   }
@@ -132,7 +145,8 @@ function buildProviderRequest(
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: question }],
       },
-      extractRaw: (data: any) => data.content?.[0]?.text?.trim() ?? "",
+      extractRaw: (data: unknown) =>
+        (data as AnthropicMessageResponse).content?.[0]?.text?.trim() ?? "",
       errorLabel: "Anthropic",
     };
   }
@@ -145,7 +159,8 @@ function buildProviderRequest(
       contents: [{ parts: [{ text: question }] }],
       generationConfig: { temperature: 0, maxOutputTokens: 1024 },
     },
-    extractRaw: (data: any) => data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "",
+    extractRaw: (data: unknown) =>
+      (data as GeminiGenerateContentResponse).candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "",
     errorLabel: "Google",
   };
 }
@@ -233,15 +248,16 @@ async function runBenchmark(
         );
       }
       process.stdout.write("\n");
-    } catch (err: any) {
+    } catch (err) {
       const latencyMs = Date.now() - start;
+      const errorMessage = err instanceof Error ? err.message : String(err);
       console.error(`\n  ⚠ Q${q.id} ERROR: ${err.message.slice(0, 100)}`);
       results.push({
         questionId: q.id,
         modelAnswer: "ERROR",
         correct: false,
         latencyMs,
-        raw: err.message,
+        raw: errorMessage,
       });
     }
 

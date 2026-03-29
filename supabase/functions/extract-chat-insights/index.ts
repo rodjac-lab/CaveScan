@@ -62,6 +62,7 @@ Chaque fact a :
 - context : situation ephemere (repas prevu, invites, budget du moment)
 - life_event : evenements de vie lies au vin (anniversaire, voyage, decouverte marquante)
 - wine_knowledge : connaissances vin de l'utilisateur (niveau, domaines connus)
+  Inclut aussi sa maniere d'apprendre si elle est explicite
 - social : entourage (qui boit quoi, preferences des proches)
 - cellar_intent : intentions d'achat ou de gestion de cave
 
@@ -70,6 +71,8 @@ Chaque fact a :
 - N'extrais QUE ce que dit l'UTILISATEUR, pas les recommandations de Celestin
 - Ne deduis PAS des preferences evidentes (s'il a 80% de rouge en cave, n'ecris pas "aime le rouge")
 - DISTINGUE observation et preference : "gouter jeune permet de connaitre le style" = observation (wine_knowledge), PAS "aime les vins jeunes" (preference). Une preference c'est un jugement de gout explicite ("j'adore", "c'etait un regal", "je n'aime pas").
+- Capture aussi les meta-preferences explicites de conversation et d'apprentissage :
+  "explique-moi simplement", "j'aime comparer", "pas trop technique", "guide-moi" -> wine_knowledge
 - Si un fait contredit un fait existant, extrais le nouveau (la supersedure sera geree cote app)
 - N'extrais PAS les plaisanteries, salutations, remerciements
 - Prefere la precision : "aime les Chenin de Loire" plutot que "aime le vin blanc"

@@ -3,7 +3,7 @@ import { Loader2, Save, Share2, ArrowRight, Plus, Camera, ImageIcon, X, Check, S
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { type TastingPhoto, type BottleWithZone } from '@/lib/types'
-import { showToast } from '@/components/Toast'
+import { showToast } from '@/lib/toast'
 import { track } from '@/lib/track'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
 import { uploadPhoto } from '@/lib/uploadPhoto'

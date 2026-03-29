@@ -9,7 +9,7 @@
 -- =========================
 -- 1. chat_sessions
 -- =========================
-CREATE TABLE chat_sessions (
+CREATE TABLE IF NOT EXISTS chat_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id),
   started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -21,14 +21,15 @@ CREATE TABLE chat_sessions (
 );
 
 ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users own their sessions" ON chat_sessions;
 CREATE POLICY "Users own their sessions" ON chat_sessions
   FOR ALL USING (user_id = auth.uid());
-CREATE INDEX idx_chat_sessions_user ON chat_sessions(user_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id, started_at DESC);
 
 -- =========================
 -- 2. chat_messages
 -- =========================
-CREATE TABLE chat_messages (
+CREATE TABLE IF NOT EXISTS chat_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
   user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id),
@@ -41,15 +42,16 @@ CREATE TABLE chat_messages (
 );
 
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users own their messages" ON chat_messages;
 CREATE POLICY "Users own their messages" ON chat_messages
   FOR ALL USING (user_id = auth.uid());
-CREATE INDEX idx_chat_messages_session ON chat_messages(session_id, created_at);
-CREATE INDEX idx_chat_messages_user ON chat_messages(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON chat_messages(user_id, created_at DESC);
 
 -- =========================
 -- 3. user_memory_facts
 -- =========================
-CREATE TABLE user_memory_facts (
+CREATE TABLE IF NOT EXISTS user_memory_facts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id),
   session_id UUID REFERENCES chat_sessions(id) ON DELETE SET NULL,
@@ -67,9 +69,10 @@ CREATE TABLE user_memory_facts (
 );
 
 ALTER TABLE user_memory_facts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users own their facts" ON user_memory_facts;
 CREATE POLICY "Users own their facts" ON user_memory_facts
   FOR ALL USING (user_id = auth.uid());
-CREATE INDEX idx_memory_facts_active ON user_memory_facts(user_id, created_at DESC)
+CREATE INDEX IF NOT EXISTS idx_memory_facts_active ON user_memory_facts(user_id, created_at DESC)
   WHERE superseded_by IS NULL;
 
 -- =========================

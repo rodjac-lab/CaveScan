@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Calendar, Euro, Grid2x2, Loader2, Minus, Plus, Tag, Wine } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { openBottle } from '@/lib/bottleActions'
-import { showToast } from '@/components/Toast'
+import { showToast } from '@/lib/toast'
 import { type BottleWithZone, volumeLabel } from '@/lib/types'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
 

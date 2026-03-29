@@ -8,6 +8,10 @@
  */
 
 import { supabase } from '@/lib/supabase'
+import {
+  findConflictingMemoryFacts,
+  type StructuredMemoryFact,
+} from '../../shared/celestin/user-model-resolver.ts'
 
 // === Types ===
 
@@ -27,7 +31,7 @@ interface MessageMeta {
   cognitiveMode?: string
 }
 
-interface SessionRow {
+export interface SessionRow {
   id: string
   started_at: string
   summary: string | null
@@ -57,7 +61,7 @@ interface InsightResponse {
 export async function createSession(): Promise<string | null> {
   try {
     // Extract insights from previous unprocessed session (if any)
-    extractPreviousSessionIfNeeded()
+    void extractPreviousSessionIfNeeded()
 
     const { data, error } = await supabase
       .from('chat_sessions')
@@ -193,7 +197,7 @@ function extractPreviousSessionIfNeeded(): void {
 
       // Load existing facts to avoid duplicates
       const existingFacts = await loadActiveMemoryFacts()
-      extractInsights(sessionId, formatted, existingFacts)
+      void extractInsights(sessionId, formatted, existingFacts)
     } catch (err) {
       console.warn('[chatPersistence] Failed to extract previous session:', err)
     }
@@ -229,7 +233,7 @@ export async function loadActiveMemoryFacts(): Promise<MemoryFact[]> {
       .is('superseded_by', null)
       .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
       .order('created_at', { ascending: false })
-      .limit(20)
+      .limit(40)
 
     if (error) {
       console.warn('[chatPersistence] Failed to load facts:', error.message)
@@ -244,86 +248,137 @@ export async function loadActiveMemoryFacts(): Promise<MemoryFact[]> {
 
 // === Insight extraction ===
 
-export function extractInsights(
+function toStructuredMemoryFact(fact: MemoryFact): StructuredMemoryFact {
+  return {
+    id: fact.id,
+    category: fact.category,
+    fact: fact.fact,
+    confidence: fact.confidence,
+    is_temporary: fact.is_temporary,
+    expires_at: fact.expires_at,
+    created_at: fact.created_at,
+  }
+}
+
+export async function extractInsights(
   sessionId: string | null,
   messages: Array<{ role: string; content: string }>,
   existingFacts: MemoryFact[],
-): void {
-  if (!sessionId || messages.length < 2) return
+): Promise<MemoryFact[]> {
+  if (!sessionId || messages.length < 2) return existingFacts
 
-  ;(async () => {
-    try {
-      const existingFactStrings = existingFacts.map(f => `${f.category}: ${f.fact}`)
+  try {
+    const existingFactStrings = existingFacts.map(f => `${f.category}: ${f.fact}`)
 
-      const { data, error } = await supabase.functions.invoke('extract-chat-insights', {
-        body: {
-          messages: messages.map(m => ({ role: m.role, content: m.content })),
-          existing_facts: existingFactStrings.length > 0 ? existingFactStrings : undefined,
-        },
-      })
+    const { data, error } = await supabase.functions.invoke('extract-chat-insights', {
+      body: {
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+        existing_facts: existingFactStrings.length > 0 ? existingFactStrings : undefined,
+      },
+    })
 
-      if (error) {
-        console.warn('[chatPersistence] Insight extraction failed:', error)
-        return
-      }
+    if (error) {
+      console.warn('[chatPersistence] Insight extraction failed:', error)
+      return existingFacts
+    }
 
-      const response = data as InsightResponse
+    const response = data as InsightResponse
+    let activeFacts = [...existingFacts]
+    let savedCount = 0
 
-      // Save facts
-      if (response.facts && response.facts.length > 0) {
-        for (const fact of response.facts) {
-          const row: Record<string, unknown> = {
-            session_id: sessionId,
-            category: fact.category,
-            fact: fact.fact,
-            confidence: fact.confidence,
-            source_quote: fact.source_quote ?? null,
-            is_temporary: fact.is_temporary,
-          }
+    if (response.facts && response.facts.length > 0) {
+      for (const fact of response.facts) {
+        const row: Record<string, unknown> = {
+          session_id: sessionId,
+          category: fact.category,
+          fact: fact.fact,
+          confidence: fact.confidence,
+          source_quote: fact.source_quote ?? null,
+          is_temporary: fact.is_temporary,
+        }
 
-          if (fact.is_temporary && fact.expires_in_hours) {
-            const expires = new Date()
-            expires.setHours(expires.getHours() + fact.expires_in_hours)
-            row.expires_at = expires.toISOString()
-          }
+        if (fact.is_temporary && fact.expires_in_hours) {
+          const expires = new Date()
+          expires.setHours(expires.getHours() + fact.expires_in_hours)
+          row.expires_at = expires.toISOString()
+        }
 
-          const { error: insertError } = await supabase
+        const candidate: StructuredMemoryFact = {
+          category: fact.category,
+          fact: fact.fact,
+          confidence: fact.confidence,
+          is_temporary: fact.is_temporary,
+          expires_at: typeof row.expires_at === 'string' ? row.expires_at : null,
+          created_at: new Date().toISOString(),
+        }
+
+        const { duplicateIds, supersedeIds } = findConflictingMemoryFacts(
+          activeFacts.map(toStructuredMemoryFact),
+          candidate,
+        )
+
+        if (duplicateIds.length > 0) {
+          continue
+        }
+
+        const { data: insertedFact, error: insertError } = await supabase
+          .from('user_memory_facts')
+          .insert(row)
+          .select('id, category, fact, confidence, is_temporary, expires_at, created_at')
+          .single()
+
+        if (insertError) {
+          console.warn('[chatPersistence] Failed to save fact:', insertError.message)
+          continue
+        }
+
+        const savedFact = insertedFact as MemoryFact
+
+        if (supersedeIds.length > 0) {
+          const { error: supersedeError } = await supabase
             .from('user_memory_facts')
-            .insert(row)
+            .update({ superseded_by: savedFact.id })
+            .in('id', supersedeIds)
 
-          if (insertError) {
-            console.warn('[chatPersistence] Failed to save fact:', insertError.message)
+          if (supersedeError) {
+            console.warn('[chatPersistence] Failed to supersede facts:', supersedeError.message)
+          } else {
+            activeFacts = activeFacts.filter(existing => !supersedeIds.includes(existing.id))
           }
         }
 
-        console.log(`[chatPersistence] Saved ${response.facts.length} facts`)
+        activeFacts = [savedFact, ...activeFacts]
+        savedCount += 1
       }
 
-      // Save session summary
-      if (response.summary) {
-        await supabase
-          .from('chat_sessions')
-          .update({ summary: response.summary })
-          .eq('id', sessionId)
-
-        // Generate embedding for the summary (fire-and-forget)
-        supabase.functions
-          .invoke('generate-embedding', {
-            body: { text: response.summary, session_id: sessionId },
-          })
-          .then(({ error: embError }) => {
-            if (embError) {
-              console.warn('[chatPersistence] Summary embedding failed:', embError)
-            } else {
-              console.log('[chatPersistence] Summary embedding saved')
-            }
-          })
-          .catch(() => {})
-      }
-    } catch (err) {
-      console.warn('[chatPersistence] Unexpected error extracting insights:', err)
+      console.log(`[chatPersistence] Saved ${savedCount} facts`)
     }
-  })()
+
+    if (response.summary) {
+      await supabase
+        .from('chat_sessions')
+        .update({ summary: response.summary })
+        .eq('id', sessionId)
+
+      supabase.functions
+        .invoke('generate-embedding', {
+          body: { text: response.summary, session_id: sessionId },
+        })
+        .then(({ error: embError }) => {
+          if (embError) {
+            console.warn('[chatPersistence] Summary embedding failed:', embError)
+          } else {
+            console.log('[chatPersistence] Summary embedding saved')
+          }
+        })
+        .catch(() => {})
+    }
+
+    return loadActiveMemoryFacts()
+  } catch (err) {
+    console.warn('[chatPersistence] Unexpected error extracting insights:', err)
+    return existingFacts
+  }
 }
 
 // === Semantic session search (for conversation retrieval) ===
