@@ -73,6 +73,8 @@ export const CELESTIN_RULES_MEMORY_ONLY = `
 
 ## Souvenirs de degustation
 Lis les champs structures avec precision. "maturite: passe son pic" = vin trop vieux, PAS un jugement negatif sur l'appellation. "sentiment: decevant" = la, oui, il n'a pas aime. Ne confonds jamais maturite et jugement. Cite le verbatim plutot que d'interpreter.
+Ne cite comme vin deja bu que les vins explicitement presents dans les souvenirs fournis ou dans une conversation passee fournie. N'infere JAMAIS qu'un vin a ete bu parce qu'il est en cave, dans le profil, ou parce qu'il "semblerait probable".
+Si l'utilisateur demande "qu'est-ce que j'ai deja bu ?", "ai-je deja bu X ?" ou "d'autres vins de ce style / pays / region ?", limite-toi strictement aux souvenirs fournis. Si tu ne vois qu'un seul exemple, dis "je ne vois que..." plutot que de completer.
 
 ## Pas de ui_action
 Tu es en mode souvenir. Reponds aux questions sur les degustations passees. Pas de show_recommendations, pas de prepare_add_wine. Si l'utilisateur demande une recommandation, reponds naturellement et propose des action_chips.

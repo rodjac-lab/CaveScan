@@ -57,6 +57,7 @@ interface RequestBody {
   memoryFactsRaw?: StructuredMemoryFact[]
   previousSessionSummaries?: ConversationSummaryInput[]
   retrievedConversation?: string // full past conversation when user references it
+  memoryEvidenceMode?: 'exact' | 'synthesis' | 'semantic'
   provider?: string // "claude" | "gemini" | "mistral" — force a specific provider (for eval)
   image?: string // base64-encoded image (JPEG or PNG)
   conversationState?: ConversationState // sent by frontend, tracks dialogue phase
@@ -230,8 +231,25 @@ function applyResponsePolicy(
 
 // === CONTEXT BLOCK (driven by cognitive mode) ===
 
+function buildMemoriesSection(body: RequestBody): string[] {
+  if (!body.memories) return []
+
+  const parts = [`Souvenirs de degustation :\n${body.memories}`]
+
+  if (body.memoryEvidenceMode === 'exact') {
+    parts.push('Le bloc ci-dessus est un inventaire exact deja filtre. N ajoute aucun autre vin.')
+  } else if (body.memoryEvidenceMode === 'synthesis') {
+    parts.push('Le bloc ci-dessus est la base exacte de synthese. N affirme rien hors de ces degustations.')
+  } else {
+    parts.push('Cite des souvenirs specifiques quand pertinent.')
+  }
+
+  return parts
+}
+
 function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'greeting' | 'social'): string {
   const parts: string[] = []
+  const includeProfile = cognitiveMode !== 'tasting_memory'
 
   // Memory facts — ALWAYS injected in ALL modes (~200-300 tokens)
   if (body.resolvedUserModel) {
@@ -245,8 +263,8 @@ function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'gr
     parts.push(`Conversation passee pertinente :\n${body.retrievedConversation}`)
   }
 
-  // Profile — always included (small, ~2-3 lines)
-  if (body.profile) {
+  // Profile — useful in most modes, but too broad for strict memory questions.
+  if (includeProfile && body.profile) {
     parts.push(`Profil de gout :\n${body.profile}`)
   }
 
@@ -271,18 +289,13 @@ function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'gr
     if (body.questionnaireProfile) {
       parts.push(body.questionnaireProfile)
     }
-    if (body.memories) {
-      parts.push(`Souvenirs de degustation :\n${body.memories}`)
-    }
+    parts.push(...buildMemoriesSection(body))
     return parts.join('\n\n')
   }
 
   // --- tasting_memory: profile + memories + sessions (no full cave) ---
   if (cognitiveMode === 'tasting_memory') {
-    if (body.memories) {
-      parts.push(`Souvenirs de degustation :\n${body.memories}`)
-      parts.push('Cite des souvenirs specifiques quand pertinent.')
-    }
+    parts.push(...buildMemoriesSection(body))
     if (body.previousSession) {
       parts.push(body.previousSession)
       parts.push('Tu peux faire reference a ces conversations precedentes si c\'est pertinent, mais ne force pas.')
@@ -298,10 +311,7 @@ function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'gr
     parts.push(body.questionnaireProfile)
   }
 
-  if (body.memories) {
-    parts.push(`Souvenirs de degustation :\n${body.memories}`)
-    parts.push('Cite des souvenirs specifiques quand pertinent.')
-  }
+  parts.push(...buildMemoriesSection(body))
 
   if (body.previousSession) {
     parts.push(body.previousSession)
@@ -392,7 +402,7 @@ function buildUserPrompt(body: RequestBody, interpretation: TurnInterpretation, 
 
   // Context switch to tasting memory
   else if (turnType === 'context_switch' && cognitiveMode === 'tasting_memory') {
-    parts.push(`[SOUVENIR — L'utilisateur fait reference a une degustation passee. Utilise les souvenirs fournis. PAS de ui_action sauf si l'utilisateur demande explicitement de noter.]`)
+    parts.push(`[SOUVENIR — L'utilisateur fait reference a une degustation passee. Utilise uniquement les souvenirs explicitement fournis. Si un vin n'apparait pas dans ces souvenirs, dis-le franchement. PAS de ui_action sauf si l'utilisateur demande explicitement de noter.]`)
     parts.push(body.message)
   }
 
@@ -944,7 +954,7 @@ Deno.serve(async (req) => {
     )
     console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} nextState=${nextState.phase} msg="${response.message.slice(0, 120)}" resolved=${resolvedUserModel ? 'yes' : 'no'}`)
 
-    return new Response(JSON.stringify({ ...response, _nextState: nextState, _debug: { turnType: interpretation.turnType, cognitiveMode: interpretation.cognitiveMode, provider, resolvedUserModel: !!resolvedUserModel } }), {
+    return new Response(JSON.stringify({ ...response, _nextState: nextState, _debug: { turnType: interpretation.turnType, cognitiveMode: interpretation.cognitiveMode, provider, resolvedUserModel: !!resolvedUserModel, memoryEvidenceMode: body.memoryEvidenceMode ?? null } }), {
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     })
   } catch (error) {

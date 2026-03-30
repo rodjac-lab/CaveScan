@@ -6,7 +6,7 @@ import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
 import { useZones } from '@/hooks/useZones'
 import { useQuestionnaireProfile } from '@/hooks/useQuestionnaireProfile'
-import { selectRelevantMemoriesAsync, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
+import { buildMemoryEvidenceBundle, selectRelevantMemoriesAsync, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
 import { resolveBottleIds } from '@/lib/contextHelpers'
 import { getCachedRecommendation, buildQueryKey } from '@/lib/recommendationStore'
 import type { FWIScores, SensoryPreferences } from '@/lib/questionnaire-profile'
@@ -568,7 +568,7 @@ export default function CeSoirModule() {
           .map(m => ({ role: m.role === 'user' ? 'user' : 'celestin', content: m.text }))
         if (recent.length >= 2) {
           void extractInsights(sessionIdRef.current, recent, memoryFactsRawRef.current)
-        }
+          }
       }
     }
   }, [])
@@ -619,7 +619,14 @@ export default function CeSoirModule() {
     return nextTurns.slice(-12)
   }
 
-  function buildRequestBody(message: string, image?: string, memoriesOverride?: string, retrievedConversation?: string) {
+  function buildRequestBody(
+    message: string,
+    image?: string,
+    memoriesOverride?: string,
+    retrievedConversation?: string,
+    memoriesQuery?: string,
+    memoryEvidenceMode?: 'exact' | 'synthesis' | 'semantic',
+  ) {
     return buildCelestinRequestBody({
       message,
       image,
@@ -632,6 +639,8 @@ export default function CeSoirModule() {
       previousSessionSummaries: previousSessionSummariesRef.current,
       zones: zones.map((z) => z.name),
       memoriesOverride,
+      memoriesQuery,
+      memoryEvidenceMode,
       conversationState: persistedConversationState,
       memoryFacts: memoryFactsRef.current,
       memoryFactsRaw: memoryFactsRawRef.current,
@@ -649,22 +658,36 @@ export default function CeSoirModule() {
       // Persist user message (fire-and-forget)
       persistMessage(sessionIdRef.current, 'user', message, { hasImage: !!image })
 
+      const memoryMessages = messagesRef.current
+        .filter((entry) => !entry.isLoading && entry.text.trim().length > 0)
+        .map((entry) => ({ role: entry.role, text: entry.text }))
+
+      const memoryEvidence = await buildMemoryEvidenceBundle({
+        query: message,
+        recentMessages: memoryMessages,
+        drunkBottles: drunkRef.current,
+      })
+
+      const memoryQuery = memoryEvidence?.planningQuery ?? message
+
       // Try async semantic memory search, then fall back to sync keyword matching inside buildRequestBody
-      let memoriesOverride: string | undefined
-      try {
-        const asyncMemories = await selectRelevantMemoriesAsync('generic', message, drunkRef.current)
-        if (asyncMemories.length > 0) {
-          memoriesOverride = serializeMemoriesForPrompt(asyncMemories) || undefined
-        }
-      } catch {
+      let memoriesOverride: string | undefined = memoryEvidence?.serialized || undefined
+      if (!memoriesOverride) {
+        try {
+          const asyncMemories = await selectRelevantMemoriesAsync('generic', memoryQuery, drunkRef.current)
+          if (asyncMemories.length > 0) {
+            memoriesOverride = serializeMemoriesForPrompt(asyncMemories) || undefined
+          }
+        } catch {
         // Semantic search failed — buildRequestBody will use keyword fallback
+      }
       }
 
       // Retrieve past conversation if user references one
       let retrievedConversation: string | undefined
       if (PAST_REFERENCE_PATTERN.test(message)) {
         try {
-          const sessions = await searchRelevantSessions(message, 1)
+          const sessions = await searchRelevantSessions(memoryQuery, 1)
           if (sessions.length > 0) {
             const msgs = await loadSessionMessages(sessions[0].id)
             if (msgs.length > 0) {
@@ -676,7 +699,14 @@ export default function CeSoirModule() {
         }
       }
 
-      const body = buildRequestBody(message, image, memoriesOverride, retrievedConversation)
+      const body = buildRequestBody(
+        message,
+        image,
+        memoryEvidence?.serialized || memoriesOverride,
+        retrievedConversation,
+        memoryQuery,
+        memoryEvidence?.mode,
+      )
       const { data, error } = await supabase.functions.invoke('celestin', { body })
 
       if (error) throw error

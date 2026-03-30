@@ -165,6 +165,8 @@ export function buildCelestinRequestBody(input: {
   previousSession?: string
   zones: string[]
   memoriesOverride?: string
+  memoriesQuery?: string
+  memoryEvidenceMode?: 'exact' | 'synthesis' | 'semantic'
   conversationState?: Record<string, unknown> | null
   memoryFacts?: string
   memoryFactsRaw?: MemoryFact[]
@@ -186,9 +188,10 @@ export function buildCelestinRequestBody(input: {
 
   const profileStr = input.profile ? serializeProfileForPrompt(input.profile) : undefined
   const questionnaireStr = input.questionnaireProfile ? serializeQuestionnaireForPrompt(input.questionnaireProfile) : undefined
+  const memoriesQuery = input.memoriesQuery ?? input.message
   const memoriesStr = input.memoriesOverride !== undefined
     ? (input.memoriesOverride || undefined)
-    : (serializeMemoriesForPrompt(selectRelevantMemories('generic', input.message, input.drunk)) || undefined)
+    : (serializeMemoriesForPrompt(selectRelevantMemories('generic', memoriesQuery, input.drunk)) || undefined)
   const recentDrunk = input.drunk.slice(0, 5).map(formatDrunkSummary)
 
   return {
@@ -205,6 +208,7 @@ export function buildCelestinRequestBody(input: {
     },
     previousSession: input.previousSession,
     zones: input.zones.length > 0 ? input.zones : undefined,
+    ...(input.memoryEvidenceMode ? { memoryEvidenceMode: input.memoryEvidenceMode } : {}),
     ...(input.conversationState ? { conversationState: input.conversationState } : {}),
     ...(input.image ? { image: input.image } : {}),
     ...(input.memoryFacts ? { memoryFacts: input.memoryFacts } : {}),
