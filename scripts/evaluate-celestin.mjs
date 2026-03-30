@@ -2,10 +2,30 @@ import fs from 'fs'
 import path from 'path'
 
 const ROOT = process.cwd()
-const DEFAULT_FIXTURE = path.join(ROOT, 'evals', 'celestin-fixture.template.json')
+const FIXTURE_DIR = path.join(ROOT, 'evals')
+const TEMPLATE_FIXTURE = path.join(FIXTURE_DIR, 'celestin-fixture.template.json')
 const DEFAULT_SCENARIOS = path.join(ROOT, 'evals', 'celestin-scenarios.json')
 const DEFAULT_CONVERSATIONS = path.join(ROOT, 'evals', 'celestin-conversations.json')
 const DEFAULT_OUT_DIR = path.join(ROOT, 'evals', 'results')
+
+function findLatestRealFixture() {
+  if (!fs.existsSync(FIXTURE_DIR)) return null
+
+  const candidates = fs.readdirSync(FIXTURE_DIR)
+    .filter((name) => /^celestin-fixture.*\.json$/i.test(name))
+    .filter((name) => name !== 'celestin-fixture.template.json')
+    .map((name) => {
+      const fullPath = path.join(FIXTURE_DIR, name)
+      return {
+        name,
+        fullPath,
+        mtimeMs: fs.statSync(fullPath).mtimeMs,
+      }
+    })
+    .sort((left, right) => right.mtimeMs - left.mtimeMs)
+
+  return candidates[0]?.fullPath ?? null
+}
 
 function readEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return {}
@@ -24,7 +44,7 @@ function readEnvFile(filePath) {
 
 function parseArgs(argv) {
   const args = {
-    fixture: DEFAULT_FIXTURE,
+    fixture: null,
     scenarios: null,
     conversations: null,
     outDir: DEFAULT_OUT_DIR,
@@ -75,6 +95,12 @@ function buildRequestBody(fixture, message, history, conversationState, provider
     profile: fixture.profile,
     memories: fixture.memories,
     context: fixture.context,
+    ...(Array.isArray(fixture.memoryFactsRaw) && fixture.memoryFactsRaw.length > 0
+      ? { memoryFactsRaw: fixture.memoryFactsRaw }
+      : {}),
+    ...(Array.isArray(fixture.previousSessionSummaries) && fixture.previousSessionSummaries.length > 0
+      ? { previousSessionSummaries: fixture.previousSessionSummaries }
+      : {}),
     ...(conversationState ? { conversationState } : {}),
     ...(provider ? { provider } : {}),
   }
@@ -94,6 +120,12 @@ function buildSingleTurnBody(fixture, scenario, provider) {
     profile: fixture.profile,
     memories: fixture.memories,
     context: fixture.context,
+    ...(Array.isArray(fixture.memoryFactsRaw) && fixture.memoryFactsRaw.length > 0
+      ? { memoryFactsRaw: fixture.memoryFactsRaw }
+      : {}),
+    ...(Array.isArray(fixture.previousSessionSummaries) && fixture.previousSessionSummaries.length > 0
+      ? { previousSessionSummaries: fixture.previousSessionSummaries }
+      : {}),
     ...(provider ? { provider } : {}),
   }
 }
@@ -622,8 +654,19 @@ async function main() {
     throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY')
   }
 
+  if (!args.fixture) {
+    const latestRealFixture = findLatestRealFixture()
+    args.fixture = latestRealFixture ?? TEMPLATE_FIXTURE
+  }
+
   const fixture = loadJson(args.fixture)
   if (!fixture) throw new Error(`Fixture not found: ${args.fixture}`)
+
+  if (fixture.name === 'template-fixture' && !args.dryRun) {
+    throw new Error(
+      'La template fixture ne doit plus servir pour une vraie eval. Exporte une fixture depuis Debug ou passe --fixture evals/celestin-fixture-YYYY-MM-DD.json.'
+    )
+  }
 
   const scenarios = args.scenarios ? loadJson(args.scenarios) : null
   const conversations = args.conversations ? loadJson(args.conversations) : null
@@ -636,6 +679,17 @@ async function main() {
 
   if (args.provider) {
     console.log(`\n🔧 Forced provider: ${args.provider}`)
+  }
+
+  const structuredMemoryBits = [
+    Array.isArray(fixture.drunk) ? `${fixture.drunk.length} degustations structurees` : null,
+    Array.isArray(fixture.memoryFactsRaw) ? `${fixture.memoryFactsRaw.length} memory facts` : null,
+    Array.isArray(fixture.previousSessionSummaries) ? `${fixture.previousSessionSummaries.length} resumes de session` : null,
+  ].filter(Boolean)
+
+  console.log(`\nFixture: ${path.basename(args.fixture)} (${fixture.name ?? 'unnamed'})`)
+  if (structuredMemoryBits.length > 0) {
+    console.log(`Memoire chargee: ${structuredMemoryBits.join(' | ')}`)
   }
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')

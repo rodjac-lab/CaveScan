@@ -58,6 +58,56 @@ interface InsightResponse {
 
 // === Session management ===
 
+const FACT_CATEGORIES_REQUIRING_USER_QUOTE = new Set([
+  'preference',
+  'aversion',
+  'context',
+  'life_event',
+  'wine_knowledge',
+  'social',
+  'cellar_intent',
+])
+
+function normalizeMemoryText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function isGroundedInUserMessages(
+  sourceQuote: string | null | undefined,
+  messages: Array<{ role: string; content: string }>,
+): boolean {
+  if (!sourceQuote || sourceQuote.trim().length < 8) return false
+
+  const normalizedQuote = normalizeMemoryText(sourceQuote)
+  if (normalizedQuote.length < 8) return false
+
+  const userMessages = messages
+    .filter((message) => message.role === 'user')
+    .map((message) => normalizeMemoryText(message.content))
+    .filter((content) => content.length > 0)
+
+  return userMessages.some((content) =>
+    content.includes(normalizedQuote) || normalizedQuote.includes(content)
+  )
+}
+
+function shouldPersistExtractedFact(
+  fact: InsightResponse['facts'][number],
+  messages: Array<{ role: string; content: string }>,
+): boolean {
+  if (!FACT_CATEGORIES_REQUIRING_USER_QUOTE.has(fact.category)) {
+    return true
+  }
+
+  return isGroundedInUserMessages(fact.source_quote, messages)
+}
+
 export async function createSession(): Promise<string | null> {
   try {
     // Extract insights from previous unprocessed session (if any)
@@ -288,6 +338,11 @@ export async function extractInsights(
 
     if (response.facts && response.facts.length > 0) {
       for (const fact of response.facts) {
+        if (!shouldPersistExtractedFact(fact, messages)) {
+          console.warn('[chatPersistence] Skipping ungrounded fact:', fact.fact)
+          continue
+        }
+
         const row: Record<string, unknown> = {
           session_id: sessionId,
           category: fact.category,

@@ -17,8 +17,10 @@ import {
   setCrossSessionConfig,
   getMemoryDebugInfo,
   clearAllSessions,
+  loadPreviousSessionSummariesFromSupabase,
   type SessionSummary,
 } from '@/lib/crossSessionMemory'
+import { loadActiveMemoryFacts } from '@/lib/chatPersistence'
 import { buildCompositeText } from '@/lib/semanticMemory'
 import type { Bottle, TasteProfile } from '@/lib/types'
 
@@ -254,7 +256,13 @@ export default function Debug() {
     setFixtureStatus('Preparation de la fixture...')
 
     try {
-      const [{ data: cave, error: caveError }, { data: drunk, error: drunkError }, { data: profileRow, error: profileError }] = await Promise.all([
+      const [
+        { data: cave, error: caveError },
+        { data: drunk, error: drunkError },
+        { data: profileRow, error: profileError },
+        memoryFactsRaw,
+        previousSessionSummaries,
+      ] = await Promise.all([
         supabase
           .from('bottles')
           .select('id, domaine, cuvee, appellation, millesime, couleur, quantity, volume_l')
@@ -262,14 +270,15 @@ export default function Debug() {
           .order('added_at', { ascending: false }),
         supabase
           .from('bottles')
-          .select('id, domaine, cuvee, appellation, millesime, couleur, tasting_note, tasting_tags, rating, drunk_at')
+          .select('id, domaine, cuvee, appellation, millesime, couleur, country, region, raw_extraction, zone_id, shelf, photo_url, photo_url_back, status, added_at, drunk_at, updated_at, tasting_note, purchase_price, market_value, drink_from, drink_until, notes, tasting_photos, rating, rebuy, qpr, grape_varieties, serving_temperature, typical_aromas, food_pairings, character, quantity, volume_l, tasting_tags')
           .eq('status', 'drunk')
-          .order('drunk_at', { ascending: false })
-          .limit(30),
+          .order('drunk_at', { ascending: false }),
         supabase
           .from('user_taste_profiles')
           .select('computed_profile, explicit_preferences, computed_at')
           .maybeSingle(),
+        loadActiveMemoryFacts(),
+        loadPreviousSessionSummariesFromSupabase(),
       ])
 
       if (caveError) throw caveError
@@ -285,10 +294,10 @@ export default function Debug() {
         : null
 
       const drunkBottles = (drunk ?? []) as Bottle[]
-      const memories = selectRelevantMemories('generic', null, drunkBottles)
-      const fixture = {
+      const memories = selectRelevantMemories('generic', null, drunkBottles, 12)
+      const fixture: CelestinEvalFixture = {
         name: 'celestin-fixture',
-        description: 'Export de fixture depuis la session authentifiee de Celestin',
+        description: 'Export de fixture depuis la session authentifiee de Celestin avec memoire structuree',
         exportedAt: new Date().toISOString(),
         history: [],
         cave: (cave ?? []).map((bottle) => ({
@@ -302,8 +311,11 @@ export default function Debug() {
           volume: bottle.volume_l?.toString() ?? '0.75',
           local_score: 0,
         })),
+        drunk: drunkBottles,
         profile: profile ? serializeProfileForPrompt(profile) : null,
         memories: serializeMemoriesForPrompt(memories) || null,
+        memoryFactsRaw,
+        previousSessionSummaries,
         context: {
           dayOfWeek: getDayOfWeek(),
           season: getSeason(),
@@ -322,7 +334,9 @@ export default function Debug() {
       document.body.removeChild(anchor)
       URL.revokeObjectURL(url)
 
-      setFixtureStatus(`Fixture exportee (${fixture.cave.length} bouteilles en cave)`)
+      setFixtureStatus(
+        `Fixture exportee (${fixture.cave?.length ?? 0} bouteilles en cave, ${fixture.drunk?.length ?? 0} degustees, ${fixture.memoryFactsRaw?.length ?? 0} facts)`
+      )
     } catch (err) {
       setFixtureStatus(`Erreur export fixture: ${err instanceof Error ? err.message : 'inconnue'}`)
     } finally {
@@ -385,7 +399,7 @@ export default function Debug() {
         for (const provider of selectedProviders) {
           currentStep++
           setEvalStatus(`[${currentStep}/${totalSteps}] ${scenario.id} — ${provider}...`)
-          const body = buildCelestinEvalRequest(fixture, scenario, provider)
+          const body = await buildCelestinEvalRequest(fixture, scenario, provider)
           const startedAt = Date.now()
           const { data, error: fnErr, response } = await supabase.functions.invoke<Record<string, unknown>>('celestin', {
             body,

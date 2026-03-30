@@ -1,3 +1,8 @@
+import { buildMemoryEvidenceBundle } from '@/lib/tastingMemories'
+import type { MemoryFact } from '@/lib/chatPersistence'
+import type { ConversationMemorySummary } from '@/lib/crossSessionMemory'
+import type { Bottle } from '@/lib/types'
+
 export interface CelestinEvalScenario {
   id: string
   message: string
@@ -31,8 +36,11 @@ export interface CelestinEvalFixture {
   exportedAt?: string
   history?: Array<{ role: 'user' | 'assistant'; content: string }>
   cave?: CelestinEvalFixtureBottle[]
+  drunk?: Bottle[]
   profile?: string | null
   memories?: string | null
+  memoryFactsRaw?: MemoryFact[]
+  previousSessionSummaries?: ConversationMemorySummary[]
   context?: {
     dayOfWeek?: string
     season?: string
@@ -212,23 +220,39 @@ export const CELESTIN_EVAL_SCENARIOS: CelestinEvalScenario[] = [
   },
 ]
 
-export function buildCelestinEvalRequest(
+export async function buildCelestinEvalRequest(
   fixture: CelestinEvalFixture,
   scenario: CelestinEvalScenario,
   provider?: string,
-): Record<string, unknown> {
-  const history = (scenario.history ?? fixture.history ?? []).map((turn) => ({
+): Promise<Record<string, unknown>> {
+  const rawHistory = scenario.history ?? fixture.history ?? []
+  const history = rawHistory.map((turn) => ({
     role: turn.role,
     text: turn.content,
   }))
+  const memoryEvidence = fixture.drunk && fixture.drunk.length > 0
+    ? await buildMemoryEvidenceBundle({
+        query: scenario.message,
+        recentMessages: rawHistory.map((turn) => ({
+          role: turn.role === 'assistant' ? 'celestin' : 'user',
+          text: turn.content,
+        })),
+        drunkBottles: fixture.drunk,
+      })
+    : null
 
   return {
     message: scenario.message,
     history,
     cave: fixture.cave ?? [],
     profile: fixture.profile ?? undefined,
-    memories: fixture.memories ?? undefined,
+    memories: memoryEvidence ? memoryEvidence.serialized : (fixture.memories ?? undefined),
     context: fixture.context ?? undefined,
+    ...(memoryEvidence?.mode ? { memoryEvidenceMode: memoryEvidence.mode } : {}),
+    ...(fixture.memoryFactsRaw && fixture.memoryFactsRaw.length > 0 ? { memoryFactsRaw: fixture.memoryFactsRaw } : {}),
+    ...(fixture.previousSessionSummaries && fixture.previousSessionSummaries.length > 0
+      ? { previousSessionSummaries: fixture.previousSessionSummaries }
+      : {}),
     ...(provider ? { provider } : {}),
   }
 }

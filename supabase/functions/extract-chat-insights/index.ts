@@ -69,6 +69,7 @@ Chaque fact a :
 # Regles strictes
 
 - N'extrais QUE ce que dit l'UTILISATEUR, pas les recommandations de Celestin
+- Pour tout fait durable, fournis une source_quote tiree mot pour mot d'un message utilisateur. Si tu ne peux pas citer l'utilisateur, n'extrais pas le fait.
 - Ne deduis PAS des preferences evidentes (s'il a 80% de rouge en cave, n'ecris pas "aime le rouge")
 - DISTINGUE observation et preference : "gouter jeune permet de connaitre le style" = observation (wine_knowledge), PAS "aime les vins jeunes" (preference). Une preference c'est un jugement de gout explicite ("j'adore", "c'etait un regal", "je n'aime pas").
 - Capture aussi les meta-preferences explicites de conversation et d'apprentissage :
