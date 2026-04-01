@@ -38,8 +38,10 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
        +-- rankCaveBottles()              --> cave triee par pertinence
        +-- serializeProfileForPrompt()    --> profil de gout texte
        +-- serializeQuestionnaireForPrompt() --> FWI + prefs sensorielles
-       +-- selectRelevantMemories()       --> souvenirs de degustation
-       +-- serializePreviousSessionsForPrompt() --> sessions precedentes
+       +-- buildMemoryEvidenceBundle()    --> preuves memoire exact / synthese / semantique
+       +-- memoryFactsRaw                 --> facts conversationnels structures
+       +-- previousSessionSummaries       --> resumes de sessions structures
+       +-- retrievedConversation?         --> ancienne conversation si reference explicite
        +-- getDayOfWeek(), getSeason()    --> contexte temporel
        +-- zones, recentDrunk             --> metadonnees
        +-- persistedConversationState     --> etat dialogue courant
@@ -48,7 +50,9 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
   RequestBody = {
     message, history[], cave[], profile, questionnaireProfile,
     memories, previousSession, context, zones, image?,
-    conversationState?     <-- NOUVEAU : etat du dialogue
+    conversationState?,
+    memoryEvidenceMode?, memoryFactsRaw?, previousSessionSummaries?,
+    retrievedConversation?   <-- memoire moderne envoyee en structure
   }
        |
        v  HTTP POST --> supabase.functions.invoke('celestin')
@@ -97,13 +101,27 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
                        |
                        v
   +----------------------------------------------+
+  |   User Model Resolver (shared code)          |
+  |                                              |
+  |  Inputs :                                    |
+  |   memoryFactsRaw + previousSessionSummaries  |
+  |   + turnType + cognitiveMode + message       |
+  |                                              |
+  |  Output :                                    |
+  |   resolvedUserModel                          |
+  |   (portrait utilisateur actuel)              |
+  +--------------------+-------------------------+
+                       |
+                       v
+  +----------------------------------------------+
   |       celestinWithFallback()                 |
   |                                              |
-  |  Provider 1: GPT-4.1 mini  (OpenAI)         |
+  |  Provider 1: Gemini 2.5 Flash (Google)      |
   |       | fail?                                |
-  |  Provider 2: Claude Haiku 4.5 (Anthropic)   |
-  |       | fail?                                |
-  |  Provider 3: Gemini 2.5 Flash (Google)       |
+  |  Provider 2: GPT-4.1 mini (OpenAI)          |
+  |                                              |
+  |  Claude et Mistral restent disponibles       |
+  |  uniquement via forcedProvider (eval/debug)  |
   |                                              |
   |  Chaque provider :                           |
   |  1. Envoie system prompt + contexte          |
@@ -163,6 +181,10 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
        +-- (pas de ui_action)
            --> affiche message texte + action_chips
 ```
+
+Note :
+- l'ordre reel est : `Turn Interpreter` -> `User Model Resolver` -> `buildContextBlock()` / `buildUserPrompt()` -> appel LLM
+- le grand schema ci-dessus simplifie un peu la mise en page, mais le resolver agit bien avant la construction finale du contexte prompt
 
 ## Turn Interpreter : le cerveau du routing
 
@@ -315,7 +337,7 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 | `components/discover/CeSoirModule.tsx` | Chat UI + `buildRequestBody()` + `callCelestin()` + state persistence |
 | `hooks/useRecommendations.ts` | Prefetch suggestions au lancement (`__prefetch__`) |
 | `lib/recommendationRanking.ts` | Score de pertinence par bouteille (`rankCaveBottles()`) |
-| `lib/tastingMemories.ts` | Selection (keyword + async semantic) et serialisation des souvenirs de degustation |
+| `lib/tastingMemories.ts` | Retrieval Planner + Evidence Bundle + selection exacte / synthese / semantique |
 | `lib/semanticMemory.ts` | Semantic search via embeddings pgvector + generation fire-and-forget |
 | `lib/taste-profile.ts` | Serialisation du profil de gout |
 | `lib/questionnaire-profile.ts` | Serialisation du questionnaire FWI |
@@ -327,6 +349,10 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 | `lib/celestinConversation.ts` | `buildCelestinRequestBody()` — assemble le payload (cave rankée, profil, mémoires, questionnaire, état, memoryFacts, retrievedConversation) |
 | `lib/enrichWine.ts` | Enrichissement async post-save (fire-and-forget) : arômes, accords, température, pays/région, maturité |
 
+Note de mise a jour sur le frontend :
+- `lib/tastingMemories.ts` porte maintenant le Retrieval Planner et construit un `Evidence Bundle`
+- `buildCelestinRequestBody()` envoie aussi `memoryEvidenceMode`, `memoryFactsRaw`, `previousSessionSummaries` et `retrievedConversation`
+
 ## Providers LLM
 
 | Ordre | Provider | Modele | Particularites |
@@ -335,6 +361,11 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 | 2 | Anthropic | claude-haiku-4-5 | Meilleur suivi d'instructions, vision |
 | 3 | Google | gemini-2.5-flash | responseSchema natif, vision, thinkingBudget 1024 si image / 0 sinon |
 | 4 | Mistral | mistral-small-latest | Uniquement via forcedProvider (mode eval), pas dans la chaîne de prod |
+
+Ordre reel de production aujourd'hui :
+- primaire : `Gemini 2.5 Flash`
+- fallback : `GPT-4.1 mini`
+- `Claude` et `Mistral` restent disponibles via `forcedProvider` en eval/debug
 
 Temperature : 0.5 pour tous les providers.
 
@@ -377,10 +408,12 @@ Couche 1 -- Faits vin (Supabase)
 Couche 2 -- Profil infere (Supabase)
   computeTasteProfile --> appellations/domaines preferes, couleurs, prix, QPR
 
-Couche 3 -- Souvenirs de degustation (Supabase + runtime + semantic search)
-  selectRelevantMemoriesAsync :
-    1. Semantic search (embeddings pgvector) via generate-embedding edge fn
-    2. Fallback : selectRelevantMemories (keyword matching)
+Couche 3 -- Souvenirs de degustation (Supabase + runtime + retrieval hybride)
+  buildMemoryEvidenceBundle :
+    1. classifie la question en exact / synthese / semantique
+    2. exact : filtres sur bouteilles `drunk` (pays, region, appellation, domaine, cuvee)
+    3. synthese : sous-ensemble exact si possible, puis synthese LLM
+    4. semantique : embeddings pgvector + fallback keyword matching
   Embedding genere fire-and-forget a chaque sauvegarde de note de degustation
   Colonne embedding vector(1536) sur bottles, RPC search_memories (score hybride)
 
@@ -390,8 +423,10 @@ Couche 4 -- Memoire conversationnelle (Supabase, V2.5)
     Categories : preference, aversion, context, life_event, wine_knowledge, social, cellar_intent
     Supersedure : quand une preference evolue, l'ancienne est marquee superseded_by
     Temporalite : is_temporary + expires_at pour les contextes ephemeres
+    Garde-fou : un fait durable sans `source_quote` utilisateur credible n'est pas persiste
   summary_embedding : embedding du summary de session pour retrieval semantique
-  Injection : memoryFacts injectes dans TOUS les cognitive modes
+  Injection : `memoryFactsRaw` + `previousSessionSummaries` alimentent le User Model Resolver
+  Fallback : `memoryFacts` texte reste disponible si le portrait resolu est absent
   Retrieval : regex frontend detecte references au passe -> semantic search -> messages complets
 
 Couche 5 -- Etat conversationnel (runtime)
@@ -415,12 +450,30 @@ Role :
 Ce qui change :
 - le frontend envoie des facts structures et des summaries structures
 - l'edge function Celestin construit un portrait resolu juste apres le Turn Interpreter
-- ce portrait devient la couche memoire prioritaire du prompt
+- ce portrait devient la couche memoire prioritaire du prompt (`memoryFacts` texte n'est plus qu'un fallback)
 - les facts sauvegardes sont dedoublonnes et peuvent superseder les anciens
 - la memoire active est rechargee pendant la session apres extraction
 
 Doc de reference :
 - `docs/celestin-user-model-resolver.md`
+
+## Update 30 mars 2026 - Retrieval Planner et grounding
+
+Nouvelles briques :
+
+- `src/lib/tastingMemories.ts`
+- `docs/celestin-retrieval-planner.md`
+
+Role :
+- distinguer les questions memoire `exact`, `synthese` et `semantique`
+- construire un `Evidence Bundle` borne avant l'appel au LLM
+- eviter qu'une question d'inventaire soit traitee comme un simple souvenir probable
+
+Ce qui change :
+- `Ai-je deja bu des Brunello ?` --> filtre exact sur les bouteilles degustees
+- `Qu'est-ce que j'ai pense des Brunello ?` --> sous-ensemble exact puis synthese
+- `D'autres vins italiens ?` --> elargissement controle au lieu de rester colle au dernier vin cite
+- les facts conversationnels ne sont plus persistes si leur `source_quote` n'est pas retrouvable dans un vrai message utilisateur
 
 ## Persistance
 
