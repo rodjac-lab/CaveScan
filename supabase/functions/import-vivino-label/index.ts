@@ -149,6 +149,14 @@ Deno.serve(async (req) => {
       .eq('user_id', userId)
 
     if (updateError) {
+      const { error: cleanupError } = await supabase.storage
+        .from('wine-labels')
+        .remove([storagePath])
+
+      if (cleanupError) {
+        console.warn('[import-vivino-label] Cleanup failed:', cleanupError.message)
+      }
+
       throw updateError
     }
 

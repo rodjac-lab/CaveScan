@@ -562,7 +562,8 @@ function mapPriceCsvRows(rows: CsvRow[]): VivinoPriceRow[] {
 }
 
 export async function parseVivinoZip(file: File): Promise<VivinoImportPreview> {
-  const zip = await JSZip.loadAsync(file)
+  const zipBytes = await file.arrayBuffer()
+  const zip = await JSZip.loadAsync(zipBytes)
   const [cellarCsv, fullWineCsv, priceCsv] = await Promise.all([
     readCsvFromArchive(zip, 'cellar.csv'),
     readCsvFromArchive(zip, 'full_wine_list.csv'),
