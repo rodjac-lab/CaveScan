@@ -44,6 +44,11 @@ interface MessageRow {
   created_at: string
 }
 
+interface PendingSessionRow {
+  id: string
+  turn_count: number
+}
+
 interface InsightResponse {
   facts: Array<{
     category: string
@@ -132,6 +137,16 @@ export async function createSession(): Promise<string | null> {
   }
 }
 
+async function incrementSessionTurnCount(sessionId: string): Promise<void> {
+  const { error } = await supabase.rpc('increment_chat_session_turn_count', {
+    target_session_id: sessionId,
+  })
+
+  if (error) {
+    console.warn('[chatPersistence] Failed to increment turn count:', error.message)
+  }
+}
+
 export function saveMessage(
   sessionId: string | null,
   role: 'user' | 'celestin',
@@ -156,19 +171,7 @@ export function saveMessage(
         return
       }
 
-      // Increment turn count
-      const { data: session } = await supabase
-        .from('chat_sessions')
-        .select('turn_count')
-        .eq('id', sessionId)
-        .single()
-
-      if (session) {
-        await supabase
-          .from('chat_sessions')
-          .update({ turn_count: (session.turn_count ?? 0) + 1 })
-          .eq('id', sessionId)
-      }
+      await incrementSessionTurnCount(sessionId)
     } catch (err) {
       console.warn('[chatPersistence] Unexpected error saving message:', err)
     }
@@ -213,41 +216,50 @@ export async function loadRecentSessions(limit = 5): Promise<SessionRow[]> {
 }
 
 /**
- * Find the most recent session without a summary and extract insights from it.
+ * Find a bounded backlog of recent sessions without a summary and extract insights from them.
  * Called at the start of a new session to catch up on unprocessed conversations.
  */
+async function loadPendingSessionsForExtraction(limit = 3): Promise<PendingSessionRow[]> {
+  const { data, error } = await supabase
+    .from('chat_sessions')
+    .select('id, turn_count')
+    .is('summary', null)
+    .gte('turn_count', 2)
+    .order('started_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.warn('[chatPersistence] Failed to load pending sessions:', error.message)
+    return []
+  }
+
+  return ((data ?? []) as PendingSessionRow[]).reverse()
+}
+
 function extractPreviousSessionIfNeeded(): void {
   ;(async () => {
     try {
-      // Find the most recent session that has messages but no summary
-      const { data: sessions } = await supabase
-        .from('chat_sessions')
-        .select('id, turn_count')
-        .is('summary', null)
-        .gte('turn_count', 2)
-        .order('started_at', { ascending: false })
-        .limit(1)
+      const sessions = await loadPendingSessionsForExtraction()
+      if (sessions.length === 0) return
 
-      if (!sessions || sessions.length === 0) return
+      let activeFacts = await loadActiveMemoryFacts()
 
-      const sessionId = sessions[0].id
+      for (const session of sessions) {
+        const { data: messages } = await supabase
+          .from('chat_messages')
+          .select('role, content')
+          .eq('session_id', session.id)
+          .order('created_at', { ascending: true })
 
-      // Load messages from that session
-      const { data: messages } = await supabase
-        .from('chat_messages')
-        .select('role, content')
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: true })
+        if (!messages || messages.length < 2) {
+          continue
+        }
 
-      if (!messages || messages.length < 2) return
+        console.log(`[chatPersistence] Extracting insights from previous session ${session.id} (${messages.length} messages)`)
 
-      console.log(`[chatPersistence] Extracting insights from previous session ${sessionId} (${messages.length} messages)`)
-
-      const formatted = messages.map(m => ({ role: m.role, content: m.content }))
-
-      // Load existing facts to avoid duplicates
-      const existingFacts = await loadActiveMemoryFacts()
-      void extractInsights(sessionId, formatted, existingFacts)
+        const formatted = messages.map(message => ({ role: message.role, content: message.content }))
+        activeFacts = await extractInsights(session.id, formatted, activeFacts)
+      }
     } catch (err) {
       console.warn('[chatPersistence] Failed to extract previous session:', err)
     }
