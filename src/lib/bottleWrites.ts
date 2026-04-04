@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { normalizeWineColor, type Bottle, type BottleWithZone, type WineExtraction } from '@/lib/types'
 
-type BottleInsertRecord = {
+export type BottleInsertRecord = {
   domaine: string | null
   cuvee: string | null
   appellation: string | null

@@ -14,6 +14,7 @@ import {
 import { useZones } from '@/hooks/useZones'
 import { useAuth } from '@/hooks/useAuth'
 import { useQuestionnaireProfile } from '@/hooks/useQuestionnaireProfile'
+import { VivinoImportCard } from '@/components/VivinoImportCard'
 import { supabase } from '@/lib/supabase'
 import { track } from '@/lib/track'
 import { REGION_OPTIONS } from '@/lib/questionnaire-profile'
@@ -258,6 +259,8 @@ export default function Settings() {
             </div>
           )}
         </section>
+
+        <VivinoImportCard />
 
         {/* 3. Zones section (unchanged logic) */}
         <section className="mb-8">
