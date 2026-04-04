@@ -8,7 +8,7 @@ import type { Bottle, BottleStatus, WineColor } from '@/lib/types'
 
 type CsvRow = Record<string, string | undefined>
 
-type ExistingBottleRow = Pick<Bottle, 'id' | 'domaine' | 'cuvee' | 'appellation' | 'millesime' | 'status' | 'raw_extraction'>
+type ExistingBottleRow = Pick<Bottle, 'id' | 'domaine' | 'cuvee' | 'appellation' | 'millesime' | 'status' | 'raw_extraction' | 'photo_url'>
 
 interface VivinoCellarRow {
   winery: string | null
@@ -59,6 +59,7 @@ export interface VivinoCellarCandidate {
   averageRating: number | null
   regionalWineStyle: string | null
   link: string | null
+  labelImage: string | null
 }
 
 export interface VivinoTastingCandidate {
@@ -97,6 +98,7 @@ export interface VivinoImportResult {
   importedCellarReferences: number
   importedCellarBottles: number
   importedTastings: number
+  importedLabelPhotos: number
   alreadyPresent: number
 }
 
@@ -223,7 +225,21 @@ function rowLinkOrIdentity(row: {
   ].join('|')}`
 }
 
-function mapCellarRows(rows: VivinoCellarRow[]): VivinoCellarCandidate[] {
+function mapLabelImages(rows: VivinoTastingRow[]): Map<string, string> {
+  const labelImages = new Map<string, string>()
+
+  for (const row of rows) {
+    if (!row.labelImage) continue
+    const key = rowLinkOrIdentity(row)
+    if (!labelImages.has(key)) {
+      labelImages.set(key, row.labelImage)
+    }
+  }
+
+  return labelImages
+}
+
+function mapCellarRows(rows: VivinoCellarRow[], labelImages: Map<string, string>): VivinoCellarCandidate[] {
   const bySource = new Map<string, VivinoCellarCandidate>()
 
   for (const row of rows) {
@@ -249,6 +265,7 @@ function mapCellarRows(rows: VivinoCellarRow[]): VivinoCellarCandidate[] {
       averageRating: row.averageRating,
       regionalWineStyle: row.regionalWineStyle,
       link: row.link,
+      labelImage: labelImages.get(rowLinkOrIdentity(row)) ?? null,
     })
   }
 
@@ -449,6 +466,58 @@ function toBottleForPostProcessing(id: string, record: BottleInsertRecord): Bott
   }
 }
 
+interface VivinoLabelImportJob {
+  bottleId: string
+  imageUrl: string
+}
+
+function enqueueVivinoLabelImport(
+  jobs: VivinoLabelImportJob[],
+  bottle: Pick<ExistingBottleRow, 'id' | 'photo_url'> | { id: string; photo_url: string | null },
+  imageUrl: string | null,
+): void {
+  if (!imageUrl || bottle.photo_url) return
+  jobs.push({ bottleId: bottle.id, imageUrl })
+}
+
+async function importVivinoLabelPhoto(job: VivinoLabelImportJob): Promise<boolean> {
+  const { data, error } = await supabase.functions.invoke('import-vivino-label', {
+    body: {
+      bottleId: job.bottleId,
+      imageUrl: job.imageUrl,
+    },
+  })
+
+  if (error) {
+    console.warn('[vivinoImport] Label import failed:', error.message)
+    return false
+  }
+
+  return Boolean(data?.photoUrl)
+}
+
+async function runVivinoLabelImports(jobs: VivinoLabelImportJob[], concurrency = 4): Promise<number> {
+  if (jobs.length === 0) return 0
+
+  const queue = [...jobs]
+  let imported = 0
+
+  const workerCount = Math.min(concurrency, queue.length)
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (queue.length > 0) {
+        const next = queue.shift()
+        if (!next) return
+        const ok = await importVivinoLabelPhoto(next)
+        if (ok) imported += 1
+      }
+    }),
+  )
+
+  return imported
+}
+
 function mapCellarCsvRows(rows: CsvRow[]): VivinoCellarRow[] {
   return rows.map((row) => ({
     winery: cleanString(row['Winery']),
@@ -509,7 +578,8 @@ export async function parseVivinoZip(file: File): Promise<VivinoImportPreview> {
   const priceRows = priceCsv ? mapPriceCsvRows(parseCsv<CsvRow>(priceCsv)) : []
 
   const priceMap = mapPriceRows(priceRows)
-  const cellar = mapCellarRows(cellarRows)
+  const labelImages = mapLabelImages(fullWineRows)
+  const cellar = mapCellarRows(cellarRows, labelImages)
   const tastings = mapTastingRows(fullWineRows, priceMap)
   const priceEntries = tastings.filter((row) => row.purchasePrice != null).length
 
@@ -529,34 +599,47 @@ export async function parseVivinoZip(file: File): Promise<VivinoImportPreview> {
 export async function importVivinoPreview(preview: VivinoImportPreview): Promise<VivinoImportResult> {
   const { data: existingRows, error } = await supabase
     .from('bottles')
-    .select('id, domaine, cuvee, appellation, millesime, status, raw_extraction')
+    .select('id, domaine, cuvee, appellation, millesime, status, raw_extraction, photo_url')
 
   if (error) throw error
 
   const existing = (existingRows ?? []) as ExistingBottleRow[]
   const seenSourceRefs = new Set<string>()
   const seenIdentityKeys = new Set<string>()
+  const bottlesBySourceRef = new Map<string, ExistingBottleRow>()
+  const bottlesByIdentityKey = new Map<string, ExistingBottleRow>()
+  const labelImportJobs: VivinoLabelImportJob[] = []
 
   for (const bottle of existing) {
     const sourceRef = extractExistingSourceRef(bottle.raw_extraction)
-    if (sourceRef) seenSourceRefs.add(sourceRef)
-    seenIdentityKeys.add(buildIdentityKey(bottle))
+    const identityKey = buildIdentityKey(bottle)
+    if (sourceRef) {
+      seenSourceRefs.add(sourceRef)
+      bottlesBySourceRef.set(sourceRef, bottle)
+    }
+    seenIdentityKeys.add(identityKey)
+    bottlesByIdentityKey.set(identityKey, bottle)
   }
 
   let importedCellarReferences = 0
   let importedCellarBottles = 0
   let importedTastings = 0
+  let importedLabelPhotos = 0
   let alreadyPresent = 0
 
   for (const candidate of preview.cellar) {
     const identityKey = buildIdentityKey({ ...candidate, status: 'in_stock' })
-    if (seenSourceRefs.has(candidate.sourceRef) || seenIdentityKeys.has(identityKey)) {
+    const existingBottle = bottlesBySourceRef.get(candidate.sourceRef) ?? bottlesByIdentityKey.get(identityKey)
+
+    if (existingBottle) {
+      enqueueVivinoLabelImport(labelImportJobs, existingBottle, candidate.labelImage)
       alreadyPresent += 1
       continue
     }
 
     const record = buildImportedCellarRecord(candidate)
-    await insertBottle(record)
+    const { id } = await insertBottle(record)
+    enqueueVivinoLabelImport(labelImportJobs, { id, photo_url: null }, candidate.labelImage)
     seenSourceRefs.add(candidate.sourceRef)
     seenIdentityKeys.add(identityKey)
     importedCellarReferences += 1
@@ -564,13 +647,17 @@ export async function importVivinoPreview(preview: VivinoImportPreview): Promise
   }
 
   for (const candidate of preview.tastings) {
-    if (seenSourceRefs.has(candidate.sourceRef)) {
+    const existingBottle = bottlesBySourceRef.get(candidate.sourceRef)
+
+    if (existingBottle) {
+      enqueueVivinoLabelImport(labelImportJobs, existingBottle, candidate.labelImage)
       alreadyPresent += 1
       continue
     }
 
     const record = buildImportedTastingRecord(candidate)
     const { id } = await insertBottle(record)
+    enqueueVivinoLabelImport(labelImportJobs, { id, photo_url: null }, candidate.labelImage)
     seenSourceRefs.add(candidate.sourceRef)
     importedTastings += 1
 
@@ -581,10 +668,13 @@ export async function importVivinoPreview(preview: VivinoImportPreview): Promise
     }
   }
 
+  importedLabelPhotos = await runVivinoLabelImports(labelImportJobs)
+
   return {
     importedCellarReferences,
     importedCellarBottles,
     importedTastings,
+    importedLabelPhotos,
     alreadyPresent,
   }
 }

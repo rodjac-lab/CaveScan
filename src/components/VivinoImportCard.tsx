@@ -63,6 +63,7 @@ export function VivinoImportCard() {
         imported_cellar_references: nextResult.importedCellarReferences,
         imported_cellar_bottles: nextResult.importedCellarBottles,
         imported_tastings: nextResult.importedTastings,
+        imported_label_photos: nextResult.importedLabelPhotos,
         already_present: nextResult.alreadyPresent,
       })
       showToast('Import Vivino terminé', 'success')
@@ -157,19 +158,19 @@ export function VivinoImportCard() {
                 </p>
               )}
 
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="flex flex-col gap-2">
                 <Button
                   variant="outline"
                   onClick={resetFlow}
                   disabled={importing}
-                  className="sm:flex-1"
+                  className="w-full"
                 >
                   Choisir un autre fichier
                 </Button>
                 <Button
                   onClick={handleImport}
                   disabled={importing}
-                  className="sm:flex-1 bg-[var(--accent)] hover:bg-[var(--accent-light)]"
+                  className="w-full bg-[var(--accent)] hover:bg-[var(--accent-light)]"
                 >
                   {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Importer dans Célestin

@@ -247,9 +247,16 @@ function buildMemoriesSection(body: RequestBody): string[] {
   return parts
 }
 
+function summarizeCaveCounts(body: RequestBody): { totalBottles: number; referenceCount: number } {
+  const referenceCount = body.cave.length
+  const totalBottles = body.cave.reduce((sum, bottle) => sum + Math.max(1, bottle.quantity ?? 1), 0)
+  return { totalBottles, referenceCount }
+}
+
 function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'greeting' | 'social'): string {
   const parts: string[] = []
   const includeProfile = cognitiveMode !== 'tasting_memory'
+  const caveCounts = summarizeCaveCounts(body)
 
   // Memory facts — ALWAYS injected in ALL modes (~200-300 tokens)
   if (body.resolvedUserModel) {
@@ -271,7 +278,7 @@ function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'gr
   // --- greeting / social: profile + cave count only ---
   if (cognitiveMode === 'greeting' || cognitiveMode === 'social') {
     if (body.cave.length > 0) {
-      parts.push(`Cave : ${body.cave.length} bouteilles.`)
+      parts.push(`Cave : ${caveCounts.totalBottles} bouteilles (${caveCounts.referenceCount} references).`)
     }
     return parts.join('\n\n')
   }
@@ -301,7 +308,7 @@ function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'gr
       parts.push('Tu peux faire reference a ces conversations precedentes si c\'est pertinent, mais ne force pas.')
     }
     if (body.cave.length > 0) {
-      parts.push(`Cave : ${body.cave.length} bouteilles (detail non inclus).`)
+      parts.push(`Cave : ${caveCounts.totalBottles} bouteilles (${caveCounts.referenceCount} references, detail non inclus).`)
     }
     return parts.join('\n\n')
   }
@@ -324,7 +331,7 @@ function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'gr
   }
 
   if (body.cave.length > 0) {
-    parts.push(`Bouteilles en cave (${body.cave.length}) :`)
+    parts.push(`Bouteilles en cave : ${caveCounts.totalBottles} bouteilles (${caveCounts.referenceCount} references).`)
     for (const b of body.cave) {
       const label = [b.domaine, b.cuvee, b.appellation, b.millesime, b.couleur]
         .filter(Boolean)
@@ -407,6 +414,11 @@ function buildUserPrompt(body: RequestBody, interpretation: TurnInterpretation, 
   }
 
   // Unknown — conversational fallback, no cave actions
+  else if (turnType === 'context_switch' && cognitiveMode === 'cellar_assistant') {
+    parts.push(`[QUESTION CAVE - Reponds uniquement a partir de la cave transmise. Pas de ui_action. Pour les questions de quantite, compte les bouteilles a partir des quantites, pas seulement les references.]`)
+    parts.push(body.message)
+  }
+
   else if (turnType === 'unknown') {
     parts.push(`[CONVERSATION — Reponds naturellement. PAS de ui_action. action_chips : questions pour approfondir le sujet, PAS de suggestions de reco cave.]`)
     parts.push(body.message)

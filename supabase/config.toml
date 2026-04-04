@@ -9,3 +9,6 @@ verify_jwt = false
 
 [functions.extract-chat-insights]
 verify_jwt = false
+
+[functions.import-vivino-label]
+verify_jwt = false
