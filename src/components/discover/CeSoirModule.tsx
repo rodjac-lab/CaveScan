@@ -1,13 +1,10 @@
 import { useRef, useState, useEffect, useCallback, memo, type PointerEvent as ReactPointerEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { supabase } from '@/lib/supabase'
 import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
 import { useZones } from '@/hooks/useZones'
 import { useQuestionnaireProfile } from '@/hooks/useQuestionnaireProfile'
-import { buildMemoryEvidenceBundle, selectRelevantMemoriesAsync, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
-import { resolveBottleIds } from '@/lib/contextHelpers'
 import { getCachedRecommendation, buildQueryKey } from '@/lib/recommendationStore'
 import type { FWIScores, SensoryPreferences } from '@/lib/questionnaire-profile'
 import type { RecommendationCard } from '@/lib/recommendationStore'
@@ -16,21 +13,27 @@ import { useInlineQuestionnaire } from './useInlineQuestionnaire'
 import { fileToBase64 } from '@/lib/image'
 import { extractWineFromFile } from '@/lib/wineExtractionService'
 import {
-  buildCelestinRequestBody,
+  buildCelestinMessageUpdate as buildSharedCelestinMessageUpdate,
+  buildEncaveWineAction as buildSharedEncaveWineAction,
+  buildGreeting as buildSharedGreeting,
+  buildWelcomeChips as buildSharedWelcomeChips,
   type CelestinChatMessage,
-  type CelestinResponse,
   type WineActionData,
+  volumeLabel as formatSharedVolumeLabel,
 } from '@/lib/celestinConversation'
 import {
   createSession,
   saveMessage as persistMessage,
   loadActiveMemoryFacts,
   extractInsights,
-  searchRelevantSessions,
-  loadSessionMessages,
-  serializeConversationForPrompt,
   type MemoryFact,
 } from '@/lib/chatPersistence'
+import {
+  buildTranscriptSnapshot as buildSharedTranscriptSnapshot,
+  extractCelestinErrorMessage,
+  invokeCelestin,
+  prepareCelestinRequest,
+} from '@/lib/celestinChatRequest'
 import { serializeMemoryFactsForPrompt } from '@/lib/memoryFactsSerializer'
 
 // --- Types ---
@@ -95,29 +98,10 @@ function TypingDots() {
 
 // --- Constants ---
 
-function buildWelcomeChips(): string[] {
-  const hour = new Date().getHours()
-  const day = new Date().getDay()
-  const isWeekend = day === 0 || day === 6
-  const isFriday = day === 5
-
-  if (hour < 11) {
-    return ['Accord mets & vin', 'Ajouter une bouteille', 'Parle-moi d\'un cépage']
-  }
-  if (hour < 14) {
-    return ['Accord pour ce midi', 'Que boire avec mon plat ?', 'Ajouter une bouteille']
-  }
-  if (hour < 17) {
-    return ['Préparer le dîner', 'Ajouter une bouteille', 'Accord mets & vin']
-  }
-  // 17h+
-  if (isFriday || isWeekend) {
-    return ['Que boire ce soir ?', 'Accord mets & vin', 'Ouvrir une bouteille']
-  }
-  return ['Que boire ce soir ?', 'Accord mets & vin', 'Ajouter une bouteille']
+let nextMsgId = 1
+function genMsgId(): string {
+  return `msg-${nextMsgId++}`
 }
-
-// --- Helpers ---
 
 function colorToBarClass(color: string | null | undefined): string {
   switch (color) {
@@ -137,68 +121,6 @@ function badgeToClass(badge: string): string {
     case 'Découverte': return 'bg-[var(--text-muted)]'
     default: return 'bg-[var(--accent)]'
   }
-}
-
-function buildGreeting(): string {
-  const now = new Date()
-  const hour = now.getHours()
-  const day = now.getDay() // 0=dim, 6=sam
-  const month = now.getMonth()
-  const isWeekend = day === 0 || day === 6
-  const isFriday = day === 5
-
-  // Saison
-  const season = month >= 2 && month <= 4 ? 'printemps'
-    : month >= 5 && month <= 7 ? 'été'
-    : month >= 8 && month <= 10 ? 'automne'
-    : 'hiver'
-
-  // Matin (avant 11h)
-  if (hour < 11) {
-    if (isWeekend) return 'Samedi matin, le moment idéal pour prévoir le dîner de ce soir.'
-    if (isFriday) return 'Vendredi ! La semaine touche à sa fin, ça mérite une belle bouteille ce soir.'
-    return season === 'hiver'
-      ? 'Un matin d\'hiver, parfait pour penser aux plats qui réchauffent.'
-      : 'La journée commence. On en reparle ce soir ?'
-  }
-
-  // Midi (11h-14h)
-  if (hour < 14) {
-    if (isWeekend) return 'Le déjeuner du week-end, c\'est sacré. Tu as prévu quelque chose de bon ?'
-    return 'Pause déjeuner. Envie d\'un accord pour ce midi ?'
-  }
-
-  // Après-midi (14h-17h)
-  if (hour < 17) {
-    if (isWeekend) return 'L\'après-midi avance, le moment de penser au dîner approche.'
-    return season === 'été'
-      ? 'Après-midi d\'été, les rosés s\'impatientent.'
-      : 'L\'après-midi file. On prépare la soirée ?'
-  }
-
-  // Apéro (17h-20h)
-  if (hour < 20) {
-    if (isFriday) return 'Vendredi soir, la cave t\'attend.'
-    if (isWeekend) return 'Le soleil descend, l\'heure de choisir quelque chose de bien.'
-    if (season === 'été') return 'Fin de journée, il fait encore bon. Bulles ou blanc frais ?'
-    return 'La soirée commence. Envie de quelque chose en particulier ?'
-  }
-
-  // Soir (20h+)
-  if (season === 'hiver') return 'Soirée d\'hiver, il fait bon ouvrir quelque chose de réconfortant.'
-  if (isWeekend) return 'La soirée s\'installe. Qu\'est-ce qui te ferait plaisir ?'
-  return 'Bonne soirée. Un verre en tête ?'
-}
-
-function volumeLabel(vol: string): string {
-  if (vol === '0.375') return 'demi'
-  if (vol === '1.5') return 'mag'
-  return 'btl'
-}
-
-let nextMsgId = 1
-function genMsgId(): string {
-  return `msg-${nextMsgId++}`
 }
 
 
@@ -281,7 +203,7 @@ const WineActionCard = memo(function WineActionCard({ action, onValidate, onModi
   const ext = action.extraction
   const wineName = [ext.domaine, ext.cuvee].filter(Boolean).join(' — ') || ext.appellation || 'Vin'
   const details = [ext.appellation, ext.millesime?.toString()].filter(Boolean).join(' ')
-  const qtyLabel = `${ext.quantity} × ${volumeLabel(ext.volume)}`
+  const qtyLabel = `${ext.quantity} × ${formatSharedVolumeLabel(ext.volume)}`
 
   return (
     <div className="mt-2 rounded-[var(--radius)] bg-[var(--bg-card)] border border-[var(--border-color)] card-shadow overflow-hidden">
@@ -500,7 +422,7 @@ export default function CeSoirModule() {
     if (persistedMessages) return persistedMessages
     // New session: rotate previous → archive, current → previous
     rotateSessions()
-    return [{ id: genMsgId(), role: 'celestin', text: buildGreeting(), actionChips: buildWelcomeChips() }]
+    return [{ id: genMsgId(), role: 'celestin', text: buildSharedGreeting(), actionChips: buildSharedWelcomeChips() }]
   })
   useEffect(() => {
     persistedMessages = messages
@@ -596,165 +518,45 @@ export default function CeSoirModule() {
     memoryFactsRef.current = serializeMemoryFactsForPrompt(facts)
   }
 
-  function buildTranscriptSnapshot(
-    pendingUserMessage: string,
-    assistantMessage?: string,
-  ): Array<{ role: string; content: string }> {
-    const nextTurns = messagesRef.current
-      .filter(m => !m.isLoading && m.text.length > 1)
-      .map(m => ({ role: m.role === 'user' ? 'user' : 'celestin', content: m.text }))
-
-    const lastTurn = nextTurns[nextTurns.length - 1]
-    if (!lastTurn || lastTurn.role !== 'user' || lastTurn.content !== pendingUserMessage) {
-      nextTurns.push({ role: 'user', content: pendingUserMessage })
-    }
-
-    if (assistantMessage && assistantMessage.length > 1) {
-      const lastAssistantTurn = nextTurns[nextTurns.length - 1]
-      if (!lastAssistantTurn || lastAssistantTurn.role !== 'celestin' || lastAssistantTurn.content !== assistantMessage) {
-        nextTurns.push({ role: 'celestin', content: assistantMessage })
-      }
-    }
-
-    return nextTurns.slice(-12)
-  }
-
-  function buildRequestBody(
-    message: string,
-    image?: string,
-    memoriesOverride?: string,
-    retrievedConversation?: string,
-    memoriesQuery?: string,
-    memoryEvidenceMode?: 'exact' | 'synthesis' | 'semantic',
-  ) {
-    return buildCelestinRequestBody({
-      message,
-      image,
-      cave: caveRef.current,
-      drunk: drunkRef.current,
-      profile: profileRef.current,
-      questionnaireProfile: questionnaireProfileRef.current,
-      messages: messagesRef.current,
-      previousSession: previousSessionContextRef.current,
-      previousSessionSummaries: previousSessionSummariesRef.current,
-      zones: zones.map((z) => z.name),
-      memoriesOverride,
-      memoriesQuery,
-      memoryEvidenceMode,
-      conversationState: persistedConversationState,
-      memoryFacts: memoryFactsRef.current,
-      memoryFactsRaw: memoryFactsRawRef.current,
-      retrievedConversation,
-    })
-  }
-
-  // --- Core submit handler ---
-
-  // Patterns that indicate user is referencing a past conversation
-  const PAST_REFERENCE_PATTERN = /(?:tu te souviens|la derni[eè]re fois|on avait parl[eé]|on avait bu|c'[eé]tait quoi le vin|tu m'avais (?:dit|recommand|conseill)|la fois o[uù]|dej[aà] discut)/i
-
   async function callCelestin(message: string, loadingMsgId: string, image?: string) {
     try {
-      // Persist user message (fire-and-forget)
       persistMessage(sessionIdRef.current, 'user', message, { hasImage: !!image })
 
-      const memoryMessages = messagesRef.current
-        .filter((entry) => !entry.isLoading && entry.text.trim().length > 0)
-        .map((entry) => ({ role: entry.role, text: entry.text }))
-
-      const memoryEvidence = await buildMemoryEvidenceBundle({
-        query: message,
-        recentMessages: memoryMessages,
-        drunkBottles: drunkRef.current,
-      })
-
-      const memoryQuery = memoryEvidence?.planningQuery ?? message
-
-      // Try async semantic memory search, then fall back to sync keyword matching inside buildRequestBody
-      let memoriesOverride: string | undefined = memoryEvidence?.serialized || undefined
-      if (!memoriesOverride) {
-        try {
-          const asyncMemories = await selectRelevantMemoriesAsync('generic', memoryQuery, drunkRef.current)
-          if (asyncMemories.length > 0) {
-            memoriesOverride = serializeMemoriesForPrompt(asyncMemories) || undefined
-          }
-        } catch {
-        // Semantic search failed — buildRequestBody will use keyword fallback
-      }
-      }
-
-      // Retrieve past conversation if user references one
-      let retrievedConversation: string | undefined
-      if (PAST_REFERENCE_PATTERN.test(message)) {
-        try {
-          const sessions = await searchRelevantSessions(memoryQuery, 1)
-          if (sessions.length > 0) {
-            const msgs = await loadSessionMessages(sessions[0].id)
-            if (msgs.length > 0) {
-              retrievedConversation = serializeConversationForPrompt(msgs, sessions[0].started_at)
-            }
-          }
-        } catch {
-          // Retrieval failed — continue without it
-        }
-      }
-
-      const body = buildRequestBody(
+      const body = await prepareCelestinRequest({
         message,
         image,
-        memoryEvidence?.serialized || memoriesOverride,
-        retrievedConversation,
-        memoryQuery,
-        memoryEvidence?.mode,
-      )
-      const { data, error } = await supabase.functions.invoke('celestin', { body })
+        cave: caveRef.current,
+        drunk: drunkRef.current,
+        profile: profileRef.current,
+        questionnaireProfile: questionnaireProfileRef.current,
+        messages: messagesRef.current,
+        previousSession: previousSessionContextRef.current,
+        previousSessionSummaries: previousSessionSummariesRef.current,
+        zones: zones.map((zone) => zone.name),
+        conversationState: persistedConversationState,
+        memoryFacts: memoryFactsRef.current,
+        memoryFactsRaw: memoryFactsRawRef.current,
+      })
 
-      if (error) throw error
-
-      const fullResponse = data as CelestinResponse & { _nextState?: Record<string, unknown> }
+      const fullResponse = await invokeCelestin(body)
       const response = fullResponse
 
-      // Update conversation state from backend
       if (fullResponse?._nextState) {
         persistedConversationState = fullResponse._nextState
       }
 
-      // Resolve bottle IDs (short → full)
-      const resolvedCards = response.ui_action?.kind === 'show_recommendations'
-        ? resolveBottleIds(response.ui_action.payload.cards, caveRef.current)
-        : undefined
+      const { update, navigateToBatchAdd } = buildSharedCelestinMessageUpdate(response, caveRef.current)
 
-      // Build the update for the loading bubble
-      const update: Partial<ChatMessage> = { text: response.message, isLoading: false }
-
-      // Dynamic chips from LLM
-      if (response.action_chips && response.action_chips.length > 0) {
-        update.actionChips = response.action_chips
-      }
-
-      if (response.ui_action?.kind === 'show_recommendations' && resolvedCards && resolvedCards.length > 0) {
-        update.cards = resolvedCards
-      } else if (response.ui_action?.kind === 'prepare_add_wines' && response.ui_action.payload.extractions?.length > 0) {
-        // Batch add — navigate directly to AddBottle with batch extractions
-        setMessages(prev => prev.map(m => m.id === loadingMsgId ? { ...m, ...update } : m))
+      if (navigateToBatchAdd && navigateToBatchAdd.length > 0) {
+        setMessages((prev) => prev.map((entry) => entry.id === loadingMsgId ? { ...entry, ...update } : entry))
         setIsLoading(false)
         scrollToBottom()
-        navigate('/add', { state: { prefillBatchExtractions: response.ui_action.payload.extractions } })
+        navigate('/add', { state: { prefillBatchExtractions: navigateToBatchAdd } })
         return
-      } else if (
-        (response.ui_action?.kind === 'prepare_add_wine' || response.ui_action?.kind === 'prepare_log_tasting')
-        && response.ui_action.payload.extraction
-      ) {
-        update.wineAction = {
-          intent: response.ui_action.kind === 'prepare_add_wine' ? 'encaver' : 'deguster',
-          extraction: response.ui_action.payload.extraction,
-          summary: response.message,
-        }
       }
 
-      setMessages(prev => prev.map(m => m.id === loadingMsgId ? { ...m, ...update } : m))
+      setMessages((prev) => prev.map((entry) => entry.id === loadingMsgId ? { ...entry, ...update } : entry))
 
-      // Persist Celestin response (fire-and-forget)
       const debugInfo = (fullResponse as unknown as Record<string, unknown>)?._debug as
         Record<string, unknown> | undefined
       persistMessage(sessionIdRef.current, 'celestin', response.message, {
@@ -762,39 +564,27 @@ export default function CeSoirModule() {
         cognitiveMode: debugInfo?.cognitiveMode as string | undefined,
       })
 
-      // Trigger insight extraction every 4 user turns
       userTurnCountRef.current++
       if (userTurnCountRef.current >= 4) {
         userTurnCountRef.current = 0
-        const recentMessages = buildTranscriptSnapshot(message, response.message)
+        const recentMessages = buildSharedTranscriptSnapshot(messagesRef.current, message, response.message)
         void extractInsights(sessionIdRef.current, recentMessages, memoryFactsRawRef.current)
           .then(syncActiveMemoryFacts)
       }
     } catch (err) {
       console.error('[CeSoirModule] celestin error:', err)
-      let debugMessage = err instanceof Error ? err.message : String(err)
+      const debugMessage = await extractCelestinErrorMessage(err)
 
-      const maybeContext = (err as { context?: Response } | null)?.context
-      if (maybeContext instanceof Response) {
-        try {
-          const raw = await maybeContext.text()
-          debugMessage = `HTTP ${maybeContext.status}${raw ? `: ${raw}` : ''}`
-        } catch {
-          debugMessage = `HTTP ${maybeContext.status}`
-        }
-      }
-
-      setMessages(prev => prev.map(m =>
-        m.id === loadingMsgId
-          ? { ...m, text: `Debug Celestin UI: ${debugMessage}`, isLoading: false }
-          : m
+      setMessages((prev) => prev.map((entry) =>
+        entry.id === loadingMsgId
+          ? { ...entry, text: `Debug Celestin UI: ${debugMessage}`, isLoading: false }
+          : entry
       ))
     } finally {
       setIsLoading(false)
       scrollToBottom()
     }
   }
-
   function submitMessage(text: string) {
     setIsLoading(true)
     const loadingMsgId = genMsgId()
@@ -888,26 +678,7 @@ export default function CeSoirModule() {
     try {
       const parsed = await extractWineFromFile(photoFile)
       const extraction = parsed.bottles[0]
-      const wineAction: WineActionData = {
-        intent: 'encaver',
-        extraction: {
-          domaine: extraction.domaine,
-          cuvee: extraction.cuvee,
-          appellation: extraction.appellation,
-          millesime: extraction.millesime,
-          couleur: extraction.couleur,
-          region: extraction.region,
-          quantity: 1,
-          volume: '0.75',
-          grape_varieties: extraction.grape_varieties,
-          serving_temperature: extraction.serving_temperature,
-          typical_aromas: extraction.typical_aromas,
-          food_pairings: extraction.food_pairings,
-          character: extraction.character,
-        },
-        summary: [extraction.domaine, extraction.cuvee, extraction.appellation].filter(Boolean).join(' — '),
-      }
-
+      const wineAction: WineActionData = buildSharedEncaveWineAction(extraction)
       const wineName = [extraction.domaine, extraction.cuvee, extraction.appellation].filter(Boolean).join(' ')
       setMessages(prev => prev.map(m =>
         m.id === loadingMsgId
@@ -1194,3 +965,4 @@ export default function CeSoirModule() {
     </div>
   )
 }
+
