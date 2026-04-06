@@ -267,8 +267,8 @@ Ces signaux sont plus fiables qu'un profil abstrait.
 Exemples :
 
 - `user_memory_facts`
-- `resolvedUserModel`
-- résumés de session utiles
+- profil compilé utilisateur
+- quelques facts bruts encore utiles pour la compilation
 
 Cette couche sert à aider, pas à remplacer les sources plus concrètes.
 
@@ -308,8 +308,8 @@ Il ne doit jamais être rappelé juste pour faire joli.
 La priorité est :
 
 1. souvenirs de dégustation
-2. conversation passée pertinente
-3. facts de soutien
+2. facts de soutien si utiles
+3. profil compilé si nécessaire pour contextualiser
 
 La règle :
 

@@ -8,6 +8,14 @@ Celestin est le sommelier IA de l'app. Ce document decrit comment un message uti
 > - `docs/celestin-memory-doctrine.md`
 > - `docs/celestin-memory-runtime-architecture.md`
 > - `docs/celestin-memory-compilation-events.md`
+>
+> Important : les sections de ce document qui parlaient de `resolvedUserModel`, `memory policy`,
+> `previousSessionSummaries` et `retrievedConversation` ne sont plus l'architecture active.
+> Le runtime memoire actuel est plus simple :
+> - profil compile utilisateur
+> - tasting memories ciblees
+> - cave
+> - history courte + conversation state
 
 ## Vue d'ensemble : deux axes orthogonaux
 
@@ -44,22 +52,19 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
        |
        +-- rankCaveBottles()              --> cave triee par pertinence
        +-- serializeProfileForPrompt()    --> profil de gout texte
-       +-- serializeQuestionnaireForPrompt() --> FWI + prefs sensorielles
-       +-- buildMemoryEvidenceBundle()    --> preuves memoire exact / synthese / semantique
-       +-- memoryFactsRaw                 --> facts conversationnels structures
-       +-- previousSessionSummaries       --> resumes de sessions structures
-       +-- retrievedConversation?         --> ancienne conversation si reference explicite
+       +-- serializeQuestionnaireForPrompt() --> bootstrap seulement
+       +-- buildMemoryEvidenceBundle()    --> tasting memories ciblees
+       +-- compiledProfileMarkdown        --> profil compile utilisateur
        +-- getDayOfWeek(), getSeason()    --> contexte temporel
        +-- zones, recentDrunk             --> metadonnees
        +-- persistedConversationState     --> etat dialogue courant
        |
        v
   RequestBody = {
-    message, history[], cave[], profile, questionnaireProfile,
-    memories, previousSession, context, zones, image?,
+    message, history[], cave[], profile,
+    memories, context, zones, image?,
     conversationState?,
-    memoryEvidenceMode?, memoryFactsRaw?, previousSessionSummaries?,
-    retrievedConversation?   <-- memoire moderne envoyee en structure
+    memoryEvidenceMode?, compiledProfileMarkdown?
   }
        |
        v  HTTP POST --> supabase.functions.invoke('celestin')
@@ -104,19 +109,6 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
   |                                              |
   |  --- CONTEXTE UTILISATEUR ---                |
   |  (adapte par cognitiveMode, voir tableau)    |
-  +--------------------+-------------------------+
-                       |
-                       v
-  +----------------------------------------------+
-  |   User Model Resolver (shared code)          |
-  |                                              |
-  |  Inputs :                                    |
-  |   memoryFactsRaw + previousSessionSummaries  |
-  |   + turnType + cognitiveMode + message       |
-  |                                              |
-  |  Output :                                    |
-  |   resolvedUserModel                          |
-  |   (portrait utilisateur actuel)              |
   +--------------------+-------------------------+
                        |
                        v
@@ -190,8 +182,8 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
 ```
 
 Note :
-- l'ordre reel est : `Turn Interpreter` -> `User Model Resolver` -> `buildContextBlock()` / `buildUserPrompt()` -> appel LLM
-- le grand schema ci-dessus simplifie un peu la mise en page, mais le resolver agit bien avant la construction finale du contexte prompt
+- l'ordre reel est : `Turn Interpreter` -> `buildContextBlock()` / `buildUserPrompt()` -> appel LLM
+- le runtime memoire actif n'utilise plus de `User Model Resolver`
 
 ## Turn Interpreter : le cerveau du routing
 
@@ -344,21 +336,24 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 | `components/discover/CeSoirModule.tsx` | Chat UI + `buildRequestBody()` + `callCelestin()` + state persistence |
 | `hooks/useRecommendations.ts` | Prefetch suggestions au lancement (`__prefetch__`) |
 | `lib/recommendationRanking.ts` | Score de pertinence par bouteille (`rankCaveBottles()`) |
-| `lib/tastingMemories.ts` | Retrieval Planner + Evidence Bundle + selection exacte / synthese / semantique |
+| `lib/tastingMemories.ts` | Orchestrateur memoire degustation |
+| `lib/tastingMemoryFilters.ts` | Filtres exacts degustation |
+| `lib/tastingMemoryRanking.ts` | Ranking local degustation |
+| `lib/tastingMemoryFormatting.ts` | Serialisation des souvenirs pour le prompt |
+| `lib/tastingTags.ts` | Extraction / persistence des tags de degustation |
 | `lib/semanticMemory.ts` | Semantic search via embeddings pgvector + generation fire-and-forget |
 | `lib/taste-profile.ts` | Serialisation du profil de gout |
 | `lib/questionnaire-profile.ts` | Serialisation du questionnaire FWI |
 | `lib/contextHelpers.ts` | Jour, saison, `resolveBottleIds()`, `formatDrunkSummary()` |
-| `lib/crossSessionMemory.ts` | Persistance sessions (localStorage fallback + Supabase primary) |
-| `lib/chatPersistence.ts` | **V2.5** : persistence conversations Supabase, extraction insights, retrieval semantique |
-| `lib/memoryFactsSerializer.ts` | **V2.5** : serialisation des memory facts pour injection prompt |
+| `lib/crossSessionMemory.ts` | Fallback local/debug, hors runtime prompt principal |
+| `lib/chatPersistence.ts` | Persistence conversations Supabase + extraction de facts bruts |
 | `lib/recommendationStore.ts` | Cache prefetch (module-level) |
-| `lib/celestinConversation.ts` | `buildCelestinRequestBody()` — assemble le payload (cave rankée, profil, mémoires, questionnaire, état, memoryFacts, retrievedConversation) |
+| `lib/celestinConversation.ts` | `buildCelestinRequestBody()` — assemble le payload (cave, profil, memories, state, compiled profile) |
 | `lib/enrichWine.ts` | Enrichissement async post-save (fire-and-forget) : arômes, accords, température, pays/région, maturité |
 
 Note de mise a jour sur le frontend :
-- `lib/tastingMemories.ts` porte maintenant le Retrieval Planner et construit un `Evidence Bundle`
-- `buildCelestinRequestBody()` envoie aussi `memoryEvidenceMode`, `memoryFactsRaw`, `previousSessionSummaries` et `retrievedConversation`
+- `lib/tastingMemories.ts` est devenu un orchestrateur mince
+- `buildCelestinRequestBody()` envoie surtout `compiledProfileMarkdown`, `memories` et `memoryEvidenceMode`
 
 ## Providers LLM
 
@@ -406,35 +401,25 @@ interface CelestinResponse {
 
 **Note :** La réponse HTTP est toujours `200`, même en cas d'erreur (raison : éviter l'échec du CORS preflight sur les 4xx/5xx). En cas d'erreur, seul `{ message }` est renvoyé, sans `ui_action`.
 
-## Memoire : 5 couches
+## Memoire : architecture active
 
 ```
-Couche 1 -- Faits vin (Supabase)
+Couche 1 -- Donnees brutes (Supabase)
   bottles, tasting_tags, zones
 
-Couche 2 -- Profil infere (Supabase)
-  computeTasteProfile --> appellations/domaines preferes, couleurs, prix, QPR
+Couche 2 -- Profil compile (Supabase)
+  user_profiles.compiled_markdown
 
-Couche 3 -- Souvenirs de degustation (Supabase + runtime + retrieval hybride)
+Couche 3 -- Souvenirs de degustation (runtime cible)
   buildMemoryEvidenceBundle :
-    1. classifie la question en exact / synthese / semantique
-    2. exact : filtres sur bouteilles `drunk` (pays, region, appellation, domaine, cuvee)
-    3. synthese : sous-ensemble exact si possible, puis synthese LLM
-    4. semantique : embeddings pgvector + fallback keyword matching
-  Embedding genere fire-and-forget a chaque sauvegarde de note de degustation
-  Colonne embedding vector(1536) sur bottles, RPC search_memories (score hybride)
+    1. filtres exacts si disponibles
+    2. ranking local lisible
+    3. secours semantique si rien de plausible n'a deja ete trouve
 
-Couche 4 -- Memoire conversationnelle (Supabase, V2.5)
+Couche 4 -- Memoire conversationnelle brute (Supabase)
   chat_sessions + chat_messages : persistence complete des conversations
   user_memory_facts : preferences/faits extraits par LLM (extract-chat-insights/)
-    Categories : preference, aversion, context, life_event, wine_knowledge, social, cellar_intent
-    Supersedure : quand une preference evolue, l'ancienne est marquee superseded_by
-    Temporalite : is_temporary + expires_at pour les contextes ephemeres
-    Garde-fou : un fait durable sans `source_quote` utilisateur credible n'est pas persiste
-  summary_embedding : embedding du summary de session pour retrieval semantique
-  Injection : `memoryFactsRaw` + `previousSessionSummaries` alimentent le User Model Resolver
-  Fallback : `memoryFacts` texte reste disponible si le portrait resolu est absent
-  Retrieval : regex frontend detecte references au passe -> semantic search -> messages complets
+    sert surtout a la compilation du profil, pas au prompt runtime direct
 
 Couche 5 -- Etat conversationnel (runtime)
   State Machine (persistedConversationState, module-level)
@@ -442,40 +427,15 @@ Couche 5 -- Etat conversationnel (runtime)
   Nettoyage images : seules les 2 dernieres photos user sont conservees
 ```
 
-## Update 29 mars 2026 - User Model Resolver
-
-Nouvelle couche partagee :
-
-- `shared/celestin/user-model-resolver.ts`
-
-Role :
-- prendre `memoryFactsRaw` + `previousSessionSummaries`
-- produire un `portrait utilisateur actuel`
-- adapter ce portrait au `cognitiveMode`
-- faire primer les evolutions recentes et contextes temporaires sur les signaux plus anciens
-
-Ce qui change :
-- le frontend envoie des facts structures et des summaries structures
-- l'edge function Celestin construit un portrait resolu juste apres le Turn Interpreter
-- ce portrait devient la couche memoire prioritaire du prompt (`memoryFacts` texte n'est plus qu'un fallback)
-- les facts sauvegardes sont dedoublonnes et peuvent superseder les anciens
-- la memoire active est rechargee pendant la session apres extraction
-
-Doc de reference :
-- `docs/archive/celestin-user-model-resolver.md` (historique)
-- `docs/celestin-memory-runtime-architecture.md` (architecture mémoire cible)
-
-## Update 30 mars 2026 - Retrieval Planner et grounding
-
-Nouvelles briques :
-
 - `src/lib/tastingMemories.ts`
-- `docs/archive/celestin-retrieval-planner.md`
+- `src/lib/tastingMemoryFilters.ts`
+- `src/lib/tastingMemoryRanking.ts`
 
 Role :
-- distinguer les questions memoire `exact`, `synthese` et `semantique`
+- distinguer les questions memoire `exact` et `synthese`
 - construire un `Evidence Bundle` borne avant l'appel au LLM
-- eviter qu'une question d'inventaire soit traitee comme un simple souvenir probable
+- appliquer d'abord des filtres exacts et un ranking local
+- n'utiliser le semantique qu'en secours
 
 Ce qui change :
 - `Ai-je deja bu des Brunello ?` --> filtre exact sur les bouteilles degustees

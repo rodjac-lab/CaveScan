@@ -12,7 +12,7 @@ Ce sont les 3 documents à lire en priorité pour comprendre la nouvelle archite
 
 - mémoire, profil utilisateur, hiérarchie des sources :
   - [Doctrine mémoire](./celestin-memory-doctrine.md)
-- architecture cible `Supabase + profil compilé + SQL ciblé` :
+- architecture cible `Supabase + profil compilé + tasting memories + SQL ciblé` :
   - [Architecture runtime](./celestin-memory-runtime-architecture.md)
 - déclenchement des mises à jour du profil compilé :
   - [Événements de compilation](./celestin-memory-compilation-events.md)

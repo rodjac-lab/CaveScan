@@ -31,6 +31,51 @@ Runtime
 Reponse Celestin
 ```
 
+## Avant / apres
+
+```text
+AVANT
+sources brutes
++ questionnaire
++ facts
++ resumes
++ retrieval conversationnel
++ souvenirs de degustation
+-> plusieurs couches memoire en parallele
+-> prompt charge
+-> LLM
+
+APRES
+sources brutes
+-> profil compile utilisateur
+-> tasting memories ciblees
+-> SQL cible si besoin
+-> prompt plus simple
+-> LLM
+```
+
+```text
+RUNTIME LEGACY
+message
++ history
++ cave
++ tasting memories
++ resolved model
++ memory facts
++ previous sessions
++ questionnaire
+-> LLM
+
+RUNTIME ACTUEL
+message
++ history
++ conversationState
++ cave
++ tasting memories
++ profil compile
+-> LLM
+```
+
 ## 1. Supabase : les sources brutes
 
 Supabase reste la source de vérité pour les données opérationnelles.
@@ -93,9 +138,23 @@ Le runtime mémoire de Celestin doit rester simple.
 Il lit :
 
 - le profil compilé
-- quelques résultats SQL ciblés selon la question
+- la cave et l'état conversationnel courant
+- quelques résultats ciblés sur les dégustations passées
+- des requêtes SQL ciblées selon la question
 
 Il n'a pas besoin d'une couche complexe de retrieval généraliste si les responsabilités sont bien séparées.
+
+En pratique, le runtime actuel ressemble à :
+
+```text
+message courant
++ history courte
++ conversationState
++ cave
++ tasting memories ciblees
++ profil compile
+-> LLM
+```
 
 ## Quand utiliser le profil compilé
 
@@ -129,6 +188,12 @@ Exemples :
 - vins bus à `Rome`
 - meilleurs `Brunello` dégustés
 
+Dans le code actuel, la récupération des dégustations utiles passe par `tastingMemories` :
+
+- filtres exacts quand ils existent
+- ranking local lisible
+- secours sémantique seulement si rien de plausible n'est déjà trouvé
+
 ## Ce qu'on évite avec cette architecture
 
 - un retrieval à la volée trop sophistiqué
@@ -161,7 +226,7 @@ Le LLM n'a pas à reconstruire l'utilisateur à partir d'un vrac de sources.
 ```text
 Donnees brutes et evenements -> Supabase
 Connaissance durable utilisateur -> Markdown compile en base
-Runtime -> profil + SQL cible
+Runtime -> profil + tasting memories + SQL cible
 ```
 
 ## Règle finale

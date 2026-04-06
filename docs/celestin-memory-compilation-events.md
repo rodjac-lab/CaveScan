@@ -19,6 +19,9 @@ Table V1 proposée :
 - `user_profiles.compiled_markdown`
 - `user_profiles.updated_at`
 - `user_profiles.version`
+- `user_profiles.last_compiled_from_event_at`
+- `user_profiles.last_compilation_reason`
+- `user_profiles.compilation_status`
 
 Le profil V1 contient 4 sections :
 
