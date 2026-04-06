@@ -2,8 +2,6 @@ import { supabase } from '@/lib/supabase'
 import {
   buildMemoryEvidenceBundle,
   type MemorySelectionProfile,
-  selectRelevantMemoriesAsync,
-  serializeMemoriesForPrompt,
 } from '@/lib/tastingMemories'
 import {
   buildCelestinRequestBody,
@@ -71,21 +69,7 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
   })
 
   const memoryQuery = memoryEvidence?.planningQuery ?? input.message
-  let memoriesOverride = memoryEvidence?.serialized || undefined
-
-  if (!memoriesOverride) {
-    try {
-      const asyncMemories = await selectRelevantMemoriesAsync('generic', memoryQuery, input.drunk, 5, {
-        selectionProfile: memorySelectionProfile,
-        recentMessages: toMemoryMessages(input.messages),
-      })
-      if (asyncMemories.length > 0) {
-        memoriesOverride = serializeMemoriesForPrompt(asyncMemories) || undefined
-      }
-    } catch {
-      // Fall back to keyword memories inside buildCelestinRequestBody.
-    }
-  }
+  const memoriesOverride = memoryEvidence?.serialized || undefined
 
   let compiledProfileMarkdown: string | undefined
   try {
@@ -108,7 +92,7 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
     profile: input.profile,
     messages: input.messages,
     zones: input.zones,
-    memoriesOverride: memoryEvidence?.serialized || memoriesOverride,
+    memoriesOverride,
     memoriesQuery: memoryQuery,
     memoryEvidenceMode: memoryEvidence?.mode,
     conversationState: input.conversationState,

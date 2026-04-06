@@ -1,7 +1,7 @@
 import { insertBottle, type BottleInsertRecord } from '@/lib/bottleWrites'
 import { generateAndSaveEmbedding } from '@/lib/semanticMemory'
 import { supabase } from '@/lib/supabase'
-import { extractAndSaveTags } from '@/lib/tastingMemories'
+import { extractAndSaveTags } from '@/lib/tastingTags'
 import type { Bottle, BottleStatus } from '@/lib/types'
 import { normalizeForKey } from '@/lib/vivinoImportShared'
 import type {

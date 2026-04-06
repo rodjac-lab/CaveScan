@@ -52,6 +52,10 @@ const MEMORY_GUIDED_RECOMMENDATION = [
   /\b(ce qu[' ]on avait aime avec|ce qu[' ]on avait aimé avec)\b/i,
 ]
 
+const EXPLORATORY_RECO_PIVOT = [
+  /^(et si je veux|et si je cherche|et si je prends)\b/i,
+]
+
 const ENCAVAGE = [
   /\b(achete|recu|commande|encave[rz]?|ajoute[rz]?|arrive|livre|ramene|stocke[rz]?|j'ai pris|j'ai achete)(?:\s|$|[.,!?])/i,
 ]
@@ -192,6 +196,10 @@ export function interpretTurn(
 
     if (lower.length < 30 && matchesAny(lower, SOCIAL_ACK)) {
       return { turnType: 'social_ack', cognitiveMode: 'social', shouldAllowUiAction: false }
+    }
+
+    if (state.taskType === 'recommendation' && matchesAny(lower, EXPLORATORY_RECO_PIVOT)) {
+      return { turnType: 'context_switch', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }
     }
 
     if (matchesAny(lower, REFINEMENT)) {

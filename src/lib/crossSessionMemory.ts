@@ -1,23 +1,14 @@
 /**
- * Cross-session memory for Célestin.
+ * Local cross-session fallback for Célestin.
  *
- * Primary source: Supabase chat_sessions (persistent, multi-device).
- * Fallback: localStorage (offline, same-device).
- *
- * Configurable via setCrossSessionConfig() — useful for testing
- * different retention strategies from the Debug page.
+ * This module no longer feeds the runtime prompt. It only keeps a small
+ * local history for debug and same-device continuity.
  */
-
-import { loadRecentSessions, type SessionRow } from '@/lib/chatPersistence'
 
 // --- Configuration (adjustable at runtime for testing) ---
 
 const CONFIG_KEY = 'celestin_memory_config'
 const SESSIONS_KEY = 'celestin_sessions'
-
-// Legacy keys (migration from old single-session system)
-const LEGACY_PREVIOUS_KEY = 'celestin_previous_session'
-const LEGACY_CURRENT_KEY = 'celestin_current_session'
 
 interface CrossSessionConfig {
   maxSessions: number
@@ -32,13 +23,6 @@ const DEFAULT_CONFIG: CrossSessionConfig = {
 export interface SessionSummary {
   turns: Array<{ role: 'user' | 'celestin'; text: string }>
   savedAt: string
-}
-
-export interface ConversationMemorySummary {
-  summary: string
-  started_at: string
-  turn_count?: number | null
-  source: 'supabase' | 'local'
 }
 
 // --- Config management ---
@@ -70,36 +54,7 @@ export function setCrossSessionConfig(config: Partial<CrossSessionConfig>): void
 function getTtlMs(): number {
   return getCrossSessionConfig().ttlDays * 24 * 60 * 60 * 1000
 }
-
-/** Migrate from old current/previous system to the new array-based system */
-function migrateLegacy(): void {
-  try {
-    const legacyPrev = localStorage.getItem(LEGACY_PREVIOUS_KEY)
-    const legacyCurr = localStorage.getItem(LEGACY_CURRENT_KEY)
-    const existingSessions = localStorage.getItem(SESSIONS_KEY)
-
-    // Only migrate if legacy data exists and new system is empty
-    if (!existingSessions && (legacyPrev || legacyCurr)) {
-      const sessions: SessionSummary[] = []
-      if (legacyPrev) {
-        try { sessions.push(JSON.parse(legacyPrev) as SessionSummary) } catch { /* skip */ }
-      }
-      if (legacyCurr) {
-        try { sessions.push(JSON.parse(legacyCurr) as SessionSummary) } catch { /* skip */ }
-      }
-      if (sessions.length > 0) {
-        localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions))
-      }
-      localStorage.removeItem(LEGACY_PREVIOUS_KEY)
-      localStorage.removeItem(LEGACY_CURRENT_KEY)
-    }
-  } catch { /* ignore */ }
-}
-
-/** Load all stored sessions, pruning expired ones */
 export function loadSessions(): SessionSummary[] {
-  migrateLegacy()
-
   try {
     const raw = localStorage.getItem(SESSIONS_KEY)
     if (!raw) return []
@@ -124,18 +79,9 @@ export function loadSessions(): SessionSummary[] {
     return []
   }
 }
-
-/** Load previous sessions (all except the current one, most recent first) */
-export function loadPreviousSessions(): SessionSummary[] {
-  const all = loadSessions()
-  // The last entry is the "current" session being built — return the rest
-  return all.slice(0, -1).reverse()
-}
-
-/** Save/update the current session (latest entry in the array) */
 export function saveCurrentSession(messages: Array<{ role: string; text: string; isLoading?: boolean; actionChips?: unknown }>): void {
   const meaningful = messages.filter(m => !m.isLoading && !m.actionChips && m.text.length > 1)
-  if (meaningful.length < 2) return // need at least 1 exchange
+  if (meaningful.length < 2) return
 
   const turns = meaningful.slice(-12).map(m => ({
     role: m.role as 'user' | 'celestin',
@@ -160,8 +106,6 @@ export function saveCurrentSession(messages: Array<{ role: string; text: string;
     }
   } catch { /* localStorage full or unavailable */ }
 }
-
-/** Rotate: mark the current session as "done" and start a new slot */
 export function rotateSessions(): void {
   try {
     const sessions = loadSessions()
@@ -169,126 +113,15 @@ export function rotateSessions(): void {
 
     if (sessions.length === 0) return
 
-    // The last session is the one just completed — add a new empty slot
-    // (it will be overwritten by saveCurrentSession as messages come in)
-    // Trim to max sessions
     const trimmed = sessions.slice(-(config.maxSessions - 1))
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(trimmed))
   } catch { /* ignore */ }
 }
-
-/** Serialize previous sessions for the Célestin prompt */
-export function serializePreviousSessionsForPrompt(sessions: SessionSummary[]): string | undefined {
-  if (sessions.length === 0) return undefined
-
-  const blocks = sessions.map(session => {
-    const lines = session.turns.map(t =>
-      `${t.role === 'user' ? 'Utilisateur' : 'Celestin'} : ${t.text}`
-    )
-    const date = new Date(session.savedAt)
-    const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
-    return `Conversation du ${dateStr} :\n${lines.join('\n')}`
-  })
-
-  return `Resume des conversations precedentes :\n\n${blocks.join('\n\n---\n\n')}`
-}
-
-function summarizeLocalSession(session: SessionSummary): ConversationMemorySummary | null {
-  if (session.turns.length === 0) return null
-
-  const userTurns = session.turns
-    .filter(turn => turn.role === 'user')
-    .map(turn => turn.text.trim())
-    .filter(Boolean)
-
-  const celestinTurns = session.turns
-    .filter(turn => turn.role === 'celestin')
-    .map(turn => turn.text.trim())
-    .filter(Boolean)
-
-  const parts: string[] = []
-  if (userTurns[0]) parts.push(userTurns[0])
-  if (userTurns[1]) parts.push(userTurns[1])
-  if (celestinTurns[0]) parts.push(`Celestin: ${celestinTurns[0]}`)
-
-  return {
-    summary: parts.join(' | ').slice(0, 320),
-    started_at: session.savedAt,
-    turn_count: session.turns.length,
-    source: 'local',
-  }
-}
-
-export function getLocalPreviousSessionSummaries(): ConversationMemorySummary[] {
-  return loadPreviousSessions()
-    .map(summarizeLocalSession)
-    .filter((session): session is ConversationMemorySummary => session !== null)
-}
-
-function normalizeSupabaseSessions(sessions: SessionRow[]): ConversationMemorySummary[] {
-  return sessions
-    .filter(session => typeof session.summary === 'string' && session.summary.trim().length > 0)
-    .map(session => ({
-      summary: session.summary!.trim(),
-      started_at: session.started_at,
-      turn_count: session.turn_count,
-      source: 'supabase' as const,
-    }))
-}
-
-export async function loadPreviousSessionSummariesFromSupabase(): Promise<ConversationMemorySummary[]> {
-  try {
-    const sessions = await loadRecentSessions(5)
-    const summaries = normalizeSupabaseSessions(sessions)
-    return summaries.length > 0 ? summaries : getLocalPreviousSessionSummaries()
-  } catch {
-    return getLocalPreviousSessionSummaries()
-  }
-}
-
-/**
- * Load previous sessions from Supabase (summaries only).
- * Returns a compact format that replaces the raw turns with 1-line summaries.
- * Falls back to localStorage if Supabase is unavailable.
- */
-export async function loadPreviousSessionsFromSupabase(): Promise<string | undefined> {
-  try {
-    const summaries = await loadPreviousSessionSummariesFromSupabase()
-    if (summaries.length === 0) {
-      // Fallback to localStorage
-      const localSessions = loadPreviousSessions()
-      return serializePreviousSessionsForPrompt(localSessions)
-    }
-
-    const lines = summaries.map(s => {
-        const date = new Date(s.started_at)
-        const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
-        return `- ${dateStr} : ${s.summary}`
-      })
-
-    if (lines.length === 0) {
-      const localSessions = loadPreviousSessions()
-      return serializePreviousSessionsForPrompt(localSessions)
-    }
-
-    return `Conversations recentes :\n${lines.join('\n')}`
-  } catch {
-    // Fallback to localStorage
-    const localSessions = loadPreviousSessions()
-    return serializePreviousSessionsForPrompt(localSessions)
-  }
-}
-
-/** Clear all session memory (for debug/testing) */
 export function clearAllSessions(): void {
   try {
     localStorage.removeItem(SESSIONS_KEY)
-    localStorage.removeItem(LEGACY_PREVIOUS_KEY)
-    localStorage.removeItem(LEGACY_CURRENT_KEY)
   } catch { /* ignore */ }
 }
-
-/** Get debug info about current memory state */
 export function getMemoryDebugInfo(): {
   config: CrossSessionConfig
   sessions: SessionSummary[]

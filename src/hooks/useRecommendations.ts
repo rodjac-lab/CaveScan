@@ -8,7 +8,8 @@ import {
 } from '@/lib/recommendationStore'
 import type { RecommendationCard } from '@/lib/recommendationStore'
 import type { CelestinResponse } from '@/lib/celestinConversation'
-import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
+import { selectRelevantMemories } from '@/lib/tastingMemories'
+import { serializeMemoriesForPrompt } from '@/lib/tastingMemoryFormatting'
 import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
 import { getCachedBottles } from '@/hooks/useBottles'
 import type { Bottle, TasteProfile } from '@/lib/types'
@@ -69,7 +70,7 @@ export async function prefetchDefaultRecommendations(): Promise<void> {
     }))
 
     const profileStr = profile ? serializeProfileForPrompt(profile) : undefined
-    const memories = selectRelevantMemories('generic', null, drunkBottles)
+    const memories = selectRelevantMemories(null, drunkBottles)
     const memoriesStr = serializeMemoriesForPrompt(memories) || undefined
     const recentDrunk = drunkBottles.slice(0, 5).map(formatDrunkSummary)
 

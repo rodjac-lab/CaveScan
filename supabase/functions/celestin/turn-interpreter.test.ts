@@ -110,4 +110,19 @@ describe('interpretTurn', () => {
       shouldAllowUiAction: true,
     })
   })
+
+  it('treats exploratory pivots after a recommendation as conversational, not as an automatic new recommendation batch', () => {
+    const result = interpretTurn(
+      'Et si je veux plutôt un italien ?',
+      false,
+      state({ phase: 'post_task_ack', taskType: 'recommendation', lastUiActionKind: 'show_recommendations' }),
+      'Je te propose quelques bouteilles pour le poulet rôti. [Vins proposes : ...]',
+    )
+
+    expect(result).toEqual({
+      turnType: 'context_switch',
+      cognitiveMode: 'wine_conversation',
+      shouldAllowUiAction: false,
+    })
+  })
 })

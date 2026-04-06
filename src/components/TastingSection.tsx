@@ -7,7 +7,7 @@ import { showToast } from '@/lib/toast'
 import { track } from '@/lib/track'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
 import { uploadPhoto } from '@/lib/uploadPhoto'
-import { extractAndSaveTags } from '@/lib/tastingMemories'
+import { extractAndSaveTags } from '@/lib/tastingTags'
 import { generateAndSaveEmbedding } from '@/lib/semanticMemory'
 import { shareWine, canShare as canShareWine } from '@/lib/shareWine'
 

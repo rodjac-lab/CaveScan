@@ -1,6 +1,7 @@
 import { serializeProfileForPrompt } from '@/lib/taste-profile'
 import { rankCaveBottles } from '@/lib/recommendationRanking'
-import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
+import { selectRelevantMemories } from '@/lib/tastingMemories'
+import { serializeMemoriesForPrompt } from '@/lib/tastingMemoryFormatting'
 import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
 import type { RecommendationCard } from '@/lib/recommendationStore'
 import type { Bottle, BottleVolumeOption, TasteProfile, WineColor, WineExtraction } from '@/lib/types'
@@ -161,7 +162,7 @@ export function buildCelestinRequestBody(input: {
   zones: string[]
   memoriesOverride?: string
   memoriesQuery?: string
-  memoryEvidenceMode?: 'exact' | 'synthesis' | 'semantic'
+  memoryEvidenceMode?: 'exact' | 'synthesis'
   conversationState?: Record<string, unknown> | null
   compiledProfileMarkdown?: string
 }) {
@@ -182,7 +183,7 @@ export function buildCelestinRequestBody(input: {
   const memoriesQuery = input.memoriesQuery ?? input.message
   const memoriesStr = input.memoriesOverride !== undefined
     ? (input.memoriesOverride || undefined)
-    : (serializeMemoriesForPrompt(selectRelevantMemories('generic', memoriesQuery, input.drunk)) || undefined)
+    : (serializeMemoriesForPrompt(selectRelevantMemories(memoriesQuery, input.drunk)) || undefined)
   const recentDrunk = input.drunk.slice(0, 5).map(formatDrunkSummary)
 
   return {

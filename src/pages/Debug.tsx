@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { serializeProfileForPrompt } from '@/lib/taste-profile'
-import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
+import { selectRelevantMemories } from '@/lib/tastingMemories'
+import { serializeMemoriesForPrompt } from '@/lib/tastingMemoryFormatting'
 import { formatDrunkSummary, getDayOfWeek, getSeason } from '@/lib/contextHelpers'
 import {
   analyzeCelestinEvalResult,
@@ -343,7 +344,7 @@ export default function Debug() {
         : null
 
       const drunkBottles = (drunk ?? []) as Bottle[]
-      const memories = selectRelevantMemories('generic', null, drunkBottles, 12)
+      const memories = selectRelevantMemories(null, drunkBottles, 12)
       const fixture: CelestinEvalFixture = {
         name: 'celestin-fixture',
         description: 'Export de fixture depuis la session authentifiee de Celestin avec memoire structuree',
@@ -625,7 +626,7 @@ export default function Debug() {
       const maxChars = bottles.reduce((max, bottle) => Math.max(max, bottle.tasting_note?.trim().length ?? 0), 0)
       const avgChars = Math.round(rawChars / bottles.length)
 
-      const selectedMemories = selectRelevantMemories('generic', null, bottles, 5)
+      const selectedMemories = selectRelevantMemories(null, bottles, 5)
       const currentMemoryText = serializeMemoriesForPrompt(selectedMemories)
 
       setMemoryWeightReport({

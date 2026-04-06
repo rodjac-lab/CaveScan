@@ -46,7 +46,7 @@ interface RequestBody {
   cave: CaveBottle[]
   profile?: string
   memories?: string
-  memoryEvidenceMode?: 'exact' | 'synthesis' | 'semantic'
+  memoryEvidenceMode?: 'exact' | 'synthesis'
   provider?: string // "claude" | "gemini" | "mistral" — force a specific provider (for eval)
   image?: string // base64-encoded image (JPEG or PNG)
   conversationState?: ConversationState // sent by frontend, tracks dialogue phase
@@ -190,8 +190,67 @@ function stripFillerOpener(message: string): string {
   return message
 }
 
+function neutralizeUnknownCategoryValidation(message: string): string {
+  return message
+    .replace(/\bcette appellation\b/gi, 'ce nom')
+    .replace(/\bce domaine\b/gi, 'ce nom')
+    .replace(/\bce cepage\b/gi, 'ce nom')
+    .replace(/\bce cépage\b/gi, 'ce nom')
+    .replace(/\bce terroir\b/gi, 'ce nom')
+}
+
+function extractPreviousRecommendationAnchor(history: RequestBody['history']): string | null {
+  const previousUserTurn = [...history].reverse().find((turn) => turn.role === 'user')
+  const text = previousUserTurn?.text?.trim()
+  if (!text) return null
+
+  const patterns = [
+    /^(?:ce soir c['’]?est|ce soir c est)\s+(.+)$/i,
+    /^(?:pour|avec)\s+(.+)$/i,
+  ]
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern)
+    if (match?.[1]) return match[1].trim()
+  }
+
+  return null
+}
+
+function stripPreviousAnchor(message: string, anchor: string): string {
+  if (!anchor) return message
+
+  const escapedAnchor = anchor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const patterns = [
+    new RegExp(`\\bavec\\s+(?:le|la|les|l['’])?\\s*${escapedAnchor}\\b`, 'gi'),
+    new RegExp(`\\bpour\\s+(?:le|la|les|l['’])?\\s*${escapedAnchor}\\b`, 'gi'),
+    new RegExp(`\\bdu\\s+${escapedAnchor}\\b`, 'gi'),
+    new RegExp(`\\bde\\s+${escapedAnchor}\\b`, 'gi'),
+    new RegExp(`\\b${escapedAnchor}\\b`, 'gi'),
+  ]
+
+  let cleaned = message
+  for (const pattern of patterns) {
+    cleaned = cleaned.replace(pattern, '')
+  }
+
+  cleaned = cleaned
+    .replace(/\s+,/g, ',')
+    .replace(/\s+!/g, '!')
+    .replace(/\s+\?/g, '?')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/,\s*,/g, ', ')
+    .replace(/^,\s*/g, '')
+    .trim()
+
+  if (!cleaned) return message
+  return cleaned
+}
+
 function applyResponsePolicy(
   response: CelestinResponse,
+  body: RequestBody,
+  state: ConversationState,
   interpretation: TurnInterpretation,
   lastAssistantText?: string,
   messageLength?: number,
@@ -201,6 +260,33 @@ function applyResponsePolicy(
   // Strip filler words at start of message (model-agnostic cleanup, always applied)
   if (result.message) {
     result.message = stripFillerOpener(result.message)
+  }
+
+  if (
+    result.message
+    && interpretation.cognitiveMode === 'wine_conversation'
+    && /(appellation|domaine|cepage|cépage|terroir)/i.test(body.message)
+    && /\bje ne (?:connais|reconnais) pas\b/i.test(result.message)
+  ) {
+    result.message = neutralizeUnknownCategoryValidation(result.message)
+  }
+
+  if (
+    result.message
+    && interpretation.turnType === 'context_switch'
+    && interpretation.cognitiveMode === 'wine_conversation'
+    && state.taskType === 'recommendation'
+  ) {
+    const previousAnchor = extractPreviousRecommendationAnchor(body.history)
+    if (previousAnchor && !body.message.toLowerCase().includes(previousAnchor.toLowerCase())) {
+      result.message = stripPreviousAnchor(result.message, previousAnchor)
+      if (result.ui_action?.kind === 'show_recommendations') {
+        result.ui_action.payload.cards = (result.ui_action.payload.cards ?? []).map((card) => ({
+          ...card,
+          reason: card.reason ? stripPreviousAnchor(card.reason, previousAnchor) : card.reason,
+        }))
+      }
+    }
   }
 
   // Primary: Turn Interpreter decision
@@ -453,6 +539,10 @@ function buildUserPrompt(
     parts.push(`[QUESTION VIN — Reponds avec tes connaissances. PAS de ui_action. Sois concis et opinione. action_chips : questions pour approfondir (cepage, region, domaine), PAS de suggestions de reco cave.]`)
     parts.push(`[GARDE-FOU — Pour une question de culture vin, ne ramene PAS la reponse a l'utilisateur, a sa cave, a ses souvenirs ou a ses preferences, sauf si la question porte explicitement dessus.]`)
     parts.push(`[SOBRIETE MEMOIRE — Pas d'analogie forcee avec une bouteille precise du passe. Si un souvenir personnel n'apporte pas une vraie precision utile, ne le dis pas.]`)
+    parts.push(`[HONNETETE SUR TERME INCONNU — Si un nom te semble inconnu ou douteux, ne valide JAMAIS la categorie implicite. Dis "je ne connais pas ce nom" ou "je ne reconnais pas ce nom", pas "cette appellation", "ce domaine", "ce cepage" ou "ce terroir".]`)
+    if (turnType === 'context_switch' && state.taskType === 'recommendation') {
+      parts.push(`[PIVOT DE RECOMMANDATION — L'utilisateur explore une autre direction. Reponds sobrement a cette nouvelle piste sans recycler automatiquement le plat precedent, les cartes precedentes ou un souvenir marquant.]`)
+    }
     parts.push(body.message)
   }
 
@@ -479,6 +569,17 @@ function buildUserPrompt(
   ) {
     parts.push(`[RECOMMANDATION IMMEDIATE — L'utilisateur vient d'apporter la precision manquante pour une recommandation. Si tu as assez de contexte pour proposer des vins, utilise MAINTENANT show_recommendations. Ne reste pas en conversation generale. Une seule exception : si le message reste vraiment trop vague, pose une derniere question tres courte.]`)
     parts.push(`[GARDE-FOU — En recommendation, base-toi d'abord sur la demande courante. N'introduis JAMAIS un autre plat, un autre pays ou un souvenir non mentionne. Un souvenir est autorise seulement s'il justifie directement le choix.]`)
+    parts.push(body.message)
+  }
+
+  else if (
+    turnType === 'task_continue'
+    && cognitiveMode === 'cellar_assistant'
+    && state.phase === 'collecting_info'
+    && state.taskType === 'encavage'
+  ) {
+    parts.push(`[ENCAVAGE — L'utilisateur complete la fiche d'un vin a encaver. Si le vin est maintenant suffisamment identifie (domaine/appellation/millesime ou equivalent), envoie prepare_add_wine IMMEDIATEMENT. Ne demande PAS "tu veux que je l'ajoute ?" et ne cherche PAS une confirmation supplementaire.]`)
+    parts.push(`[STYLE — Reponse tres courte. Pas de commentaire de degustation, pas d'avis sur le domaine. Juste l'accuse de reception et l'action.]`)
     parts.push(body.message)
   }
 
@@ -1016,7 +1117,7 @@ Deno.serve(async (req) => {
     const { provider, response: rawResponse } = await celestinWithFallback(systemPrompt, userPrompt, body.history, body.provider, body.image)
 
     // Apply post-generation policy (strip inappropriate ui_actions)
-    const response = applyResponsePolicy(rawResponse, interpretation, lastAssistantText, body.message.length)
+    const response = applyResponsePolicy(rawResponse, body, conversationState, interpretation, lastAssistantText, body.message.length)
 
     // Compute next conversation state
     const nextState = computeNextState(
