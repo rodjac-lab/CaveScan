@@ -21,6 +21,14 @@
 - `recommendationStore.ts` — In-memory cache for recommendation responses (TTL 10 min).
 - `contextHelpers.ts` — Shared utilities: season, day of week, bottle formatting, short ID resolution.
 
+### Documentation de référence
+- Active memory docs live in:
+  - `docs/celestin-memory-doctrine.md`
+  - `docs/celestin-memory-runtime-architecture.md`
+  - `docs/celestin-memory-compilation-events.md`
+  - `docs/README.md`
+- Older memory iterations are archived under `docs/archive/`.
+
 ### Edge functions (`supabase/functions/`)
 - `celestin/` — Unified sommelier AI (recommend, add_wine, log_tasting, question, conversation). See `docs/celestin-architecture.md`.
 - `extract-wine/` — OCR label extraction (photo → structured wine data).

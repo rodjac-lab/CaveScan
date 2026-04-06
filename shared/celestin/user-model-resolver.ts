@@ -242,6 +242,31 @@ function computeStrengthBoost(normalized: string): number {
   return 0
 }
 
+const BROAD_TOPIC_KEYS = new Set([
+  'italy',
+  'bourgogne',
+  'loire',
+  'rhone',
+  'bordeaux',
+  'white_wines',
+  'red_wines',
+  'oak_style',
+  'freshness',
+  'elegance',
+  'power',
+])
+
+function isBroadPreferenceTopic(signal: ScoredSignal): boolean {
+  return BROAD_TOPIC_KEYS.has(signal.topicKey)
+}
+
+function isSpecificFactText(signal: ScoredSignal): boolean {
+  const text = signal.normalizedFact
+  return /\b\d{4}\b/.test(text)
+    || /\bdomaine\b/.test(text)
+    || /\bchianti\b|\bbrunello\b|\bbarolo\b|\bbarbaresco\b|\bgevrey\b|\bpuligny\b|\bsancerre\b|\bjura\b/.test(text)
+}
+
 function isExpired(fact: StructuredMemoryFact): boolean {
   if (!fact.expires_at) return false
   const expiresMs = new Date(fact.expires_at).getTime()
@@ -429,8 +454,18 @@ function resolveUserModel(input: UserModelResolverInput): ResolvedUserModel {
     if (latest.polarity === 'positive') {
       const positiveSupport = positives.reduce((sum, signal) => sum + signal.score, 0)
       const negativeSupport = negatives.reduce((sum, signal) => sum + signal.score, 0)
-      if (positiveSupport >= Math.max(1.2, negativeSupport * 1.1)) {
+      const hasEnoughBreadth =
+        !isBroadPreferenceTopic(latest)
+        || positives.length >= 2
+        || (positives.length >= 1 && positives.some((signal) => signal !== latest && isSpecificFactText(signal)))
+
+      if (
+        hasEnoughBreadth
+        && positiveSupport >= Math.max(1.2, negativeSupport * 1.1)
+      ) {
         stablePreferences.push(latest.raw.fact)
+      } else if (latest.queryMatches > 0 || isSpecificFactText(latest)) {
+        supportingSignals.push(latest.raw.fact)
       }
       continue
     }

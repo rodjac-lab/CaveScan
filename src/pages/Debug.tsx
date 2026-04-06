@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { getDebugMemoryPolicyId, setDebugMemoryPolicyId } from '@/lib/celestinMemoryPolicyDebug'
+import { getDebugMemoryRuntimeId, setDebugMemoryRuntimeId } from '@/lib/celestinMemoryRuntimeDebug'
 import { serializeProfileForPrompt } from '@/lib/taste-profile'
 import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
 import { formatDrunkSummary, getDayOfWeek, getSeason } from '@/lib/contextHelpers'
@@ -13,6 +15,7 @@ import {
   type CelestinEvalFixture,
   type CelestinEvalResult,
 } from '@/lib/celestinEval'
+import { compileUserProfile, loadUserProfile, type UserProfileRow } from '@/lib/userProfiles'
 import {
   setCrossSessionConfig,
   getMemoryDebugInfo,
@@ -23,6 +26,16 @@ import {
 import { loadActiveMemoryFacts } from '@/lib/chatPersistence'
 import { buildCompositeText } from '@/lib/semanticMemory'
 import type { Bottle, TasteProfile } from '@/lib/types'
+import {
+  DEFAULT_MEMORY_POLICY_ID,
+  MEMORY_POLICIES,
+  type MemoryPolicyConfig,
+} from '../../shared/celestin/memory-policy.js'
+import {
+  DEFAULT_MEMORY_RUNTIME_ID,
+  MEMORY_RUNTIMES,
+  type MemoryRuntimeConfig,
+} from '../../shared/celestin/memory-runtime.js'
 
 // --- Memory weight types & helpers (moved from Settings) ---
 
@@ -34,6 +47,15 @@ type MemoryWeightReport = {
   maxChars: number
   currentMemoryChars: number
   currentMemoryTokens: number
+}
+
+type MemoryAuditReport = {
+  activeCount: number
+  temporaryCount: number
+  lowConfidenceCount: number
+  duplicateClusters: Array<{ canonical: string; count: number; samples: string[] }>
+  longFacts: Array<{ fact: string; chars: number; category: string }>
+  categoryCounts: Record<string, number>
 }
 
 function estimateTokens(textOrChars: string | number): number {
@@ -226,11 +248,50 @@ export default function Debug() {
     gemini: false,
     mistral: false,
   })
+  const [compareAllMemoryRuntimes, setCompareAllMemoryRuntimes] = useState(false)
 
   // Memory weight analysis
   const [analyzingMemories, setAnalyzingMemories] = useState(false)
   const [memoryWeightStatus, setMemoryWeightStatus] = useState<string | null>(null)
   const [memoryWeightReport, setMemoryWeightReport] = useState<MemoryWeightReport | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [memoryPolicyId, setMemoryPolicyIdState] = useState<string>(() => getDebugMemoryPolicyId() ?? DEFAULT_MEMORY_POLICY_ID)
+  const [memoryRuntimeId, setMemoryRuntimeIdState] = useState<string>(() => getDebugMemoryRuntimeId() ?? DEFAULT_MEMORY_RUNTIME_ID)
+  const [auditingMemory, setAuditingMemory] = useState(false)
+  const [memoryAuditStatus, setMemoryAuditStatus] = useState<string | null>(null)
+  const [memoryAuditReport, setMemoryAuditReport] = useState<MemoryAuditReport | null>(null)
+  const [userProfile, setUserProfile] = useState<UserProfileRow | null>(null)
+  const [userProfileStatus, setUserProfileStatus] = useState<string | null>(null)
+  const [compilingUserProfile, setCompilingUserProfile] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadCurrentUser() {
+      const { data } = await supabase.auth.getUser()
+      if (!cancelled) {
+        setCurrentUserId(data.user?.id ?? null)
+      }
+    }
+
+    async function loadCompiledProfile() {
+      try {
+        const profile = await loadUserProfile()
+        if (!cancelled) setUserProfile(profile)
+      } catch (err) {
+        if (!cancelled) {
+          setUserProfile(null)
+          setUserProfileStatus(`Erreur profil compilé: ${err instanceof Error ? err.message : 'inconnue'}`)
+        }
+      }
+    }
+
+    void loadCurrentUser()
+    void loadCompiledProfile()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // --- Cross-session memory handlers ---
 
@@ -260,6 +321,7 @@ export default function Debug() {
         { data: cave, error: caveError },
         { data: drunk, error: drunkError },
         { data: profileRow, error: profileError },
+        initialCompiledProfileRow,
         memoryFactsRaw,
         previousSessionSummaries,
       ] = await Promise.all([
@@ -277,6 +339,7 @@ export default function Debug() {
           .from('user_taste_profiles')
           .select('computed_profile, explicit_preferences, computed_at')
           .maybeSingle(),
+        loadUserProfile(),
         loadActiveMemoryFacts(),
         loadPreviousSessionSummariesFromSupabase(),
       ])
@@ -284,6 +347,15 @@ export default function Debug() {
       if (caveError) throw caveError
       if (drunkError) throw drunkError
       if (profileError) throw profileError
+
+      let compiledProfileRow = initialCompiledProfileRow
+      const shouldEnsureCompiledProfile =
+        memoryRuntimeId === 'compiled_profile_v1' || compareAllMemoryRuntimes
+
+      if (shouldEnsureCompiledProfile && !compiledProfileRow?.compiled_markdown?.trim()) {
+        compiledProfileRow = await compileUserProfile('fixture_export_bootstrap')
+        setUserProfile(compiledProfileRow)
+      }
 
       const profile: TasteProfile | null = profileRow?.computed_profile
         ? {
@@ -314,6 +386,7 @@ export default function Debug() {
         drunk: drunkBottles,
         profile: profile ? serializeProfileForPrompt(profile) : null,
         memories: serializeMemoriesForPrompt(memories) || null,
+        compiledProfileMarkdown: compiledProfileRow?.compiled_markdown ?? null,
         memoryFactsRaw,
         previousSessionSummaries,
         context: {
@@ -335,7 +408,7 @@ export default function Debug() {
       URL.revokeObjectURL(url)
 
       setFixtureStatus(
-        `Fixture exportee (${fixture.cave?.length ?? 0} bouteilles en cave, ${fixture.drunk?.length ?? 0} degustees, ${fixture.memoryFactsRaw?.length ?? 0} facts)`
+        `Fixture exportee (${fixture.cave?.length ?? 0} bouteilles en cave, ${fixture.drunk?.length ?? 0} degustees, ${fixture.memoryFactsRaw?.length ?? 0} facts, profil compilé ${fixture.compiledProfileMarkdown ? 'oui' : 'non'})`
       )
     } catch (err) {
       setFixtureStatus(`Erreur export fixture: ${err instanceof Error ? err.message : 'inconnue'}`)
@@ -392,66 +465,74 @@ export default function Debug() {
       const fixtureFile = await fixtureHandle.getFile()
       const fixture = JSON.parse(await fixtureFile.text()) as CelestinEvalFixture
       const results: CelestinEvalResult[] = []
-      const totalSteps = CELESTIN_EVAL_SCENARIOS.length * selectedProviders.length
+      const runtimeIds = compareAllMemoryRuntimes
+        ? (Object.keys(MEMORY_RUNTIMES) as Array<'legacy' | 'compiled_profile_v1'>)
+        : [memoryRuntimeId as 'legacy' | 'compiled_profile_v1']
+      const totalSteps = CELESTIN_EVAL_SCENARIOS.length * selectedProviders.length * runtimeIds.length
       let currentStep = 0
 
-      for (const scenario of CELESTIN_EVAL_SCENARIOS) {
-        for (const provider of selectedProviders) {
-          currentStep++
-          setEvalStatus(`[${currentStep}/${totalSteps}] ${scenario.id} — ${provider}...`)
-          const body = await buildCelestinEvalRequest(fixture, scenario, provider)
-          const startedAt = Date.now()
-          const { data, error: fnErr, response } = await supabase.functions.invoke<Record<string, unknown>>('celestin', {
-            body,
-          })
-          const elapsedMs = Date.now() - startedAt
-          let rawText = ''
-          if (response && !response.ok) {
-            try {
-              rawText = await response.clone().text()
-            } catch {
-              rawText = ''
+      for (const runtimeId of runtimeIds) {
+        for (const scenario of CELESTIN_EVAL_SCENARIOS) {
+          for (const provider of selectedProviders) {
+            currentStep++
+            setEvalStatus(`[${currentStep}/${totalSteps}] ${scenario.id} — ${provider} — ${runtimeId}...`)
+            const body = await buildCelestinEvalRequest(fixture, scenario, provider, memoryPolicyId, runtimeId)
+            const startedAt = Date.now()
+            const { data, error: fnErr, response } = await supabase.functions.invoke<Record<string, unknown>>('celestin', {
+              body,
+            })
+            const elapsedMs = Date.now() - startedAt
+            let rawText = ''
+            if (response && !response.ok) {
+              try {
+                rawText = await response.clone().text()
+              } catch {
+                rawText = ''
+              }
             }
-          }
 
-          if (fnErr || !data || data.error) {
-            const errorResponse = {
-              message: response && !response.ok
-                ? `HTTP ${response.status}${rawText ? `: ${rawText}` : ''}`
-                : typeof data?.error === 'string'
-                  ? data.error
-                  : fnErr instanceof Error
-                    ? fnErr.message
-                    : rawText || 'Erreur inconnue',
-              ui_action: null,
+            if (fnErr || !data || data.error) {
+              const errorResponse = {
+                message: response && !response.ok
+                  ? `HTTP ${response.status}${rawText ? `: ${rawText}` : ''}`
+                  : typeof data?.error === 'string'
+                    ? data.error
+                    : fnErr instanceof Error
+                      ? fnErr.message
+                      : rawText || 'Erreur inconnue',
+                ui_action: null,
+              }
+              results.push({
+                id: scenario.id,
+                provider,
+                memoryRuntimeVersion: runtimeId,
+                elapsedMs: null,
+                request: body,
+                response: errorResponse,
+                analysis: analyzeCelestinEvalResult(scenario, errorResponse, provider),
+              })
+              continue
             }
+
             results.push({
               id: scenario.id,
               provider,
-              elapsedMs: null,
+              memoryRuntimeVersion: runtimeId,
+              elapsedMs,
               request: body,
-              response: errorResponse,
-              analysis: analyzeCelestinEvalResult(scenario, errorResponse, provider),
+              response: data,
+              analysis: analyzeCelestinEvalResult(scenario, data, provider),
             })
-            continue
           }
-
-          results.push({
-            id: scenario.id,
-            provider,
-            elapsedMs,
-            request: body,
-            response: data,
-            analysis: analyzeCelestinEvalResult(scenario, data, provider),
-          })
         }
       }
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
       const providerSuffix = selectedProviders.join('-vs-')
-      const report = { fixture, scenarios: CELESTIN_EVAL_SCENARIOS, providers: selectedProviders, results }
+      const runtimeSuffix = runtimeIds.join('-vs-')
+      const report = { fixture, scenarios: CELESTIN_EVAL_SCENARIOS, providers: selectedProviders, memoryRuntimes: runtimeIds, results }
       const html = renderCelestinEvalHtmlReport(results, fixture, CELESTIN_EVAL_SCENARIOS)
-      const baseName = `celestin-eval-${providerSuffix}-${timestamp}`
+      const baseName = `celestin-eval-${providerSuffix}-${runtimeSuffix}-${timestamp}`
 
       // Download via <a download> — no filesystem permission needed
       function downloadBlob(content: string, filename: string, type: string) {
@@ -469,11 +550,121 @@ export default function Debug() {
       downloadBlob(JSON.stringify(report, null, 2), `${baseName}.json`, 'application/json')
       downloadBlob(html, `${baseName}.html`, 'text/html')
 
-      setEvalStatus(`Rapports telecharges (${selectedProviders.join(' vs ')})`)
+      setEvalStatus(`Rapports telecharges (${selectedProviders.join(' vs ')}) • politique ${memoryPolicyId} • runtime ${runtimeIds.join(' vs ')}`)
     } catch (err) {
       setEvalStatus(`Erreur eval Celestin: ${err instanceof Error ? err.message : 'inconnue'}`)
     } finally {
       setRunningEval(false)
+    }
+  }
+
+  const handleApplyMemoryPolicy = () => {
+    if (memoryPolicyId === DEFAULT_MEMORY_POLICY_ID) {
+      setDebugMemoryPolicyId(null)
+      setEvalStatus(`Politique memoire locale: defaut (${DEFAULT_MEMORY_POLICY_ID})`)
+      return
+    }
+
+    setDebugMemoryPolicyId(memoryPolicyId)
+    setEvalStatus(`Politique memoire locale: ${memoryPolicyId}`)
+  }
+
+  const handleApplyMemoryRuntime = async () => {
+    if (memoryRuntimeId === DEFAULT_MEMORY_RUNTIME_ID) {
+      setDebugMemoryRuntimeId(null)
+      setEvalStatus(`Runtime memoire local: defaut (${DEFAULT_MEMORY_RUNTIME_ID})`)
+      return
+    }
+
+    setDebugMemoryRuntimeId(memoryRuntimeId)
+    if (memoryRuntimeId === 'compiled_profile_v1' && !userProfile?.compiled_markdown?.trim()) {
+      setCompilingUserProfile(true)
+      setUserProfileStatus('Compilation du profil pour activer le runtime...')
+      try {
+        const profile = await compileUserProfile('runtime_switch_bootstrap')
+        setUserProfile(profile)
+        setEvalStatus(`Runtime memoire local: ${memoryRuntimeId}`)
+        setUserProfileStatus('Profil compilé prêt pour le runtime.')
+      } catch (err) {
+        setUserProfileStatus(`Erreur compilation profil: ${err instanceof Error ? err.message : 'inconnue'}`)
+      } finally {
+        setCompilingUserProfile(false)
+      }
+      return
+    }
+
+    setEvalStatus(`Runtime memoire local: ${memoryRuntimeId}`)
+  }
+
+  const handleForceCompileUserProfile = async () => {
+    setCompilingUserProfile(true)
+    setUserProfileStatus('Compilation du profil utilisateur...')
+
+    try {
+      const profile = await compileUserProfile('debug_manual_force')
+      setUserProfile(profile)
+      setUserProfileStatus(`Profil compilé v${profile.version} • ${profile.compilation_status}`)
+    } catch (err) {
+      setUserProfileStatus(`Erreur compilation profil: ${err instanceof Error ? err.message : 'inconnue'}`)
+    } finally {
+      setCompilingUserProfile(false)
+    }
+  }
+
+  const handleAuditMemoryFacts = async () => {
+    setAuditingMemory(true)
+    setMemoryAuditStatus('Audit des user_memory_facts...')
+    setMemoryAuditReport(null)
+
+    try {
+      const facts = await loadActiveMemoryFacts()
+      const normalize = (value: string) => value
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\w\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+
+      const clusters = new Map<string, Array<{ fact: string; category: string }>>()
+      const categoryCounts = facts.reduce<Record<string, number>>((acc, fact) => {
+        acc[fact.category] = (acc[fact.category] ?? 0) + 1
+        const canonical = normalize(fact.fact)
+        if (!clusters.has(canonical)) clusters.set(canonical, [])
+        clusters.get(canonical)?.push({ fact: fact.fact, category: fact.category })
+        return acc
+      }, {})
+
+      const duplicateClusters = [...clusters.entries()]
+        .filter(([, items]) => items.length > 1)
+        .map(([canonical, items]) => ({
+          canonical,
+          count: items.length,
+          samples: [...new Set(items.map((item) => item.fact))].slice(0, 3),
+        }))
+        .sort((left, right) => right.count - left.count)
+
+      const lowConfidenceCount = facts.filter((fact) => fact.confidence < 0.65).length
+      const temporaryCount = facts.filter((fact) => fact.is_temporary).length
+      const longFacts = facts
+        .map((fact) => ({ fact: fact.fact, chars: fact.fact.length, category: fact.category }))
+        .filter((fact) => fact.chars > 140)
+        .sort((left, right) => right.chars - left.chars)
+        .slice(0, 5)
+
+      setMemoryAuditReport({
+        activeCount: facts.length,
+        temporaryCount,
+        lowConfidenceCount,
+        duplicateClusters: duplicateClusters.slice(0, 8),
+        longFacts,
+        categoryCounts,
+      })
+      setMemoryAuditStatus(`Audit termine (${facts.length} facts actives).`)
+    } catch (err) {
+      setMemoryAuditStatus(`Erreur audit memoire: ${err instanceof Error ? err.message : 'inconnue'}`)
+    } finally {
+      setAuditingMemory(false)
     }
   }
 
@@ -713,6 +904,77 @@ export default function Debug() {
               Choisir une fixture pour l'eval
             </button>
 
+            <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
+              <p className="text-[11px] font-medium text-[var(--text-primary)] mb-2">Politique memoire</p>
+              <div className="flex gap-2 items-center">
+                <select
+                  value={memoryPolicyId}
+                  onChange={(e) => setMemoryPolicyIdState(e.target.value)}
+                  className="flex-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-[12px] text-[var(--text-primary)]"
+                >
+                  {(Object.values(MEMORY_POLICIES) as MemoryPolicyConfig[]).map((policy) => (
+                    <option key={policy.id} value={policy.id}>
+                      {policy.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleApplyMemoryPolicy}
+                  className="rounded-[10px] bg-[#B8860B] px-3 py-2 text-[11px] font-semibold text-white"
+                >
+                  Appliquer
+                </button>
+              </div>
+              <p className="mt-2 text-[11px] text-[var(--text-muted)]">
+                Cette valeur pilote aussi les tests manuels dans l'app via localStorage.
+              </p>
+            </div>
+
+            <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
+              <p className="text-[11px] font-medium text-[var(--text-primary)] mb-2">Runtime memoire</p>
+              <div className="flex gap-2 items-center">
+                <select
+                  value={memoryRuntimeId}
+                  onChange={(e) => setMemoryRuntimeIdState(e.target.value)}
+                  className="flex-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-[12px] text-[var(--text-primary)]"
+                >
+                  {(Object.values(MEMORY_RUNTIMES) as MemoryRuntimeConfig[]).map((runtime) => (
+                    <option key={runtime.id} value={runtime.id}>
+                      {runtime.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleApplyMemoryRuntime}
+                  className="rounded-[10px] bg-[#B8860B] px-3 py-2 text-[11px] font-semibold text-white"
+                >
+                  Appliquer
+                </button>
+              </div>
+              <p className="mt-2 text-[11px] text-[var(--text-muted)]">
+                `legacy` garde le systeme actuel. `compiled_profile_v1` force le nouveau runtime local.
+              </p>
+            </div>
+
+            <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
+              <p className="text-[11px] font-medium text-[var(--text-primary)] mb-2">Profil compilé</p>
+              <div className="text-[11px] text-[var(--text-muted)] space-y-1">
+                <p>Version: {userProfile?.version ?? 'absente'}</p>
+                <p>Status: {userProfile?.compilation_status ?? 'absent'}</p>
+                <p>Raison: {userProfile?.last_compilation_reason ?? '—'}</p>
+                <p>Dernière compilation: {userProfile?.updated_at ? formatRelativeDate(userProfile.updated_at) : 'jamais'}</p>
+              </div>
+              <button
+                onClick={handleForceCompileUserProfile}
+                disabled={compilingUserProfile}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-3 text-[12px] font-medium text-[var(--text-muted)]"
+              >
+                {compilingUserProfile && <Loader2 className="h-4 w-4 animate-spin" />}
+                Compiler le profil maintenant
+              </button>
+              {userProfileStatus && <p className="mt-2 text-center text-[11px] text-[var(--text-muted)]">{userProfileStatus}</p>}
+            </div>
+
             {/* Provider checkboxes */}
             <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
               <p className="text-[11px] font-medium text-[var(--text-primary)] mb-2">Providers a tester</p>
@@ -734,6 +996,15 @@ export default function Debug() {
                   </label>
                 ))}
               </div>
+              <label className="mt-3 flex items-center gap-2 text-[12px] text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={compareAllMemoryRuntimes}
+                  onChange={(e) => setCompareAllMemoryRuntimes(e.target.checked)}
+                  className="rounded"
+                />
+                Comparer `legacy` et `compiled_profile_v1` dans le même run
+              </label>
             </div>
 
             <button
@@ -745,6 +1016,60 @@ export default function Debug() {
               Lancer l'eval Celestin
             </button>
             {evalStatus && <p className="text-center text-[11px] text-[var(--text-muted)]">{evalStatus}</p>}
+
+            <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
+              <p className="text-[11px] font-medium text-[var(--text-primary)] mb-2">Audit de ma memoire</p>
+              <p className="text-[11px] text-[var(--text-muted)] mb-3">
+                User ID: {currentUserId ?? 'non charge'}
+              </p>
+              <button
+                onClick={handleAuditMemoryFacts}
+                disabled={auditingMemory}
+                className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-3 text-[12px] font-medium text-[var(--text-muted)]"
+              >
+                {auditingMemory && <Loader2 className="h-4 w-4 animate-spin" />}
+                Auditer les user_memory_facts actives
+              </button>
+              {memoryAuditStatus && <p className="mt-2 text-center text-[11px] text-[var(--text-muted)]">{memoryAuditStatus}</p>}
+              {memoryAuditReport && (
+                <div className="mt-3 rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-3 text-[11px] text-[var(--text-secondary)]">
+                  <p>{memoryAuditReport.activeCount} facts actives</p>
+                  <p>{memoryAuditReport.temporaryCount} temporaires · {memoryAuditReport.lowConfidenceCount} confidence &lt; 0.65</p>
+                  <p className="mt-2 font-medium text-[var(--text-primary)]">Categories</p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {Object.entries(memoryAuditReport.categoryCounts).map(([category, count]) => (
+                      <span key={category} className="rounded-full border border-[var(--border-color)] px-2 py-0.5">
+                        {category}: {count}
+                      </span>
+                    ))}
+                  </div>
+                  {memoryAuditReport.duplicateClusters.length > 0 && (
+                    <>
+                      <p className="mt-3 font-medium text-[var(--text-primary)]">Doublons potentiels</p>
+                      <div className="mt-1 space-y-1">
+                        {memoryAuditReport.duplicateClusters.map((cluster) => (
+                          <p key={cluster.canonical}>
+                            {cluster.count}× {cluster.samples.join(' | ')}
+                          </p>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {memoryAuditReport.longFacts.length > 0 && (
+                    <>
+                      <p className="mt-3 font-medium text-[var(--text-primary)]">Facts trop longues</p>
+                      <div className="mt-1 space-y-1">
+                        {memoryAuditReport.longFacts.map((fact) => (
+                          <p key={`${fact.category}-${fact.fact.slice(0, 16)}`}>
+                            [{fact.category}] {fact.chars} car. — {fact.fact}
+                          </p>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </section>
 

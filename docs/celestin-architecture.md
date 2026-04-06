@@ -2,6 +2,13 @@
 
 Celestin est le sommelier IA de l'app. Ce document decrit comment un message utilisateur est traite, du tap sur "Envoyer" jusqu'a la reponse affichee.
 
+> Note
+> Cette doc reste la reference pour l'orchestrateur Celestin, le Turn Interpreter, le state machine et le runtime conversationnel.
+> Pour l'architecture memoire cible, lire en priorite :
+> - `docs/celestin-memory-doctrine.md`
+> - `docs/celestin-memory-runtime-architecture.md`
+> - `docs/celestin-memory-compilation-events.md`
+
 ## Vue d'ensemble : deux axes orthogonaux
 
 L'architecture repose sur deux dimensions independantes :
@@ -455,14 +462,15 @@ Ce qui change :
 - la memoire active est rechargee pendant la session apres extraction
 
 Doc de reference :
-- `docs/celestin-user-model-resolver.md`
+- `docs/archive/celestin-user-model-resolver.md` (historique)
+- `docs/celestin-memory-runtime-architecture.md` (architecture mémoire cible)
 
 ## Update 30 mars 2026 - Retrieval Planner et grounding
 
 Nouvelles briques :
 
 - `src/lib/tastingMemories.ts`
-- `docs/celestin-retrieval-planner.md`
+- `docs/archive/celestin-retrieval-planner.md`
 
 Role :
 - distinguer les questions memoire `exact`, `synthese` et `semantique`

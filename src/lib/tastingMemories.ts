@@ -20,6 +20,8 @@ export interface MemoryEvidenceBundle {
   serialized: string
 }
 
+export type MemorySelectionProfile = 'default' | 'recommendation'
+
 function buildBottleContext(bottle: Bottle): string {
   return [bottle.domaine, bottle.appellation, bottle.millesime, bottle.couleur]
     .filter(Boolean)
@@ -72,6 +74,15 @@ interface ScoredMemory {
   relevanceScore: number
 }
 
+interface MemorySelectionOptions {
+  selectionProfile?: MemorySelectionProfile
+  recentMessages?: MemorySearchMessage[]
+}
+
+interface MemoryRankingOptions extends MemorySelectionOptions {
+  semanticBoostIds?: Set<string>
+}
+
 function normalizeForMatch(text: string): string {
   return text
     .toLowerCase()
@@ -90,6 +101,7 @@ const STOP_WORDS = new Set([
   'est', 'sont', 'fait', 'ete', 'deja', 'encore', 'jamais', 'toujours',
   'oui', 'non', 'merci', 'aussi', 'comme', 'tout', 'tous',
   'est-ce', 'estce', 'ai', 'bu', 'goute', 'ouvert', 'ouvre', "j'en", 'jen', 'aije',
+  'vin', 'vins',
 ])
 
 const CONTEXTLESS_TERMS = new Set([
@@ -138,11 +150,30 @@ const COUNTRY_ALIASES: Record<string, string[]> = {
 }
 
 interface ExactMemoryFilters {
+  dates: string[]
   countries: string[]
   regions: string[]
   appellations: string[]
   domaines: string[]
   cuvees: string[]
+}
+
+const FRENCH_MONTHS: Record<string, string> = {
+  janvier: '01',
+  fevrier: '02',
+  février: '02',
+  mars: '03',
+  avril: '04',
+  mai: '05',
+  juin: '06',
+  juillet: '07',
+  aout: '08',
+  août: '08',
+  septembre: '09',
+  octobre: '10',
+  novembre: '11',
+  decembre: '12',
+  décembre: '12',
 }
 
 function extractQueryTerms(query: string): string[] {
@@ -205,17 +236,14 @@ function hasSpecificIdentityMatch(query: string, bottle: Bottle): boolean {
   return queryTerms.some((term) => identityFields.some((field) => termMatchesIdentity(term, field)))
 }
 
-function mergeUniqueMemories(primary: Bottle[], secondary: Bottle[], limit: number): Bottle[] {
+function dedupeMemories(memories: Bottle[]): Bottle[] {
   const merged = new Map<string, Bottle>()
-
-  for (const bottle of [...primary, ...secondary]) {
+  for (const bottle of memories) {
     if (!merged.has(bottle.id)) {
       merged.set(bottle.id, bottle)
     }
-    if (merged.size >= limit) break
   }
-
-  return Array.from(merged.values()).slice(0, limit)
+  return Array.from(merged.values())
 }
 
 export function buildContextualMemoryQuery(
@@ -246,7 +274,7 @@ export function buildContextualMemoryQuery(
 }
 
 function emptyExactFilters(): ExactMemoryFilters {
-  return { countries: [], regions: [], appellations: [], domaines: [], cuvees: [] }
+  return { dates: [], countries: [], regions: [], appellations: [], domaines: [], cuvees: [] }
 }
 
 function addUnique(values: string[], value: string | null | undefined): void {
@@ -257,7 +285,8 @@ function addUnique(values: string[], value: string | null | undefined): void {
 }
 
 function hasAnyExactFilter(filters: ExactMemoryFilters): boolean {
-  return filters.countries.length > 0
+  return filters.dates.length > 0
+    || filters.countries.length > 0
     || filters.regions.length > 0
     || filters.appellations.length > 0
     || filters.domaines.length > 0
@@ -265,7 +294,8 @@ function hasAnyExactFilter(filters: ExactMemoryFilters): boolean {
 }
 
 function hasNarrowExactFilter(filters: ExactMemoryFilters): boolean {
-  return filters.appellations.length > 0
+  return filters.dates.length > 0
+    || filters.appellations.length > 0
     || filters.domaines.length > 0
     || filters.cuvees.length > 0
 }
@@ -314,10 +344,61 @@ function collectUniqueFieldValues(
   return Array.from(unique.values())
 }
 
+function extractBottleDateKeys(bottle: Bottle): { iso: string; dayMonth: string } | null {
+  if (!bottle.drunk_at) return null
+  const date = new Date(bottle.drunk_at)
+  if (Number.isNaN(date.getTime())) return null
+
+  const year = date.getUTCFullYear()
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(date.getUTCDate()).padStart(2, '0')
+
+  return {
+    iso: `${year}-${month}-${day}`,
+    dayMonth: `${day}-${month}`,
+  }
+}
+
+function extractDateFiltersFromQuery(query: string, drunkBottles: Bottle[]): string[] {
+  const normalizedQuery = normalizeForMatch(query)
+  const results = new Set<string>()
+
+  const explicitNumeric = normalizedQuery.match(/\b(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?\b/)
+  if (explicitNumeric) {
+    const day = explicitNumeric[1].padStart(2, '0')
+    const month = explicitNumeric[2].padStart(2, '0')
+    const year = explicitNumeric[3]?.length === 2 ? `20${explicitNumeric[3]}` : explicitNumeric[3]
+    for (const bottle of drunkBottles) {
+      const keys = extractBottleDateKeys(bottle)
+      if (!keys) continue
+      if (year && keys.iso === `${year}-${month}-${day}`) results.add(keys.iso)
+      else if (keys.dayMonth === `${day}-${month}`) results.add(keys.iso)
+    }
+  }
+
+  const explicitFrench = normalizedQuery.match(/\b(\d{1,2})\s+(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)(?:\s+(\d{4}))?\b/)
+  if (explicitFrench) {
+    const day = explicitFrench[1].padStart(2, '0')
+    const month = FRENCH_MONTHS[explicitFrench[2]]
+    const year = explicitFrench[3]
+    for (const bottle of drunkBottles) {
+      const keys = extractBottleDateKeys(bottle)
+      if (!keys) continue
+      if (year && keys.iso === `${year}-${month}-${day}`) results.add(keys.iso)
+      else if (keys.dayMonth === `${day}-${month}`) results.add(keys.iso)
+    }
+  }
+
+  return Array.from(results)
+}
+
 function extractExactFiltersFromQuery(query: string, drunkBottles: Bottle[]): ExactMemoryFilters {
   const filters = emptyExactFilters()
   const normalizedQuery = normalizeForMatch(query)
   const queryTerms = extractQueryTerms(query)
+  for (const isoDate of extractDateFiltersFromQuery(query, drunkBottles)) {
+    addUnique(filters.dates, isoDate)
+  }
 
   for (const country of collectUniqueFieldValues(drunkBottles, (bottle) => bottle.country)) {
     if (queryMentionsCountry(normalizedQuery, country)) {
@@ -382,6 +463,10 @@ function matchesValueList(
 }
 
 function bottleMatchesExactFilters(bottle: Bottle, filters: ExactMemoryFilters): boolean {
+  const dateKeys = extractBottleDateKeys(bottle)
+  const dateMatch = filters.dates.length === 0
+    ? true
+    : Boolean(dateKeys && filters.dates.includes(dateKeys.iso))
   const countryMatch = matchesValueList(
     bottle.country,
     filters.countries,
@@ -408,10 +493,34 @@ function bottleMatchesExactFilters(bottle: Bottle, filters: ExactMemoryFilters):
     (value, accepted) => normalizeForMatch(value) === normalizeForMatch(accepted),
   )
 
-  return countryMatch && regionMatch && appellationMatch && domaineMatch && cuveeMatch
+  return dateMatch && countryMatch && regionMatch && appellationMatch && domaineMatch && cuveeMatch
 }
 
 function sortMemoriesForEvidence(memories: Bottle[], mode: MemoryEvidenceMode): Bottle[] {
+  function computeMemoryHighlightScore(bottle: Bottle): number {
+    const note = bottle.tasting_note?.trim() ?? ''
+    const normalizedNote = note ? normalizeForMatch(note) : ''
+    const tags = bottle.tasting_tags as TastingTags | null
+    let score = 0
+
+    if (bottle.rating != null) score += bottle.rating * 8
+    if (tags?.sentiment === 'excellent') score += 5
+    else if (tags?.sentiment === 'bon') score += 2
+
+    if (note.length > 120) score += 2
+    if (note.length > 220) score += 1
+
+    if (/\b19\/20\b|\b20\/20\b|\bgrand millesime\b|\bgrand vin\b|\bincroyable\b|\bsublime\b/.test(normalizedNote)) {
+      score += 4
+    }
+
+    if (/\bdeuxieme vin de la soiree\b|\bdeuxieme\b|\bderriere\b|\bjuste derriere\b|\ben dessous\b/.test(normalizedNote)) {
+      score -= 6
+    }
+
+    return score
+  }
+
   return [...memories].sort((left, right) => {
     const leftDays = daysSince(left.drunk_at)
     const rightDays = daysSince(right.drunk_at)
@@ -424,6 +533,14 @@ function sortMemoriesForEvidence(memories: Bottle[], mode: MemoryEvidenceMode): 
 
     if (leftDays !== rightDays) {
       return leftDays - rightDays
+    }
+
+    if (mode === 'synthesis') {
+      const leftHighlight = computeMemoryHighlightScore(left)
+      const rightHighlight = computeMemoryHighlightScore(right)
+      if (leftHighlight !== rightHighlight) {
+        return rightHighlight - leftHighlight
+      }
     }
 
     const leftRating = left.rating ?? 0
@@ -439,6 +556,7 @@ function sortMemoriesForEvidence(memories: Bottle[], mode: MemoryEvidenceMode): 
 
 function buildFilterLabels(filters: ExactMemoryFilters): string[] {
   return [
+    ...filters.dates.map((value) => `date=${value}`),
     ...filters.countries.map((value) => `pays=${value}`),
     ...filters.regions.map((value) => `region=${value}`),
     ...filters.appellations.map((value) => `appellation=${value}`),
@@ -449,6 +567,10 @@ function buildFilterLabels(filters: ExactMemoryFilters): string[] {
 
 function classifyMemoryEvidenceMode(query: string, hasFilters: boolean): MemoryEvidenceMode {
   const normalized = normalizeForMatch(query)
+
+  if (hasFilters && /\b(souviens|souvenir|rappelle|rappel|soiree|soirée)\b/.test(normalized)) {
+    return 'synthesis'
+  }
 
   if (EXACT_MEMORY_PATTERNS.some((pattern) => pattern.test(normalized))) {
     return 'exact'
@@ -551,8 +673,9 @@ export async function buildMemoryEvidenceBundle(input: {
   recentMessages: MemorySearchMessage[]
   drunkBottles: Bottle[]
   limit?: number
+  selectionProfile?: MemorySelectionProfile
 }): Promise<MemoryEvidenceBundle | null> {
-  const { query, recentMessages, drunkBottles, limit = 7 } = input
+  const { query, recentMessages, drunkBottles, limit = 7, selectionProfile = 'default' } = input
   if (!query.trim() || drunkBottles.length === 0) return null
 
   const planning = choosePlanningQuery(query, recentMessages, drunkBottles)
@@ -591,7 +714,31 @@ export async function buildMemoryEvidenceBundle(input: {
     }
   }
 
-  const semanticMatches = await selectRelevantMemoriesAsync('generic', planning.planningQuery, drunkBottles, limit)
+  if (hasAnyExactFilter(planning.filters)) {
+    const exactMatches = sortMemoriesForEvidence(
+      drunkBottles.filter((bottle) => bottleMatchesExactFilters(bottle, planning.filters)),
+      isBroadExactFilter(planning.filters) ? 'synthesis' : 'semantic',
+    ).slice(0, limit)
+
+    if (exactMatches.length > 0) {
+      return {
+        mode: 'semantic',
+        planningQuery: planning.planningQuery,
+        usedConversationContext: planning.usedConversationContext,
+        matchedFilters: buildFilterLabels(planning.filters),
+        memories: exactMatches,
+        serialized: serializeEvidenceBundle('semantic', query, buildFilterLabels(planning.filters), planning.usedConversationContext, exactMatches),
+      }
+    }
+  }
+
+  const semanticMatches = await selectRelevantMemoriesAsync(
+    'generic',
+    planning.planningQuery,
+    drunkBottles,
+    limit,
+    { selectionProfile, recentMessages },
+  )
   const sorted = sortMemoriesForEvidence(semanticMatches, 'semantic')
 
   return {
@@ -625,13 +772,43 @@ export function selectRelevantMemories(
   query: string | null,
   drunkBottles: Bottle[],
   limit = 5,
+  options: MemorySelectionOptions = {},
+): Bottle[] {
+  return rankMemoryCandidates(mode, query, drunkBottles, limit, options)
+}
+
+function rankMemoryCandidates(
+  mode: Mode,
+  query: string | null,
+  drunkBottles: Bottle[],
+  limit = 5,
+  options: MemoryRankingOptions = {},
 ): Bottle[] {
   const withNotes = drunkBottles.filter((b) => b.tasting_note && b.tasting_note.trim().length > 0)
   if (withNotes.length === 0) return []
+  const { selectionProfile = 'default', recentMessages = [] } = options
+  const semanticBoostIds = options.semanticBoostIds ?? new Set<string>()
 
   const hasQuery = query != null && query.trim().length > 0
   const normalizedQuery = hasQuery ? normalizeForMatch(query) : ''
   const fallbackWords = hasQuery ? extractQueryTerms(query) : []
+  const recentWindow = recentMessages.slice(-6)
+
+  function countRecentMentions(bottle: Bottle): number {
+    const identityFields = [bottle.domaine, bottle.appellation, bottle.cuvee]
+      .filter((field): field is string => Boolean(field))
+      .map((field) => normalizeForMatch(field))
+      .filter((field) => field.length >= 4)
+
+    if (identityFields.length === 0 || recentWindow.length === 0) return 0
+
+    return recentWindow.reduce((sum, message) => {
+      const normalizedText = normalizeForMatch(message.text)
+      const hasMention = identityFields.some((field) => normalizedText.includes(field))
+      if (!hasMention) return sum
+      return sum + (message.role === 'celestin' ? 2 : 1)
+    }, 0)
+  }
 
   const scored: ScoredMemory[] = withNotes.map((bottle) => {
     let score = 0
@@ -677,6 +854,10 @@ export function selectRelevantMemories(
 
     score += relevanceScore
 
+    if (semanticBoostIds.has(bottle.id)) {
+      score += relevanceScore > 0 ? 1.2 : 0.35
+    }
+
     if (tags?.sentiment === 'excellent') score += 3
     else if (tags?.sentiment === 'bon') score += 1
 
@@ -690,6 +871,11 @@ export function selectRelevantMemories(
     else if (days < 90) score += 0.8
     else if (days < 180) score += 0.3
 
+    if (selectionProfile === 'recommendation') {
+      const repetitionPenalty = countRecentMentions(bottle) * 2.25
+      score -= repetitionPenalty
+    }
+
     return { bottle, score, relevanceScore }
   })
 
@@ -701,6 +887,10 @@ export function selectRelevantMemories(
   if (relevantOnly.length > 0) {
     relevantOnly.sort((a, b) => b.score - a.score)
     return relevantOnly.slice(0, limit).map(s => s.bottle)
+  }
+
+  if (selectionProfile === 'recommendation') {
+    return []
   }
 
   // Proactive mode: no textual match (or no query) → return top-scored memories
@@ -720,13 +910,15 @@ export async function selectRelevantMemoriesAsync(
   query: string | null,
   drunkBottles: Bottle[],
   limit = 5,
+  options: MemorySelectionOptions = {},
 ): Promise<Bottle[]> {
+  const { selectionProfile = 'default', recentMessages = [] } = options
   // If no query or too short, skip semantic search
   if (!query || query.trim().length < 3) {
-    return selectRelevantMemories(mode, query, drunkBottles, limit)
+    return selectRelevantMemories(mode, query, drunkBottles, limit, options)
   }
 
-  const keywordMatches = selectRelevantMemories(mode, query, drunkBottles, limit)
+  const keywordMatches = selectRelevantMemories(mode, query, drunkBottles, limit, options)
   const exactIdentityMatch = keywordMatches.some((bottle) => hasSpecificIdentityMatch(query, bottle))
 
   // Exact or near-exact identity matches should beat weak semantic neighbors.
@@ -738,8 +930,15 @@ export async function selectRelevantMemoriesAsync(
     const results = await searchSemanticMemories(query, limit)
     if (results.length > 0) {
       console.log(`[tastingMemories] Semantic search returned ${results.length} results`)
-      if (keywordMatches.length > 0) {
-        return mergeUniqueMemories(results, keywordMatches, limit)
+      const rescored = rankMemoryCandidates(
+        mode,
+        query,
+        dedupeMemories([...results, ...keywordMatches]),
+        limit,
+        { selectionProfile, recentMessages, semanticBoostIds: new Set(results.map((bottle) => bottle.id)) },
+      )
+      if (rescored.length > 0) {
+        return rescored
       }
       return results
     }

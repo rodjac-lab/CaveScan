@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import {
   buildMemoryEvidenceBundle,
+  type MemorySelectionProfile,
   selectRelevantMemoriesAsync,
   serializeMemoriesForPrompt,
 } from '@/lib/tastingMemories'
@@ -15,11 +16,17 @@ import {
   serializeConversationForPrompt,
   type MemoryFact,
 } from '@/lib/chatPersistence'
+import { getDebugMemoryPolicyId } from '@/lib/celestinMemoryPolicyDebug'
+import { getDebugMemoryRuntimeId } from '@/lib/celestinMemoryRuntimeDebug'
+import { ensureCompiledUserProfile, loadUserProfile } from '@/lib/userProfiles'
 import type { ConversationMemorySummary } from '@/lib/crossSessionMemory'
 import type { QuestionnaireProfile } from '@/lib/questionnaire-profile'
 import type { Bottle, TasteProfile } from '@/lib/types'
+import type { MemoryRuntimeId } from '../../shared/celestin/memory-runtime.js'
+import { DEFAULT_MEMORY_RUNTIME_ID } from '../../shared/celestin/memory-runtime.js'
 
 const PAST_REFERENCE_PATTERN = /(?:tu te souviens|la derni[eè]re fois|on avait parl[eé]|on avait bu|c'[eé]tait quoi le vin|tu m'avais (?:dit|recommand|conseill)|la fois o[uù]|dej[aà] discut)/i
+const RECOMMENDATION_PATTERN = /(?:qu['’]est-ce que j['’]ouvre|que boire|j['’]ai envie d['’]un|je cherche un vin|ce soir c['’]est|avec quoi|pour ce soir|plut[oô]t un rouge|plut[oô]t un blanc|vin italien|italien|poulet r[oô]ti|osso bucco|raclette|pizza|sushi)/i
 
 interface PrepareCelestinRequestInput {
   message: string
@@ -35,6 +42,8 @@ interface PrepareCelestinRequestInput {
   conversationState?: Record<string, unknown> | null
   memoryFacts?: string
   memoryFactsRaw?: MemoryFact[]
+  memoryPolicyId?: string
+  memoryRuntimeVersion?: MemoryRuntimeId
 }
 
 function toMemoryMessages(messages: CelestinChatMessage[]) {
@@ -68,10 +77,20 @@ export function buildTranscriptSnapshot(
 }
 
 export async function prepareCelestinRequest(input: PrepareCelestinRequestInput) {
+  const debugMemoryPolicyId = getDebugMemoryPolicyId()
+  const debugMemoryRuntimeId = getDebugMemoryRuntimeId()
+  const memoryRuntimeVersion = input.memoryRuntimeVersion ?? (debugMemoryRuntimeId as MemoryRuntimeId | null) ?? DEFAULT_MEMORY_RUNTIME_ID
+  const memorySelectionProfile: MemorySelectionProfile =
+    input.conversationState && (input.conversationState as { taskType?: string | null }).taskType === 'recommendation'
+      ? 'recommendation'
+      : RECOMMENDATION_PATTERN.test(input.message)
+        ? 'recommendation'
+        : 'default'
   const memoryEvidence = await buildMemoryEvidenceBundle({
     query: input.message,
     recentMessages: toMemoryMessages(input.messages),
     drunkBottles: input.drunk,
+    selectionProfile: memorySelectionProfile,
   })
 
   const memoryQuery = memoryEvidence?.planningQuery ?? input.message
@@ -79,7 +98,10 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
 
   if (!memoriesOverride) {
     try {
-      const asyncMemories = await selectRelevantMemoriesAsync('generic', memoryQuery, input.drunk)
+      const asyncMemories = await selectRelevantMemoriesAsync('generic', memoryQuery, input.drunk, 5, {
+        selectionProfile: memorySelectionProfile,
+        recentMessages: toMemoryMessages(input.messages),
+      })
       if (asyncMemories.length > 0) {
         memoriesOverride = serializeMemoriesForPrompt(asyncMemories) || undefined
       }
@@ -103,6 +125,21 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
     }
   }
 
+  let compiledProfileMarkdown: string | undefined
+  if (memoryRuntimeVersion === 'compiled_profile_v1') {
+    try {
+      const userProfile = await ensureCompiledUserProfile('auto_runtime_bootstrap')
+      compiledProfileMarkdown = userProfile?.compiled_markdown ?? undefined
+    } catch {
+      try {
+        const userProfile = await loadUserProfile()
+        compiledProfileMarkdown = userProfile?.compiled_markdown ?? undefined
+      } catch {
+        // Continue without compiled profile.
+      }
+    }
+  }
+
   return buildCelestinRequestBody({
     message: input.message,
     image: input.image,
@@ -121,6 +158,9 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
     memoryFacts: input.memoryFacts,
     memoryFactsRaw: input.memoryFactsRaw,
     retrievedConversation,
+    memoryPolicyId: input.memoryPolicyId ?? debugMemoryPolicyId ?? undefined,
+    memoryRuntimeVersion,
+    compiledProfileMarkdown,
   })
 }
 

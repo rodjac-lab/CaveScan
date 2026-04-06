@@ -47,6 +47,11 @@ const REFINEMENT = [
   /\b(tu en as|t.en as|d.autres?|en as[- ]tu)\b/i,
 ]
 
+const MEMORY_GUIDED_RECOMMENDATION = [
+  /\b(dans l[' ]esprit|dans la veine|comme ce qu[' ]on avait aime|comme ce qu[' ]on avait aime|comme ce qu[' ]on avait aimé|dans le style de|quelque chose qui rappelle)\b/i,
+  /\b(ce qu[' ]on avait aime avec|ce qu[' ]on avait aimé avec)\b/i,
+]
+
 const ENCAVAGE = [
   /\b(achete|recu|commande|encave[rz]?|ajoute[rz]?|arrive|livre|ramene|stocke[rz]?|j'ai pris|j'ai achete)(?:\s|$|[.,!?])/i,
 ]
@@ -85,15 +90,46 @@ function matchesAny(text: string, patterns: RegExp[]): boolean {
   return patterns.some((pattern) => pattern.test(text))
 }
 
+function normalizeForRouting(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
 function isCellarFollowUp(text: string, lastAssistantText?: string): boolean {
   if (!lastAssistantText) return false
 
+  const normalizedText = normalizeForRouting(text)
+  const normalizedAssistantText = normalizeForRouting(lastAssistantText)
+
   const assistantWasTalkingAboutCellar =
-    /\b(cave|bouteilles?|enregistre|enregistree|enregistres|tu n'as|tu as)\b/i.test(lastAssistantText)
+    /\b(cave|bouteilles?|enregistre|enregistree|enregistres|tu n'as|tu as)\b/i.test(normalizedAssistantText)
 
   if (!assistantWasTalkingAboutCellar) return false
 
-  return /\b(c'est pas du|c'en est pas|tu en as pas)\b/i.test(text)
+  return /\b(c'est pas du|c'en est pas|tu en as pas)\b/i.test(normalizedText)
+}
+
+function isMemoryFollowUp(text: string, lastAssistantText?: string): boolean {
+  if (!lastAssistantText) return false
+
+  const normalizedText = normalizeForRouting(text)
+  const normalizedAssistantText = normalizeForRouting(lastAssistantText)
+
+  const assistantWasTalkingAboutMemory =
+    /\b(souvenir|on avait|tu avais|tu l'avais|l'avais|avait eu|la derniere fois|ce soir-la|degust|bue?s?\b|ouvert|millesime|etoiles?|notes?)\b/i.test(normalizedAssistantText)
+
+  if (!assistantWasTalkingAboutMemory) return false
+
+  return (
+    /^(et|et le|et la|et les|et lui|et elle)\b/i.test(normalizedText)
+    || /\b(c'etait comment|c.etait comment|c'etait quoi|c.etait quoi)\b/i.test(normalizedText)
+    || /\b(quel millesime|quelle note|combien d'etoiles|combien etoiles|quelle impression)\b/i.test(normalizedText)
+    || /\bon avait\b.*\b(note|notes|etoiles?)\b/i.test(normalizedText)
+    || /^c'est tout[?! ]*$/i.test(normalizedText)
+  )
 }
 
 function taskTypeToMode(taskType: TaskType): CognitiveMode {
@@ -128,9 +164,10 @@ export function interpretTurn(
     }
   }
 
-  const lower = message.toLowerCase().trim()
+  const lower = normalizeForRouting(message)
   const hadRecentReco = lastAssistantText?.includes('[Vins proposes')
   const isInventoryQuestion = matchesAny(lower, CELLAR_LOOKUP) || isCellarFollowUp(lower, lastAssistantText)
+  const isTastingMemoryFollowUp = isMemoryFollowUp(lower, lastAssistantText)
 
   if (hasImage) {
     if (/\b(carte|resto|restaurant|menu|ardoise)\b/i.test(lower)) {
@@ -161,6 +198,10 @@ export function interpretTurn(
       return { turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
     }
 
+    if (state.taskType === 'recommendation' && matchesAny(lower, MEMORY_GUIDED_RECOMMENDATION)) {
+      return { turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
+    }
+
     if (matchesAny(lower, RECOMMENDATION)) {
       return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'recommendation' }
     }
@@ -172,6 +213,10 @@ export function interpretTurn(
     }
 
     if (matchesAny(lower, MEMORY)) {
+      return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
+    }
+
+    if (isTastingMemoryFollowUp) {
       return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
     }
 
@@ -201,6 +246,10 @@ export function interpretTurn(
     }
 
     if (matchesAny(lower, MEMORY) || matchesAny(lower, TASTING)) {
+      return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
+    }
+
+    if (isTastingMemoryFollowUp) {
       return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
     }
 
@@ -239,6 +288,10 @@ export function interpretTurn(
     return { turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
   }
 
+  if (hadRecentReco && matchesAny(lower, MEMORY_GUIDED_RECOMMENDATION)) {
+    return { turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
+  }
+
   if (matchesAny(lower, RECOMMENDATION)) {
     return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'recommendation' }
   }
@@ -252,6 +305,10 @@ export function interpretTurn(
   }
 
   if (matchesAny(lower, MEMORY)) {
+    return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
+  }
+
+  if (isTastingMemoryFollowUp) {
     return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
   }
 

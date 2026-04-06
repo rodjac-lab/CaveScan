@@ -269,6 +269,123 @@
       }
     ]
   },
+  {
+    "id": "memory_recall_rayas_rating_focus",
+    "type": "conversation",
+    "description": "Référent serré — la question sur les étoiles doit rester focalisée sur Rayas, sans dériver vers un inventaire global",
+    "turns": [
+      {
+        "message": "Tu te souviens de la soirée vin du 26 février ?",
+        "expect": {
+          "uiAction": "none"
+        }
+      },
+      {
+        "message": "Et le Rayas, il était comment ?",
+        "expect": {
+          "uiAction": "none",
+          "responseContains": ["rayas"]
+        }
+      },
+      {
+        "message": "On avait mis combien d'étoiles ?",
+        "expect": {
+          "uiAction": "none",
+          "responseContains": ["rayas", "4"],
+          "responseNotContains": ["aloxe", "dandelion", "thillardon", "leflaive", "ganevat"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "memory_reco_osso_bucco_no_cross_contamination",
+    "type": "conversation",
+    "description": "Souvenir justificatif autorisé — la reco 'dans l'esprit de l'osso bucco' ne doit pas contaminer avec un autre plat",
+    "turns": [
+      {
+        "message": "J'ai envie d'un rouge ce soir.",
+        "expect": {
+          "uiAction": null
+        }
+      },
+      {
+        "message": "Quelque chose dans l'esprit de ce qu'on avait aimé avec l'osso bucco.",
+        "expect": {
+          "uiAction": "show_recommendations",
+          "responseNotContains": ["poulet rôti", "poulet roti"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "reco_poulet_no_osso_bucco_leak",
+    "type": "conversation",
+    "description": "Reco immédiate — 'poulet rôti' ne doit pas réutiliser inutilement le souvenir osso bucco",
+    "turns": [
+      {
+        "message": "Ce soir c'est poulet rôti",
+        "expect": {
+          "uiAction": "show_recommendations",
+          "responseNotContains": ["osso bucco"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "italy_no_decorative_memory",
+    "type": "conversation",
+    "description": "Mémoire décorative interdite — 'vin italien' ne doit pas rappeler Rome ou un repas passé sans lien direct",
+    "turns": [
+      {
+        "message": "Je cherche un vin italien",
+        "expect": {
+          "uiAction": "none",
+          "responseNotContains": ["rome", "spaghetti", "chianti classico 2024", "pèppoli", "peppoli"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "italy_red_no_grange_des_peres_contamination",
+    "type": "conversation",
+    "description": "Pas de contamination mémoire — un rouge italien ne doit pas être cadré par la Grange des Pères",
+    "turns": [
+      {
+        "message": "Je cherche un vin italien",
+        "expect": {
+          "uiAction": "none"
+        }
+      },
+      {
+        "message": "Plutôt un rouge.",
+        "expect": {
+          "uiAction": "none",
+          "responseContains": ["ital", "rouge"],
+          "responseNotContains": ["grange des pères", "grange des peres"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "memory_no_repeated_anchor",
+    "type": "conversation",
+    "description": "Anti-lassitude — le même souvenir saillant ne doit pas revenir tour après tour sans nécessité",
+    "turns": [
+      {
+        "message": "Ce soir c'est poulet rôti",
+        "expect": {
+          "uiAction": "show_recommendations"
+        }
+      },
+      {
+        "message": "Et si je veux plutôt un italien ?",
+        "expect": {
+          "uiAction": "none",
+          "responseNotContains": ["grange des pères", "grange des peres", "osso bucco", "poulet rôti", "poulet roti"]
+        }
+      }
+    ]
+  },
 
   {
     "id": "quality_prieure_roch",

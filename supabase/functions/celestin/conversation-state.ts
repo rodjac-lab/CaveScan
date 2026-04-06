@@ -15,6 +15,7 @@ export interface ConversationState {
   taskType: TaskType
   lastUiActionKind: string | null
   turnsSinceLastAction: number
+  memoryFocus: string | null
 }
 
 export const INITIAL_STATE: ConversationState = {
@@ -22,6 +23,7 @@ export const INITIAL_STATE: ConversationState = {
   taskType: null,
   lastUiActionKind: null,
   turnsSinceLastAction: 0,
+  memoryFocus: null,
 }
 
 function inferTaskType(uiActionKind?: string | null): TaskType {
@@ -38,6 +40,7 @@ export function computeNextState(
   responseHasUiAction: boolean,
   uiActionKind?: string | null,
   inferredTaskType?: TaskType,
+  memoryFocus?: string | null,
 ): ConversationState {
   // Auto-reset: 3+ turns without ui_action → idle
   if (current.turnsSinceLastAction >= 3 && current.phase !== 'idle_smalltalk') {
@@ -59,26 +62,30 @@ export function computeNextState(
     inferTaskType(uiActionKind) ?? inferredTaskType ?? current.taskType
 
   const bump = current.turnsSinceLastAction + 1
+  const nextMemoryFocus = memoryFocus ?? current.memoryFocus ?? null
+  const clearMemoryFocus = turnType !== 'context_switch' && turnType !== 'task_request' && turnType !== 'task_continue'
+    ? current.memoryFocus
+    : nextMemoryFocus
 
   switch (current.phase) {
     case 'idle_smalltalk': {
       if (turnType === 'task_request') {
         if (responseHasUiAction) {
-          return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0 }
+          return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0, memoryFocus: nextMemoryFocus }
         }
-        return { phase: 'collecting_info', taskType: resolveTask(), lastUiActionKind: null, turnsSinceLastAction: 0 }
+        return { phase: 'collecting_info', taskType: resolveTask(), lastUiActionKind: null, turnsSinceLastAction: 0, memoryFocus: nextMemoryFocus }
       }
-      return { ...current, turnsSinceLastAction: bump }
+      return { ...current, turnsSinceLastAction: bump, memoryFocus: clearMemoryFocus }
     }
 
     case 'active_task': {
       if (responseHasUiAction) {
-        return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0 }
+        return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0, memoryFocus: nextMemoryFocus }
       }
       if (turnType === 'context_switch' || turnType === 'social_ack') {
         return { ...INITIAL_STATE }
       }
-      return { ...current, turnsSinceLastAction: bump }
+      return { ...current, turnsSinceLastAction: bump, memoryFocus: clearMemoryFocus }
     }
 
     case 'post_task_ack': {
@@ -87,15 +94,15 @@ export function computeNextState(
       }
       if (turnType === 'task_continue') {
         if (responseHasUiAction) {
-          return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0 }
+          return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0, memoryFocus: nextMemoryFocus }
         }
-        return { phase: 'active_task', taskType: current.taskType, lastUiActionKind: current.lastUiActionKind, turnsSinceLastAction: 0 }
+        return { phase: 'active_task', taskType: current.taskType, lastUiActionKind: current.lastUiActionKind, turnsSinceLastAction: 0, memoryFocus: nextMemoryFocus }
       }
       if (turnType === 'task_request') {
         if (responseHasUiAction) {
-          return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0 }
+          return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0, memoryFocus: nextMemoryFocus }
         }
-        return { phase: 'collecting_info', taskType: resolveTask(), lastUiActionKind: null, turnsSinceLastAction: 0 }
+        return { phase: 'collecting_info', taskType: resolveTask(), lastUiActionKind: null, turnsSinceLastAction: 0, memoryFocus: nextMemoryFocus }
       }
       // context_switch, smalltalk, or anything else → idle
       return { ...INITIAL_STATE }
@@ -103,21 +110,21 @@ export function computeNextState(
 
     case 'collecting_info': {
       if (responseHasUiAction) {
-        return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0 }
+        return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0, memoryFocus: nextMemoryFocus }
       }
       if (turnType === 'context_switch') {
         return { ...INITIAL_STATE }
       }
       // Stay collecting for task_continue, disambiguation_answer, unknown
-      return { ...current, turnsSinceLastAction: bump }
+      return { ...current, turnsSinceLastAction: bump, memoryFocus: clearMemoryFocus }
     }
 
     case 'disambiguation': {
       if (turnType === 'disambiguation_answer' || turnType === 'task_continue') {
         if (responseHasUiAction) {
-          return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0 }
+          return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0, memoryFocus: nextMemoryFocus }
         }
-        return { phase: 'active_task', taskType: current.taskType, lastUiActionKind: null, turnsSinceLastAction: 0 }
+        return { phase: 'active_task', taskType: current.taskType, lastUiActionKind: null, turnsSinceLastAction: 0, memoryFocus: nextMemoryFocus }
       }
       return { ...INITIAL_STATE }
     }
@@ -125,7 +132,7 @@ export function computeNextState(
     case 'context_switch': {
       // Transient — always resolves
       if (turnType === 'task_request' && responseHasUiAction) {
-        return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0 }
+        return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0, memoryFocus: nextMemoryFocus }
       }
       return { ...INITIAL_STATE }
     }

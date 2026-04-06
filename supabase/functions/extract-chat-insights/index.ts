@@ -78,14 +78,19 @@ Chaque fact a :
 - N'extrais PAS les plaisanteries, salutations, remerciements
 - Prefere la precision : "aime les Chenin de Loire" plutot que "aime le vin blanc"
 - Capture les REACTIONS EMOTIONNELLES fortes : "un bonbon", "un regal", "sublime", "decevant" → ce sont des preferences durables a extraire absolument, avec le vin concerne
+- NE transforme PAS un choix ponctuel de tour en preference durable. Exemples a ne pas extraire comme preference stable :
+  "plutot un rouge", "plutot un blanc", "ce soir poulet roti", "je cherche un vin italien", "ce soir j'ai envie de..."
+- Les questions de culture vin ponctuelles ("difference entre Barolo et Barbaresco", "ai-je deja bu du Barolo ?") ne sont PAS des facts wine_knowledge durables, sauf si l'utilisateur exprime explicitement sa maniere d'apprendre ("explique-moi simplement", "j'aime comparer", "pas trop technique").
 - Si la conversation est triviale (bonjour, merci, question simple), retourne facts: [] et summary quand meme
 
 # Resume
 
-Le "summary" est UNE phrase qui resume le sujet principal de la conversation.
+Le "summary" est UNE phrase qui resume seulement ce qui merite de rester memorisable d'une session.
 Ex: "Discussion accords pour osso bucco, recommande Cornas et Crozes-Hermitage"
 Ex: "Ajout de 3 Bourgognes achetes chez Lavinia"
 Ex: "Question sur le chenin et les vins de Loire"
+
+Si la conversation est surtout un test, une recommandation ponctuelle pour ce soir, ou une simple question de culture vin sans information durable sur l'utilisateur, retourne summary: "".
 
 Reponds UNIQUEMENT avec le JSON.`
 

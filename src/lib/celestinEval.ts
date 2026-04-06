@@ -2,6 +2,7 @@ import { buildMemoryEvidenceBundle } from '@/lib/tastingMemories'
 import type { MemoryFact } from '@/lib/chatPersistence'
 import type { ConversationMemorySummary } from '@/lib/crossSessionMemory'
 import type { Bottle } from '@/lib/types'
+import type { MemoryRuntimeId } from '../../shared/celestin/memory-runtime.js'
 
 export interface CelestinEvalScenario {
   id: string
@@ -39,6 +40,7 @@ export interface CelestinEvalFixture {
   drunk?: Bottle[]
   profile?: string | null
   memories?: string | null
+  compiledProfileMarkdown?: string | null
   memoryFactsRaw?: MemoryFact[]
   previousSessionSummaries?: ConversationMemorySummary[]
   context?: {
@@ -89,6 +91,7 @@ export interface CelestinEvalAnalysis {
 export interface CelestinEvalResult {
   id: string
   provider: string
+  memoryRuntimeVersion: MemoryRuntimeId
   elapsedMs: number | null
   request: Record<string, unknown>
   response: CelestinEvalResponse
@@ -224,6 +227,8 @@ export async function buildCelestinEvalRequest(
   fixture: CelestinEvalFixture,
   scenario: CelestinEvalScenario,
   provider?: string,
+  memoryPolicyId?: string,
+  memoryRuntimeVersion?: MemoryRuntimeId,
 ): Promise<Record<string, unknown>> {
   const rawHistory = scenario.history ?? fixture.history ?? []
   const history = rawHistory.map((turn) => ({
@@ -254,6 +259,11 @@ export async function buildCelestinEvalRequest(
       ? { previousSessionSummaries: fixture.previousSessionSummaries }
       : {}),
     ...(provider ? { provider } : {}),
+    ...(memoryPolicyId ? { memoryPolicyId } : {}),
+    ...(memoryRuntimeVersion ? { memoryRuntimeVersion } : {}),
+    ...(memoryRuntimeVersion === 'compiled_profile_v1' && fixture.compiledProfileMarkdown
+      ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown }
+      : {}),
   }
 }
 
@@ -456,14 +466,18 @@ function scoreResult(scenario: CelestinEvalScenario, result: CelestinEvalResult)
   return 'pass'
 }
 
+function runtimeResultLabel(result: CelestinEvalResult): string {
+  return `${result.provider} · ${result.memoryRuntimeVersion}`
+}
+
 export function renderCelestinEvalHtmlReport(
   results: CelestinEvalResult[],
   fixture: CelestinEvalFixture,
   scenarios: CelestinEvalScenario[],
 ): string {
   // Group results by scenario
-  const providers = [...new Set(results.map((r) => r.provider))].sort()
-  const isComparative = providers.length > 1
+  const providerRuntimes = [...new Set(results.map((r) => runtimeResultLabel(r)))].sort()
+  const isComparative = providerRuntimes.length > 1
   const resultsByScenario = new Map<string, CelestinEvalResult[]>()
   for (const r of results) {
     const list = resultsByScenario.get(r.id) ?? []
@@ -471,9 +485,9 @@ export function renderCelestinEvalHtmlReport(
     resultsByScenario.set(r.id, list)
   }
 
-  // Score summary per provider
-  const providerScores = providers.map((p) => {
-    const providerResults = results.filter((r) => r.provider === p)
+  // Score summary per provider/runtime
+  const providerScores = providerRuntimes.map((label) => {
+    const providerResults = results.filter((r) => runtimeResultLabel(r) === label)
     const pass = providerResults.filter((r) => {
       const s = scenarios.find((sc) => sc.id === r.id)
       return s && scoreResult(s, r) === 'pass'
@@ -485,7 +499,7 @@ export function renderCelestinEvalHtmlReport(
     const total = providerResults.length
     const avgMs = Math.round(providerResults.reduce((sum, r) => sum + (r.elapsedMs ?? 0), 0) / total)
     const avgWords = Math.round(providerResults.reduce((sum, r) => sum + r.analysis.wordCount, 0) / total)
-    return { name: p, pass, fail, total, pct: Math.round((pass / total) * 100), avgMs, avgWords }
+    return { name: label, pass, fail, total, pct: Math.round((pass / total) * 100), avgMs, avgWords }
   })
 
   const scoreboardHtml = isComparative ? `
@@ -519,10 +533,10 @@ export function renderCelestinEvalHtmlReport(
   const scenarioRows = scenarios.map((scenario) => {
     const scenarioResults = resultsByScenario.get(scenario.id) ?? []
 
-    const providerCols = providers.map((providerName) => {
-      const result = scenarioResults.find((r) => r.provider === providerName)
+    const providerCols = providerRuntimes.map((providerRuntimeLabel) => {
+      const result = scenarioResults.find((r) => runtimeResultLabel(r) === providerRuntimeLabel)
       if (!result) {
-        return `<div class="provider-col"><div class="provider-name">${escapeHtml(providerName)}</div><div class="empty">Pas de resultat</div></div>`
+        return `<div class="provider-col"><div class="provider-name">${escapeHtml(providerRuntimeLabel)}</div><div class="empty">Pas de resultat</div></div>`
       }
 
       const diags = collectDiagnostics(scenario, result)
@@ -554,7 +568,7 @@ export function renderCelestinEvalHtmlReport(
       return `
         <div class="provider-col ${scoreClass}">
           <div class="provider-header">
-            <span class="provider-name">${escapeHtml(providerName)}</span>
+            <span class="provider-name">${escapeHtml(providerRuntimeLabel)}</span>
             <span class="score-badge ${scoreClass}">${scoreLabel}</span>
           </div>
           <div class="timing">${result.elapsedMs ?? '—'}ms | ${result.analysis.wordCount} mots</div>
@@ -595,7 +609,7 @@ export function renderCelestinEvalHtmlReport(
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Celestin Eval — ${isComparative ? 'Comparatif' : providers[0] ?? 'Eval'}</title>
+  <title>Celestin Eval — ${isComparative ? 'Comparatif' : providerRuntimes[0] ?? 'Eval'}</title>
   <style>
     body { font-family: Georgia, serif; background: #f5f1ea; color: #1c1a17; margin: 0; padding: 24px; }
     .page { max-width: 1400px; margin: 0 auto; }
@@ -655,7 +669,7 @@ export function renderCelestinEvalHtmlReport(
     <h1>Celestin Eval${isComparative ? ' — Comparatif' : ''}</h1>
     <div class="page-meta">
       Fixture: ${escapeHtml(fixture.name ?? 'unnamed')} |
-      Providers: ${providers.join(', ')} |
+      Runtimes: ${providerRuntimes.join(', ')} |
       Scenarios: ${scenarios.length}
     </div>
     ${scoreboardHtml}

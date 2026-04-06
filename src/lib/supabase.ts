@@ -1,7 +1,17 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+function normalizeEnvValue(value: string | undefined): string | undefined {
+  if (!value) return value
+
+  return value
+    .trim()
+    .replace(/^['"]|['"]$/g, '')
+    .replace(/\\n/g, '')
+    .trim()
+}
+
+const supabaseUrl = normalizeEnvValue(import.meta.env.VITE_SUPABASE_URL)
+const supabaseAnonKey = normalizeEnvValue(import.meta.env.VITE_SUPABASE_ANON_KEY)
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(

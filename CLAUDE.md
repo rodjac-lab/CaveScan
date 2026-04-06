@@ -25,7 +25,7 @@ Message utilisateur → `buildCelestinRequestBody()` (cave rankée + profil + m�
 | Tâche | Docs à lire AVANT |
 |-------|-------------------|
 | Toucher à Celestin (edge function, prompt, routing, state) | `docs/celestin-architecture.md` |
-| Toucher à la mémoire, profil, embeddings, ranking | `docs/celestin-memory-plan.md` |
+| Toucher à la mémoire, profil, embeddings, ranking | `docs/README.md`, `docs/celestin-memory-doctrine.md`, `docs/celestin-memory-runtime-architecture.md`, `docs/celestin-memory-compilation-events.md` |
 | Toucher à l'UI, composants, styles | `docs/design-system.md` |
 | Toucher aux flows utilisateur, navigation, pages | `docs/ux-spec.md` |
 | Comprendre la vision produit, persona, décisions | `docs/prd.md` |
@@ -38,7 +38,7 @@ Message utilisateur → `buildCelestinRequestBody()` (cave rankée + profil + m�
 - OCR scan : Gemini Flash en primaire prod (10× moins cher, suffisant en single-bottle), Claude Haiku en fallback (benchmark fév 2026 : 19/20, légèrement plus fiable). Switch via secret `PRIMARY_PROVIDER`
 - `extract-wine`, `celestin`, `extract-chat-insights` et `generate-embedding` déployés avec `--no-verify-jwt` (obligatoire, sinon 401)
 - Multi-bouteilles : feature-flagged OFF (`ENABLE_MULTI_BOTTLE_SCAN = false`) — qualité OCR insuffisante
-- Mémoire : semantic search (pgvector) avec fallback keyword matching — zero-risk
+- Mémoire : architecture cible `Supabase + compiled profile markdown + SQL ciblé`
 - Cross-session : localStorage TTL 7j, max 4 sessions
 - Rating : demi-étoiles NUMERIC 0.5-5
 

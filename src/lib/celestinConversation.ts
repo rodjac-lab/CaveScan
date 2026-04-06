@@ -7,6 +7,7 @@ import type { RecommendationCard } from '@/lib/recommendationStore'
 import type { MemoryFact } from '@/lib/chatPersistence'
 import type { ConversationMemorySummary } from '@/lib/crossSessionMemory'
 import type { Bottle, BottleVolumeOption, TasteProfile, WineColor, WineExtraction } from '@/lib/types'
+import type { MemoryRuntimeId } from '../../shared/celestin/memory-runtime.js'
 
 export interface WineActionData {
   intent: 'encaver' | 'deguster'
@@ -172,7 +173,17 @@ export function buildCelestinRequestBody(input: {
   memoryFactsRaw?: MemoryFact[]
   retrievedConversation?: string
   previousSessionSummaries?: ConversationMemorySummary[]
+  memoryPolicyId?: string
+  memoryRuntimeVersion?: MemoryRuntimeId
+  compiledProfileMarkdown?: string
 }) {
+  const durableFacts = (input.memoryFactsRaw ?? []).filter((fact) => !fact.is_temporary)
+  const shouldIncludeQuestionnaireProfile =
+    !!input.questionnaireProfile
+    && input.drunk.length < 3
+    && durableFacts.length < 4
+    && (input.previousSessionSummaries?.length ?? 0) < 2
+
   const ranked = rankCaveBottles('generic', input.message, input.cave, input.drunk, input.profile, input.cave.length)
   const caveSummary = ranked.map(({ bottle, score }) => ({
     id: bottle.id.substring(0, 8),
@@ -187,7 +198,9 @@ export function buildCelestinRequestBody(input: {
   }))
 
   const profileStr = input.profile ? serializeProfileForPrompt(input.profile) : undefined
-  const questionnaireStr = input.questionnaireProfile ? serializeQuestionnaireForPrompt(input.questionnaireProfile) : undefined
+  const questionnaireStr = shouldIncludeQuestionnaireProfile
+    ? serializeQuestionnaireForPrompt(input.questionnaireProfile!)
+    : undefined
   const memoriesQuery = input.memoriesQuery ?? input.message
   const memoriesStr = input.memoriesOverride !== undefined
     ? (input.memoriesOverride || undefined)
@@ -217,6 +230,9 @@ export function buildCelestinRequestBody(input: {
     ...(input.previousSessionSummaries && input.previousSessionSummaries.length > 0
       ? { previousSessionSummaries: input.previousSessionSummaries }
       : {}),
+    ...(input.memoryPolicyId ? { memoryPolicyId: input.memoryPolicyId } : {}),
+    ...(input.memoryRuntimeVersion ? { memoryRuntimeVersion: input.memoryRuntimeVersion } : {}),
+    ...(input.compiledProfileMarkdown ? { compiledProfileMarkdown: input.compiledProfileMarkdown } : {}),
   }
 }
 

@@ -113,6 +113,121 @@ function shouldPersistExtractedFact(
   return isGroundedInUserMessages(fact.source_quote, messages)
 }
 
+function normalizeForHeuristics(text: string | null | undefined): string {
+  return (text ?? '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/['’]/g, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function quoteLooksLikeEphemeralChoice(quote: string): boolean {
+  return /^(plutot|plutot un|un|une)\s+(rouge|blanc|bulles?)\b/.test(quote)
+    || /\bce soir\b/.test(quote)
+    || /\bpour ce soir\b/.test(quote)
+    || /\baujourd hui\b/.test(quote)
+    || /\bpoulet roti\b/.test(quote)
+}
+
+function quoteLooksLikeGenericKnowledgeQuestion(quote: string): boolean {
+  return /\bc est quoi la difference\b/.test(quote)
+    || /\bquelle difference\b/.test(quote)
+    || /\bbarolo\b.*\bbarbaresco\b/.test(quote)
+    || /\bai je deja bu\b/.test(quote)
+    || /\bdeja bu\b/.test(quote)
+}
+
+function quoteExpressesLearningStyle(quote: string): boolean {
+  return /\bexplique\b/.test(quote)
+    || /\bj aime comparer\b/.test(quote)
+    || /\bpas trop technique\b/.test(quote)
+    || /\bsimplement\b/.test(quote)
+    || /\bguide moi\b/.test(quote)
+    || /\bje veux comprendre\b/.test(quote)
+    || /\bj aime comprendre\b/.test(quote)
+}
+
+function sanitizeExtractedFact(
+  fact: InsightResponse['facts'][number],
+): InsightResponse['facts'][number] | null {
+  const quote = normalizeForHeuristics(fact.source_quote)
+  const normalizedFact = normalizeForHeuristics(fact.fact)
+
+  if (fact.category === 'context') {
+    return {
+      ...fact,
+      is_temporary: true,
+      expires_in_hours: fact.expires_in_hours ?? 12,
+    }
+  }
+
+  if (
+    (fact.category === 'preference' || fact.category === 'aversion')
+    && quoteLooksLikeEphemeralChoice(quote)
+  ) {
+    return null
+  }
+
+  if (
+    fact.category === 'wine_knowledge'
+    && quoteLooksLikeGenericKnowledgeQuestion(quote)
+    && !quoteExpressesLearningStyle(quote)
+  ) {
+    return null
+  }
+
+  if (
+    fact.category === 'preference'
+    && /\brouge italien\b/.test(normalizedFact)
+    && /\bje cherche un vin italien\b/.test(quote)
+  ) {
+    return null
+  }
+
+  return fact
+}
+
+function shouldPersistSummary(
+  summary: string,
+  messages: Array<{ role: string; content: string }>,
+  savedFacts: MemoryFact[],
+): boolean {
+  const normalizedSummary = normalizeForHeuristics(summary)
+  if (!normalizedSummary) return false
+
+  const hasDurableSignal = savedFacts.some((fact) => !fact.is_temporary)
+  if (hasDurableSignal) return true
+
+  const combinedUserText = normalizeForHeuristics(
+    messages
+      .filter((message) => message.role === 'user')
+      .map((message) => message.content)
+      .join(' ')
+  )
+
+  const looksEphemeral =
+    /\bce soir\b/.test(normalizedSummary)
+    || /\bpoulet roti\b/.test(normalizedSummary)
+    || /\brouge italien\b/.test(normalizedSummary)
+    || /\bblanc italien\b/.test(normalizedSummary)
+    || /\bbarolo\b/.test(normalizedSummary)
+    || /\bbarbaresco\b/.test(normalizedSummary)
+
+  const hasEventSignal =
+    /\bvisite\b/.test(combinedUserText)
+    || /\brestaurant\b/.test(combinedUserText)
+    || /\brome\b/.test(combinedUserText)
+    || /\bachete\b/.test(combinedUserText)
+    || /\bachete du\b/.test(combinedUserText)
+    || /\bavec ma femme\b/.test(combinedUserText)
+    || /\bavec ma fille\b/.test(combinedUserText)
+
+  return !(looksEphemeral && !hasEventSignal)
+}
+
 export async function createSession(): Promise<string | null> {
   try {
     // Extract insights from previous unprocessed session (if any)
@@ -346,35 +461,41 @@ export async function extractInsights(
 
     const response = data as InsightResponse
     let activeFacts = [...existingFacts]
+    const sessionSavedFacts: MemoryFact[] = []
     let savedCount = 0
 
     if (response.facts && response.facts.length > 0) {
       for (const fact of response.facts) {
-        if (!shouldPersistExtractedFact(fact, messages)) {
+        const sanitizedFact = sanitizeExtractedFact(fact)
+        if (!sanitizedFact) {
+          continue
+        }
+
+        if (!shouldPersistExtractedFact(sanitizedFact, messages)) {
           console.warn('[chatPersistence] Skipping ungrounded fact:', fact.fact)
           continue
         }
 
         const row: Record<string, unknown> = {
           session_id: sessionId,
-          category: fact.category,
-          fact: fact.fact,
-          confidence: fact.confidence,
-          source_quote: fact.source_quote ?? null,
-          is_temporary: fact.is_temporary,
+          category: sanitizedFact.category,
+          fact: sanitizedFact.fact,
+          confidence: sanitizedFact.confidence,
+          source_quote: sanitizedFact.source_quote ?? null,
+          is_temporary: sanitizedFact.is_temporary,
         }
 
-        if (fact.is_temporary && fact.expires_in_hours) {
+        if (sanitizedFact.is_temporary && sanitizedFact.expires_in_hours) {
           const expires = new Date()
-          expires.setHours(expires.getHours() + fact.expires_in_hours)
+          expires.setHours(expires.getHours() + sanitizedFact.expires_in_hours)
           row.expires_at = expires.toISOString()
         }
 
         const candidate: StructuredMemoryFact = {
-          category: fact.category,
-          fact: fact.fact,
-          confidence: fact.confidence,
-          is_temporary: fact.is_temporary,
+          category: sanitizedFact.category,
+          fact: sanitizedFact.fact,
+          confidence: sanitizedFact.confidence,
+          is_temporary: sanitizedFact.is_temporary,
           expires_at: typeof row.expires_at === 'string' ? row.expires_at : null,
           created_at: new Date().toISOString(),
         }
@@ -415,13 +536,14 @@ export async function extractInsights(
         }
 
         activeFacts = [savedFact, ...activeFacts]
+        sessionSavedFacts.push(savedFact)
         savedCount += 1
       }
 
       console.log(`[chatPersistence] Saved ${savedCount} facts`)
     }
 
-    if (response.summary) {
+    if (response.summary && shouldPersistSummary(response.summary, messages, sessionSavedFacts)) {
       await supabase
         .from('chat_sessions')
         .update({ summary: response.summary })

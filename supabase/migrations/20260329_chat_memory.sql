@@ -1,6 +1,6 @@
 -- =====================================================
 -- Chat Memory: persistence des conversations + extraction d'insights
--- Implements remaining V2 items from docs/celestin-memory-plan.md
+-- Implements remaining V2 items from the former memory plan (now archived in docs/archive/)
 -- =====================================================
 
 -- Ensure pgvector is available (already enabled for bottles.embedding)

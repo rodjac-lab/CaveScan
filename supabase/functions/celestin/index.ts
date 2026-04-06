@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { buildCelestinSystemPrompt } from "./prompt-builder.ts"
 import { interpretTurn, type TurnInterpretation, type CognitiveMode } from "./turn-interpreter.ts"
 import { computeNextState, INITIAL_STATE, type ConversationState } from "./conversation-state.ts"
+import { DEFAULT_MEMORY_POLICY_ID, resolveMemoryTurnProfile } from "../../../shared/celestin/memory-policy.js"
 import {
   buildResolvedUserModel,
   type ConversationSummaryInput,
@@ -62,6 +63,9 @@ interface RequestBody {
   image?: string // base64-encoded image (JPEG or PNG)
   conversationState?: ConversationState // sent by frontend, tracks dialogue phase
   resolvedUserModel?: string
+  memoryPolicyId?: string
+  memoryRuntimeVersion?: MemoryRuntimeId
+  compiledProfileMarkdown?: string
   context?: {
     dayOfWeek: string
     season: string
@@ -124,6 +128,7 @@ type ClaudeMessage = { role: 'user' | 'assistant'; content: ClaudeContent }
 type OpenAITextContent = { type: 'text'; text: string }
 type OpenAIImageContent = { type: 'image_url'; image_url: { url: string } }
 type OpenAIMessage = { role: 'system' | 'user' | 'assistant'; content: string | Array<OpenAITextContent | OpenAIImageContent> }
+type MemoryRuntimeId = 'legacy' | 'compiled_profile_v1'
 
 // === UTILS ===
 
@@ -180,6 +185,14 @@ function parseAndValidate(raw: string): CelestinResponse {
 
 function detectMediaType(base64: string): 'image/jpeg' | 'image/png' {
   return base64.startsWith('/9j/') ? 'image/jpeg' : 'image/png'
+}
+
+function normalizeForRouting(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
 }
 
 // === RESPONSE POLICY (post-generation guard) ===
@@ -253,25 +266,61 @@ function summarizeCaveCounts(body: RequestBody): { totalBottles: number; referen
   return { totalBottles, referenceCount }
 }
 
-function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'greeting' | 'social'): string {
+function buildContextBlock(
+  body: RequestBody,
+  cognitiveMode: CognitiveMode | 'greeting' | 'social',
+  memoryPolicy: ReturnType<typeof resolveMemoryTurnProfile>,
+): string {
   const parts: string[] = []
-  const includeProfile = cognitiveMode !== 'tasting_memory'
+  const useCompiledProfile = body.memoryRuntimeVersion === 'compiled_profile_v1' && !!body.compiledProfileMarkdown?.trim()
+  const includeProfile = cognitiveMode !== 'tasting_memory' && !useCompiledProfile
   const caveCounts = summarizeCaveCounts(body)
 
-  // Memory facts — ALWAYS injected in ALL modes (~200-300 tokens)
-  if (body.resolvedUserModel) {
-    parts.push(body.resolvedUserModel)
-  } else if (body.memoryFacts) {
-    parts.push(body.memoryFacts)
+  const memoryLayerValues = {
+    resolvedUserModel:
+      !useCompiledProfile
+      && memoryPolicy.includeResolvedUserModel
+      && body.resolvedUserModel
+        ? body.resolvedUserModel
+        : undefined,
+    memoryFactsFallback:
+      !useCompiledProfile
+      && memoryPolicy.includeMemoryFactsFallback
+      && !body.resolvedUserModel
+      && body.memoryFacts
+        ? body.memoryFacts
+        : undefined,
+    retrievedConversation:
+      !useCompiledProfile
+      && memoryPolicy.includeRetrievedConversation
+      && body.retrievedConversation
+        ? `Conversation passee pertinente :\n${body.retrievedConversation}`
+        : undefined,
+    tastingMemories:
+      memoryPolicy.includeTastingMemories
+        ? buildMemoriesSection(body).join('\n\n')
+        : undefined,
+    previousSessionText:
+      !useCompiledProfile
+      && memoryPolicy.includePreviousSessionText
+      && body.previousSession
+        ? `${body.previousSession}\n\nTu peux faire reference a ces conversations precedentes si c'est pertinent, mais ne force pas.`
+        : undefined,
+  } satisfies Record<string, string | undefined>
+
+  if (useCompiledProfile) {
+    parts.push(`Profil utilisateur compile :\n${body.compiledProfileMarkdown}`)
   }
 
-  // Retrieved conversation — injected when user references a past conversation
-  if (body.retrievedConversation) {
-    parts.push(`Conversation passee pertinente :\n${body.retrievedConversation}`)
+  for (const layerKey of memoryPolicy.layerPriority) {
+    const value = memoryLayerValues[layerKey]
+    if (value) {
+      parts.push(value)
+    }
   }
 
   // Profile — useful in most modes, but too broad for strict memory questions.
-  if (includeProfile && body.profile) {
+  if (!useCompiledProfile && includeProfile && body.profile) {
     parts.push(`Profil de gout :\n${body.profile}`)
   }
 
@@ -285,7 +334,7 @@ function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'gr
 
   // --- restaurant_assistant: profile + questionnaire only ---
   if (cognitiveMode === 'restaurant_assistant') {
-    if (body.questionnaireProfile) {
+    if (!useCompiledProfile && body.questionnaireProfile) {
       parts.push(body.questionnaireProfile)
     }
     return parts.join('\n\n')
@@ -293,20 +342,14 @@ function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'gr
 
   // --- wine_conversation: profile + questionnaire + tasting memories ---
   if (cognitiveMode === 'wine_conversation') {
-    if (body.questionnaireProfile) {
+    if (!useCompiledProfile && body.questionnaireProfile) {
       parts.push(body.questionnaireProfile)
     }
-    parts.push(...buildMemoriesSection(body))
     return parts.join('\n\n')
   }
 
   // --- tasting_memory: profile + memories + sessions (no full cave) ---
   if (cognitiveMode === 'tasting_memory') {
-    parts.push(...buildMemoriesSection(body))
-    if (body.previousSession) {
-      parts.push(body.previousSession)
-      parts.push('Tu peux faire reference a ces conversations precedentes si c\'est pertinent, mais ne force pas.')
-    }
     if (body.cave.length > 0) {
       parts.push(`Cave : ${caveCounts.totalBottles} bouteilles (${caveCounts.referenceCount} references, detail non inclus).`)
     }
@@ -314,15 +357,8 @@ function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'gr
   }
 
   // --- cellar_assistant (default): everything ---
-  if (body.questionnaireProfile) {
+  if (!useCompiledProfile && body.questionnaireProfile) {
     parts.push(body.questionnaireProfile)
-  }
-
-  parts.push(...buildMemoriesSection(body))
-
-  if (body.previousSession) {
-    parts.push(body.previousSession)
-    parts.push('Tu peux faire reference a ces conversations precedentes si c\'est pertinent, mais ne force pas. Les plus recentes sont les plus importantes.')
   }
 
   const zones = (body as Record<string, unknown>).zones as string[] | undefined
@@ -352,9 +388,82 @@ function buildContextBlock(body: RequestBody, cognitiveMode: CognitiveMode | 'gr
 
 // === USER PROMPT (driven by Turn Interpreter) ===
 
-function buildUserPrompt(body: RequestBody, interpretation: TurnInterpretation, state: ConversationState): string {
+function inferMemoryFocus(body: RequestBody, message: string, lastAssistantText?: string): string | null {
+  const normalizedMessage = normalizeForRouting(message)
+  const isEllipticMemoryFollowUp =
+    /\b(combien d'etoiles|combien etoiles|quelle note|quel millesime|quelle impression)\b/i.test(normalizedMessage)
+    || /^(et|et le|et la|et les|et lui|et elle)\b/i.test(normalizedMessage)
+
+  if (!isEllipticMemoryFollowUp) return null
+
+  const previousUserTurn = [...body.history].reverse().find((turn) => turn.role === 'user')?.text ?? null
+  const sourceTexts = [previousUserTurn, lastAssistantText].filter(Boolean) as string[]
+
+  for (const source of sourceTexts) {
+    const matches = source.match(/\b([A-Z][A-Za-zÀ-ÿ'’.-]{2,}(?:\s+[A-Z][A-Za-zÀ-ÿ'’.-]{2,}){0,3})\b/g)
+    if (!matches || matches.length === 0) continue
+
+    const candidate = matches[matches.length - 1]
+    if (/^(Le|La|Les|Un|Une|Et)$/i.test(candidate)) continue
+    return candidate
+  }
+
+  return null
+}
+
+function resolveActiveMemoryFocus(
+  body: RequestBody,
+  interpretation: TurnInterpretation,
+  state: ConversationState,
+  lastAssistantText?: string,
+): string | null {
+  const normalizedMessage = normalizeForRouting(body.message)
+  const existingFocus = state.memoryFocus ?? null
+
+  if (interpretation.cognitiveMode !== 'tasting_memory') {
+    return null
+  }
+
+  const directPatterns = [
+    /\bet\s+(?:le|la|les|l')\s*([a-zà-ÿ0-9'’-]{3,})/i,
+    /\bdu\s+([a-zà-ÿ0-9'’-]{3,})\b/i,
+    /\bde\s+([a-zà-ÿ0-9'’-]{3,})\b/i,
+  ]
+
+  for (const pattern of directPatterns) {
+    const match = body.message.match(pattern)
+    const candidate = match?.[1]?.trim()
+    if (candidate) {
+      return candidate
+    }
+  }
+
+  if (/\b(rayas|gangloff|brunello|selosse|leflaive|dugat|dugat-py|grange des peres|grange des p[eè]res)\b/i.test(body.message)) {
+    const explicit = body.message.match(/\b(rayas|gangloff|brunello|selosse|leflaive|dugat-py|dugat|grange des peres|grange des p[eè]res)\b/i)
+    if (explicit?.[1]) return explicit[1]
+  }
+
+  const isEllipticFollowUp =
+    /\b(combien d'etoiles|combien etoiles|quelle note|quel millesime|quelle impression)\b/i.test(normalizedMessage)
+    || /^(et|et le|et la|et les|et lui|et elle)\b/i.test(normalizedMessage)
+    || /^c'est tout[?! ]*$/i.test(normalizedMessage)
+
+  if (isEllipticFollowUp && existingFocus) {
+    return existingFocus
+  }
+
+  return inferMemoryFocus(body, body.message, lastAssistantText) ?? existingFocus
+}
+
+function buildUserPrompt(
+  body: RequestBody,
+  interpretation: TurnInterpretation,
+  state: ConversationState,
+  lastAssistantText?: string,
+): string {
   const parts: string[] = []
   const { turnType, cognitiveMode } = interpretation
+  const memoryFocus = resolveActiveMemoryFocus(body, interpretation, state, lastAssistantText)
 
   // Greeting
   if (turnType === 'greeting') {
@@ -404,18 +513,34 @@ function buildUserPrompt(body: RequestBody, interpretation: TurnInterpretation, 
   // Smalltalk / wine culture
   else if (turnType === 'smalltalk' || (turnType === 'context_switch' && cognitiveMode === 'wine_conversation')) {
     parts.push(`[QUESTION VIN — Reponds avec tes connaissances. PAS de ui_action. Sois concis et opinione. action_chips : questions pour approfondir (cepage, region, domaine), PAS de suggestions de reco cave.]`)
+    parts.push(`[GARDE-FOU — Pour une question de culture vin, ne ramene PAS la reponse a l'utilisateur, a sa cave, a ses souvenirs ou a ses preferences, sauf si la question porte explicitement dessus.]`)
+    parts.push(`[SOBRIETE MEMOIRE — Pas d'analogie forcee avec une bouteille precise du passe. Si un souvenir personnel n'apporte pas une vraie precision utile, ne le dis pas.]`)
     parts.push(body.message)
   }
 
   // Context switch to tasting memory
   else if (turnType === 'context_switch' && cognitiveMode === 'tasting_memory') {
     parts.push(`[SOUVENIR — L'utilisateur fait reference a une degustation passee. Utilise uniquement les souvenirs explicitement fournis. Si un vin n'apparait pas dans ces souvenirs, dis-le franchement. PAS de ui_action sauf si l'utilisateur demande explicitement de noter.]`)
+    if (memoryFocus) {
+      parts.push(`[FOCUS MEMOIRE — La relance courte porte probablement sur : ${memoryFocus}. Si l'utilisateur demande "combien d'etoiles", "quelle note" ou "quel millesime", reste focalise sur ce vin precis.]`)
+    }
     parts.push(body.message)
   }
 
   // Unknown — conversational fallback, no cave actions
   else if (turnType === 'context_switch' && cognitiveMode === 'cellar_assistant') {
     parts.push(`[QUESTION CAVE - Reponds uniquement a partir de la cave transmise. Pas de ui_action. Pour les questions de quantite, compte les bouteilles a partir des quantites, pas seulement les references.]`)
+    parts.push(body.message)
+  }
+
+  else if (
+    turnType === 'task_continue'
+    && cognitiveMode === 'cellar_assistant'
+    && state.phase === 'collecting_info'
+    && state.taskType === 'recommendation'
+  ) {
+    parts.push(`[RECOMMANDATION IMMEDIATE — L'utilisateur vient d'apporter la precision manquante pour une recommandation. Si tu as assez de contexte pour proposer des vins, utilise MAINTENANT show_recommendations. Ne reste pas en conversation generale. Une seule exception : si le message reste vraiment trop vague, pose une derniere question tres courte.]`)
+    parts.push(`[GARDE-FOU — En recommendation, base-toi d'abord sur la demande courante. N'introduis JAMAIS un autre plat, un autre pays ou un souvenir non mentionne. Un souvenir est autorise seulement s'il justifie directement le choix.]`)
     parts.push(body.message)
   }
 
@@ -429,6 +554,16 @@ function buildUserPrompt(body: RequestBody, interpretation: TurnInterpretation, 
 
   // Task request, task continue, disambiguation answer — just the message
   else {
+    if (
+      cognitiveMode === 'cellar_assistant'
+      && (interpretation.inferredTaskType === 'recommendation' || state.taskType === 'recommendation')
+    ) {
+      parts.push(`[RECOMMANDATION — Reponds d'abord a la demande actuelle. N'invente PAS un autre plat ou contexte. N'utilise pas un souvenir pour faire joli. Si tu cites un souvenir, il doit etre directement utile pour expliquer le choix. N'insiste jamais deux tours de suite sur le meme souvenir saillant.]`)
+      parts.push(`[SOBRIETE MEMOIRE — Sur une relance de type pays, couleur, style ou "plutot...", continue la recommandation sans recycler automatiquement le plat precedent ni un souvenir marquant. Ne rappelle un plat ou un souvenir que si l'utilisateur le remet lui-meme au centre ou si cela change concretement le choix.]`)
+    }
+    if (cognitiveMode === 'tasting_memory' && memoryFocus) {
+      parts.push(`[FOCUS MEMOIRE — La relance courte porte probablement sur : ${memoryFocus}. Reste focalise sur ce vin precis.]`)
+    }
     parts.push(body.message)
     if (body.image) {
       parts.push("L'utilisateur a joint une photo. Analyse-la et reponds en fonction de ce que tu vois.")
@@ -934,22 +1069,31 @@ Deno.serve(async (req) => {
     const interpretation = interpretTurn(body.message, !!body.image, conversationState, lastAssistantText)
     console.log(`[celestin] message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} state=${conversationState.phase} history=${body.history.length} cave=${body.cave.length} image=${body.image ? 'yes' : 'no'}`)
 
-    const resolvedUserModel = buildResolvedUserModel({
-      message: body.message,
-      cognitiveMode: interpretation.cognitiveMode,
-      turnType: interpretation.turnType,
-      facts: body.memoryFactsRaw,
-      previousSessions: body.previousSessionSummaries,
-    })
+    const memoryPolicy = resolveMemoryTurnProfile(
+      body.memoryPolicyId ?? DEFAULT_MEMORY_POLICY_ID,
+      interpretation,
+      conversationState,
+    )
+
+    const resolvedUserModel = body.memoryRuntimeVersion !== 'compiled_profile_v1' && memoryPolicy.includeResolvedUserModel
+      ? buildResolvedUserModel({
+          message: body.message,
+          cognitiveMode: interpretation.cognitiveMode,
+          turnType: interpretation.turnType,
+          facts: body.memoryFactsRaw,
+          previousSessions: body.previousSessionSummaries,
+        })
+      : undefined
 
     const resolvedBody: RequestBody = resolvedUserModel
       ? { ...body, resolvedUserModel }
       : body
 
     // Build prompt and context driven by cognitive mode
-    const contextBlock = buildContextBlock(resolvedBody, interpretation.cognitiveMode)
+    const contextBlock = buildContextBlock(resolvedBody, interpretation.cognitiveMode, memoryPolicy)
     const systemPrompt = buildCelestinSystemPrompt(interpretation.cognitiveMode) + '\n\n--- CONTEXTE UTILISATEUR ---\n\n' + contextBlock
-    const userPrompt = buildUserPrompt(resolvedBody, interpretation, conversationState)
+    const activeMemoryFocus = resolveActiveMemoryFocus(resolvedBody, interpretation, conversationState, lastAssistantText)
+    const userPrompt = buildUserPrompt(resolvedBody, interpretation, { ...conversationState, memoryFocus: activeMemoryFocus }, lastAssistantText)
 
     const { provider, response: rawResponse } = await celestinWithFallback(systemPrompt, userPrompt, body.history, body.provider, body.image)
 
@@ -963,10 +1107,11 @@ Deno.serve(async (req) => {
       !!response.ui_action,
       response.ui_action?.kind,
       interpretation.inferredTaskType,
+      activeMemoryFocus,
     )
-    console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} nextState=${nextState.phase} msg="${response.message.slice(0, 120)}" resolved=${resolvedUserModel ? 'yes' : 'no'}`)
+    console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} nextState=${nextState.phase} focus=${nextState.memoryFocus ?? 'none'} msg="${response.message.slice(0, 120)}" resolved=${resolvedUserModel ? 'yes' : 'no'}`)
 
-    return new Response(JSON.stringify({ ...response, _nextState: nextState, _debug: { turnType: interpretation.turnType, cognitiveMode: interpretation.cognitiveMode, provider, resolvedUserModel: !!resolvedUserModel, memoryEvidenceMode: body.memoryEvidenceMode ?? null } }), {
+    return new Response(JSON.stringify({ ...response, _nextState: nextState, _debug: { turnType: interpretation.turnType, cognitiveMode: interpretation.cognitiveMode, provider, resolvedUserModel: !!resolvedUserModel, memoryEvidenceMode: body.memoryEvidenceMode ?? null, memoryPolicyId: memoryPolicy.policyId, memoryRuntimeVersion: body.memoryRuntimeVersion ?? 'legacy', memoryTurnProfile: memoryPolicy.turnProfileKey, memoryFocus: activeMemoryFocus } }), {
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     })
   } catch (error) {

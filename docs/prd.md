@@ -80,7 +80,7 @@ Il sait recommander, expliquer, debattre, proposer des accords, raconter l'histo
 Le vin, c'est des moments. Celestin transforme des notes de degustation brutes en **souvenirs vivants** :
 
 - Tags extraits automatiquement (plats, descripteurs, occasion, sentiment, maturite)
-- Semantic search — "le vin italien de Noel" retrouve le bon souvenir
+- Profil compilé maintenu dans le temps + requêtes ciblées sur les dégustations et souvenirs exacts
 - Souvenirs resurfaces au bon moment dans la conversation ("La derniere fois que tu as mange du canard, c'etait avec le Madiran de Montus — tu avais adore")
 - Belles cartes de degustation partageables (photo + infos + branding)
 - Wine Wrapped annuel : tes appellations preferees, ta meilleure decouverte, tes accords marquants (a faire)

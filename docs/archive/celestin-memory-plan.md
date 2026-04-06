@@ -1,5 +1,11 @@
 # Mémoire Celestin
 
+## Documents liés
+
+- [celestin-memory-review.md](./celestin-memory-review.md)
+- [celestin-memory-policy-matrix.md](./celestin-memory-policy-matrix.md)
+- [autodream-spec-claude-code.md](./autodream-spec-claude-code.md)
+
 ## Vision
 
 Celestin ne doit pas "se souvenir" tout seul. Le LLM raisonne sur une mémoire externe organisée en 4 couches :
