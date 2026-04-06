@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { getDebugMemoryPolicyId, setDebugMemoryPolicyId } from '@/lib/celestinMemoryPolicyDebug'
-import { getDebugMemoryRuntimeId, setDebugMemoryRuntimeId } from '@/lib/celestinMemoryRuntimeDebug'
 import { serializeProfileForPrompt } from '@/lib/taste-profile'
 import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
 import { formatDrunkSummary, getDayOfWeek, getSeason } from '@/lib/contextHelpers'
@@ -20,22 +18,11 @@ import {
   setCrossSessionConfig,
   getMemoryDebugInfo,
   clearAllSessions,
-  loadPreviousSessionSummariesFromSupabase,
   type SessionSummary,
 } from '@/lib/crossSessionMemory'
 import { loadActiveMemoryFacts } from '@/lib/chatPersistence'
 import { buildCompositeText } from '@/lib/semanticMemory'
 import type { Bottle, TasteProfile } from '@/lib/types'
-import {
-  DEFAULT_MEMORY_POLICY_ID,
-  MEMORY_POLICIES,
-  type MemoryPolicyConfig,
-} from '../../shared/celestin/memory-policy.js'
-import {
-  DEFAULT_MEMORY_RUNTIME_ID,
-  MEMORY_RUNTIMES,
-  type MemoryRuntimeConfig,
-} from '../../shared/celestin/memory-runtime.js'
 
 // --- Memory weight types & helpers (moved from Settings) ---
 
@@ -248,15 +235,12 @@ export default function Debug() {
     gemini: false,
     mistral: false,
   })
-  const [compareAllMemoryRuntimes, setCompareAllMemoryRuntimes] = useState(false)
 
   // Memory weight analysis
   const [analyzingMemories, setAnalyzingMemories] = useState(false)
   const [memoryWeightStatus, setMemoryWeightStatus] = useState<string | null>(null)
   const [memoryWeightReport, setMemoryWeightReport] = useState<MemoryWeightReport | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [memoryPolicyId, setMemoryPolicyIdState] = useState<string>(() => getDebugMemoryPolicyId() ?? DEFAULT_MEMORY_POLICY_ID)
-  const [memoryRuntimeId, setMemoryRuntimeIdState] = useState<string>(() => getDebugMemoryRuntimeId() ?? DEFAULT_MEMORY_RUNTIME_ID)
   const [auditingMemory, setAuditingMemory] = useState(false)
   const [memoryAuditStatus, setMemoryAuditStatus] = useState<string | null>(null)
   const [memoryAuditReport, setMemoryAuditReport] = useState<MemoryAuditReport | null>(null)
@@ -322,8 +306,6 @@ export default function Debug() {
         { data: drunk, error: drunkError },
         { data: profileRow, error: profileError },
         initialCompiledProfileRow,
-        memoryFactsRaw,
-        previousSessionSummaries,
       ] = await Promise.all([
         supabase
           .from('bottles')
@@ -340,8 +322,6 @@ export default function Debug() {
           .select('computed_profile, explicit_preferences, computed_at')
           .maybeSingle(),
         loadUserProfile(),
-        loadActiveMemoryFacts(),
-        loadPreviousSessionSummariesFromSupabase(),
       ])
 
       if (caveError) throw caveError
@@ -349,10 +329,7 @@ export default function Debug() {
       if (profileError) throw profileError
 
       let compiledProfileRow = initialCompiledProfileRow
-      const shouldEnsureCompiledProfile =
-        memoryRuntimeId === 'compiled_profile_v1' || compareAllMemoryRuntimes
-
-      if (shouldEnsureCompiledProfile && !compiledProfileRow?.compiled_markdown?.trim()) {
+      if (!compiledProfileRow?.compiled_markdown?.trim()) {
         compiledProfileRow = await compileUserProfile('fixture_export_bootstrap')
         setUserProfile(compiledProfileRow)
       }
@@ -387,8 +364,6 @@ export default function Debug() {
         profile: profile ? serializeProfileForPrompt(profile) : null,
         memories: serializeMemoriesForPrompt(memories) || null,
         compiledProfileMarkdown: compiledProfileRow?.compiled_markdown ?? null,
-        memoryFactsRaw,
-        previousSessionSummaries,
         context: {
           dayOfWeek: getDayOfWeek(),
           season: getSeason(),
@@ -408,7 +383,7 @@ export default function Debug() {
       URL.revokeObjectURL(url)
 
       setFixtureStatus(
-        `Fixture exportee (${fixture.cave?.length ?? 0} bouteilles en cave, ${fixture.drunk?.length ?? 0} degustees, ${fixture.memoryFactsRaw?.length ?? 0} facts, profil compilé ${fixture.compiledProfileMarkdown ? 'oui' : 'non'})`
+        `Fixture exportee (${fixture.cave?.length ?? 0} bouteilles en cave, ${fixture.drunk?.length ?? 0} degustees, profil compilé ${fixture.compiledProfileMarkdown ? 'oui' : 'non'})`
       )
     } catch (err) {
       setFixtureStatus(`Erreur export fixture: ${err instanceof Error ? err.message : 'inconnue'}`)
@@ -465,74 +440,66 @@ export default function Debug() {
       const fixtureFile = await fixtureHandle.getFile()
       const fixture = JSON.parse(await fixtureFile.text()) as CelestinEvalFixture
       const results: CelestinEvalResult[] = []
-      const runtimeIds = compareAllMemoryRuntimes
-        ? (Object.keys(MEMORY_RUNTIMES) as Array<'legacy' | 'compiled_profile_v1'>)
-        : [memoryRuntimeId as 'legacy' | 'compiled_profile_v1']
-      const totalSteps = CELESTIN_EVAL_SCENARIOS.length * selectedProviders.length * runtimeIds.length
+      const totalSteps = CELESTIN_EVAL_SCENARIOS.length * selectedProviders.length
       let currentStep = 0
 
-      for (const runtimeId of runtimeIds) {
-        for (const scenario of CELESTIN_EVAL_SCENARIOS) {
-          for (const provider of selectedProviders) {
-            currentStep++
-            setEvalStatus(`[${currentStep}/${totalSteps}] ${scenario.id} — ${provider} — ${runtimeId}...`)
-            const body = await buildCelestinEvalRequest(fixture, scenario, provider, memoryPolicyId, runtimeId)
-            const startedAt = Date.now()
-            const { data, error: fnErr, response } = await supabase.functions.invoke<Record<string, unknown>>('celestin', {
-              body,
-            })
-            const elapsedMs = Date.now() - startedAt
-            let rawText = ''
-            if (response && !response.ok) {
-              try {
-                rawText = await response.clone().text()
-              } catch {
-                rawText = ''
-              }
+      for (const scenario of CELESTIN_EVAL_SCENARIOS) {
+        for (const provider of selectedProviders) {
+          currentStep++
+          setEvalStatus(`[${currentStep}/${totalSteps}] ${scenario.id} — ${provider}...`)
+          const body = await buildCelestinEvalRequest(fixture, scenario, provider)
+          const startedAt = Date.now()
+          const { data, error: fnErr, response } = await supabase.functions.invoke<Record<string, unknown>>('celestin', {
+            body,
+          })
+          const elapsedMs = Date.now() - startedAt
+          let rawText = ''
+          if (response && !response.ok) {
+            try {
+              rawText = await response.clone().text()
+            } catch {
+              rawText = ''
             }
+          }
 
-            if (fnErr || !data || data.error) {
-              const errorResponse = {
-                message: response && !response.ok
-                  ? `HTTP ${response.status}${rawText ? `: ${rawText}` : ''}`
-                  : typeof data?.error === 'string'
-                    ? data.error
-                    : fnErr instanceof Error
-                      ? fnErr.message
-                      : rawText || 'Erreur inconnue',
-                ui_action: null,
-              }
-              results.push({
-                id: scenario.id,
-                provider,
-                memoryRuntimeVersion: runtimeId,
-                elapsedMs: null,
-                request: body,
-                response: errorResponse,
-                analysis: analyzeCelestinEvalResult(scenario, errorResponse, provider),
-              })
-              continue
+          if (fnErr || !data || data.error) {
+            const errorResponse = {
+              message: response && !response.ok
+                ? `HTTP ${response.status}${rawText ? `: ${rawText}` : ''}`
+                : typeof data?.error === 'string'
+                  ? data.error
+                  : fnErr instanceof Error
+                    ? fnErr.message
+                    : rawText || 'Erreur inconnue',
+              ui_action: null,
             }
-
             results.push({
               id: scenario.id,
               provider,
-              memoryRuntimeVersion: runtimeId,
-              elapsedMs,
+              elapsedMs: null,
               request: body,
-              response: data,
-              analysis: analyzeCelestinEvalResult(scenario, data, provider),
+              response: errorResponse,
+              analysis: analyzeCelestinEvalResult(scenario, errorResponse, provider),
             })
+            continue
           }
+
+          results.push({
+            id: scenario.id,
+            provider,
+            elapsedMs,
+            request: body,
+            response: data,
+            analysis: analyzeCelestinEvalResult(scenario, data, provider),
+          })
         }
       }
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
       const providerSuffix = selectedProviders.join('-vs-')
-      const runtimeSuffix = runtimeIds.join('-vs-')
-      const report = { fixture, scenarios: CELESTIN_EVAL_SCENARIOS, providers: selectedProviders, memoryRuntimes: runtimeIds, results }
+      const report = { fixture, scenarios: CELESTIN_EVAL_SCENARIOS, providers: selectedProviders, memoryRuntime: 'compiled_profile_v1', results }
       const html = renderCelestinEvalHtmlReport(results, fixture, CELESTIN_EVAL_SCENARIOS)
-      const baseName = `celestin-eval-${providerSuffix}-${runtimeSuffix}-${timestamp}`
+      const baseName = `celestin-eval-${providerSuffix}-compiled_profile_v1-${timestamp}`
 
       // Download via <a download> — no filesystem permission needed
       function downloadBlob(content: string, filename: string, type: string) {
@@ -550,50 +517,12 @@ export default function Debug() {
       downloadBlob(JSON.stringify(report, null, 2), `${baseName}.json`, 'application/json')
       downloadBlob(html, `${baseName}.html`, 'text/html')
 
-      setEvalStatus(`Rapports telecharges (${selectedProviders.join(' vs ')}) • politique ${memoryPolicyId} • runtime ${runtimeIds.join(' vs ')}`)
+      setEvalStatus(`Rapports telecharges (${selectedProviders.join(' vs ')}) • runtime compiled_profile_v1`)
     } catch (err) {
       setEvalStatus(`Erreur eval Celestin: ${err instanceof Error ? err.message : 'inconnue'}`)
     } finally {
       setRunningEval(false)
     }
-  }
-
-  const handleApplyMemoryPolicy = () => {
-    if (memoryPolicyId === DEFAULT_MEMORY_POLICY_ID) {
-      setDebugMemoryPolicyId(null)
-      setEvalStatus(`Politique memoire locale: defaut (${DEFAULT_MEMORY_POLICY_ID})`)
-      return
-    }
-
-    setDebugMemoryPolicyId(memoryPolicyId)
-    setEvalStatus(`Politique memoire locale: ${memoryPolicyId}`)
-  }
-
-  const handleApplyMemoryRuntime = async () => {
-    if (memoryRuntimeId === DEFAULT_MEMORY_RUNTIME_ID) {
-      setDebugMemoryRuntimeId(null)
-      setEvalStatus(`Runtime memoire local: defaut (${DEFAULT_MEMORY_RUNTIME_ID})`)
-      return
-    }
-
-    setDebugMemoryRuntimeId(memoryRuntimeId)
-    if (memoryRuntimeId === 'compiled_profile_v1' && !userProfile?.compiled_markdown?.trim()) {
-      setCompilingUserProfile(true)
-      setUserProfileStatus('Compilation du profil pour activer le runtime...')
-      try {
-        const profile = await compileUserProfile('runtime_switch_bootstrap')
-        setUserProfile(profile)
-        setEvalStatus(`Runtime memoire local: ${memoryRuntimeId}`)
-        setUserProfileStatus('Profil compilé prêt pour le runtime.')
-      } catch (err) {
-        setUserProfileStatus(`Erreur compilation profil: ${err instanceof Error ? err.message : 'inconnue'}`)
-      } finally {
-        setCompilingUserProfile(false)
-      }
-      return
-    }
-
-    setEvalStatus(`Runtime memoire local: ${memoryRuntimeId}`)
   }
 
   const handleForceCompileUserProfile = async () => {
@@ -905,54 +834,9 @@ export default function Debug() {
             </button>
 
             <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
-              <p className="text-[11px] font-medium text-[var(--text-primary)] mb-2">Politique memoire</p>
-              <div className="flex gap-2 items-center">
-                <select
-                  value={memoryPolicyId}
-                  onChange={(e) => setMemoryPolicyIdState(e.target.value)}
-                  className="flex-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-[12px] text-[var(--text-primary)]"
-                >
-                  {(Object.values(MEMORY_POLICIES) as MemoryPolicyConfig[]).map((policy) => (
-                    <option key={policy.id} value={policy.id}>
-                      {policy.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={handleApplyMemoryPolicy}
-                  className="rounded-[10px] bg-[#B8860B] px-3 py-2 text-[11px] font-semibold text-white"
-                >
-                  Appliquer
-                </button>
-              </div>
-              <p className="mt-2 text-[11px] text-[var(--text-muted)]">
-                Cette valeur pilote aussi les tests manuels dans l'app via localStorage.
-              </p>
-            </div>
-
-            <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
-              <p className="text-[11px] font-medium text-[var(--text-primary)] mb-2">Runtime memoire</p>
-              <div className="flex gap-2 items-center">
-                <select
-                  value={memoryRuntimeId}
-                  onChange={(e) => setMemoryRuntimeIdState(e.target.value)}
-                  className="flex-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-[12px] text-[var(--text-primary)]"
-                >
-                  {(Object.values(MEMORY_RUNTIMES) as MemoryRuntimeConfig[]).map((runtime) => (
-                    <option key={runtime.id} value={runtime.id}>
-                      {runtime.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={handleApplyMemoryRuntime}
-                  className="rounded-[10px] bg-[#B8860B] px-3 py-2 text-[11px] font-semibold text-white"
-                >
-                  Appliquer
-                </button>
-              </div>
-              <p className="mt-2 text-[11px] text-[var(--text-muted)]">
-                `legacy` garde le systeme actuel. `compiled_profile_v1` force le nouveau runtime local.
+              <p className="text-[11px] font-medium text-[var(--text-primary)] mb-2">Runtime mémoire</p>
+              <p className="text-[11px] text-[var(--text-muted)]">
+                Le debug utilise désormais uniquement `compiled_profile_v1`.
               </p>
             </div>
 
@@ -996,15 +880,6 @@ export default function Debug() {
                   </label>
                 ))}
               </div>
-              <label className="mt-3 flex items-center gap-2 text-[12px] text-[var(--text-secondary)]">
-                <input
-                  type="checkbox"
-                  checked={compareAllMemoryRuntimes}
-                  onChange={(e) => setCompareAllMemoryRuntimes(e.target.checked)}
-                  className="rounded"
-                />
-                Comparer `legacy` et `compiled_profile_v1` dans le même run
-              </label>
             </div>
 
             <button

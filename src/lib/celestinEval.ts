@@ -1,8 +1,5 @@
 import { buildMemoryEvidenceBundle } from '@/lib/tastingMemories'
-import type { MemoryFact } from '@/lib/chatPersistence'
-import type { ConversationMemorySummary } from '@/lib/crossSessionMemory'
 import type { Bottle } from '@/lib/types'
-import type { MemoryRuntimeId } from '../../shared/celestin/memory-runtime.js'
 
 export interface CelestinEvalScenario {
   id: string
@@ -41,8 +38,6 @@ export interface CelestinEvalFixture {
   profile?: string | null
   memories?: string | null
   compiledProfileMarkdown?: string | null
-  memoryFactsRaw?: MemoryFact[]
-  previousSessionSummaries?: ConversationMemorySummary[]
   context?: {
     dayOfWeek?: string
     season?: string
@@ -91,7 +86,6 @@ export interface CelestinEvalAnalysis {
 export interface CelestinEvalResult {
   id: string
   provider: string
-  memoryRuntimeVersion: MemoryRuntimeId
   elapsedMs: number | null
   request: Record<string, unknown>
   response: CelestinEvalResponse
@@ -227,8 +221,6 @@ export async function buildCelestinEvalRequest(
   fixture: CelestinEvalFixture,
   scenario: CelestinEvalScenario,
   provider?: string,
-  memoryPolicyId?: string,
-  memoryRuntimeVersion?: MemoryRuntimeId,
 ): Promise<Record<string, unknown>> {
   const rawHistory = scenario.history ?? fixture.history ?? []
   const history = rawHistory.map((turn) => ({
@@ -254,16 +246,8 @@ export async function buildCelestinEvalRequest(
     memories: memoryEvidence ? memoryEvidence.serialized : (fixture.memories ?? undefined),
     context: fixture.context ?? undefined,
     ...(memoryEvidence?.mode ? { memoryEvidenceMode: memoryEvidence.mode } : {}),
-    ...(fixture.memoryFactsRaw && fixture.memoryFactsRaw.length > 0 ? { memoryFactsRaw: fixture.memoryFactsRaw } : {}),
-    ...(fixture.previousSessionSummaries && fixture.previousSessionSummaries.length > 0
-      ? { previousSessionSummaries: fixture.previousSessionSummaries }
-      : {}),
     ...(provider ? { provider } : {}),
-    ...(memoryPolicyId ? { memoryPolicyId } : {}),
-    ...(memoryRuntimeVersion ? { memoryRuntimeVersion } : {}),
-    ...(memoryRuntimeVersion === 'compiled_profile_v1' && fixture.compiledProfileMarkdown
-      ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown }
-      : {}),
+    ...(fixture.compiledProfileMarkdown ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown } : {}),
   }
 }
 
@@ -466,18 +450,14 @@ function scoreResult(scenario: CelestinEvalScenario, result: CelestinEvalResult)
   return 'pass'
 }
 
-function runtimeResultLabel(result: CelestinEvalResult): string {
-  return `${result.provider} · ${result.memoryRuntimeVersion}`
-}
-
 export function renderCelestinEvalHtmlReport(
   results: CelestinEvalResult[],
   fixture: CelestinEvalFixture,
   scenarios: CelestinEvalScenario[],
 ): string {
   // Group results by scenario
-  const providerRuntimes = [...new Set(results.map((r) => runtimeResultLabel(r)))].sort()
-  const isComparative = providerRuntimes.length > 1
+  const providers = [...new Set(results.map((r) => r.provider))].sort()
+  const isComparative = providers.length > 1
   const resultsByScenario = new Map<string, CelestinEvalResult[]>()
   for (const r of results) {
     const list = resultsByScenario.get(r.id) ?? []
@@ -486,8 +466,8 @@ export function renderCelestinEvalHtmlReport(
   }
 
   // Score summary per provider/runtime
-  const providerScores = providerRuntimes.map((label) => {
-    const providerResults = results.filter((r) => runtimeResultLabel(r) === label)
+  const providerScores = providers.map((label) => {
+    const providerResults = results.filter((r) => r.provider === label)
     const pass = providerResults.filter((r) => {
       const s = scenarios.find((sc) => sc.id === r.id)
       return s && scoreResult(s, r) === 'pass'
@@ -533,8 +513,8 @@ export function renderCelestinEvalHtmlReport(
   const scenarioRows = scenarios.map((scenario) => {
     const scenarioResults = resultsByScenario.get(scenario.id) ?? []
 
-    const providerCols = providerRuntimes.map((providerRuntimeLabel) => {
-      const result = scenarioResults.find((r) => runtimeResultLabel(r) === providerRuntimeLabel)
+    const providerCols = providers.map((providerRuntimeLabel) => {
+      const result = scenarioResults.find((r) => r.provider === providerRuntimeLabel)
       if (!result) {
         return `<div class="provider-col"><div class="provider-name">${escapeHtml(providerRuntimeLabel)}</div><div class="empty">Pas de resultat</div></div>`
       }
@@ -609,7 +589,7 @@ export function renderCelestinEvalHtmlReport(
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Celestin Eval — ${isComparative ? 'Comparatif' : providerRuntimes[0] ?? 'Eval'}</title>
+  <title>Celestin Eval — ${isComparative ? 'Comparatif' : providers[0] ?? 'Eval'}</title>
   <style>
     body { font-family: Georgia, serif; background: #f5f1ea; color: #1c1a17; margin: 0; padding: 24px; }
     .page { max-width: 1400px; margin: 0 auto; }
@@ -669,7 +649,7 @@ export function renderCelestinEvalHtmlReport(
     <h1>Celestin Eval${isComparative ? ' — Comparatif' : ''}</h1>
     <div class="page-meta">
       Fixture: ${escapeHtml(fixture.name ?? 'unnamed')} |
-      Runtimes: ${providerRuntimes.join(', ')} |
+      Providers: ${providers.join(', ')} |
       Scenarios: ${scenarios.length}
     </div>
     ${scoreboardHtml}

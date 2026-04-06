@@ -2,12 +2,8 @@ import { serializeProfileForPrompt } from '@/lib/taste-profile'
 import { rankCaveBottles } from '@/lib/recommendationRanking'
 import { selectRelevantMemories, serializeMemoriesForPrompt } from '@/lib/tastingMemories'
 import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
-import { serializeQuestionnaireForPrompt, type QuestionnaireProfile } from '@/lib/questionnaire-profile'
 import type { RecommendationCard } from '@/lib/recommendationStore'
-import type { MemoryFact } from '@/lib/chatPersistence'
-import type { ConversationMemorySummary } from '@/lib/crossSessionMemory'
 import type { Bottle, BottleVolumeOption, TasteProfile, WineColor, WineExtraction } from '@/lib/types'
-import type { MemoryRuntimeId } from '../../shared/celestin/memory-runtime.js'
 
 export interface WineActionData {
   intent: 'encaver' | 'deguster'
@@ -161,29 +157,14 @@ export function buildCelestinRequestBody(input: {
   cave: Bottle[]
   drunk: Bottle[]
   profile: TasteProfile | null
-  questionnaireProfile: QuestionnaireProfile | null
   messages: CelestinChatMessage[]
-  previousSession?: string
   zones: string[]
   memoriesOverride?: string
   memoriesQuery?: string
   memoryEvidenceMode?: 'exact' | 'synthesis' | 'semantic'
   conversationState?: Record<string, unknown> | null
-  memoryFacts?: string
-  memoryFactsRaw?: MemoryFact[]
-  retrievedConversation?: string
-  previousSessionSummaries?: ConversationMemorySummary[]
-  memoryPolicyId?: string
-  memoryRuntimeVersion?: MemoryRuntimeId
   compiledProfileMarkdown?: string
 }) {
-  const durableFacts = (input.memoryFactsRaw ?? []).filter((fact) => !fact.is_temporary)
-  const shouldIncludeQuestionnaireProfile =
-    !!input.questionnaireProfile
-    && input.drunk.length < 3
-    && durableFacts.length < 4
-    && (input.previousSessionSummaries?.length ?? 0) < 2
-
   const ranked = rankCaveBottles('generic', input.message, input.cave, input.drunk, input.profile, input.cave.length)
   const caveSummary = ranked.map(({ bottle, score }) => ({
     id: bottle.id.substring(0, 8),
@@ -198,9 +179,6 @@ export function buildCelestinRequestBody(input: {
   }))
 
   const profileStr = input.profile ? serializeProfileForPrompt(input.profile) : undefined
-  const questionnaireStr = shouldIncludeQuestionnaireProfile
-    ? serializeQuestionnaireForPrompt(input.questionnaireProfile!)
-    : undefined
   const memoriesQuery = input.memoriesQuery ?? input.message
   const memoriesStr = input.memoriesOverride !== undefined
     ? (input.memoriesOverride || undefined)
@@ -212,26 +190,16 @@ export function buildCelestinRequestBody(input: {
     history: buildHistory(input.messages),
     cave: caveSummary,
     profile: profileStr,
-    questionnaireProfile: questionnaireStr,
     memories: memoriesStr,
     context: {
       dayOfWeek: getDayOfWeek(),
       season: getSeason(),
       recentDrunk: recentDrunk.length > 0 ? recentDrunk : undefined,
     },
-    previousSession: input.previousSession,
     zones: input.zones.length > 0 ? input.zones : undefined,
     ...(input.memoryEvidenceMode ? { memoryEvidenceMode: input.memoryEvidenceMode } : {}),
     ...(input.conversationState ? { conversationState: input.conversationState } : {}),
     ...(input.image ? { image: input.image } : {}),
-    ...(input.memoryFacts ? { memoryFacts: input.memoryFacts } : {}),
-    ...(input.memoryFactsRaw && input.memoryFactsRaw.length > 0 ? { memoryFactsRaw: input.memoryFactsRaw } : {}),
-    ...(input.retrievedConversation ? { retrievedConversation: input.retrievedConversation } : {}),
-    ...(input.previousSessionSummaries && input.previousSessionSummaries.length > 0
-      ? { previousSessionSummaries: input.previousSessionSummaries }
-      : {}),
-    ...(input.memoryPolicyId ? { memoryPolicyId: input.memoryPolicyId } : {}),
-    ...(input.memoryRuntimeVersion ? { memoryRuntimeVersion: input.memoryRuntimeVersion } : {}),
     ...(input.compiledProfileMarkdown ? { compiledProfileMarkdown: input.compiledProfileMarkdown } : {}),
   }
 }

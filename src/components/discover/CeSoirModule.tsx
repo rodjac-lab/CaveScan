@@ -34,7 +34,6 @@ import {
   invokeCelestin,
   prepareCelestinRequest,
 } from '@/lib/celestinChatRequest'
-import { serializeMemoryFactsForPrompt } from '@/lib/memoryFactsSerializer'
 
 // --- Types ---
 
@@ -394,12 +393,6 @@ let persistedConversationState: Record<string, unknown> | null = null
 import {
   saveCurrentSession as saveCrossSession,
   rotateSessions,
-  loadPreviousSessions,
-  loadPreviousSessionsFromSupabase,
-  loadPreviousSessionSummariesFromSupabase,
-  getLocalPreviousSessionSummaries,
-  serializePreviousSessionsForPrompt,
-  type ConversationMemorySummary,
 } from '@/lib/crossSessionMemory'
 
 // --- Main Component ---
@@ -413,9 +406,6 @@ export default function CeSoirModule() {
   const { profile } = useTasteProfile()
   const { zones } = useZones()
   const { profile: questionnaireProfile, loading: questionnaireLoading, saveProfile: saveQuestionnaireProfile } = useQuestionnaireProfile()
-
-  const questionnaireProfileRef = useRef(questionnaireProfile)
-  questionnaireProfileRef.current = questionnaireProfile
 
   // Chat state — single source of truth, survives tab navigation
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -431,13 +421,6 @@ export default function CeSoirModule() {
   const messagesRef = useRef(messages)
   messagesRef.current = messages
 
-  // Previous sessions context: local fallback immediately, Supabase summaries when ready
-  const previousSessionContextRef = useRef<string | undefined>(
-    serializePreviousSessionsForPrompt(loadPreviousSessions())
-  )
-  const previousSessionSummariesRef = useRef<ConversationMemorySummary[]>(
-    getLocalPreviousSessionSummaries()
-  )
   const [queryInput, setQueryInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [expandedCard, setExpandedCard] = useState<RecommendationCard | null>(null)
@@ -459,7 +442,6 @@ export default function CeSoirModule() {
   // Chat persistence (Supabase)
   const sessionIdRef = useRef<string | null>(null)
   const userTurnCountRef = useRef(0)
-  const memoryFactsRef = useRef<string | undefined>(undefined)
   const memoryFactsRawRef = useRef<MemoryFact[]>([])
 
   // Initialize session + load memory facts on mount
@@ -468,17 +450,6 @@ export default function CeSoirModule() {
     createSession().then(id => { sessionIdRef.current = id })
     loadActiveMemoryFacts().then(facts => {
       memoryFactsRawRef.current = facts
-      memoryFactsRef.current = serializeMemoryFactsForPrompt(facts)
-    })
-    loadPreviousSessionsFromSupabase().then(context => {
-      if (context) {
-        previousSessionContextRef.current = context
-      }
-    })
-    loadPreviousSessionSummariesFromSupabase().then(summaries => {
-      if (summaries.length > 0) {
-        previousSessionSummariesRef.current = summaries
-      }
     })
 
     return () => {
@@ -515,7 +486,6 @@ export default function CeSoirModule() {
 
   function syncActiveMemoryFacts(facts: MemoryFact[]) {
     memoryFactsRawRef.current = facts
-    memoryFactsRef.current = serializeMemoryFactsForPrompt(facts)
   }
 
   async function callCelestin(message: string, loadingMsgId: string, image?: string) {
@@ -528,14 +498,9 @@ export default function CeSoirModule() {
         cave: caveRef.current,
         drunk: drunkRef.current,
         profile: profileRef.current,
-        questionnaireProfile: questionnaireProfileRef.current,
         messages: messagesRef.current,
-        previousSession: previousSessionContextRef.current,
-        previousSessionSummaries: previousSessionSummariesRef.current,
         zones: zones.map((zone) => zone.name),
         conversationState: persistedConversationState,
-        memoryFacts: memoryFactsRef.current,
-        memoryFactsRaw: memoryFactsRawRef.current,
       })
 
       const fullResponse = await invokeCelestin(body)
@@ -965,4 +930,3 @@ export default function CeSoirModule() {
     </div>
   )
 }
-

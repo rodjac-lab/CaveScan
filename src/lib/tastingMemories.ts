@@ -913,7 +913,6 @@ export async function selectRelevantMemoriesAsync(
   options: MemorySelectionOptions = {},
 ): Promise<Bottle[]> {
   const { selectionProfile = 'default', recentMessages = [] } = options
-  // If no query or too short, skip semantic search
   if (!query || query.trim().length < 3) {
     return selectRelevantMemories(mode, query, drunkBottles, limit, options)
   }
@@ -921,15 +920,19 @@ export async function selectRelevantMemoriesAsync(
   const keywordMatches = selectRelevantMemories(mode, query, drunkBottles, limit, options)
   const exactIdentityMatch = keywordMatches.some((bottle) => hasSpecificIdentityMatch(query, bottle))
 
-  // Exact or near-exact identity matches should beat weak semantic neighbors.
-  if (exactIdentityMatch) {
+  // SQL / metadata / local ranking should win whenever they already found plausible memories.
+  if (exactIdentityMatch || keywordMatches.length > 0) {
+    return keywordMatches
+  }
+
+  const meaningfulTerms = extractQueryTerms(query)
+  if (meaningfulTerms.length < 2) {
     return keywordMatches
   }
 
   try {
     const results = await searchSemanticMemories(query, limit)
     if (results.length > 0) {
-      console.log(`[tastingMemories] Semantic search returned ${results.length} results`)
       const rescored = rankMemoryCandidates(
         mode,
         query,

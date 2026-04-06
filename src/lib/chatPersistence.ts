@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase'
 import {
   findConflictingMemoryFacts,
   type StructuredMemoryFact,
-} from '../../shared/celestin/user-model-resolver.ts'
+} from '../../shared/celestin/memory-fact-conflicts.ts'
 
 // === Types ===
 
@@ -36,12 +36,6 @@ export interface SessionRow {
   started_at: string
   summary: string | null
   turn_count: number
-}
-
-interface MessageRow {
-  role: string
-  content: string
-  created_at: string
 }
 
 interface PendingSessionRow {
@@ -381,25 +375,6 @@ function extractPreviousSessionIfNeeded(): void {
   })()
 }
 
-export async function loadSessionMessages(sessionId: string): Promise<MessageRow[]> {
-  try {
-    const { data, error } = await supabase
-      .from('chat_messages')
-      .select('role, content, created_at')
-      .eq('session_id', sessionId)
-      .order('created_at', { ascending: true })
-
-    if (error) {
-      console.warn('[chatPersistence] Failed to load messages:', error.message)
-      return []
-    }
-
-    return (data ?? []) as MessageRow[]
-  } catch {
-    return []
-  }
-}
-
 // === Memory facts ===
 
 export async function loadActiveMemoryFacts(): Promise<MemoryFact[]> {
@@ -563,72 +538,9 @@ export async function extractInsights(
         .catch(() => {})
     }
 
-    return loadActiveMemoryFacts()
+    return activeFacts.slice(0, 40)
   } catch (err) {
     console.warn('[chatPersistence] Unexpected error extracting insights:', err)
     return existingFacts
   }
-}
-
-// === Semantic session search (for conversation retrieval) ===
-
-export async function searchRelevantSessions(
-  query: string,
-  limit = 2,
-): Promise<Array<{ id: string; summary: string; started_at: string }>> {
-  try {
-    // Step 1: Get query embedding
-    const { data: embData, error: embError } = await supabase.functions.invoke(
-      'generate-embedding',
-      { body: { query } },
-    )
-
-    if (embError || !embData?.embedding) {
-      console.warn('[chatPersistence] Failed to generate query embedding:', embError)
-      return []
-    }
-
-    // Step 2: Search via RPC
-    const { data: results, error: rpcError } = await supabase.rpc('search_sessions', {
-      query_embedding: JSON.stringify(embData.embedding),
-      match_count: limit,
-      similarity_threshold: 0.35,
-    })
-
-    if (rpcError) {
-      console.warn('[chatPersistence] Session search failed:', rpcError.message)
-      return []
-    }
-
-    return (results ?? []).map((r: Record<string, unknown>) => ({
-      id: r.id as string,
-      summary: r.summary as string,
-      started_at: r.started_at as string,
-    }))
-  } catch {
-    return []
-  }
-}
-
-// === Serialize retrieved conversation for prompt ===
-
-export function serializeConversationForPrompt(
-  messages: MessageRow[],
-  sessionDate: string,
-): string {
-  if (messages.length === 0) return ''
-
-  const date = new Date(sessionDate)
-  const dateStr = date.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
-
-  const lines = messages.map(m => {
-    const label = m.role === 'user' ? 'Utilisateur' : 'Celestin'
-    return `${label} : ${m.content.slice(0, 300)}`
-  })
-
-  return `Conversation du ${dateStr} :\n${lines.join('\n')}`
 }

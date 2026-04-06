@@ -1,15 +1,5 @@
 import fs from 'fs'
 import path from 'path'
-import {
-  DEFAULT_MEMORY_POLICY_ID,
-  MEMORY_POLICY_IDS,
-  resolveMemoryPolicy,
-} from '../shared/celestin/memory-policy.js'
-import {
-  DEFAULT_MEMORY_RUNTIME_ID,
-  MEMORY_RUNTIME_IDS,
-  resolveMemoryRuntime,
-} from '../shared/celestin/memory-runtime.js'
 
 const ROOT = process.cwd()
 const FIXTURE_DIR = path.join(ROOT, 'evals')
@@ -65,12 +55,6 @@ function parseArgs(argv) {
     outDir: DEFAULT_OUT_DIR,
     dryRun: false,
     provider: null,
-    memoryPolicy: DEFAULT_MEMORY_POLICY_ID,
-    allMemoryPolicies: false,
-    listMemoryPolicies: false,
-    memoryRuntime: DEFAULT_MEMORY_RUNTIME_ID,
-    allMemoryRuntimes: false,
-    listMemoryRuntimes: false,
   }
 
   for (let i = 2; i < argv.length; i++) {
@@ -80,12 +64,6 @@ function parseArgs(argv) {
     else if (arg === '--conversations' && argv[i + 1]) args.conversations = path.resolve(argv[++i])
     else if (arg === '--out-dir' && argv[i + 1]) args.outDir = path.resolve(argv[++i])
     else if (arg === '--provider' && argv[i + 1]) args.provider = argv[++i]
-    else if (arg === '--memory-policy' && argv[i + 1]) args.memoryPolicy = argv[++i]
-    else if (arg === '--all-memory-policies') args.allMemoryPolicies = true
-    else if (arg === '--list-memory-policies') args.listMemoryPolicies = true
-    else if (arg === '--memory-runtime' && argv[i + 1]) args.memoryRuntime = argv[++i]
-    else if (arg === '--all-memory-runtimes') args.allMemoryRuntimes = true
-    else if (arg === '--list-memory-runtimes') args.listMemoryRuntimes = true
     else if (arg === '--dry-run') args.dryRun = true
   }
 
@@ -114,7 +92,7 @@ function loadJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'))
 }
 
-function buildRequestBody(fixture, message, history, conversationState, provider, memoryPolicyId, memoryRuntimeId) {
+function buildRequestBody(fixture, message, history, conversationState, provider) {
   return {
     message,
     history,
@@ -122,24 +100,14 @@ function buildRequestBody(fixture, message, history, conversationState, provider
     profile: fixture.profile,
     memories: fixture.memories,
     context: fixture.context,
-    ...(Array.isArray(fixture.memoryFactsRaw) && fixture.memoryFactsRaw.length > 0
-      ? { memoryFactsRaw: fixture.memoryFactsRaw }
-      : {}),
-    ...(Array.isArray(fixture.previousSessionSummaries) && fixture.previousSessionSummaries.length > 0
-      ? { previousSessionSummaries: fixture.previousSessionSummaries }
-      : {}),
     ...(conversationState ? { conversationState } : {}),
     ...(provider ? { provider } : {}),
-    ...(memoryPolicyId ? { memoryPolicyId } : {}),
-    ...(memoryRuntimeId ? { memoryRuntimeVersion: memoryRuntimeId } : {}),
-    ...(memoryRuntimeId === 'compiled_profile_v1' && fixture.compiledProfileMarkdown
-      ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown }
-      : {}),
+    ...(fixture.compiledProfileMarkdown ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown } : {}),
   }
 }
 
 // Legacy: build body from single-turn scenario format
-function buildSingleTurnBody(fixture, scenario, provider, memoryPolicyId, memoryRuntimeId) {
+function buildSingleTurnBody(fixture, scenario, provider) {
   const history = (scenario.history ?? fixture.history ?? []).map((turn) => ({
     role: turn.role,
     text: turn.content,
@@ -152,18 +120,8 @@ function buildSingleTurnBody(fixture, scenario, provider, memoryPolicyId, memory
     profile: fixture.profile,
     memories: fixture.memories,
     context: fixture.context,
-    ...(Array.isArray(fixture.memoryFactsRaw) && fixture.memoryFactsRaw.length > 0
-      ? { memoryFactsRaw: fixture.memoryFactsRaw }
-      : {}),
-    ...(Array.isArray(fixture.previousSessionSummaries) && fixture.previousSessionSummaries.length > 0
-      ? { previousSessionSummaries: fixture.previousSessionSummaries }
-      : {}),
     ...(provider ? { provider } : {}),
-    ...(memoryPolicyId ? { memoryPolicyId } : {}),
-    ...(memoryRuntimeId ? { memoryRuntimeVersion: memoryRuntimeId } : {}),
-    ...(memoryRuntimeId === 'compiled_profile_v1' && fixture.compiledProfileMarkdown
-      ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown }
-      : {}),
+    ...(fixture.compiledProfileMarkdown ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown } : {}),
   }
 }
 
@@ -363,7 +321,7 @@ function summarizeAssistantMessage(response) {
   return text
 }
 
-async function runConversation(conversation, fixture, baseUrl, anonKey, dryRun, provider, memoryPolicyId, memoryRuntimeId) {
+async function runConversation(conversation, fixture, baseUrl, anonKey, dryRun, provider) {
   const turns = conversation.turns
   const turnResults = []
   let history = []
@@ -376,7 +334,7 @@ async function runConversation(conversation, fixture, baseUrl, anonKey, dryRun, 
     const turn = turns[i]
     console.log(`    Turn ${i + 1}/${turns.length}: "${turn.message}"`)
 
-    const body = buildRequestBody(fixture, turn.message, history, conversationState, provider, memoryPolicyId, memoryRuntimeId)
+    const body = buildRequestBody(fixture, turn.message, history, conversationState, provider)
 
     if (dryRun) {
       turnResults.push({
@@ -659,7 +617,7 @@ function renderHtmlReport(singleResults, conversationResults, fixture, scenarios
 <body>
   <div class="page">
     <h1>Celestin Eval Report</h1>
-    <div class="report-meta">Fixture: ${escapeHtml(fixture.name ?? 'unnamed')} | Policy: ${escapeHtml(runMeta.memoryPolicyId)} (${escapeHtml(runMeta.memoryPolicyLabel)}) | Single-turn: ${singleResults.length} | Conversations: ${convTotal}${convTotal > 0 ? ` (${convPassed} pass, ${convFailed} fail)` : ''}</div>
+    <div class="report-meta">Fixture: ${escapeHtml(fixture.name ?? 'unnamed')} | Mode: ${escapeHtml(runMeta.modeLabel)} | Single-turn: ${singleResults.length} | Conversations: ${convTotal}${convTotal > 0 ? ` (${convPassed} pass, ${convFailed} fail)` : ''}</div>
 
     ${convTotal > 0 ? `
     <h2 class="section-title">Conversations (multi-tour)</h2>
@@ -683,23 +641,6 @@ function renderHtmlReport(singleResults, conversationResults, fixture, scenarios
 
 async function main() {
   const args = parseArgs(process.argv)
-  if (args.listMemoryPolicies) {
-    console.log(`Available memory policies:`)
-    for (const policyId of MEMORY_POLICY_IDS) {
-      const policy = resolveMemoryPolicy(policyId)
-      console.log(`- ${policy.id}: ${policy.label} — ${policy.description}`)
-    }
-    return
-  }
-  if (args.listMemoryRuntimes) {
-    console.log(`Available memory runtimes:`)
-    for (const runtimeId of MEMORY_RUNTIME_IDS) {
-      const runtime = resolveMemoryRuntime(runtimeId)
-      console.log(`- ${runtime.id}: ${runtime.label} — ${runtime.description}`)
-    }
-    return
-  }
-
   const env = { ...readEnvFile(path.join(ROOT, '.env.local')), ...process.env }
   const supabaseUrl = env.VITE_SUPABASE_URL
   const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY
@@ -735,17 +676,9 @@ async function main() {
     console.log(`\n🔧 Forced provider: ${args.provider}`)
   }
 
-  const memoryPolicyIds = args.allMemoryPolicies
-    ? MEMORY_POLICY_IDS
-    : [args.memoryPolicy]
-  const memoryRuntimeIds = args.allMemoryRuntimes
-    ? MEMORY_RUNTIME_IDS
-    : [args.memoryRuntime]
-
   const structuredMemoryBits = [
     Array.isArray(fixture.drunk) ? `${fixture.drunk.length} degustations structurees` : null,
-    Array.isArray(fixture.memoryFactsRaw) ? `${fixture.memoryFactsRaw.length} memory facts` : null,
-    Array.isArray(fixture.previousSessionSummaries) ? `${fixture.previousSessionSummaries.length} resumes de session` : null,
+    fixture.compiledProfileMarkdown ? 'profil compile' : null,
   ].filter(Boolean)
 
   console.log(`\nFixture: ${path.basename(args.fixture)} (${fixture.name ?? 'unnamed'})`)
@@ -753,20 +686,16 @@ async function main() {
     console.log(`Memoire chargee: ${structuredMemoryBits.join(' | ')}`)
   }
 
-  for (const memoryRuntimeId of memoryRuntimeIds) {
-    const runtime = resolveMemoryRuntime(memoryRuntimeId)
-    for (const memoryPolicyId of memoryPolicyIds) {
-      const policy = resolveMemoryPolicy(memoryPolicyId)
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const singleResults = []
-    const conversationResults = []
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const singleResults = []
+  const conversationResults = []
 
-      console.log(`\n=== Memory runtime: ${runtime.id} (${runtime.label}) | policy: ${policy.id} (${policy.label}) ===`)
+  console.log(`\n=== Memory runtime: compiled_profile_v1 ===`)
 
-      if (scenarios && scenarios.length > 0) {
+  if (scenarios && scenarios.length > 0) {
       console.log(`\n=== Single-turn scenarios (${scenarios.length}) ===`)
       for (const scenario of scenarios) {
-          const body = buildSingleTurnBody(fixture, scenario, args.provider, policy.id, runtime.id)
+        const body = buildSingleTurnBody(fixture, scenario, args.provider)
         console.log(`Running ${scenario.id}: ${scenario.message}`)
         if (args.dryRun) {
           singleResults.push({
@@ -815,7 +744,7 @@ async function main() {
       }
     }
 
-      if (conversations && conversations.length > 0) {
+  if (conversations && conversations.length > 0) {
       console.log(`\n=== Multi-turn conversations (${conversations.length}) ===`)
       for (const conversation of conversations) {
         const result = await runConversation(
@@ -825,8 +754,6 @@ async function main() {
           supabaseAnonKey,
           args.dryRun,
           args.provider,
-          policy.id,
-          runtime.id,
         )
         conversationResults.push(result)
       }
@@ -836,39 +763,30 @@ async function main() {
       console.log(`\n  Conversations: ${passed} passed, ${failed} failed out of ${conversationResults.length}`)
     }
 
-      const jsonPath = path.join(args.outDir, `celestin-eval-${runtime.id}-${policy.id}-${timestamp}.json`)
-      const htmlPath = path.join(args.outDir, `celestin-eval-${runtime.id}-${policy.id}-${timestamp}.html`)
+  const jsonPath = path.join(args.outDir, `celestin-eval-compiled_profile_v1-${timestamp}.json`)
+  const htmlPath = path.join(args.outDir, `celestin-eval-compiled_profile_v1-${timestamp}.html`)
 
-      fs.writeFileSync(jsonPath, JSON.stringify({
+  fs.writeFileSync(jsonPath, JSON.stringify({
       fixture,
       scenarios: scenarios ?? [],
       conversations: conversations ?? [],
       memoryRuntime: {
-        id: runtime.id,
-        label: runtime.label,
-        description: runtime.description,
-      },
-      memoryPolicy: {
-        id: policy.id,
-        label: policy.label,
-        description: policy.description,
+        id: 'compiled_profile_v1',
+        label: 'Compiled profile',
       },
       singleResults,
       conversationResults,
     }, null, 2))
-      fs.writeFileSync(
-        htmlPath,
-        renderHtmlReport(singleResults, conversationResults, fixture, scenarios ?? [], {
-          memoryPolicyId: `${runtime.id} / ${policy.id}`,
-          memoryPolicyLabel: `${runtime.label} / ${policy.label}`,
-        }),
-      )
+  fs.writeFileSync(
+    htmlPath,
+    renderHtmlReport(singleResults, conversationResults, fixture, scenarios ?? [], {
+      modeLabel: 'compiled_profile_v1',
+    }),
+  )
 
-      console.log(`\nReport written:`)
-      console.log(`- ${jsonPath}`)
-      console.log(`- ${htmlPath}`)
-    }
-  }
+  console.log(`\nReport written:`)
+  console.log(`- ${jsonPath}`)
+  console.log(`- ${htmlPath}`)
 }
 
 main().catch((error) => {

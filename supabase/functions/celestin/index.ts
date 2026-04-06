@@ -2,12 +2,6 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { buildCelestinSystemPrompt } from "./prompt-builder.ts"
 import { interpretTurn, type TurnInterpretation, type CognitiveMode } from "./turn-interpreter.ts"
 import { computeNextState, INITIAL_STATE, type ConversationState } from "./conversation-state.ts"
-import { DEFAULT_MEMORY_POLICY_ID, resolveMemoryTurnProfile } from "../../../shared/celestin/memory-policy.js"
-import {
-  buildResolvedUserModel,
-  type ConversationSummaryInput,
-  type StructuredMemoryFact,
-} from "../../../shared/celestin/user-model-resolver.ts"
 
 // === CONFIG ===
 const MISTRAL_API_KEY = Deno.env.get('MISTRAL_API_KEY')
@@ -51,20 +45,11 @@ interface RequestBody {
   history: ConversationTurn[]
   cave: CaveBottle[]
   profile?: string
-  questionnaireProfile?: string
   memories?: string
-  previousSession?: string
-  memoryFacts?: string // extracted facts from past conversations (always injected)
-  memoryFactsRaw?: StructuredMemoryFact[]
-  previousSessionSummaries?: ConversationSummaryInput[]
-  retrievedConversation?: string // full past conversation when user references it
   memoryEvidenceMode?: 'exact' | 'synthesis' | 'semantic'
   provider?: string // "claude" | "gemini" | "mistral" — force a specific provider (for eval)
   image?: string // base64-encoded image (JPEG or PNG)
   conversationState?: ConversationState // sent by frontend, tracks dialogue phase
-  resolvedUserModel?: string
-  memoryPolicyId?: string
-  memoryRuntimeVersion?: MemoryRuntimeId
   compiledProfileMarkdown?: string
   context?: {
     dayOfWeek: string
@@ -128,7 +113,6 @@ type ClaudeMessage = { role: 'user' | 'assistant'; content: ClaudeContent }
 type OpenAITextContent = { type: 'text'; text: string }
 type OpenAIImageContent = { type: 'image_url'; image_url: { url: string } }
 type OpenAIMessage = { role: 'system' | 'user' | 'assistant'; content: string | Array<OpenAITextContent | OpenAIImageContent> }
-type MemoryRuntimeId = 'legacy' | 'compiled_profile_v1'
 
 // === UTILS ===
 
@@ -269,59 +253,24 @@ function summarizeCaveCounts(body: RequestBody): { totalBottles: number; referen
 function buildContextBlock(
   body: RequestBody,
   cognitiveMode: CognitiveMode | 'greeting' | 'social',
-  memoryPolicy: ReturnType<typeof resolveMemoryTurnProfile>,
 ): string {
   const parts: string[] = []
-  const useCompiledProfile = body.memoryRuntimeVersion === 'compiled_profile_v1' && !!body.compiledProfileMarkdown?.trim()
-  const includeProfile = cognitiveMode !== 'tasting_memory' && !useCompiledProfile
   const caveCounts = summarizeCaveCounts(body)
 
-  const memoryLayerValues = {
-    resolvedUserModel:
-      !useCompiledProfile
-      && memoryPolicy.includeResolvedUserModel
-      && body.resolvedUserModel
-        ? body.resolvedUserModel
-        : undefined,
-    memoryFactsFallback:
-      !useCompiledProfile
-      && memoryPolicy.includeMemoryFactsFallback
-      && !body.resolvedUserModel
-      && body.memoryFacts
-        ? body.memoryFacts
-        : undefined,
-    retrievedConversation:
-      !useCompiledProfile
-      && memoryPolicy.includeRetrievedConversation
-      && body.retrievedConversation
-        ? `Conversation passee pertinente :\n${body.retrievedConversation}`
-        : undefined,
-    tastingMemories:
-      memoryPolicy.includeTastingMemories
-        ? buildMemoriesSection(body).join('\n\n')
-        : undefined,
-    previousSessionText:
-      !useCompiledProfile
-      && memoryPolicy.includePreviousSessionText
-      && body.previousSession
-        ? `${body.previousSession}\n\nTu peux faire reference a ces conversations precedentes si c'est pertinent, mais ne force pas.`
-        : undefined,
-  } satisfies Record<string, string | undefined>
-
-  if (useCompiledProfile) {
+  if (body.compiledProfileMarkdown?.trim()) {
     parts.push(`Profil utilisateur compile :\n${body.compiledProfileMarkdown}`)
-  }
-
-  for (const layerKey of memoryPolicy.layerPriority) {
-    const value = memoryLayerValues[layerKey]
-    if (value) {
-      parts.push(value)
-    }
-  }
-
-  // Profile — useful in most modes, but too broad for strict memory questions.
-  if (!useCompiledProfile && includeProfile && body.profile) {
+  } else if (cognitiveMode !== 'tasting_memory' && body.profile) {
     parts.push(`Profil de gout :\n${body.profile}`)
+  }
+
+  const shouldIncludeTastingMemories =
+    !!body.memories
+    && cognitiveMode !== 'greeting'
+    && cognitiveMode !== 'social'
+    && cognitiveMode !== 'restaurant_assistant'
+
+  if (shouldIncludeTastingMemories) {
+    parts.push(buildMemoriesSection(body).join('\n\n'))
   }
 
   // --- greeting / social: profile + cave count only ---
@@ -334,17 +283,11 @@ function buildContextBlock(
 
   // --- restaurant_assistant: profile + questionnaire only ---
   if (cognitiveMode === 'restaurant_assistant') {
-    if (!useCompiledProfile && body.questionnaireProfile) {
-      parts.push(body.questionnaireProfile)
-    }
     return parts.join('\n\n')
   }
 
-  // --- wine_conversation: profile + questionnaire + tasting memories ---
+  // --- wine_conversation ---
   if (cognitiveMode === 'wine_conversation') {
-    if (!useCompiledProfile && body.questionnaireProfile) {
-      parts.push(body.questionnaireProfile)
-    }
     return parts.join('\n\n')
   }
 
@@ -354,11 +297,6 @@ function buildContextBlock(
       parts.push(`Cave : ${caveCounts.totalBottles} bouteilles (${caveCounts.referenceCount} references, detail non inclus).`)
     }
     return parts.join('\n\n')
-  }
-
-  // --- cellar_assistant (default): everything ---
-  if (!useCompiledProfile && body.questionnaireProfile) {
-    parts.push(body.questionnaireProfile)
   }
 
   const zones = (body as Record<string, unknown>).zones as string[] | undefined
@@ -1069,31 +1007,11 @@ Deno.serve(async (req) => {
     const interpretation = interpretTurn(body.message, !!body.image, conversationState, lastAssistantText)
     console.log(`[celestin] message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} state=${conversationState.phase} history=${body.history.length} cave=${body.cave.length} image=${body.image ? 'yes' : 'no'}`)
 
-    const memoryPolicy = resolveMemoryTurnProfile(
-      body.memoryPolicyId ?? DEFAULT_MEMORY_POLICY_ID,
-      interpretation,
-      conversationState,
-    )
-
-    const resolvedUserModel = body.memoryRuntimeVersion !== 'compiled_profile_v1' && memoryPolicy.includeResolvedUserModel
-      ? buildResolvedUserModel({
-          message: body.message,
-          cognitiveMode: interpretation.cognitiveMode,
-          turnType: interpretation.turnType,
-          facts: body.memoryFactsRaw,
-          previousSessions: body.previousSessionSummaries,
-        })
-      : undefined
-
-    const resolvedBody: RequestBody = resolvedUserModel
-      ? { ...body, resolvedUserModel }
-      : body
-
     // Build prompt and context driven by cognitive mode
-    const contextBlock = buildContextBlock(resolvedBody, interpretation.cognitiveMode, memoryPolicy)
+    const contextBlock = buildContextBlock(body, interpretation.cognitiveMode)
     const systemPrompt = buildCelestinSystemPrompt(interpretation.cognitiveMode) + '\n\n--- CONTEXTE UTILISATEUR ---\n\n' + contextBlock
-    const activeMemoryFocus = resolveActiveMemoryFocus(resolvedBody, interpretation, conversationState, lastAssistantText)
-    const userPrompt = buildUserPrompt(resolvedBody, interpretation, { ...conversationState, memoryFocus: activeMemoryFocus }, lastAssistantText)
+    const activeMemoryFocus = resolveActiveMemoryFocus(body, interpretation, conversationState, lastAssistantText)
+    const userPrompt = buildUserPrompt(body, interpretation, { ...conversationState, memoryFocus: activeMemoryFocus }, lastAssistantText)
 
     const { provider, response: rawResponse } = await celestinWithFallback(systemPrompt, userPrompt, body.history, body.provider, body.image)
 
@@ -1109,9 +1027,9 @@ Deno.serve(async (req) => {
       interpretation.inferredTaskType,
       activeMemoryFocus,
     )
-    console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} nextState=${nextState.phase} focus=${nextState.memoryFocus ?? 'none'} msg="${response.message.slice(0, 120)}" resolved=${resolvedUserModel ? 'yes' : 'no'}`)
+    console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} nextState=${nextState.phase} focus=${nextState.memoryFocus ?? 'none'} msg="${response.message.slice(0, 120)}" compiled=${body.compiledProfileMarkdown?.trim() ? 'yes' : 'no'}`)
 
-    return new Response(JSON.stringify({ ...response, _nextState: nextState, _debug: { turnType: interpretation.turnType, cognitiveMode: interpretation.cognitiveMode, provider, resolvedUserModel: !!resolvedUserModel, memoryEvidenceMode: body.memoryEvidenceMode ?? null, memoryPolicyId: memoryPolicy.policyId, memoryRuntimeVersion: body.memoryRuntimeVersion ?? 'legacy', memoryTurnProfile: memoryPolicy.turnProfileKey, memoryFocus: activeMemoryFocus } }), {
+    return new Response(JSON.stringify({ ...response, _nextState: nextState, _debug: { turnType: interpretation.turnType, cognitiveMode: interpretation.cognitiveMode, provider, compiledProfile: !!body.compiledProfileMarkdown?.trim(), memoryEvidenceMode: body.memoryEvidenceMode ?? null, memoryFocus: activeMemoryFocus } }), {
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     })
   } catch (error) {
