@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Session } from '@supabase/supabase-js'
 
+function isInvalidRefreshTokenError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  return /Invalid Refresh Token|Refresh Token Not Found/i.test(error.message)
+}
+
 export function useAuth(): {
   session: Session | null
   loading: boolean
@@ -25,6 +30,14 @@ export function useAuth(): {
 
         if (isMounted) setSession(data.session)
       } catch (err) {
+        if (isInvalidRefreshTokenError(err)) {
+          await supabase.auth.signOut({ scope: 'local' })
+          if (isMounted) {
+            setSession(null)
+            setError(null)
+          }
+          return
+        }
         if (isMounted) {
           setError(err instanceof Error ? err.message : 'Auth error')
         }

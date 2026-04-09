@@ -168,11 +168,9 @@ export function useBottle(id: string | undefined): {
       return
     }
 
-    setLoading(true)
     const result = await loadBottle(id)
     setBottle(result.data)
     setError(result.error)
-    setLoading(false)
   }, [id])
 
   useEffect(() => {

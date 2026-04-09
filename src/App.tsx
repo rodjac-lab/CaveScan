@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { prefetchDefaultRecommendations } from '@/hooks/useRecommendations'
+import { lazyWithRetry } from '@/lib/lazyWithRetry'
 import BottomNav from './components/BottomNav'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ToastContainer } from './components/Toast'
@@ -8,19 +9,19 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { Loader2 } from 'lucide-react'
 
 // Lazy-loaded pages — only downloaded when the route is visited
-const Home = lazy(() => import('./pages/Home'))
-const AddBottle = lazy(() => import('./pages/AddBottle'))
-const EditBottle = lazy(() => import('./pages/EditBottle'))
-const RemoveBottle = lazy(() => import('./pages/RemoveBottle'))
-const BottlePage = lazy(() => import('./pages/BottlePage'))
-const Settings = lazy(() => import('./pages/Settings'))
-const Login = lazy(() => import('./pages/Login'))
-const Signup = lazy(() => import('./pages/Signup'))
-const Landing = lazy(() => import('./pages/Landing'))
-const Scanner = lazy(() => import('./pages/Scanner'))
-const Degustations = lazy(() => import('./pages/Degustations'))
-const Decouvrir = lazy(() => import('./pages/Decouvrir'))
-const Debug = lazy(() => import('./pages/Debug'))
+const Home = lazyWithRetry(() => import('./pages/Home'))
+const AddBottle = lazyWithRetry(() => import('./pages/AddBottle'))
+const EditBottle = lazyWithRetry(() => import('./pages/EditBottle'))
+const RemoveBottle = lazyWithRetry(() => import('./pages/RemoveBottle'))
+const BottlePage = lazyWithRetry(() => import('./pages/BottlePage'))
+const Settings = lazyWithRetry(() => import('./pages/Settings'))
+const Login = lazyWithRetry(() => import('./pages/Login'))
+const Signup = lazyWithRetry(() => import('./pages/Signup'))
+const Landing = lazyWithRetry(() => import('./pages/Landing'))
+const Scanner = lazyWithRetry(() => import('./pages/Scanner'))
+const Degustations = lazyWithRetry(() => import('./pages/Degustations'))
+const Decouvrir = lazyWithRetry(() => import('./pages/Decouvrir'))
+const Debug = lazyWithRetry(() => import('./pages/Debug'))
 
 function PageLoader() {
   return (

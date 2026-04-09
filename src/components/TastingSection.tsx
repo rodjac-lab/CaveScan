@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, Save, Share2, ArrowRight, Plus, Camera, ImageIcon, X, Check, Star, RefreshCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
@@ -58,6 +58,13 @@ export function TastingSection({
 
   const canShare = canShareWine()
 
+  useEffect(() => {
+    setTastingNote(bottle.tasting_note || '')
+    setRating(bottle.rating ?? null)
+    setRebuy(bottle.rebuy ?? null)
+    setQpr(bottle.qpr ?? null)
+  }, [bottle.id, bottle.updated_at, bottle.tasting_note, bottle.rating, bottle.rebuy, bottle.qpr])
+
   const handleDrunkAtChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     if (!value) return
@@ -66,6 +73,8 @@ export function TastingSection({
       .from('bottles')
       .update({ drunk_at: newDate })
       .eq('id', bottle.id)
+      .select('id')
+      .single()
     if (!error) await onRefetch()
   }
 
@@ -82,15 +91,22 @@ export function TastingSection({
         ...(!noteValue ? { tasting_tags: null } : {}),
       })
       .eq('id', bottle.id)
+      .select('id, updated_at')
+      .single()
 
-    if (!error) {
-      track('tasting_saved')
-      triggerProfileRecompute()
-      const updatedBottle = { ...bottle, tasting_note: noteValue, rating, rebuy, qpr }
-      extractAndSaveTags(updatedBottle)
-      generateAndSaveEmbedding(updatedBottle)
-      await onRefetch()
+    if (error) {
+      console.error('Tasting save error:', error)
+      showToast("Impossible d'enregistrer cette dégustation")
+      setSaving(false)
+      return
     }
+
+    track('tasting_saved')
+    triggerProfileRecompute()
+    const updatedBottle = { ...bottle, tasting_note: noteValue, rating, rebuy, qpr }
+    extractAndSaveTags(updatedBottle)
+    generateAndSaveEmbedding(updatedBottle)
+    await onRefetch()
     setSaving(false)
   }
 
@@ -180,7 +196,7 @@ export function TastingSection({
 
     if (hasChanges) {
       const noteVal = tastingNote || null
-      await supabase
+      const { error } = await supabase
         .from('bottles')
         .update({
           tasting_note: noteVal,
@@ -190,6 +206,14 @@ export function TastingSection({
           ...(!noteVal ? { tasting_tags: null } : {}),
         })
         .eq('id', bottle.id)
+        .select('id, updated_at')
+        .single()
+      if (error) {
+        console.error('Batch tasting save error:', error)
+        showToast("Impossible d'enregistrer cette dégustation")
+        setSaving(false)
+        return
+      }
       const updatedBottle = { ...bottle, tasting_note: noteVal, rating, rebuy, qpr }
       extractAndSaveTags(updatedBottle)
       generateAndSaveEmbedding(updatedBottle)
