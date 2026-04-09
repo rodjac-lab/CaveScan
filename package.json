@@ -9,8 +9,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:critical": "vitest run",
-    "test:smoke": "playwright test tests/smoke",
-    "test:smoke:headed": "playwright test tests/smoke --headed",
+    "test:smoke": "bash scripts/run-smoke-tests.sh",
+    "test:smoke:headed": "bash scripts/run-smoke-tests.sh --headed",
     "preview": "vite preview",
     "eval:celestin": "node scripts/evaluate-celestin.mjs"
   },

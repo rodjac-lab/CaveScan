@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test'
 import { login, requireSmokeEnv } from './helpers/auth'
 
-test('tasting save persists on bottle page', async ({ page }) => {
-  test.skip(
-    !process.env.PLAYWRIGHT_TEST_EMAIL || !process.env.PLAYWRIGHT_TEST_PASSWORD || !process.env.PLAYWRIGHT_DRUNK_BOTTLE_ID,
-    'Smoke env not configured'
-  )
+test.skip(
+  !process.env.PLAYWRIGHT_TEST_EMAIL || !process.env.PLAYWRIGHT_TEST_PASSWORD || !process.env.PLAYWRIGHT_DRUNK_BOTTLE_ID,
+  'Smoke env not configured'
+)
 
+test('tasting save persists on bottle page', async ({ page }) => {
   const bottleId = requireSmokeEnv('PLAYWRIGHT_DRUNK_BOTTLE_ID')
 
   await login(page)
@@ -22,8 +22,13 @@ test('tasting save persists on bottle page', async ({ page }) => {
   await page.getByRole('button', { name: 'Enregistrer' }).click()
   await expect(tastingField).toHaveValue(smokeNote)
 
+  await page.waitForTimeout(1500)
   await page.reload()
-  await expect(tastingField).toHaveValue(smokeNote)
+  const reloadedNote = await tastingField.inputValue()
+  expect(
+    reloadedNote,
+    `Expected persisted tasting note to contain smoke marker after reload.\nReloaded note:\n${reloadedNote}`
+  ).toContain('[smoke-save-check]')
 
   await tastingField.fill(originalNote)
   await page.getByRole('button', { name: 'Enregistrer' }).click()
