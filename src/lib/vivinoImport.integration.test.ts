@@ -29,7 +29,7 @@ vi.mock('@/lib/bottleWrites', () => ({
   }),
 }))
 
-vi.mock('@/lib/tastingMemories', () => ({
+vi.mock('@/lib/tastingTags', () => ({
   extractAndSaveTags: vi.fn((bottle: { id: string }) => {
     tagCalls.push(bottle.id)
   }),

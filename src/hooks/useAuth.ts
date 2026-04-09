@@ -1,11 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Session } from '@supabase/supabase-js'
-
-function isInvalidRefreshTokenError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false
-  return /Invalid Refresh Token|Refresh Token Not Found/i.test(error.message)
-}
+import { isInvalidRefreshTokenError } from '@/lib/authErrors'
 
 export function useAuth(): {
   session: Session | null
