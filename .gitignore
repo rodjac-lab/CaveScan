@@ -55,3 +55,4 @@ benchmark-results.html
 
 # Screenshots (non-app assets)
 public/Sceeenshot Landing/
+.env*.local
