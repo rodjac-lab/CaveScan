@@ -224,7 +224,7 @@ export function interpretTurn(
   }
 
   const lower = normalizeForRouting(message)
-  const hadRecentReco = lastAssistantText?.includes('[Vins proposes')
+  const hadRecentReco = lastAssistantText ? normalizeForRouting(lastAssistantText).includes('[vins proposes') : false
   const isInventoryQuestion = matchesAny(lower, CELLAR_LOOKUP) || isCellarFollowUp(lower, lastAssistantText)
   const isTastingMemoryFollowUp = isMemoryFollowUp(lower, lastAssistantText)
 

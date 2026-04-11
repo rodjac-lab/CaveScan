@@ -126,7 +126,7 @@ describe('interpretTurn', () => {
       'Et si je veux plutôt un italien ?',
       false,
       state({ phase: 'post_task_ack', taskType: 'recommendation', lastUiActionKind: 'show_recommendations' }),
-      'Je te propose quelques bouteilles pour le poulet rôti. [Vins proposes : ...]',
+      'Je te propose quelques bouteilles pour le poulet rôti. [Vins proposés : ...]',
     )
 
     expect(result).toEqual({
