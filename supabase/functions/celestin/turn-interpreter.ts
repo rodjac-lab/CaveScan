@@ -27,6 +27,42 @@ export interface TurnInterpretation {
   inferredTaskType?: TaskType
 }
 
+export type RoutingIntent =
+  | 'greeting'
+  | 'prefetch'
+  | 'task_cancel'
+  | 'social_ack'
+  | 'recommendation_request'
+  | 'recommendation_refinement'
+  | 'memory_guided_recommendation'
+  | 'exploratory_reco_pivot'
+  | 'encavage_request'
+  | 'tasting_log'
+  | 'memory_lookup'
+  | 'cellar_lookup'
+  | 'wine_question'
+  | 'restaurant_image'
+  | 'image_cellar_action'
+  | 'unknown'
+
+export interface RoutingCandidate {
+  intent: RoutingIntent
+  confidence: number
+  reasons: string[]
+}
+
+export interface RoutingTrace {
+  scope: ConversationState['phase'] | 'image' | 'system'
+  winner: RoutingIntent
+  reasons: string[]
+  candidates: RoutingCandidate[]
+}
+
+export interface TurnRoutingResult {
+  interpretation: TurnInterpretation
+  routing: RoutingTrace
+}
+
 interface RoutingSignals {
   lower: string
   hadRecentReco: boolean
@@ -39,6 +75,12 @@ interface RoutingSignals {
   isExploratoryRecoPivot: boolean
   isWineCulture: boolean
   isQuestion: boolean
+  isRecommendationRequest: boolean
+  isEncavageRequest: boolean
+  isTastingReference: boolean
+  isMemoryReference: boolean
+  isRestaurantImage: boolean
+  isImageWineQuestion: boolean
 }
 
 const SOCIAL_ACK = [
@@ -122,6 +164,8 @@ function normalizeForRouting(text: string): string {
 function buildRoutingSignals(message: string, lastAssistantText?: string): RoutingSignals {
   const lower = normalizeForRouting(message)
   const hadRecentReco = lastAssistantText ? normalizeForRouting(lastAssistantText).includes('[vins proposes') : false
+  const isQuestion = matchesAny(lower, QUESTION)
+  const isWineCulture = matchesAny(lower, WINE_CULTURE)
 
   return {
     lower,
@@ -133,8 +177,14 @@ function buildRoutingSignals(message: string, lastAssistantText?: string): Routi
     isRefinement: matchesAny(lower, REFINEMENT),
     isMemoryGuidedRecommendation: matchesAny(lower, MEMORY_GUIDED_RECOMMENDATION),
     isExploratoryRecoPivot: matchesAny(lower, EXPLORATORY_RECO_PIVOT),
-    isWineCulture: matchesAny(lower, WINE_CULTURE),
-    isQuestion: matchesAny(lower, QUESTION),
+    isWineCulture,
+    isQuestion,
+    isRecommendationRequest: matchesAny(lower, RECOMMENDATION),
+    isEncavageRequest: matchesAny(lower, ENCAVAGE),
+    isTastingReference: matchesAny(lower, TASTING),
+    isMemoryReference: matchesAny(lower, MEMORY),
+    isRestaurantImage: /\b(carte|resto|restaurant|menu|ardoise)\b/i.test(lower),
+    isImageWineQuestion: isQuestion || isWineCulture || /\b(penses|avis|tu connais|c'est bien|c'est bon)\b/i.test(lower),
   }
 }
 
@@ -185,6 +235,74 @@ function detectCognitiveMode(lower: string): CognitiveMode {
   return 'wine_conversation'
 }
 
+function candidate(intent: RoutingIntent, confidence: number, reasons: string[]): RoutingCandidate {
+  return { intent, confidence, reasons }
+}
+
+function collectRoutingCandidates(
+  signals: RoutingSignals,
+  state: ConversationState,
+  hasImage: boolean,
+): RoutingCandidate[] {
+  const candidates: RoutingCandidate[] = []
+
+  if (signals.isCancel) candidates.push(candidate('task_cancel', 100, ['cancel_phrase']))
+  if (signals.isSocialAck) candidates.push(candidate('social_ack', 90, ['social_ack_phrase']))
+  if (signals.isEncavageRequest) candidates.push(candidate('encavage_request', 90, ['encavage_terms']))
+  if (signals.isMemoryReference || signals.isTastingMemoryFollowUp) {
+    candidates.push(candidate('memory_lookup', 88, [
+      signals.isMemoryReference ? 'memory_terms' : 'memory_follow_up',
+    ]))
+  }
+  if (signals.isTastingReference) candidates.push(candidate('tasting_log', 72, ['tasting_terms']))
+  if (signals.isInventoryQuestion) candidates.push(candidate('cellar_lookup', 76, ['cellar_terms_or_follow_up']))
+  if (signals.isRecommendationRequest) candidates.push(candidate('recommendation_request', 78, ['recommendation_terms']))
+  if (signals.isRefinement) {
+    candidates.push(candidate('recommendation_refinement', state.taskType === 'recommendation' || signals.hadRecentReco ? 86 : 62, [
+      'refinement_terms',
+      state.taskType === 'recommendation' ? 'state_task_recommendation' : signals.hadRecentReco ? 'recent_recommendation_history' : 'no_reco_context',
+    ]))
+  }
+  if (signals.isMemoryGuidedRecommendation) {
+    candidates.push(candidate('memory_guided_recommendation', state.taskType === 'recommendation' || signals.hadRecentReco ? 88 : 68, [
+      'memory_guided_reco_terms',
+      state.taskType === 'recommendation' ? 'state_task_recommendation' : signals.hadRecentReco ? 'recent_recommendation_history' : 'no_reco_context',
+    ]))
+  }
+  if (state.taskType === 'recommendation' && signals.isExploratoryRecoPivot) {
+    candidates.push(candidate('exploratory_reco_pivot', 94, ['exploratory_pivot_after_recommendation']))
+  }
+  if (signals.isWineCulture || signals.isQuestion) {
+    candidates.push(candidate('wine_question', 70, [
+      signals.isWineCulture ? 'wine_culture_terms' : 'question_terms',
+    ]))
+  }
+  if (hasImage && signals.isRestaurantImage) candidates.push(candidate('restaurant_image', 94, ['restaurant_image_terms']))
+  if (hasImage) candidates.push(candidate('image_cellar_action', signals.isImageWineQuestion ? 45 : 60, ['image_present']))
+
+  return candidates.length > 0 ? candidates.sort((a, b) => b.confidence - a.confidence) : [
+    candidate('unknown', 10, ['no_matching_signal']),
+  ]
+}
+
+function routed(
+  interpretation: TurnInterpretation,
+  scope: RoutingTrace['scope'],
+  winner: RoutingIntent,
+  candidates: RoutingCandidate[],
+): TurnRoutingResult {
+  const winningCandidate = candidates.find((entry) => entry.intent === winner)
+  return {
+    interpretation,
+    routing: {
+      scope,
+      winner,
+      reasons: winningCandidate?.reasons ?? [],
+      candidates,
+    },
+  }
+}
+
 function socialAck(): TurnInterpretation {
   return { turnType: 'social_ack', cognitiveMode: 'social', shouldAllowUiAction: false }
 }
@@ -221,156 +339,219 @@ function tastingRequest(): TurnInterpretation {
   return { turnType: 'task_request', cognitiveMode: 'tasting_memory', shouldAllowUiAction: true, inferredTaskType: 'tasting' }
 }
 
-function routeCellarRequest(lower: string): TurnInterpretation | null {
-  if (matchesAny(lower, RECOMMENDATION)) return recommendationRequest()
-  if (matchesAny(lower, ENCAVAGE)) return encavageRequest()
+interface IntentRoute {
+  interpretation: TurnInterpretation
+  winner: RoutingIntent
+}
+
+function routeCellarRequest(signals: RoutingSignals): IntentRoute | null {
+  if (signals.isRecommendationRequest) {
+    return { interpretation: recommendationRequest(), winner: 'recommendation_request' }
+  }
+  if (signals.isEncavageRequest) {
+    return { interpretation: encavageRequest(), winner: 'encavage_request' }
+  }
   return null
 }
 
-function routeMemoryIntent(signals: RoutingSignals, tastingCreatesTask: boolean): TurnInterpretation | null {
-  if (matchesAny(signals.lower, MEMORY) || signals.isTastingMemoryFollowUp) return memoryContextSwitch()
-  if (matchesAny(signals.lower, TASTING)) return tastingCreatesTask ? tastingRequest() : memoryContextSwitch()
+function routeMemoryIntent(signals: RoutingSignals, tastingCreatesTask: boolean): IntentRoute | null {
+  if (signals.isMemoryReference || signals.isTastingMemoryFollowUp) {
+    return { interpretation: memoryContextSwitch(), winner: 'memory_lookup' }
+  }
+  if (signals.isTastingReference) {
+    return {
+      interpretation: tastingCreatesTask ? tastingRequest() : memoryContextSwitch(),
+      winner: 'tasting_log',
+    }
+  }
   return null
 }
 
-function routeImageTurn(signals: RoutingSignals): TurnInterpretation {
-  if (/\b(carte|resto|restaurant|menu|ardoise)\b/i.test(signals.lower)) {
-    return { turnType: 'task_request', cognitiveMode: 'restaurant_assistant', shouldAllowUiAction: true }
+function routeImageTurn(signals: RoutingSignals, candidates: RoutingCandidate[]): TurnRoutingResult {
+  if (signals.isRestaurantImage) {
+    return routed({ turnType: 'task_request', cognitiveMode: 'restaurant_assistant', shouldAllowUiAction: true }, 'image', 'restaurant_image', candidates)
   }
-  if (matchesAny(signals.lower, ENCAVAGE)) {
-    return encavageRequest()
+  if (signals.isEncavageRequest) {
+    return routed(encavageRequest(), 'image', 'encavage_request', candidates)
   }
-  if (matchesAny(signals.lower, RECOMMENDATION)) {
-    return recommendationRequest()
+  if (signals.isRecommendationRequest) {
+    return routed(recommendationRequest(), 'image', 'recommendation_request', candidates)
   }
-  if (signals.isQuestion || signals.isWineCulture || /\b(penses|avis|tu connais|c'est bien|c'est bon)\b/i.test(signals.lower)) {
-    return wineSmalltalk()
+  if (signals.isImageWineQuestion) {
+    return routed(wineSmalltalk(), 'image', 'wine_question', candidates)
   }
-  return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
+  return routed({ turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }, 'image', 'image_cellar_action', candidates)
 }
 
-function routePostTaskAck(state: ConversationState, signals: RoutingSignals): TurnInterpretation {
+function routePostTaskAck(state: ConversationState, signals: RoutingSignals, candidates: RoutingCandidate[]): TurnRoutingResult {
   if (signals.isCancel) {
-    return cancelTask()
+    return routed(cancelTask(), state.phase, 'task_cancel', candidates)
   }
 
   if (signals.lower.length < 30 && signals.isSocialAck) {
-    return socialAck()
+    return routed(socialAck(), state.phase, 'social_ack', candidates)
   }
 
   if (state.taskType === 'recommendation' && signals.isExploratoryRecoPivot) {
-    return wineContextSwitch()
+    return routed(wineContextSwitch(), state.phase, 'exploratory_reco_pivot', candidates)
   }
 
   if (signals.isRefinement) {
-    return { turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
+    return routed({ turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }, state.phase, 'recommendation_refinement', candidates)
   }
 
   if (state.taskType === 'recommendation' && signals.isMemoryGuidedRecommendation) {
-    return { turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
+    return routed({ turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }, state.phase, 'memory_guided_recommendation', candidates)
   }
 
-  const cellarRequest = routeCellarRequest(signals.lower)
-  if (cellarRequest) return cellarRequest
+  const cellarRequest = routeCellarRequest(signals)
+  if (cellarRequest) return routed(cellarRequest.interpretation, state.phase, cellarRequest.winner, candidates)
 
   const memoryIntent = routeMemoryIntent(signals, true)
-  if (memoryIntent) return memoryIntent
+  if (memoryIntent) return routed(memoryIntent.interpretation, state.phase, memoryIntent.winner, candidates)
 
   if (signals.isInventoryQuestion) {
-    return cellarContextSwitch()
+    return routed(cellarContextSwitch(), state.phase, 'cellar_lookup', candidates)
   }
 
   if (signals.isWineCulture || signals.isQuestion) {
-    return wineContextSwitch()
+    return routed(wineContextSwitch(), state.phase, 'wine_question', candidates)
   }
 
   if (signals.lower.length < 20) {
-    return socialAck()
+    return routed(socialAck(), state.phase, 'social_ack', candidates)
   }
 
   const detectedMode = detectCognitiveMode(signals.lower)
-  return {
+  return routed({
     turnType: 'context_switch',
     cognitiveMode: detectedMode,
     shouldAllowUiAction: detectedMode === 'cellar_assistant',
-  }
+  }, state.phase, 'unknown', candidates)
 }
 
-function routeCollectingInfo(state: ConversationState, signals: RoutingSignals): TurnInterpretation {
+function routeCollectingInfo(state: ConversationState, signals: RoutingSignals, candidates: RoutingCandidate[]): TurnRoutingResult {
   if (signals.isCancel) {
-    return cancelTask()
+    return routed(cancelTask(), state.phase, 'task_cancel', candidates)
   }
 
   const memoryIntent = routeMemoryIntent(signals, false)
-  if (memoryIntent) return memoryIntent
+  if (memoryIntent) return routed(memoryIntent.interpretation, state.phase, memoryIntent.winner, candidates)
 
   if (signals.isInventoryQuestion) {
-    return cellarContextSwitch()
+    return routed(cellarContextSwitch(), state.phase, 'cellar_lookup', candidates)
   }
 
-  return { turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
+  return routed({ turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }, state.phase, 'unknown', candidates)
 }
 
-function routeDisambiguation(state: ConversationState, signals: RoutingSignals): TurnInterpretation {
+function routeDisambiguation(state: ConversationState, signals: RoutingSignals, candidates: RoutingCandidate[]): TurnRoutingResult {
   if (signals.isCancel) {
-    return cancelTask()
+    return routed(cancelTask(), state.phase, 'task_cancel', candidates)
   }
-  return { turnType: 'disambiguation_answer', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
+  return routed({ turnType: 'disambiguation_answer', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }, state.phase, 'unknown', candidates)
 }
 
-function routeActiveTask(state: ConversationState, signals: RoutingSignals): TurnInterpretation {
+function routeActiveTask(state: ConversationState, signals: RoutingSignals, candidates: RoutingCandidate[]): TurnRoutingResult {
   if (signals.isCancel) {
-    return cancelTask()
+    return routed(cancelTask(), state.phase, 'task_cancel', candidates)
   }
   if (signals.isSocialAck) {
-    return socialAck()
+    return routed(socialAck(), state.phase, 'social_ack', candidates)
   }
   if (signals.isInventoryQuestion) {
-    return cellarContextSwitch()
+    return routed(cellarContextSwitch(), state.phase, 'cellar_lookup', candidates)
   }
-  return { turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
+  return routed({ turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }, state.phase, 'unknown', candidates)
 }
 
-function routeIdle(signals: RoutingSignals): TurnInterpretation {
+function routeIdle(signals: RoutingSignals, candidates: RoutingCandidate[]): TurnRoutingResult {
   if (signals.isSocialAck) {
-    return socialAck()
+    return routed(socialAck(), 'idle_smalltalk', 'social_ack', candidates)
   }
 
   if (signals.hadRecentReco && signals.isRefinement) {
-    return { turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
+    return routed({ turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }, 'idle_smalltalk', 'recommendation_refinement', candidates)
   }
 
   if (signals.hadRecentReco && signals.isMemoryGuidedRecommendation) {
-    return { turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
+    return routed({ turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }, 'idle_smalltalk', 'memory_guided_recommendation', candidates)
   }
 
-  const cellarRequest = routeCellarRequest(signals.lower)
-  if (cellarRequest) return cellarRequest
+  const cellarRequest = routeCellarRequest(signals)
+  if (cellarRequest) return routed(cellarRequest.interpretation, 'idle_smalltalk', cellarRequest.winner, candidates)
 
   const memoryIntent = routeMemoryIntent(signals, true)
-  if (memoryIntent) return memoryIntent
+  if (memoryIntent) return routed(memoryIntent.interpretation, 'idle_smalltalk', memoryIntent.winner, candidates)
 
   if (signals.isInventoryQuestion) {
-    return cellarContextSwitch()
+    return routed(cellarContextSwitch(), 'idle_smalltalk', 'cellar_lookup', candidates)
   }
 
   if (signals.isWineCulture) {
-    return wineSmalltalk()
+    return routed(wineSmalltalk(), 'idle_smalltalk', 'wine_question', candidates)
   }
 
   if (signals.isQuestion) {
-    return wineSmalltalk()
+    return routed(wineSmalltalk(), 'idle_smalltalk', 'wine_question', candidates)
   }
 
   if (signals.hadRecentReco && signals.lower.length < 20) {
-    return socialAck()
+    return routed(socialAck(), 'idle_smalltalk', 'social_ack', candidates)
   }
 
   if (signals.lower.length < 20) {
-    return wineSmalltalk()
+    return routed(wineSmalltalk(), 'idle_smalltalk', 'wine_question', candidates)
   }
 
-  return { turnType: 'unknown', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }
+  return routed({ turnType: 'unknown', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }, 'idle_smalltalk', 'unknown', candidates)
+}
+
+export function interpretTurnWithRouting(
+  message: string,
+  hasImage: boolean,
+  state: ConversationState,
+  lastAssistantText?: string,
+): TurnRoutingResult {
+  if (message === '__greeting__') {
+    const candidates = [candidate('greeting', 100, ['system_greeting'])]
+    return routed({ turnType: 'greeting', cognitiveMode: 'greeting', shouldAllowUiAction: false }, 'system', 'greeting', candidates)
+  }
+
+  if (message === '__prefetch__') {
+    const candidates = [candidate('prefetch', 100, ['system_prefetch'])]
+    return routed({
+      turnType: 'prefetch',
+      cognitiveMode: 'cellar_assistant',
+      shouldAllowUiAction: true,
+      inferredTaskType: 'recommendation',
+    }, 'system', 'prefetch', candidates)
+  }
+
+  const signals = buildRoutingSignals(message, lastAssistantText)
+  const candidates = collectRoutingCandidates(signals, state, hasImage)
+
+  if (hasImage) {
+    return routeImageTurn(signals, candidates)
+  }
+
+  if (state.phase === 'post_task_ack') {
+    return routePostTaskAck(state, signals, candidates)
+  }
+
+  if (state.phase === 'collecting_info') {
+    return routeCollectingInfo(state, signals, candidates)
+  }
+
+  if (state.phase === 'disambiguation') {
+    return routeDisambiguation(state, signals, candidates)
+  }
+
+  if (state.phase === 'active_task') {
+    return routeActiveTask(state, signals, candidates)
+  }
+
+  return routeIdle(signals, candidates)
 }
 
 export function interpretTurn(
@@ -379,40 +560,5 @@ export function interpretTurn(
   state: ConversationState,
   lastAssistantText?: string,
 ): TurnInterpretation {
-  if (message === '__greeting__') {
-    return { turnType: 'greeting', cognitiveMode: 'greeting', shouldAllowUiAction: false }
-  }
-
-  if (message === '__prefetch__') {
-    return {
-      turnType: 'prefetch',
-      cognitiveMode: 'cellar_assistant',
-      shouldAllowUiAction: true,
-      inferredTaskType: 'recommendation',
-    }
-  }
-
-  const signals = buildRoutingSignals(message, lastAssistantText)
-
-  if (hasImage) {
-    return routeImageTurn(signals)
-  }
-
-  if (state.phase === 'post_task_ack') {
-    return routePostTaskAck(state, signals)
-  }
-
-  if (state.phase === 'collecting_info') {
-    return routeCollectingInfo(state, signals)
-  }
-
-  if (state.phase === 'disambiguation') {
-    return routeDisambiguation(state, signals)
-  }
-
-  if (state.phase === 'active_task') {
-    return routeActiveTask(state, signals)
-  }
-
-  return routeIdle(signals)
+  return interpretTurnWithRouting(message, hasImage, state, lastAssistantText).interpretation
 }

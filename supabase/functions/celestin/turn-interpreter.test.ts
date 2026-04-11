@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { INITIAL_STATE, type ConversationState } from './conversation-state'
-import { interpretTurn } from './turn-interpreter'
+import { interpretTurn, interpretTurnWithRouting } from './turn-interpreter'
 
 function state(overrides: Partial<ConversationState> = {}): ConversationState {
   return {
@@ -155,6 +155,38 @@ describe('interpretTurn', () => {
     const result = interpretTurn('Tu connais ce vin ?', true, state())
 
     expect(result).toEqual({
+      turnType: 'smalltalk',
+      cognitiveMode: 'wine_conversation',
+      shouldAllowUiAction: false,
+    })
+  })
+
+  it('explains exploratory pivots after recommendations with candidates and winner', () => {
+    const result = interpretTurnWithRouting(
+      'Et si je veux plutôt un italien ?',
+      false,
+      state({ phase: 'post_task_ack', taskType: 'recommendation', lastUiActionKind: 'show_recommendations' }),
+      'Je te propose quelques bouteilles pour le poulet rôti. [Vins proposés : ...]',
+    )
+
+    expect(result.routing.scope).toBe('post_task_ack')
+    expect(result.routing.winner).toBe('exploratory_reco_pivot')
+    expect(result.routing.reasons).toContain('exploratory_pivot_after_recommendation')
+    expect(result.routing.candidates.map((candidate) => candidate.intent)).toContain('recommendation_refinement')
+    expect(result.interpretation).toEqual({
+      turnType: 'context_switch',
+      cognitiveMode: 'wine_conversation',
+      shouldAllowUiAction: false,
+    })
+  })
+
+  it('explains photo questions as wine conversation over image action', () => {
+    const result = interpretTurnWithRouting('Tu connais ce vin ?', true, state())
+
+    expect(result.routing.scope).toBe('image')
+    expect(result.routing.winner).toBe('wine_question')
+    expect(result.routing.candidates.map((candidate) => candidate.intent)).toContain('image_cellar_action')
+    expect(result.interpretation).toEqual({
       turnType: 'smalltalk',
       cognitiveMode: 'wine_conversation',
       shouldAllowUiAction: false,

@@ -5,7 +5,7 @@ import { celestinWithFallback } from "./llm-providers.ts"
 import { resolveActiveMemoryFocus } from "./memory-focus.ts"
 import { buildCelestinSystemPrompt } from "./prompt-builder.ts"
 import { applyResponsePolicy } from "./response-policy.ts"
-import { interpretTurn } from "./turn-interpreter.ts"
+import { interpretTurnWithRouting } from "./turn-interpreter.ts"
 import { buildUserPrompt } from "./user-prompt.ts"
 import type { RequestBody } from "./types.ts"
 
@@ -29,8 +29,8 @@ Deno.serve(async (req) => {
     const lastAssistantTurn = [...body.history].reverse().find((turn) => turn.role === 'assistant')
     const lastAssistantText = lastAssistantTurn?.text
 
-    const interpretation = interpretTurn(body.message, !!body.image, conversationState, lastAssistantText)
-    console.log(`[celestin] message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} state=${conversationState.phase} history=${body.history.length} cave=${body.cave.length} image=${body.image ? 'yes' : 'no'}`)
+    const { interpretation, routing } = interpretTurnWithRouting(body.message, !!body.image, conversationState, lastAssistantText)
+    console.log(`[celestin] message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} route=${routing.winner} state=${conversationState.phase} history=${body.history.length} cave=${body.cave.length} image=${body.image ? 'yes' : 'no'}`)
 
     const contextBlock = buildContextBlock(body, interpretation.cognitiveMode)
     const systemPrompt = buildCelestinSystemPrompt(interpretation.cognitiveMode)
@@ -79,6 +79,7 @@ Deno.serve(async (req) => {
         compiledProfile: !!body.compiledProfileMarkdown?.trim(),
         memoryEvidenceMode: body.memoryEvidenceMode ?? null,
         memoryFocus: activeMemoryFocus,
+        routing,
       },
     }), {
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
