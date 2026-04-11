@@ -135,4 +135,29 @@ describe('interpretTurn', () => {
       shouldAllowUiAction: false,
     })
   })
+
+  it('keeps recommendation refinement available from history when local state was reset', () => {
+    const result = interpretTurn(
+      'Tu en as plutôt en blanc ?',
+      false,
+      state(),
+      'Je te propose quelques bouteilles pour le poulet rôti. [Vins proposés : ...]',
+    )
+
+    expect(result).toEqual({
+      turnType: 'task_continue',
+      cognitiveMode: 'cellar_assistant',
+      shouldAllowUiAction: true,
+    })
+  })
+
+  it('treats a wine question with a photo as conversation, not automatic encavage', () => {
+    const result = interpretTurn('Tu connais ce vin ?', true, state())
+
+    expect(result).toEqual({
+      turnType: 'smalltalk',
+      cognitiveMode: 'wine_conversation',
+      shouldAllowUiAction: false,
+    })
+  })
 })

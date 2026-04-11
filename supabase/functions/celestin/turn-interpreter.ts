@@ -27,6 +27,20 @@ export interface TurnInterpretation {
   inferredTaskType?: TaskType
 }
 
+interface RoutingSignals {
+  lower: string
+  hadRecentReco: boolean
+  isInventoryQuestion: boolean
+  isTastingMemoryFollowUp: boolean
+  isSocialAck: boolean
+  isCancel: boolean
+  isRefinement: boolean
+  isMemoryGuidedRecommendation: boolean
+  isExploratoryRecoPivot: boolean
+  isWineCulture: boolean
+  isQuestion: boolean
+}
+
 const SOCIAL_ACK = [
   /^(merci|super|ok|d'accord|parfait|genial|cool|top|nice|bien|bonne idee|ah ok|je vois|compris|entendu|c'est bon|haha|mdr|lol)[.! ]*$/i,
 ]
@@ -103,6 +117,25 @@ function normalizeForRouting(text: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
+}
+
+function buildRoutingSignals(message: string, lastAssistantText?: string): RoutingSignals {
+  const lower = normalizeForRouting(message)
+  const hadRecentReco = lastAssistantText ? normalizeForRouting(lastAssistantText).includes('[vins proposes') : false
+
+  return {
+    lower,
+    hadRecentReco,
+    isInventoryQuestion: matchesAny(lower, CELLAR_LOOKUP) || isCellarFollowUp(lower, lastAssistantText),
+    isTastingMemoryFollowUp: isMemoryFollowUp(lower, lastAssistantText),
+    isSocialAck: matchesAny(lower, SOCIAL_ACK),
+    isCancel: matchesAny(lower, CANCEL),
+    isRefinement: matchesAny(lower, REFINEMENT),
+    isMemoryGuidedRecommendation: matchesAny(lower, MEMORY_GUIDED_RECOMMENDATION),
+    isExploratoryRecoPivot: matchesAny(lower, EXPLORATORY_RECO_PIVOT),
+    isWineCulture: matchesAny(lower, WINE_CULTURE),
+    isQuestion: matchesAny(lower, QUESTION),
+  }
 }
 
 function isCellarFollowUp(text: string, lastAssistantText?: string): boolean {
@@ -194,14 +227,150 @@ function routeCellarRequest(lower: string): TurnInterpretation | null {
   return null
 }
 
-function routeMemoryIntent(
-  lower: string,
-  isTastingMemoryFollowUp: boolean,
-  tastingCreatesTask: boolean,
-): TurnInterpretation | null {
-  if (matchesAny(lower, MEMORY) || isTastingMemoryFollowUp) return memoryContextSwitch()
-  if (matchesAny(lower, TASTING)) return tastingCreatesTask ? tastingRequest() : memoryContextSwitch()
+function routeMemoryIntent(signals: RoutingSignals, tastingCreatesTask: boolean): TurnInterpretation | null {
+  if (matchesAny(signals.lower, MEMORY) || signals.isTastingMemoryFollowUp) return memoryContextSwitch()
+  if (matchesAny(signals.lower, TASTING)) return tastingCreatesTask ? tastingRequest() : memoryContextSwitch()
   return null
+}
+
+function routeImageTurn(signals: RoutingSignals): TurnInterpretation {
+  if (/\b(carte|resto|restaurant|menu|ardoise)\b/i.test(signals.lower)) {
+    return { turnType: 'task_request', cognitiveMode: 'restaurant_assistant', shouldAllowUiAction: true }
+  }
+  if (matchesAny(signals.lower, ENCAVAGE)) {
+    return encavageRequest()
+  }
+  if (matchesAny(signals.lower, RECOMMENDATION)) {
+    return recommendationRequest()
+  }
+  if (signals.isQuestion || signals.isWineCulture || /\b(penses|avis|tu connais|c'est bien|c'est bon)\b/i.test(signals.lower)) {
+    return wineSmalltalk()
+  }
+  return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
+}
+
+function routePostTaskAck(state: ConversationState, signals: RoutingSignals): TurnInterpretation {
+  if (signals.isCancel) {
+    return cancelTask()
+  }
+
+  if (signals.lower.length < 30 && signals.isSocialAck) {
+    return socialAck()
+  }
+
+  if (state.taskType === 'recommendation' && signals.isExploratoryRecoPivot) {
+    return wineContextSwitch()
+  }
+
+  if (signals.isRefinement) {
+    return { turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
+  }
+
+  if (state.taskType === 'recommendation' && signals.isMemoryGuidedRecommendation) {
+    return { turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
+  }
+
+  const cellarRequest = routeCellarRequest(signals.lower)
+  if (cellarRequest) return cellarRequest
+
+  const memoryIntent = routeMemoryIntent(signals, true)
+  if (memoryIntent) return memoryIntent
+
+  if (signals.isInventoryQuestion) {
+    return cellarContextSwitch()
+  }
+
+  if (signals.isWineCulture || signals.isQuestion) {
+    return wineContextSwitch()
+  }
+
+  if (signals.lower.length < 20) {
+    return socialAck()
+  }
+
+  const detectedMode = detectCognitiveMode(signals.lower)
+  return {
+    turnType: 'context_switch',
+    cognitiveMode: detectedMode,
+    shouldAllowUiAction: detectedMode === 'cellar_assistant',
+  }
+}
+
+function routeCollectingInfo(state: ConversationState, signals: RoutingSignals): TurnInterpretation {
+  if (signals.isCancel) {
+    return cancelTask()
+  }
+
+  const memoryIntent = routeMemoryIntent(signals, false)
+  if (memoryIntent) return memoryIntent
+
+  if (signals.isInventoryQuestion) {
+    return cellarContextSwitch()
+  }
+
+  return { turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
+}
+
+function routeDisambiguation(state: ConversationState, signals: RoutingSignals): TurnInterpretation {
+  if (signals.isCancel) {
+    return cancelTask()
+  }
+  return { turnType: 'disambiguation_answer', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
+}
+
+function routeActiveTask(state: ConversationState, signals: RoutingSignals): TurnInterpretation {
+  if (signals.isCancel) {
+    return cancelTask()
+  }
+  if (signals.isSocialAck) {
+    return socialAck()
+  }
+  if (signals.isInventoryQuestion) {
+    return cellarContextSwitch()
+  }
+  return { turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
+}
+
+function routeIdle(signals: RoutingSignals): TurnInterpretation {
+  if (signals.isSocialAck) {
+    return socialAck()
+  }
+
+  if (signals.hadRecentReco && signals.isRefinement) {
+    return { turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
+  }
+
+  if (signals.hadRecentReco && signals.isMemoryGuidedRecommendation) {
+    return { turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
+  }
+
+  const cellarRequest = routeCellarRequest(signals.lower)
+  if (cellarRequest) return cellarRequest
+
+  const memoryIntent = routeMemoryIntent(signals, true)
+  if (memoryIntent) return memoryIntent
+
+  if (signals.isInventoryQuestion) {
+    return cellarContextSwitch()
+  }
+
+  if (signals.isWineCulture) {
+    return wineSmalltalk()
+  }
+
+  if (signals.isQuestion) {
+    return wineSmalltalk()
+  }
+
+  if (signals.hadRecentReco && signals.lower.length < 20) {
+    return socialAck()
+  }
+
+  if (signals.lower.length < 20) {
+    return wineSmalltalk()
+  }
+
+  return { turnType: 'unknown', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }
 }
 
 export function interpretTurn(
@@ -223,146 +392,27 @@ export function interpretTurn(
     }
   }
 
-  const lower = normalizeForRouting(message)
-  const hadRecentReco = lastAssistantText ? normalizeForRouting(lastAssistantText).includes('[vins proposes') : false
-  const isInventoryQuestion = matchesAny(lower, CELLAR_LOOKUP) || isCellarFollowUp(lower, lastAssistantText)
-  const isTastingMemoryFollowUp = isMemoryFollowUp(lower, lastAssistantText)
+  const signals = buildRoutingSignals(message, lastAssistantText)
 
   if (hasImage) {
-    if (/\b(carte|resto|restaurant|menu|ardoise)\b/i.test(lower)) {
-      return { turnType: 'task_request', cognitiveMode: 'restaurant_assistant', shouldAllowUiAction: true }
-    }
-    if (matchesAny(lower, ENCAVAGE)) {
-      return encavageRequest()
-    }
-    if (matchesAny(lower, RECOMMENDATION)) {
-      return recommendationRequest()
-    }
-    if (matchesAny(lower, QUESTION) || matchesAny(lower, WINE_CULTURE) || /\b(penses|avis|tu connais|c'est bien|c'est bon)\b/i.test(lower)) {
-      return wineSmalltalk()
-    }
-    return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
+    return routeImageTurn(signals)
   }
 
   if (state.phase === 'post_task_ack') {
-    if (matchesAny(lower, CANCEL)) {
-      return cancelTask()
-    }
-
-    if (lower.length < 30 && matchesAny(lower, SOCIAL_ACK)) {
-      return socialAck()
-    }
-
-    if (state.taskType === 'recommendation' && matchesAny(lower, EXPLORATORY_RECO_PIVOT)) {
-      return wineContextSwitch()
-    }
-
-    if (matchesAny(lower, REFINEMENT)) {
-      return { turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
-    }
-
-    if (state.taskType === 'recommendation' && matchesAny(lower, MEMORY_GUIDED_RECOMMENDATION)) {
-      return { turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
-    }
-
-    const cellarRequest = routeCellarRequest(lower)
-    if (cellarRequest) return cellarRequest
-
-    const memoryIntent = routeMemoryIntent(lower, isTastingMemoryFollowUp, true)
-    if (memoryIntent) return memoryIntent
-
-    if (isInventoryQuestion) {
-      return cellarContextSwitch()
-    }
-
-    if (matchesAny(lower, WINE_CULTURE) || matchesAny(lower, QUESTION)) {
-      return wineContextSwitch()
-    }
-
-    if (lower.length < 20) {
-      return socialAck()
-    }
-
-    const detectedMode = detectCognitiveMode(lower)
-    return {
-      turnType: 'context_switch',
-      cognitiveMode: detectedMode,
-      shouldAllowUiAction: detectedMode === 'cellar_assistant',
-    }
+    return routePostTaskAck(state, signals)
   }
 
   if (state.phase === 'collecting_info') {
-    if (matchesAny(lower, CANCEL)) {
-      return cancelTask()
-    }
-
-    const memoryIntent = routeMemoryIntent(lower, isTastingMemoryFollowUp, false)
-    if (memoryIntent) return memoryIntent
-
-    if (isInventoryQuestion) {
-      return cellarContextSwitch()
-    }
-
-    return { turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
+    return routeCollectingInfo(state, signals)
   }
 
   if (state.phase === 'disambiguation') {
-    if (matchesAny(lower, CANCEL)) {
-      return cancelTask()
-    }
-    return { turnType: 'disambiguation_answer', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
+    return routeDisambiguation(state, signals)
   }
 
   if (state.phase === 'active_task') {
-    if (matchesAny(lower, CANCEL)) {
-      return cancelTask()
-    }
-    if (matchesAny(lower, SOCIAL_ACK)) {
-      return socialAck()
-    }
-    if (isInventoryQuestion) {
-      return cellarContextSwitch()
-    }
-    return { turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
+    return routeActiveTask(state, signals)
   }
 
-  if (matchesAny(lower, SOCIAL_ACK)) {
-    return socialAck()
-  }
-
-  if (hadRecentReco && matchesAny(lower, REFINEMENT)) {
-    return { turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
-  }
-
-  if (hadRecentReco && matchesAny(lower, MEMORY_GUIDED_RECOMMENDATION)) {
-    return { turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
-  }
-
-  const cellarRequest = routeCellarRequest(lower)
-  if (cellarRequest) return cellarRequest
-
-  const memoryIntent = routeMemoryIntent(lower, isTastingMemoryFollowUp, true)
-  if (memoryIntent) return memoryIntent
-
-  if (isInventoryQuestion) {
-    return cellarContextSwitch()
-  }
-
-  if (matchesAny(lower, WINE_CULTURE)) {
-    return wineSmalltalk()
-  }
-
-  if (matchesAny(lower, QUESTION)) {
-    return wineSmalltalk()
-  }
-
-  if (hadRecentReco && lower.length < 20) {
-    return socialAck()
-  }
-
-  if (lower.length < 20) {
-    return wineSmalltalk()
-  }
-
-  return { turnType: 'unknown', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }
+  return routeIdle(signals)
 }
