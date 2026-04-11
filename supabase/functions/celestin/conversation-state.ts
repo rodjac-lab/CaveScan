@@ -6,7 +6,6 @@ export type ConversationPhase =
   | 'post_task_ack'        // Tâche rendue, on attend acquittement ou relance
   | 'collecting_info'      // Collecte d'infos pour encavage (domaine → prix → zone)
   | 'disambiguation'       // Besoin de clarification
-  | 'context_switch'       // Changement de sujet (transient → reverts to idle)
 
 export type TaskType = 'recommendation' | 'encavage' | 'tasting' | null
 
@@ -125,14 +124,6 @@ export function computeNextState(
           return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0, memoryFocus: nextMemoryFocus }
         }
         return { phase: 'active_task', taskType: current.taskType, lastUiActionKind: null, turnsSinceLastAction: 0, memoryFocus: nextMemoryFocus }
-      }
-      return { ...INITIAL_STATE }
-    }
-
-    case 'context_switch': {
-      // Transient — always resolves
-      if (turnType === 'task_request' && responseHasUiAction) {
-        return { phase: 'post_task_ack', taskType: resolveTask(), lastUiActionKind: uiActionKind ?? null, turnsSinceLastAction: 0, memoryFocus: nextMemoryFocus }
       }
       return { ...INITIAL_STATE }
     }
