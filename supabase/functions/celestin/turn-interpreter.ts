@@ -152,6 +152,58 @@ function detectCognitiveMode(lower: string): CognitiveMode {
   return 'wine_conversation'
 }
 
+function socialAck(): TurnInterpretation {
+  return { turnType: 'social_ack', cognitiveMode: 'social', shouldAllowUiAction: false }
+}
+
+function cancelTask(): TurnInterpretation {
+  return { turnType: 'task_cancel', cognitiveMode: 'social', shouldAllowUiAction: false }
+}
+
+function memoryContextSwitch(): TurnInterpretation {
+  return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
+}
+
+function cellarContextSwitch(): TurnInterpretation {
+  return { turnType: 'context_switch', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: false }
+}
+
+function wineContextSwitch(): TurnInterpretation {
+  return { turnType: 'context_switch', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }
+}
+
+function wineSmalltalk(): TurnInterpretation {
+  return { turnType: 'smalltalk', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }
+}
+
+function recommendationRequest(): TurnInterpretation {
+  return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'recommendation' }
+}
+
+function encavageRequest(): TurnInterpretation {
+  return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'encavage' }
+}
+
+function tastingRequest(): TurnInterpretation {
+  return { turnType: 'task_request', cognitiveMode: 'tasting_memory', shouldAllowUiAction: true, inferredTaskType: 'tasting' }
+}
+
+function routeCellarRequest(lower: string): TurnInterpretation | null {
+  if (matchesAny(lower, RECOMMENDATION)) return recommendationRequest()
+  if (matchesAny(lower, ENCAVAGE)) return encavageRequest()
+  return null
+}
+
+function routeMemoryIntent(
+  lower: string,
+  isTastingMemoryFollowUp: boolean,
+  tastingCreatesTask: boolean,
+): TurnInterpretation | null {
+  if (matchesAny(lower, MEMORY) || isTastingMemoryFollowUp) return memoryContextSwitch()
+  if (matchesAny(lower, TASTING)) return tastingCreatesTask ? tastingRequest() : memoryContextSwitch()
+  return null
+}
+
 export function interpretTurn(
   message: string,
   hasImage: boolean,
@@ -181,28 +233,28 @@ export function interpretTurn(
       return { turnType: 'task_request', cognitiveMode: 'restaurant_assistant', shouldAllowUiAction: true }
     }
     if (matchesAny(lower, ENCAVAGE)) {
-      return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'encavage' }
+      return encavageRequest()
     }
     if (matchesAny(lower, RECOMMENDATION)) {
-      return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'recommendation' }
+      return recommendationRequest()
     }
     if (matchesAny(lower, QUESTION) || matchesAny(lower, WINE_CULTURE) || /\b(penses|avis|tu connais|c'est bien|c'est bon)\b/i.test(lower)) {
-      return { turnType: 'smalltalk', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }
+      return wineSmalltalk()
     }
     return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
   }
 
   if (state.phase === 'post_task_ack') {
     if (matchesAny(lower, CANCEL)) {
-      return { turnType: 'task_cancel', cognitiveMode: 'social', shouldAllowUiAction: false }
+      return cancelTask()
     }
 
     if (lower.length < 30 && matchesAny(lower, SOCIAL_ACK)) {
-      return { turnType: 'social_ack', cognitiveMode: 'social', shouldAllowUiAction: false }
+      return socialAck()
     }
 
     if (state.taskType === 'recommendation' && matchesAny(lower, EXPLORATORY_RECO_PIVOT)) {
-      return { turnType: 'context_switch', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }
+      return wineContextSwitch()
     }
 
     if (matchesAny(lower, REFINEMENT)) {
@@ -213,34 +265,22 @@ export function interpretTurn(
       return { turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
     }
 
-    if (matchesAny(lower, RECOMMENDATION)) {
-      return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'recommendation' }
-    }
-    if (matchesAny(lower, ENCAVAGE)) {
-      return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'encavage' }
-    }
-    if (matchesAny(lower, MEMORY)) {
-      return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
-    }
+    const cellarRequest = routeCellarRequest(lower)
+    if (cellarRequest) return cellarRequest
 
-    if (isTastingMemoryFollowUp) {
-      return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
-    }
-
-    if (matchesAny(lower, TASTING)) {
-      return { turnType: 'task_request', cognitiveMode: 'tasting_memory', shouldAllowUiAction: true, inferredTaskType: 'tasting' }
-    }
+    const memoryIntent = routeMemoryIntent(lower, isTastingMemoryFollowUp, true)
+    if (memoryIntent) return memoryIntent
 
     if (isInventoryQuestion) {
-      return { turnType: 'context_switch', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: false }
+      return cellarContextSwitch()
     }
 
     if (matchesAny(lower, WINE_CULTURE) || matchesAny(lower, QUESTION)) {
-      return { turnType: 'context_switch', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }
+      return wineContextSwitch()
     }
 
     if (lower.length < 20) {
-      return { turnType: 'social_ack', cognitiveMode: 'social', shouldAllowUiAction: false }
+      return socialAck()
     }
 
     const detectedMode = detectCognitiveMode(lower)
@@ -253,19 +293,14 @@ export function interpretTurn(
 
   if (state.phase === 'collecting_info') {
     if (matchesAny(lower, CANCEL)) {
-      return { turnType: 'task_cancel', cognitiveMode: 'social', shouldAllowUiAction: false }
+      return cancelTask()
     }
 
-    if (matchesAny(lower, MEMORY) || matchesAny(lower, TASTING)) {
-      return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
-    }
-
-    if (isTastingMemoryFollowUp) {
-      return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
-    }
+    const memoryIntent = routeMemoryIntent(lower, isTastingMemoryFollowUp, false)
+    if (memoryIntent) return memoryIntent
 
     if (isInventoryQuestion) {
-      return { turnType: 'context_switch', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: false }
+      return cellarContextSwitch()
     }
 
     return { turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
@@ -273,26 +308,26 @@ export function interpretTurn(
 
   if (state.phase === 'disambiguation') {
     if (matchesAny(lower, CANCEL)) {
-      return { turnType: 'task_cancel', cognitiveMode: 'social', shouldAllowUiAction: false }
+      return cancelTask()
     }
     return { turnType: 'disambiguation_answer', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
   }
 
   if (state.phase === 'active_task') {
     if (matchesAny(lower, CANCEL)) {
-      return { turnType: 'task_cancel', cognitiveMode: 'social', shouldAllowUiAction: false }
+      return cancelTask()
     }
     if (matchesAny(lower, SOCIAL_ACK)) {
-      return { turnType: 'social_ack', cognitiveMode: 'social', shouldAllowUiAction: false }
+      return socialAck()
     }
     if (isInventoryQuestion) {
-      return { turnType: 'context_switch', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: false }
+      return cellarContextSwitch()
     }
     return { turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }
   }
 
   if (matchesAny(lower, SOCIAL_ACK)) {
-    return { turnType: 'social_ack', cognitiveMode: 'social', shouldAllowUiAction: false }
+    return socialAck()
   }
 
   if (hadRecentReco && matchesAny(lower, REFINEMENT)) {
@@ -303,44 +338,30 @@ export function interpretTurn(
     return { turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }
   }
 
-  if (matchesAny(lower, RECOMMENDATION)) {
-    return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'recommendation' }
-  }
+  const cellarRequest = routeCellarRequest(lower)
+  if (cellarRequest) return cellarRequest
 
-  if (matchesAny(lower, ENCAVAGE)) {
-    return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'encavage' }
-  }
-
-  if (matchesAny(lower, MEMORY)) {
-    return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
-  }
-
-  if (isTastingMemoryFollowUp) {
-    return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
-  }
-
-  if (matchesAny(lower, TASTING)) {
-    return { turnType: 'task_request', cognitiveMode: 'tasting_memory', shouldAllowUiAction: true, inferredTaskType: 'tasting' }
-  }
+  const memoryIntent = routeMemoryIntent(lower, isTastingMemoryFollowUp, true)
+  if (memoryIntent) return memoryIntent
 
   if (isInventoryQuestion) {
-    return { turnType: 'context_switch', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: false }
+    return cellarContextSwitch()
   }
 
   if (matchesAny(lower, WINE_CULTURE)) {
-    return { turnType: 'smalltalk', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }
+    return wineSmalltalk()
   }
 
   if (matchesAny(lower, QUESTION)) {
-    return { turnType: 'smalltalk', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }
+    return wineSmalltalk()
   }
 
   if (hadRecentReco && lower.length < 20) {
-    return { turnType: 'social_ack', cognitiveMode: 'social', shouldAllowUiAction: false }
+    return socialAck()
   }
 
   if (lower.length < 20) {
-    return { turnType: 'smalltalk', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }
+    return wineSmalltalk()
   }
 
   return { turnType: 'unknown', cognitiveMode: 'wine_conversation', shouldAllowUiAction: false }
