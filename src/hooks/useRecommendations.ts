@@ -13,6 +13,7 @@ import { serializeMemoriesForPrompt } from '@/lib/tastingMemoryFormatting'
 import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
 import { getCachedBottles } from '@/hooks/useBottles'
 import type { Bottle, TasteProfile } from '@/lib/types'
+import { CELESTIN_TASTING_MEMORY_LIMIT } from '@/lib/memoryConfig'
 
 // === Prefetch (fire-and-forget, called from AppLayout) ===
 
@@ -37,7 +38,7 @@ export async function prefetchDefaultRecommendations(): Promise<void> {
     } else {
       const [caveRes, drunkRes] = await Promise.all([
         supabase.from('bottles').select('*').eq('status', 'in_stock'),
-        supabase.from('bottles').select('*').eq('status', 'drunk').order('drunk_at', { ascending: false }).limit(30),
+        supabase.from('bottles').select('*').eq('status', 'drunk').order('drunk_at', { ascending: false }).limit(CELESTIN_TASTING_MEMORY_LIMIT),
       ])
       caveBottles = (caveRes.data ?? []) as Bottle[]
       drunkBottles = (drunkRes.data ?? []) as Bottle[]

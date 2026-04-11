@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Bottle, BottleWithZone } from '@/lib/types'
+import { CELESTIN_TASTING_MEMORY_LIMIT } from '@/lib/memoryConfig'
 
 const BOTTLES_SELECT_QUERY = `*, zone:zones(*)`
 
@@ -93,7 +94,7 @@ export function useRecentlyDrunk(): {
         .select(BOTTLES_SELECT_QUERY)
         .eq('status', 'drunk')
         .order('drunk_at', { ascending: false })
-        .limit(30)
+        .limit(CELESTIN_TASTING_MEMORY_LIMIT)
 
       const bottles = data || []
       setBottles(bottles)

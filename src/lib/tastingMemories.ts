@@ -44,6 +44,7 @@ function serializeEvidenceBundle(
   if (mode === 'exact') {
     lines.push('Inventaire exact de degustation.')
     lines.push('N ajoute aucun autre vin que ceux fournis ci-dessous.')
+    lines.push('Si la degustation demandee n apparait pas ci-dessous avec sa note ou son verbatim, reponds que tu ne la retrouves pas.')
   } else {
     lines.push('Base exacte de synthese sur degustations passees.')
     lines.push('Ne generalise pas au dela des vins fournis ci-dessous.')
@@ -108,18 +109,19 @@ export async function buildMemoryEvidenceBundle(input: {
     await selectRelevantMemoriesAsync(planning.planningQuery, drunkBottles, limit, {
       selectionProfile,
       recentMessages,
+      allowGenericFallback: mode !== 'exact',
     } satisfies MemorySelectionOptions),
-    'synthesis',
+    mode,
   )
 
   return {
-    mode: 'synthesis',
+    mode,
     planningQuery: planning.planningQuery,
     usedConversationContext: planning.usedConversationContext,
     matchedFilters,
     memories,
     serialized: serializeEvidenceBundle(
-      'synthesis',
+      mode,
       query,
       matchedFilters,
       planning.usedConversationContext,

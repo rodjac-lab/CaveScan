@@ -20,12 +20,15 @@ const STOP_WORDS = new Set([
 const CONTEXTLESS_TERMS = new Set([
   'deja', 'bu', 'goute', 'ouvert', 'ouvre', "j'en", 'jen', 'aije', 'est-ce', 'estce',
   'aime', 'aimes', 'aimer', 'pense', 'penses',
+  'note', 'notes', 'degustation', 'retrouve', 'retrouver',
 ])
 
 const FOLLOW_UP_PATTERNS = [
   /\bj'en\b/,
   /\ben ai[- ]?je\b/,
   /\bce vin\b/,
+  /\bce flacon\b/,
+  /\bcette bouteille\b/,
   /\bce style\b/,
   /\bcela\b/,
   /\bca\b/,
@@ -36,6 +39,10 @@ const EXACT_MEMORY_PATTERNS = [
   /\bdeja\b.*\b(bu|goute|ouvert|deguste)\b/,
   /\b(ai[- ]?je|jai|j'en|jen)\b.*\b(bu|goute|ouvert|deguste)\b/,
   /\b(quels|lesquels|combien|liste|inventaire)\b.*\b(jai|j'en|jen|deja|bu|goute|ouvert|deguste)\b/,
+  /\bdeja\b.*\b(note|notes|notee|noté|notée|degustation)\b/,
+  /\b(note|notes|etoiles?|rating)\b.*\b(degustation|deguste|bu|goute|mis)\b/,
+  /\b(retrouve|retrouver|retrouverais|retrouvera?is|retrouveras)\b.*\b(note|notes|degustation|souvenir)\b/,
+  /\bje l[' ]?ai\b.*\b(note|notee|noté|notée|deguste|goute|bu)\b/,
   /\bpas de\b/,
 ]
 
@@ -153,17 +160,18 @@ export function buildContextualMemoryQuery(
     FOLLOW_UP_PATTERNS.some((pattern) => pattern.test(normalized))
     || terms.length === 0
     || terms.every((term) => CONTEXTLESS_TERMS.has(term))
+    || EXACT_MEMORY_PATTERNS.some((pattern) => pattern.test(normalized))
 
   if (!needsContext) return trimmed
 
-  const priorUserTurns = recentMessages
-    .filter((message) => message.role === 'user')
+  const priorContextTurns = recentMessages
+    .slice(-6)
     .map((message) => message.text.trim())
     .filter(Boolean)
     .filter((text) => normalizeForMatch(text) !== normalized)
 
-  if (priorUserTurns.length === 0) return trimmed
-  return [...priorUserTurns.slice(-2), trimmed].join(' | ')
+  if (priorContextTurns.length === 0) return trimmed
+  return [...priorContextTurns, trimmed].join(' | ')
 }
 
 function emptyExactFilters(): ExactMemoryFilters {

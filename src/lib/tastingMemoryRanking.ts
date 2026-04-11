@@ -169,7 +169,7 @@ function rankMemoryCandidates(
   const withNotes = drunkBottles.filter((bottle) => bottle.tasting_note && bottle.tasting_note.trim().length > 0)
   if (withNotes.length === 0) return []
 
-  const { selectionProfile = 'default', recentMessages = [] } = options
+  const { selectionProfile = 'default', recentMessages = [], allowGenericFallback = true } = options
   const hasQuery = query != null && query.trim().length > 0
   const normalizedQuery = hasQuery ? normalizeForMatch(query) : ''
   const fallbackWords = hasQuery ? extractQueryTerms(query) : []
@@ -210,7 +210,7 @@ function rankMemoryCandidates(
     return relevantOnly.slice(0, limit).map((entry) => entry.bottle)
   }
 
-  if (selectionProfile === 'recommendation') {
+  if (selectionProfile === 'recommendation' || !allowGenericFallback) {
     return []
   }
 

@@ -167,6 +167,36 @@ function getCards(response) {
   return response?.cards ?? []
 }
 
+function normalizeEvalText(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+function textContainsNumericToken(responseText, token) {
+  return new RegExp(`(^|[^0-9])${token}([^0-9]|$)`).test(responseText)
+}
+
+function responseContainsExpectedTerm(responseText, term) {
+  const normalizedText = normalizeEvalText(responseText)
+  const normalizedTerm = normalizeEvalText(term)
+
+  const ratingAliases = {
+    '1': ['1', '1/5', 'un', 'une'],
+    '2': ['2', '2/5', 'deux'],
+    '3': ['3', '3/5', 'trois'],
+    '4': ['4', '4/5', 'quatre'],
+    '5': ['5', '5/5', 'cinq'],
+  }
+
+  const aliases = ratingAliases[normalizedTerm] ?? [normalizedTerm]
+  return aliases.some((alias) => {
+    if (/^[1-5]$/.test(alias)) return textContainsNumericToken(normalizedText, alias)
+    return normalizedText.includes(alias)
+  })
+}
+
 function analyzeScenarioResult(scenario, response) {
   const cards = getCards(response)
   const avoidColors = scenario.expectations?.avoidColors ?? []
@@ -254,9 +284,9 @@ function analyzeTurnResult(turn, response) {
 
   // Check responseContains — verify specific words/phrases appear in the response
   if (Array.isArray(turn.expect.responseContains)) {
-    const responseText = (response.message ?? '').toLowerCase()
+    const responseText = response.message ?? ''
     for (const term of turn.expect.responseContains) {
-      const pass = responseText.includes(term.toLowerCase())
+      const pass = responseContainsExpectedTerm(responseText, term)
       checks.push({
         check: 'contains',
         expected: term,

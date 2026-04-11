@@ -45,6 +45,16 @@ describe('interpretTurn', () => {
     })
   })
 
+  it('routes existing tasting-note lookups to memory, not tasting creation', () => {
+    const result = interpretTurn("J'ai déjà fait une note de dégustation, tu peux la retrouver ?", false, state())
+
+    expect(result).toEqual({
+      turnType: 'context_switch',
+      cognitiveMode: 'tasting_memory',
+      shouldAllowUiAction: false,
+    })
+  })
+
   it('routes accented encavage phrasing to cellar_assistant', () => {
     const result = interpretTurn("J'ai acheté du vin aujourd'hui", false, state())
 

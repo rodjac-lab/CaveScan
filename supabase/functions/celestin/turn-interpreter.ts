@@ -68,6 +68,9 @@ const TASTING = [
 const MEMORY = [
   /\b(tu te souviens|la derniere fois|chez \w+|on avait bu|rappelle|souvenir)\b/i,
   /\b(ai[- ]je deja bu|deja bu|deja goute|deja ouvert)\b/i,
+  /\bdeja\b.*\b(note|noté|notee|notée|degustation|dégustation)\b/i,
+  /\b(retrouve|retrouver|retrouverais|retrouvera?is|retrouveras)\b.*\b(note|degustation|dégustation|souvenir)\b/i,
+  /\bje l[' ]?ai\b.*\b(note|noté|notee|notée|deguste|dégusté|goute|goûté|bu)\b/i,
 ]
 
 const CELLAR_LOOKUP = [
@@ -216,16 +219,16 @@ export function interpretTurn(
     if (matchesAny(lower, ENCAVAGE)) {
       return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'encavage' }
     }
-    if (matchesAny(lower, TASTING)) {
-      return { turnType: 'task_request', cognitiveMode: 'tasting_memory', shouldAllowUiAction: true, inferredTaskType: 'tasting' }
-    }
-
     if (matchesAny(lower, MEMORY)) {
       return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
     }
 
     if (isTastingMemoryFollowUp) {
       return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
+    }
+
+    if (matchesAny(lower, TASTING)) {
+      return { turnType: 'task_request', cognitiveMode: 'tasting_memory', shouldAllowUiAction: true, inferredTaskType: 'tasting' }
     }
 
     if (isInventoryQuestion) {
@@ -308,16 +311,16 @@ export function interpretTurn(
     return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'encavage' }
   }
 
-  if (matchesAny(lower, TASTING)) {
-    return { turnType: 'task_request', cognitiveMode: 'tasting_memory', shouldAllowUiAction: true, inferredTaskType: 'tasting' }
-  }
-
   if (matchesAny(lower, MEMORY)) {
     return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
   }
 
   if (isTastingMemoryFollowUp) {
     return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
+  }
+
+  if (matchesAny(lower, TASTING)) {
+    return { turnType: 'task_request', cognitiveMode: 'tasting_memory', shouldAllowUiAction: true, inferredTaskType: 'tasting' }
   }
 
   if (isInventoryQuestion) {

@@ -21,6 +21,7 @@ export type MemorySelectionProfile = 'default' | 'recommendation'
 export interface MemorySelectionOptions {
   selectionProfile?: MemorySelectionProfile
   recentMessages?: MemorySearchMessage[]
+  allowGenericFallback?: boolean
 }
 
 export interface ExactMemoryFilters {
