@@ -1,15 +1,6 @@
 import type { TurnInterpretation } from "./turn-interpreter.ts"
 import type { CelestinResponse, RequestBody } from "./types.ts"
 
-function stripFillerOpener(message: string): string {
-  const cleaned = message.replace(/^(Ah[,! ] *|Oh[,! ] *|Tiens[,! ] *|Absolument[,! ] *|Excellente question[,! ] *)/i, '')
-  if (cleaned !== message) {
-    console.log(`[celestin] Policy: stripped filler opener`)
-    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
-  }
-  return message
-}
-
 function neutralizeUnknownCategoryValidation(message: string): string {
   return message
     .replace(/\bcette appellation\b/gi, 'ce nom')
@@ -27,10 +18,6 @@ export function applyResponsePolicy(
   messageLength?: number,
 ): CelestinResponse {
   const result = { ...response }
-
-  if (result.message) {
-    result.message = stripFillerOpener(result.message)
-  }
 
   if (
     result.message
