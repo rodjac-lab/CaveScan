@@ -56,7 +56,6 @@ Deno.serve(async (req) => {
     const response = applyResponsePolicy(
       rawResponse,
       body,
-      conversationState,
       interpretation,
       lastAssistantText,
       body.message.length,

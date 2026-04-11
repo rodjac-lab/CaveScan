@@ -1,4 +1,3 @@
-import type { ConversationState } from "./conversation-state.ts"
 import type { TurnInterpretation } from "./turn-interpreter.ts"
 import type { CelestinResponse, RequestBody } from "./types.ts"
 
@@ -20,58 +19,9 @@ function neutralizeUnknownCategoryValidation(message: string): string {
     .replace(/\bce terroir\b/gi, 'ce nom')
 }
 
-function extractPreviousRecommendationAnchor(history: RequestBody['history']): string | null {
-  const previousUserTurn = [...history].reverse().find((turn) => turn.role === 'user')
-  const text = previousUserTurn?.text?.trim()
-  if (!text) return null
-
-  const patterns = [
-    /^(?:ce soir c['’]?est|ce soir c est)\s+(.+)$/i,
-    /^(?:pour|avec)\s+(.+)$/i,
-  ]
-
-  for (const pattern of patterns) {
-    const match = text.match(pattern)
-    if (match?.[1]) return match[1].trim()
-  }
-
-  return null
-}
-
-function stripPreviousAnchor(message: string, anchor: string): string {
-  if (!anchor) return message
-
-  const escapedAnchor = anchor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const patterns = [
-    new RegExp(`\\bavec\\s+(?:le|la|les|l['’])?\\s*${escapedAnchor}\\b`, 'gi'),
-    new RegExp(`\\bpour\\s+(?:le|la|les|l['’])?\\s*${escapedAnchor}\\b`, 'gi'),
-    new RegExp(`\\bdu\\s+${escapedAnchor}\\b`, 'gi'),
-    new RegExp(`\\bde\\s+${escapedAnchor}\\b`, 'gi'),
-    new RegExp(`\\b${escapedAnchor}\\b`, 'gi'),
-  ]
-
-  let cleaned = message
-  for (const pattern of patterns) {
-    cleaned = cleaned.replace(pattern, '')
-  }
-
-  cleaned = cleaned
-    .replace(/\s+,/g, ',')
-    .replace(/\s+!/g, '!')
-    .replace(/\s+\?/g, '?')
-    .replace(/\s{2,}/g, ' ')
-    .replace(/,\s*,/g, ', ')
-    .replace(/^,\s*/g, '')
-    .trim()
-
-  if (!cleaned) return message
-  return cleaned
-}
-
 export function applyResponsePolicy(
   response: CelestinResponse,
   body: RequestBody,
-  state: ConversationState,
   interpretation: TurnInterpretation,
   lastAssistantText?: string,
   messageLength?: number,
@@ -89,24 +39,6 @@ export function applyResponsePolicy(
     && /\bje ne (?:connais|reconnais) pas\b/i.test(result.message)
   ) {
     result.message = neutralizeUnknownCategoryValidation(result.message)
-  }
-
-  if (
-    result.message
-    && interpretation.turnType === 'context_switch'
-    && interpretation.cognitiveMode === 'wine_conversation'
-    && state.taskType === 'recommendation'
-  ) {
-    const previousAnchor = extractPreviousRecommendationAnchor(body.history)
-    if (previousAnchor && !body.message.toLowerCase().includes(previousAnchor.toLowerCase())) {
-      result.message = stripPreviousAnchor(result.message, previousAnchor)
-      if (result.ui_action?.kind === 'show_recommendations') {
-        result.ui_action.payload.cards = (result.ui_action.payload.cards ?? []).map((card) => ({
-          ...card,
-          reason: card.reason ? stripPreviousAnchor(card.reason, previousAnchor) : card.reason,
-        }))
-      }
-    }
   }
 
   if (!interpretation.shouldAllowUiAction && result.ui_action) {
@@ -130,4 +62,3 @@ export function applyResponsePolicy(
 
   return result
 }
-

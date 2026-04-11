@@ -55,10 +55,7 @@ export function buildUserPrompt(
   }
 
   else if (turnType === 'smalltalk' || (turnType === 'context_switch' && cognitiveMode === 'wine_conversation')) {
-    parts.push(`[QUESTION VIN — Reponds avec tes connaissances. PAS de ui_action. Sois concis et opinione. action_chips : questions pour approfondir (cepage, region, domaine), PAS de suggestions de reco cave.]`)
-    parts.push(`[GARDE-FOU — Pour une question de culture vin, ne ramene PAS la reponse a l'utilisateur, a sa cave, a ses souvenirs ou a ses preferences, sauf si la question porte explicitement dessus.]`)
-    parts.push(`[SOBRIETE MEMOIRE — Pas d'analogie forcee avec une bouteille precise du passe. Si un souvenir personnel n'apporte pas une vraie precision utile, ne le dis pas.]`)
-    parts.push(`[HONNETETE SUR TERME INCONNU — Si un nom te semble inconnu ou douteux, ne valide JAMAIS la categorie implicite. Dis "je ne connais pas ce nom" ou "je ne reconnais pas ce nom", pas "cette appellation", "ce domaine", "ce cepage" ou "ce terroir".]`)
+    parts.push(`[QUESTION VIN — Reponds avec tes connaissances. PAS de ui_action. Sois concis et direct. N'utilise cave, memoire ou preferences que si la question le demande explicitement. Si un nom est inconnu, dis-le sans valider sa categorie implicite.]`)
     if (turnType === 'context_switch' && state.taskType === 'recommendation') {
       parts.push(`[PIVOT DE RECOMMANDATION — L'utilisateur explore une autre direction. Reponds sobrement a cette nouvelle piste sans recycler automatiquement le plat precedent, les cartes precedentes ou un souvenir marquant.]`)
     }
@@ -84,8 +81,7 @@ export function buildUserPrompt(
     && state.phase === 'collecting_info'
     && state.taskType === 'recommendation'
   ) {
-    parts.push(`[RECOMMANDATION IMMEDIATE — L'utilisateur vient d'apporter la precision manquante pour une recommandation. Si tu as assez de contexte pour proposer des vins, utilise MAINTENANT show_recommendations. Ne reste pas en conversation generale. Une seule exception : si le message reste vraiment trop vague, pose une derniere question tres courte.]`)
-    parts.push(`[GARDE-FOU — En recommendation, base-toi d'abord sur la demande courante. N'introduis JAMAIS un autre plat, un autre pays ou un souvenir non mentionne. Un souvenir est autorise seulement s'il justifie directement le choix.]`)
+    parts.push(`[RECOMMANDATION IMMEDIATE — L'utilisateur vient d'apporter la precision manquante. Si le contexte suffit, utilise MAINTENANT show_recommendations. Base-toi sur la demande courante; n'introduis pas un autre plat, pays ou souvenir non mentionne.]`)
     parts.push(body.message)
   }
 
@@ -113,8 +109,7 @@ export function buildUserPrompt(
       cognitiveMode === 'cellar_assistant'
       && (interpretation.inferredTaskType === 'recommendation' || state.taskType === 'recommendation')
     ) {
-      parts.push(`[RECOMMANDATION — Reponds d'abord a la demande actuelle. N'invente PAS un autre plat ou contexte. N'utilise pas un souvenir pour faire joli. Si tu cites un souvenir, il doit etre directement utile pour expliquer le choix. N'insiste jamais deux tours de suite sur le meme souvenir saillant.]`)
-      parts.push(`[SOBRIETE MEMOIRE — Sur une relance de type pays, couleur, style ou "plutot...", continue la recommandation sans recycler automatiquement le plat precedent ni un souvenir marquant. Ne rappelle un plat ou un souvenir que si l'utilisateur le remet lui-meme au centre ou si cela change concretement le choix.]`)
+      parts.push(`[RECOMMANDATION — Reponds d'abord a la demande actuelle. N'invente pas un autre contexte. Ne cite un souvenir que s'il aide directement le choix, jamais pour decorer.]`)
     }
     if (cognitiveMode === 'tasting_memory' && memoryFocus) {
       parts.push(`[FOCUS MEMOIRE — La relance courte porte probablement sur : ${memoryFocus}. Reste focalise sur ce vin precis.]`)
@@ -131,4 +126,3 @@ export function buildUserPrompt(
 
   return parts.join('\n')
 }
-
