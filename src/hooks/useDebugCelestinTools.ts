@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { serializeProfileForPrompt } from '@/lib/taste-profile'
-import { selectRelevantMemories } from '@/lib/tastingMemories'
+import { buildMemoryEvidenceBundle, selectRelevantMemories } from '@/lib/tastingMemories'
 import { serializeMemoriesForPrompt } from '@/lib/tastingMemoryFormatting'
 import { formatDrunkSummary, getDayOfWeek, getSeason } from '@/lib/contextHelpers'
+import { CELESTIN_TASTING_MEMORY_LIMIT } from '@/lib/memoryConfig'
 import {
   analyzeCelestinEvalResult,
   buildCelestinEvalRequest,
@@ -27,6 +28,7 @@ export type RoutingProbeState = {
   taskType: RoutingProbeTaskType
   hasImage: boolean
   provider: string
+  includeRealMemory: boolean
 }
 
 type RoutingCandidate = {
@@ -49,6 +51,8 @@ export type RoutingProbeResult = {
   cognitiveMode: string | null
   memoryFocus: string | null
   memoryEvidenceMode: string | null
+  memoriesInjected: number
+  memoryPlanningQuery: string | null
   provider: string | null
   routing: RoutingTrace | null
 }
@@ -93,6 +97,7 @@ export function useDebugCelestinTools() {
     taskType: 'recommendation',
     hasImage: false,
     provider: 'gemini',
+    includeRealMemory: true,
   })
   const [runningRoutingProbe, setRunningRoutingProbe] = useState(false)
   const [routingProbeStatus, setRoutingProbeStatus] = useState<string | null>(null)
@@ -437,15 +442,70 @@ export function useDebugCelestinTools() {
     setRoutingProbeResult(null)
 
     try {
-      const history = routingProbe.lastAssistantText.trim()
+      const lastAssistantText = routingProbe.lastAssistantText.trim()
+      const history = lastAssistantText
         ? [{ role: 'assistant', text: routingProbe.lastAssistantText.trim() }]
         : []
+      const [caveResult, drunkResult, profileResult] = routingProbe.includeRealMemory
+        ? await Promise.all([
+            supabase.from('bottles').select('id, domaine, cuvee, appellation, millesime, couleur, quantity, volume_l').eq('status', 'in_stock'),
+            supabase
+              .from('bottles')
+              .select('id, domaine, cuvee, appellation, millesime, couleur, country, region, raw_extraction, zone_id, shelf, photo_url, photo_url_back, status, added_at, drunk_at, updated_at, tasting_note, purchase_price, market_value, drink_from, drink_until, notes, tasting_photos, rating, rebuy, qpr, grape_varieties, serving_temperature, typical_aromas, food_pairings, character, quantity, volume_l, tasting_tags')
+              .eq('status', 'drunk')
+              .order('drunk_at', { ascending: false })
+              .limit(CELESTIN_TASTING_MEMORY_LIMIT),
+            supabase.from('user_taste_profiles').select('computed_profile, explicit_preferences, computed_at').maybeSingle(),
+          ])
+        : [
+            { data: [], error: null },
+            { data: [], error: null },
+            { data: null, error: null },
+          ]
+
+      if (caveResult.error) throw caveResult.error
+      if (drunkResult.error) throw drunkResult.error
+      if (profileResult.error) throw profileResult.error
+
+      const cave = (caveResult.data ?? []) as Pick<Bottle, 'id' | 'domaine' | 'cuvee' | 'appellation' | 'millesime' | 'couleur' | 'quantity' | 'volume_l'>[]
+      const drunk = (drunkResult.data ?? []) as Bottle[]
+      const profileRow = profileResult.data as { computed_profile?: TasteProfile['computed']; explicit_preferences?: TasteProfile['explicit']; computed_at?: string } | null
+      const profile: TasteProfile | null = profileRow?.computed_profile
+        ? {
+            computed: profileRow.computed_profile,
+            explicit: profileRow.explicit_preferences ?? {},
+            computedAt: profileRow.computed_at ?? '',
+          }
+        : null
+      const recentMessages = [
+        ...(lastAssistantText ? [{ role: 'celestin' as const, text: lastAssistantText }] : []),
+      ]
+      const memoryEvidence = routingProbe.includeRealMemory
+        ? await buildMemoryEvidenceBundle({
+            query: message,
+            recentMessages,
+            drunkBottles: drunk,
+            selectionProfile: routingProbe.taskType === 'recommendation' ? 'recommendation' : 'default',
+          })
+        : null
       const body = {
         message,
         history,
-        cave: [],
-        profile: undefined,
-        memories: undefined,
+        cave: cave.map((bottle) => ({
+          id: String(bottle.id).substring(0, 8),
+          domaine: bottle.domaine,
+          cuvee: bottle.cuvee,
+          appellation: bottle.appellation,
+          millesime: bottle.millesime,
+          couleur: bottle.couleur,
+          quantity: bottle.quantity ?? 1,
+          volume: bottle.volume_l?.toString() ?? '0.75',
+          local_score: 0,
+        })),
+        profile: profile ? serializeProfileForPrompt(profile) : undefined,
+        memories: memoryEvidence?.serialized || undefined,
+        memoryEvidenceMode: memoryEvidence?.mode,
+        compiledProfileMarkdown: userProfile?.compiled_markdown ?? undefined,
         ...(routingProbe.provider ? { provider: routingProbe.provider } : {}),
         ...(routingProbe.hasImage ? { image: 'data:image/png;base64,iVBORw0KGgo=' } : {}),
         conversationState: {
@@ -475,10 +535,12 @@ export function useDebugCelestinTools() {
         cognitiveMode: typeof debug?.cognitiveMode === 'string' ? debug.cognitiveMode : null,
         memoryFocus: typeof debug?.memoryFocus === 'string' ? debug.memoryFocus : null,
         memoryEvidenceMode: typeof debug?.memoryEvidenceMode === 'string' ? debug.memoryEvidenceMode : null,
+        memoriesInjected: memoryEvidence?.memories.length ?? 0,
+        memoryPlanningQuery: memoryEvidence?.planningQuery ?? null,
         provider: typeof debug?.provider === 'string' ? debug.provider : null,
         routing,
       })
-      setRoutingProbeStatus(`Route: ${routing?.winner ?? 'inconnue'} • ui_action=${((data.ui_action as { kind?: string } | null | undefined)?.kind) ?? 'none'}`)
+      setRoutingProbeStatus(`Route: ${routing?.winner ?? 'inconnue'} • ui_action=${((data.ui_action as { kind?: string } | null | undefined)?.kind) ?? 'none'} • memories=${memoryEvidence?.memories.length ?? 0}`)
     } catch (err) {
       setRoutingProbeStatus(`Erreur routing probe: ${err instanceof Error ? err.message : 'inconnue'}`)
     } finally {

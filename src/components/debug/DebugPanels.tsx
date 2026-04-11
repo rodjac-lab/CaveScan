@@ -469,6 +469,14 @@ export function DebugCelestinToolsPanel({
               />
               Photo jointe
             </label>
+            <label className="col-span-2 flex items-center gap-2 text-[12px] text-[var(--text-secondary)]">
+              <input
+                type="checkbox"
+                checked={routingProbe.includeRealMemory}
+                onChange={(event) => setRoutingProbe((previous) => ({ ...previous, includeRealMemory: event.target.checked }))}
+              />
+              Injecter cave, degustations et memoire reelles
+            </label>
           </div>
 
           <button
@@ -489,7 +497,17 @@ export function DebugCelestinToolsPanel({
                 <span className="rounded-full border border-[var(--border-color)] px-2 py-0.5">turn: {routingProbeResult.turnType ?? '—'}</span>
                 <span className="rounded-full border border-[var(--border-color)] px-2 py-0.5">mode: {routingProbeResult.cognitiveMode ?? '—'}</span>
                 <span className="rounded-full border border-[var(--border-color)] px-2 py-0.5">ui: {routingProbeResult.uiActionKind}</span>
+                <span className="rounded-full border border-[var(--border-color)] px-2 py-0.5">memories: {routingProbeResult.memoriesInjected}</span>
               </div>
+              {routingProbeResult.memoryPlanningQuery && (
+                <p className="mb-2">Planning query: {routingProbeResult.memoryPlanningQuery}</p>
+              )}
+              {routingProbeResult.memoryFocus && (
+                <p className="mb-2">Memory focus: {routingProbeResult.memoryFocus}</p>
+              )}
+              {routingProbeResult.memoryEvidenceMode && (
+                <p className="mb-2">Memory evidence: {routingProbeResult.memoryEvidenceMode}</p>
+              )}
               {routingProbeResult.routing.reasons && routingProbeResult.routing.reasons.length > 0 && (
                 <p className="mb-2">Raisons: {routingProbeResult.routing.reasons.join(', ')}</p>
               )}
