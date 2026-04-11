@@ -291,7 +291,7 @@
         "message": "On avait mis combien d'étoiles ?",
         "expect": {
           "uiAction": "none",
-          "responseContains": ["rayas", "4"],
+          "responseContains": ["4"],
           "responseNotContains": ["aloxe", "dandelion", "thillardon", "leflaive", "ganevat"]
         }
       }

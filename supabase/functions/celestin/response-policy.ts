@@ -1,15 +1,6 @@
 import type { TurnInterpretation } from "./turn-interpreter.ts"
 import type { CelestinResponse, RequestBody } from "./types.ts"
 
-function neutralizeUnknownCategoryValidation(message: string): string {
-  return message
-    .replace(/\bcette appellation\b/gi, 'ce nom')
-    .replace(/\bce domaine\b/gi, 'ce nom')
-    .replace(/\bce cepage\b/gi, 'ce nom')
-    .replace(/\bce cépage\b/gi, 'ce nom')
-    .replace(/\bce terroir\b/gi, 'ce nom')
-}
-
 export function applyResponsePolicy(
   response: CelestinResponse,
   body: RequestBody,
@@ -18,15 +9,6 @@ export function applyResponsePolicy(
   messageLength?: number,
 ): CelestinResponse {
   const result = { ...response }
-
-  if (
-    result.message
-    && interpretation.cognitiveMode === 'wine_conversation'
-    && /(appellation|domaine|cepage|cépage|terroir)/i.test(body.message)
-    && /\bje ne (?:connais|reconnais) pas\b/i.test(result.message)
-  ) {
-    result.message = neutralizeUnknownCategoryValidation(result.message)
-  }
 
   if (!interpretation.shouldAllowUiAction && result.ui_action) {
     console.log(`[celestin] Policy: stripped ui_action (${result.ui_action.kind}) — turnType=${interpretation.turnType}, mode=${interpretation.cognitiveMode}`)
