@@ -110,6 +110,12 @@ export default function Debug() {
           onAuditMemoryFacts={celestinTools.handleAuditMemoryFacts}
           memoryAuditStatus={celestinTools.memoryAuditStatus}
           memoryAuditReport={celestinTools.memoryAuditReport}
+          routingProbe={celestinTools.routingProbe}
+          setRoutingProbe={celestinTools.setRoutingProbe}
+          runningRoutingProbe={celestinTools.runningRoutingProbe}
+          routingProbeStatus={celestinTools.routingProbeStatus}
+          routingProbeResult={celestinTools.routingProbeResult}
+          onRunRoutingProbe={celestinTools.handleRunRoutingProbe}
         />
 
         <DebugEnrichmentPanel

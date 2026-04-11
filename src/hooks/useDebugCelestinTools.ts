@@ -17,6 +17,42 @@ import { loadActiveMemoryFacts } from '@/lib/chatPersistence'
 import { buildMemoryAuditReport, buildMemoryWeightReport, type MemoryAuditReport, type MemoryWeightReport } from '@/lib/debugInsights'
 import type { Bottle, TasteProfile } from '@/lib/types'
 
+export type RoutingProbePhase = 'idle_smalltalk' | 'post_task_ack' | 'collecting_info' | 'active_task' | 'disambiguation'
+export type RoutingProbeTaskType = 'none' | 'recommendation' | 'encavage' | 'tasting'
+
+export type RoutingProbeState = {
+  message: string
+  lastAssistantText: string
+  phase: RoutingProbePhase
+  taskType: RoutingProbeTaskType
+  hasImage: boolean
+  provider: string
+}
+
+type RoutingCandidate = {
+  intent?: string
+  confidence?: number
+  reasons?: string[]
+}
+
+type RoutingTrace = {
+  scope?: string
+  winner?: string
+  reasons?: string[]
+  candidates?: RoutingCandidate[]
+}
+
+export type RoutingProbeResult = {
+  message: string
+  uiActionKind: string
+  turnType: string | null
+  cognitiveMode: string | null
+  memoryFocus: string | null
+  memoryEvidenceMode: string | null
+  provider: string | null
+  routing: RoutingTrace | null
+}
+
 type PickerWindow = Window & {
   showOpenFilePicker?: (options?: {
     multiple?: boolean
@@ -50,6 +86,17 @@ export function useDebugCelestinTools() {
   const [userProfile, setUserProfile] = useState<UserProfileRow | null>(null)
   const [userProfileStatus, setUserProfileStatus] = useState<string | null>(null)
   const [compilingUserProfile, setCompilingUserProfile] = useState(false)
+  const [routingProbe, setRoutingProbe] = useState<RoutingProbeState>({
+    message: 'Et si je veux plutôt un italien ?',
+    lastAssistantText: 'Je te propose quelques bouteilles pour le poulet rôti. [Vins proposés : ...]',
+    phase: 'post_task_ack',
+    taskType: 'recommendation',
+    hasImage: false,
+    provider: 'gemini',
+  })
+  const [runningRoutingProbe, setRunningRoutingProbe] = useState(false)
+  const [routingProbeStatus, setRoutingProbeStatus] = useState<string | null>(null)
+  const [routingProbeResult, setRoutingProbeResult] = useState<RoutingProbeResult | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -378,6 +425,67 @@ export function useDebugCelestinTools() {
     }
   }
 
+  const handleRunRoutingProbe = async () => {
+    const message = routingProbe.message.trim()
+    if (!message) {
+      setRoutingProbeStatus('Saisis un message a router.')
+      return
+    }
+
+    setRunningRoutingProbe(true)
+    setRoutingProbeStatus('Appel Celestin debug...')
+    setRoutingProbeResult(null)
+
+    try {
+      const history = routingProbe.lastAssistantText.trim()
+        ? [{ role: 'assistant', text: routingProbe.lastAssistantText.trim() }]
+        : []
+      const body = {
+        message,
+        history,
+        cave: [],
+        profile: undefined,
+        memories: undefined,
+        ...(routingProbe.provider ? { provider: routingProbe.provider } : {}),
+        ...(routingProbe.hasImage ? { image: 'data:image/png;base64,iVBORw0KGgo=' } : {}),
+        conversationState: {
+          phase: routingProbe.phase,
+          taskType: routingProbe.taskType === 'none' ? null : routingProbe.taskType,
+          lastUiActionKind: routingProbe.taskType === 'recommendation' ? 'show_recommendations' : null,
+          turnsSinceLastAction: 0,
+          memoryFocus: null,
+        },
+        context: {
+          dayOfWeek: getDayOfWeek(),
+          season: getSeason(),
+          recentDrunk: [],
+        },
+      }
+
+      const { data, error } = await supabase.functions.invoke<Record<string, unknown>>('celestin', { body })
+      if (error) throw error
+      if (!data) throw new Error('Reponse Celestin vide.')
+
+      const debug = data._debug as Record<string, unknown> | undefined
+      const routing = (debug?.routing ?? null) as RoutingTrace | null
+      setRoutingProbeResult({
+        message: typeof data.message === 'string' ? data.message : '',
+        uiActionKind: ((data.ui_action as { kind?: string } | null | undefined)?.kind) ?? 'none',
+        turnType: typeof debug?.turnType === 'string' ? debug.turnType : null,
+        cognitiveMode: typeof debug?.cognitiveMode === 'string' ? debug.cognitiveMode : null,
+        memoryFocus: typeof debug?.memoryFocus === 'string' ? debug.memoryFocus : null,
+        memoryEvidenceMode: typeof debug?.memoryEvidenceMode === 'string' ? debug.memoryEvidenceMode : null,
+        provider: typeof debug?.provider === 'string' ? debug.provider : null,
+        routing,
+      })
+      setRoutingProbeStatus(`Route: ${routing?.winner ?? 'inconnue'} • ui_action=${((data.ui_action as { kind?: string } | null | undefined)?.kind) ?? 'none'}`)
+    } catch (err) {
+      setRoutingProbeStatus(`Erreur routing probe: ${err instanceof Error ? err.message : 'inconnue'}`)
+    } finally {
+      setRunningRoutingProbe(false)
+    }
+  }
+
   return {
     exportingFixture,
     fixtureStatus,
@@ -395,11 +503,17 @@ export function useDebugCelestinTools() {
     userProfile,
     userProfileStatus,
     compilingUserProfile,
+    routingProbe,
+    setRoutingProbe,
+    runningRoutingProbe,
+    routingProbeStatus,
+    routingProbeResult,
     handleExportCelestinFixture,
     handlePickEvalFixture,
     handleRunCelestinEval,
     handleForceCompileUserProfile,
     handleAuditMemoryFacts,
     handleAnalyzeMemoryWeight,
+    handleRunRoutingProbe,
   }
 }

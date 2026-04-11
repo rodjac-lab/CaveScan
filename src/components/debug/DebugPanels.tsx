@@ -2,6 +2,7 @@ import { ArrowLeft, Loader2, Trash2 } from 'lucide-react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { SessionSummary } from '@/lib/crossSessionMemory'
 import type { UserProfileRow } from '@/lib/userProfiles'
+import type { RoutingProbeResult, RoutingProbeState } from '@/hooks/useDebugCelestinTools'
 
 type MemoryWeightReport = {
   noteCount: number
@@ -77,6 +78,12 @@ type CelestinToolsPanelProps = {
   onAuditMemoryFacts: () => void
   memoryAuditStatus: string | null
   memoryAuditReport: MemoryAuditReport | null
+  routingProbe: RoutingProbeState
+  setRoutingProbe: Dispatch<SetStateAction<RoutingProbeState>>
+  runningRoutingProbe: boolean
+  routingProbeStatus: string | null
+  routingProbeResult: RoutingProbeResult | null
+  onRunRoutingProbe: () => void
 }
 
 type EnrichmentPanelProps = {
@@ -283,6 +290,12 @@ export function DebugCelestinToolsPanel({
   onAuditMemoryFacts,
   memoryAuditStatus,
   memoryAuditReport,
+  routingProbe,
+  setRoutingProbe,
+  runningRoutingProbe,
+  routingProbeStatus,
+  routingProbeResult,
+  onRunRoutingProbe,
 }: CelestinToolsPanelProps) {
   return (
     <section className="mb-8">
@@ -383,6 +396,121 @@ export function DebugCelestinToolsPanel({
           Lancer l'eval Celestin
         </button>
         {evalStatus && <p className="text-center text-[11px] text-[var(--text-muted)]">{evalStatus}</p>}
+
+        <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
+          <p className="text-[11px] font-medium text-[var(--text-primary)] mb-2">Routing Celestin</p>
+          <p className="mb-3 text-[11px] text-[var(--text-muted)]">
+            Probe deterministe expose par `_debug.routing`: candidates, winner et raisons d'arbitrage.
+          </p>
+
+          <label className="mb-1 block text-[11px] text-[var(--text-muted)]">Message utilisateur</label>
+          <textarea
+            value={routingProbe.message}
+            onChange={(event) => setRoutingProbe((previous) => ({ ...previous, message: event.target.value }))}
+            rows={2}
+            className="mb-3 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-[12px] text-[var(--text-primary)]"
+          />
+
+          <label className="mb-1 block text-[11px] text-[var(--text-muted)]">Dernier message Celestin simulé</label>
+          <textarea
+            value={routingProbe.lastAssistantText}
+            onChange={(event) => setRoutingProbe((previous) => ({ ...previous, lastAssistantText: event.target.value }))}
+            rows={2}
+            className="mb-3 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-[12px] text-[var(--text-primary)]"
+          />
+
+          <div className="mb-3 grid grid-cols-2 gap-3">
+            <label className="text-[11px] text-[var(--text-muted)]">
+              Phase
+              <select
+                value={routingProbe.phase}
+                onChange={(event) => setRoutingProbe((previous) => ({ ...previous, phase: event.target.value as RoutingProbeState['phase'] }))}
+                className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-2 py-2 text-[12px] text-[var(--text-primary)]"
+              >
+                <option value="idle_smalltalk">idle_smalltalk</option>
+                <option value="post_task_ack">post_task_ack</option>
+                <option value="collecting_info">collecting_info</option>
+                <option value="active_task">active_task</option>
+                <option value="disambiguation">disambiguation</option>
+              </select>
+            </label>
+            <label className="text-[11px] text-[var(--text-muted)]">
+              Task
+              <select
+                value={routingProbe.taskType}
+                onChange={(event) => setRoutingProbe((previous) => ({ ...previous, taskType: event.target.value as RoutingProbeState['taskType'] }))}
+                className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-2 py-2 text-[12px] text-[var(--text-primary)]"
+              >
+                <option value="none">none</option>
+                <option value="recommendation">recommendation</option>
+                <option value="encavage">encavage</option>
+                <option value="tasting">tasting</option>
+              </select>
+            </label>
+            <label className="text-[11px] text-[var(--text-muted)]">
+              Provider
+              <select
+                value={routingProbe.provider}
+                onChange={(event) => setRoutingProbe((previous) => ({ ...previous, provider: event.target.value }))}
+                className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-2 py-2 text-[12px] text-[var(--text-primary)]"
+              >
+                <option value="">fallback</option>
+                <option value="gemini">Gemini</option>
+                <option value="claude">Claude</option>
+                <option value="openai">OpenAI</option>
+                <option value="mistral">Mistral</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2 pt-6 text-[12px] text-[var(--text-secondary)]">
+              <input
+                type="checkbox"
+                checked={routingProbe.hasImage}
+                onChange={(event) => setRoutingProbe((previous) => ({ ...previous, hasImage: event.target.checked }))}
+              />
+              Photo jointe
+            </label>
+          </div>
+
+          <button
+            onClick={onRunRoutingProbe}
+            disabled={runningRoutingProbe}
+            className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-3 text-[12px] font-medium text-[var(--text-muted)]"
+          >
+            {runningRoutingProbe && <Loader2 className="h-4 w-4 animate-spin" />}
+            Tester le routing
+          </button>
+          {routingProbeStatus && <p className="mt-2 text-center text-[11px] text-[var(--text-muted)]">{routingProbeStatus}</p>}
+
+          {routingProbeResult?.routing && (
+            <div className="mt-3 rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-3 text-[11px] text-[var(--text-secondary)]">
+              <div className="mb-2 flex flex-wrap gap-2">
+                <span className="rounded-full bg-[#2f4f3f] px-2 py-0.5 text-white">winner: {routingProbeResult.routing.winner ?? '—'}</span>
+                <span className="rounded-full border border-[var(--border-color)] px-2 py-0.5">scope: {routingProbeResult.routing.scope ?? '—'}</span>
+                <span className="rounded-full border border-[var(--border-color)] px-2 py-0.5">turn: {routingProbeResult.turnType ?? '—'}</span>
+                <span className="rounded-full border border-[var(--border-color)] px-2 py-0.5">mode: {routingProbeResult.cognitiveMode ?? '—'}</span>
+                <span className="rounded-full border border-[var(--border-color)] px-2 py-0.5">ui: {routingProbeResult.uiActionKind}</span>
+              </div>
+              {routingProbeResult.routing.reasons && routingProbeResult.routing.reasons.length > 0 && (
+                <p className="mb-2">Raisons: {routingProbeResult.routing.reasons.join(', ')}</p>
+              )}
+              <p className="mb-1 font-medium text-[var(--text-primary)]">Candidates</p>
+              <div className="space-y-1">
+                {(routingProbeResult.routing.candidates ?? []).map((candidate, index) => (
+                  <div key={`${candidate.intent}-${index}`} className="rounded-lg border border-[var(--border-color)] px-2 py-1">
+                    <p className="font-medium text-[var(--text-primary)]">
+                      {candidate.intent ?? 'unknown'} · {candidate.confidence ?? 0}
+                    </p>
+                    {candidate.reasons && candidate.reasons.length > 0 && (
+                      <p>{candidate.reasons.join(', ')}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 font-medium text-[var(--text-primary)]">Réponse</p>
+              <p className="mt-1 whitespace-pre-wrap">{routingProbeResult.message}</p>
+            </div>
+          )}
+        </div>
 
         <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
           <p className="text-[11px] font-medium text-[var(--text-primary)] mb-2">Audit de ma memoire</p>
