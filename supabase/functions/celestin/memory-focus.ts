@@ -10,24 +10,49 @@ function normalizeForRouting(text: string): string {
     .trim()
 }
 
+const FOCUS_STOP_WORDS = /^(Le|La|Les|Un|Une|Et|Je|Tu|Il|Elle|On|Ce|Cet|Cette|Ca|Ça)$/i
+const GENERIC_FOCUS_WORDS = new Set(['degustation', 'note', 'souvenir', 'vin', 'vins', 'etoiles', 'millesime', 'impression'])
+
+function isMemoryFocusLookup(normalizedMessage: string): boolean {
+  return (
+    /\b(combien d'etoiles|combien etoiles|quelle note|quel millesime|quelle impression)\b/i.test(normalizedMessage)
+    || /\bdeja\b.*\b(note|notee|degustation)\b/i.test(normalizedMessage)
+    || /\b(retrouve|retrouver|retrouverais|retrouvera?is|retrouveras)\b.*\b(note|degustation|souvenir)\b/i.test(normalizedMessage)
+    || /\bje l[' ]?ai\b.*\b(note|deguste|goute|bu)\b/i.test(normalizedMessage)
+    || /^(et|et le|et la|et les|et lui|et elle)\b/i.test(normalizedMessage)
+    || /^c'est tout[?! ]*$/i.test(normalizedMessage)
+  )
+}
+
+function extractFocusCandidate(source: string): string | null {
+  const matches = source.match(/\b([A-Z][A-Za-zÀ-ÿ'’.-]{2,}(?:\s+[A-Z][A-Za-zÀ-ÿ'’.-]{2,}){0,3})\b/g)
+  if (!matches || matches.length === 0) return null
+
+  for (let index = matches.length - 1; index >= 0; index -= 1) {
+    const candidate = matches[index].replace(/[.,!?;:]+$/g, '').trim()
+    if (isRejectedFocusCandidate(candidate)) continue
+    return candidate
+  }
+
+  return null
+}
+
+function isRejectedFocusCandidate(candidate: string): boolean {
+  if (!candidate || FOCUS_STOP_WORDS.test(candidate)) return true
+  return GENERIC_FOCUS_WORDS.has(normalizeForRouting(candidate))
+}
+
 export function inferMemoryFocus(body: RequestBody, message: string, lastAssistantText?: string): string | null {
   const normalizedMessage = normalizeForRouting(message)
-  const isEllipticMemoryFollowUp =
-    /\b(combien d'etoiles|combien etoiles|quelle note|quel millesime|quelle impression)\b/i.test(normalizedMessage)
-    || /^(et|et le|et la|et les|et lui|et elle)\b/i.test(normalizedMessage)
 
-  if (!isEllipticMemoryFollowUp) return null
+  if (!isMemoryFocusLookup(normalizedMessage)) return null
 
   const previousUserTurn = [...body.history].reverse().find((turn) => turn.role === 'user')?.text ?? null
   const sourceTexts = [previousUserTurn, lastAssistantText].filter(Boolean) as string[]
 
   for (const source of sourceTexts) {
-    const matches = source.match(/\b([A-Z][A-Za-zÀ-ÿ'’.-]{2,}(?:\s+[A-Z][A-Za-zÀ-ÿ'’.-]{2,}){0,3})\b/g)
-    if (!matches || matches.length === 0) continue
-
-    const candidate = matches[matches.length - 1]
-    if (/^(Le|La|Les|Un|Une|Et)$/i.test(candidate)) continue
-    return candidate
+    const candidate = extractFocusCandidate(source)
+    if (candidate) return candidate
   }
 
   return null
@@ -55,7 +80,7 @@ export function resolveActiveMemoryFocus(
   for (const pattern of directPatterns) {
     const match = body.message.match(pattern)
     const candidate = match?.[1]?.trim()
-    if (candidate) {
+    if (candidate && !isRejectedFocusCandidate(candidate)) {
       return candidate
     }
   }
@@ -65,15 +90,9 @@ export function resolveActiveMemoryFocus(
     if (explicit?.[1]) return explicit[1]
   }
 
-  const isEllipticFollowUp =
-    /\b(combien d'etoiles|combien etoiles|quelle note|quel millesime|quelle impression)\b/i.test(normalizedMessage)
-    || /^(et|et le|et la|et les|et lui|et elle)\b/i.test(normalizedMessage)
-    || /^c'est tout[?! ]*$/i.test(normalizedMessage)
-
-  if (isEllipticFollowUp && existingFocus) {
+  if (isMemoryFocusLookup(normalizedMessage) && existingFocus) {
     return existingFocus
   }
 
   return inferMemoryFocus(body, body.message, lastAssistantText) ?? existingFocus
 }
-
