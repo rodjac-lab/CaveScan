@@ -55,10 +55,7 @@ Deno.serve(async (req) => {
 
     const response = applyResponsePolicy(
       rawResponse,
-      body,
       interpretation,
-      lastAssistantText,
-      body.message.length,
     )
 
     const nextState = computeNextState(
