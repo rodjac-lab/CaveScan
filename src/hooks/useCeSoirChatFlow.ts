@@ -1,37 +1,19 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useRef, useState, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBottles, useRecentlyDrunk } from '@/hooks/useBottles'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
 import { useZones } from '@/hooks/useZones'
 import { useQuestionnaireProfile } from '@/hooks/useQuestionnaireProfile'
+import { useCelestinTurn } from '@/hooks/useCelestinTurn'
+import { useCeSoirSessionState } from '@/hooks/useCeSoirSessionState'
 import { getCachedRecommendation, buildQueryKey, type RecommendationCard } from '@/lib/recommendationStore'
 import { useInlineQuestionnaire } from '@/components/discover/useInlineQuestionnaire'
 import { fileToBase64 } from '@/lib/image'
 import { extractWineFromFile } from '@/lib/wineExtractionService'
 import {
-  buildCelestinMessageUpdate as buildSharedCelestinMessageUpdate,
   buildEncaveWineAction as buildSharedEncaveWineAction,
-  buildGreeting as buildSharedGreeting,
-  buildWelcomeChips as buildSharedWelcomeChips,
   type WineActionData,
 } from '@/lib/celestinConversation'
-import {
-  createSession,
-  saveMessage as persistMessage,
-  loadActiveMemoryFacts,
-  extractInsights,
-  type MemoryFact,
-} from '@/lib/chatPersistence'
-import {
-  buildTranscriptSnapshot as buildSharedTranscriptSnapshot,
-  extractCelestinErrorMessage,
-  invokeCelestin,
-  prepareCelestinRequest,
-} from '@/lib/celestinChatRequest'
-import {
-  saveCurrentSession as saveCrossSession,
-  rotateSessions,
-} from '@/lib/crossSessionMemory'
 import {
   appendCachedRecommendationMessages,
   appendCelestinTextMessage,
@@ -43,11 +25,6 @@ import {
   isQuestionnaireIntent,
   queryForStoredPhotoChip,
 } from '@/lib/ceSoirFlow'
-import {
-  appendCelestinRealTrace,
-  buildCelestinRealTraceEntry,
-  isCelestinTraceEnabled,
-} from '@/lib/celestinTrace'
 import type { CeSoirChatViewProps } from '@/components/discover/CeSoirChatView'
 import type { ChatMessage } from '@/lib/ceSoirChatTypes'
 
@@ -55,9 +32,6 @@ let nextMsgId = 1
 function genMsgId(): string {
   return `msg-${nextMsgId++}`
 }
-
-let persistedMessages: ChatMessage[] | null = null
-let persistedConversationState: Record<string, unknown> | null = null
 
 export function useCeSoirChatFlow(): CeSoirChatViewProps {
   const navigate = useNavigate()
@@ -68,25 +42,24 @@ export function useCeSoirChatFlow(): CeSoirChatViewProps {
   const { zones } = useZones()
   const { profile: questionnaireProfile, loading: questionnaireLoading, saveProfile: saveQuestionnaireProfile } = useQuestionnaireProfile()
 
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    if (persistedMessages) return persistedMessages
-    rotateSessions()
-    return [{ id: genMsgId(), role: 'celestin', text: buildSharedGreeting(), actionChips: buildSharedWelcomeChips() }]
-  })
-
-  useEffect(() => {
-    persistedMessages = messages
-    saveCrossSession(messages)
-  }, [messages])
-
-  const messagesRef = useRef(messages)
-  messagesRef.current = messages
-
   const [queryInput, setQueryInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [expandedCard, setExpandedCard] = useState<RecommendationCard | null>(null)
   const [pendingPhoto, setPendingPhoto] = useState<string | null>(null)
   const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null)
+
+  const {
+    messages,
+    setMessages,
+    messagesRef,
+    sessionIdRef,
+    userTurnCountRef,
+    memoryFactsRawRef,
+    conversationStateRef,
+    syncActiveMemoryFacts,
+    syncConversationState,
+  } = useCeSoirSessionState(genMsgId)
+
   const photoInputRef = useRef<HTMLInputElement>(null)
   const threadRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -97,29 +70,6 @@ export function useCeSoirChatFlow(): CeSoirChatViewProps {
   caveRef.current = caveBottles
   drunkRef.current = drunkBottles
   profileRef.current = profile
-
-  const sessionIdRef = useRef<string | null>(null)
-  const userTurnCountRef = useRef(0)
-  const memoryFactsRawRef = useRef<MemoryFact[]>([])
-
-  useEffect(() => {
-    createSession().then((id) => { sessionIdRef.current = id })
-    loadActiveMemoryFacts().then((facts) => {
-      memoryFactsRawRef.current = facts
-    })
-
-    return () => {
-      if (sessionIdRef.current && userTurnCountRef.current > 0) {
-        const recent = (messagesRef.current ?? [])
-          .filter((message) => !message.isLoading && message.text.length > 1)
-          .slice(-12)
-          .map((message) => ({ role: message.role === 'user' ? 'user' : 'celestin', content: message.text }))
-        if (recent.length >= 2) {
-          void extractInsights(sessionIdRef.current, recent, memoryFactsRawRef.current)
-        }
-      }
-    }
-  }, [])
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -136,92 +86,23 @@ export function useCeSoirChatFlow(): CeSoirChatViewProps {
     createMessageId: genMsgId,
   })
 
-  function syncActiveMemoryFacts(facts: MemoryFact[]) {
-    memoryFactsRawRef.current = facts
-  }
-
-  async function callCelestin(message: string, loadingMsgId: string, image?: string) {
-    const traceEnabled = isCelestinTraceEnabled()
-    let traceBody: Awaited<ReturnType<typeof prepareCelestinRequest>> | null = null
-
-    try {
-      persistMessage(sessionIdRef.current, 'user', message, { hasImage: !!image })
-
-      const body = await prepareCelestinRequest({
-        message,
-        image,
-        cave: caveRef.current,
-        drunk: drunkRef.current,
-        profile: profileRef.current,
-        messages: messagesRef.current,
-        zones: zones.map((zone) => zone.name),
-        conversationState: persistedConversationState,
-        debugTrace: traceEnabled,
-      })
-      traceBody = body
-
-      const fullResponse = await invokeCelestin(body)
-      const response = fullResponse
-
-      if (traceEnabled) {
-        appendCelestinRealTrace(buildCelestinRealTraceEntry({
-          userMessage: message,
-          body,
-          response: fullResponse,
-        }))
-      }
-
-      if (fullResponse?._nextState) {
-        persistedConversationState = fullResponse._nextState
-      }
-
-      const { update, navigateToBatchAdd } = buildSharedCelestinMessageUpdate(response, caveRef.current)
-
-      if (navigateToBatchAdd && navigateToBatchAdd.length > 0) {
-        setMessages((prev) => prev.map((entry) => entry.id === loadingMsgId ? { ...entry, ...update } : entry))
-        setIsLoading(false)
-        scrollToBottom()
-        navigate('/add', { state: { prefillBatchExtractions: navigateToBatchAdd } })
-        return
-      }
-
-      setMessages((prev) => prev.map((entry) => entry.id === loadingMsgId ? { ...entry, ...update } : entry))
-
-      const debugInfo = (fullResponse as unknown as Record<string, unknown>)?._debug as
-        Record<string, unknown> | undefined
-      persistMessage(sessionIdRef.current, 'celestin', response.message, {
-        uiActionKind: response.ui_action?.kind,
-        cognitiveMode: debugInfo?.cognitiveMode as string | undefined,
-      })
-
-      userTurnCountRef.current++
-      if (userTurnCountRef.current >= 4) {
-        userTurnCountRef.current = 0
-        const recentMessages = buildSharedTranscriptSnapshot(messagesRef.current, message, response.message)
-        void extractInsights(sessionIdRef.current, recentMessages, memoryFactsRawRef.current)
-          .then(syncActiveMemoryFacts)
-      }
-    } catch (err) {
-      console.error('[CeSoirModule] celestin error:', err)
-      if (traceEnabled && traceBody) {
-        appendCelestinRealTrace(buildCelestinRealTraceEntry({
-          userMessage: message,
-          body: traceBody,
-          error: err,
-        }))
-      }
-      const debugMessage = await extractCelestinErrorMessage(err)
-
-      setMessages((prev) => prev.map((entry) =>
-        entry.id === loadingMsgId
-          ? { ...entry, text: `Debug Celestin UI: ${debugMessage}`, isLoading: false }
-          : entry
-      ))
-    } finally {
-      setIsLoading(false)
-      scrollToBottom()
-    }
-  }
+  const callCelestin = useCelestinTurn({
+    caveRef,
+    drunkRef,
+    profileRef,
+    messagesRef,
+    zones: zones.map((zone) => zone.name),
+    conversationStateRef,
+    onConversationStateChange: syncConversationState,
+    sessionIdRef,
+    userTurnCountRef,
+    memoryFactsRawRef,
+    syncActiveMemoryFacts,
+    setMessages,
+    setIsLoading,
+    scrollToBottom,
+    navigate,
+  })
 
   function submitMessage(text: string) {
     setIsLoading(true)
