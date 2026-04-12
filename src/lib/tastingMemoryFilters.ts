@@ -14,6 +14,7 @@ const STOP_WORDS = new Set([
   'est', 'sont', 'fait', 'ete', 'deja', 'encore', 'jamais', 'toujours',
   'oui', 'non', 'merci', 'aussi', 'comme', 'tout', 'tous',
   'est-ce', 'estce', 'ai', 'bu', 'goute', 'ouvert', 'ouvre', "j'en", 'jen', 'aije',
+  'domaine', 'chateau', 'maison', 'clos',
   'vin', 'vins',
 ])
 
@@ -96,6 +97,23 @@ export function extractQueryTerms(query: string): string[] {
     .filter((word) => word.length > 2 && !STOP_WORDS.has(word))
 }
 
+function extractProducerHintTerms(query: string): string[] {
+  const results = new Set<string>()
+  const producerPattern = /\b(?:domaine|ch[aâ]teau|maison|clos)\s+([A-Za-zÀ-ÿ0-9'’.-]+(?:\s+[A-Za-zÀ-ÿ0-9'’.-]+){0,3})/gi
+  let match: RegExpExecArray | null
+
+  while ((match = producerPattern.exec(query)) !== null) {
+    const words = match[1]
+      .split(/\s+/)
+      .map((word) => normalizeForMatch(word))
+      .filter((word) => word.length > 2 && !STOP_WORDS.has(word) && !/^(19|20)\d{2}$/.test(word))
+
+    for (const word of words) results.add(word)
+  }
+
+  return Array.from(results)
+}
+
 function isOneEditAway(left: string, right: string): boolean {
   if (left === right) return true
   if (Math.abs(left.length - right.length) > 1) return false
@@ -137,6 +155,11 @@ export function termMatchesIdentity(term: string, field: string): boolean {
     || term.includes(token)
     || (term.length >= 6 && token.length >= 6 && isOneEditAway(term, token))
   )
+}
+
+function queryMentionsIdentityValue(normalizedQuery: string, value: string): boolean {
+  const normalizedValue = normalizeForMatch(value)
+  return normalizedValue.length > 2 && normalizedQuery.includes(normalizedValue)
 }
 
 export function hasSpecificIdentityMatch(query: string, bottle: Bottle): boolean {
@@ -190,6 +213,18 @@ export function hasAnyExactFilter(filters: ExactMemoryFilters): boolean {
     || filters.appellations.length > 0
     || filters.domaines.length > 0
     || filters.cuvees.length > 0
+}
+
+export function hasUnmatchedProducerHint(query: string, filters: ExactMemoryFilters): boolean {
+  const producerTerms = extractProducerHintTerms(query)
+  if (producerTerms.length === 0) return false
+
+  const matchedProducerValues = [...filters.domaines, ...filters.cuvees]
+  if (matchedProducerValues.length === 0) return true
+
+  return !producerTerms.some((term) =>
+    matchedProducerValues.some((value) => termMatchesIdentity(term, value))
+  )
 }
 
 function canonicalizeCountry(value: string): string {
@@ -302,7 +337,7 @@ export function extractExactFiltersFromQuery(query: string, drunkBottles: Bottle
 
   for (const { values, target } of fieldSets) {
     for (const value of values) {
-      if (termMatchesIdentity(normalizedQuery, value) || queryTerms.some((term) => termMatchesIdentity(term, value))) {
+      if (queryMentionsIdentityValue(normalizedQuery, value) || queryTerms.some((term) => termMatchesIdentity(term, value))) {
         addUnique(filters[target], value)
       }
     }

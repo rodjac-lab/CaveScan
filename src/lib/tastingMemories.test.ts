@@ -80,6 +80,62 @@ describe('buildMemoryEvidenceBundle', () => {
     expect(bundle?.serialized).not.toContain('note 4/5')
   })
 
+  it('does not let generic producer words widen a precise producer lookup', async () => {
+    const target = bottle({
+      id: 'latour-meursault',
+      domaine: 'Vincent Latour',
+      appellation: 'Meursault',
+      millesime: 2018,
+      rating: 3,
+      tasting_note: 'Beau Meursault mais un peu large, moins tendu que prévu.',
+    })
+    const distractor = bottle({
+      id: 'roulot-meursault',
+      domaine: 'Domaine Roulot',
+      appellation: 'Meursault-Charmes',
+      millesime: 2010,
+      rating: 5,
+      tasting_note: 'Grand souvenir sur un Meursault-Charmes laser.',
+    })
+
+    const bundle = await buildMemoryEvidenceBundle({
+      query: 'J’ai déjà fait une note de dégustation, tu peux la retrouver ?',
+      recentMessages: [
+        { role: 'celestin', text: 'Je vois un Meursault 2018 du Domaine Vincent Latour. Tu veux me dire ce que tu en as pensé ?' },
+      ],
+      drunkBottles: [distractor, target],
+    })
+
+    expect(bundle?.mode).toBe('exact')
+    expect(bundle?.memories.map((memory) => memory.id)).toEqual(['latour-meursault'])
+    expect(bundle?.serialized).toContain('Beau Meursault')
+    expect(bundle?.serialized).not.toContain('Domaine Roulot')
+  })
+
+  it('returns no exact memory when a precise producer hint is absent instead of falling back to appellation', async () => {
+    const distractor = bottle({
+      id: 'roulot-meursault',
+      domaine: 'Domaine Roulot',
+      appellation: 'Meursault-Charmes',
+      millesime: 2010,
+      rating: 5,
+      tasting_note: 'Grand souvenir sur un Meursault-Charmes laser.',
+    })
+
+    const bundle = await buildMemoryEvidenceBundle({
+      query: 'J’ai déjà fait une note de dégustation, tu peux la retrouver ?',
+      recentMessages: [
+        { role: 'celestin', text: 'Je vois un Meursault 2018 du Domaine Vincent Latour. Tu veux me dire ce que tu en as pensé ?' },
+      ],
+      drunkBottles: [distractor],
+    })
+
+    expect(bundle?.mode).toBe('exact')
+    expect(bundle?.memories).toEqual([])
+    expect(bundle?.serialized).toContain('Aucun resultat exact trouve')
+    expect(bundle?.serialized).not.toContain('Domaine Roulot')
+  })
+
   it('does not fill exact tasting-note lookups with unrelated generic memories', async () => {
     const unrelated = bottle({
       id: 'unrelated',

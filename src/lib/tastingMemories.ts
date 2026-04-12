@@ -6,6 +6,7 @@ import {
   choosePlanningQuery,
   classifyMemoryEvidenceMode,
   hasAnyExactFilter,
+  hasUnmatchedProducerHint,
 } from '@/lib/tastingMemoryFilters'
 import {
   selectRelevantMemoriesAsync,
@@ -81,8 +82,26 @@ export async function buildMemoryEvidenceBundle(input: {
   const hasFilters = hasAnyExactFilter(planning.filters)
   const mode = classifyMemoryEvidenceMode(query, hasFilters)
   const matchedFilters = buildFilterLabels(planning.filters)
+  const unmatchedProducerHint = mode === 'exact' && hasUnmatchedProducerHint(planning.planningQuery, planning.filters)
 
   if (hasFilters) {
+    if (unmatchedProducerHint) {
+      return {
+        mode,
+        planningQuery: planning.planningQuery,
+        usedConversationContext: planning.usedConversationContext,
+        matchedFilters,
+        memories: [],
+        serialized: serializeEvidenceBundle(
+          mode,
+          query,
+          matchedFilters,
+          planning.usedConversationContext,
+          [],
+        ),
+      }
+    }
+
     const exactMatches = sortMemoriesForEvidence(
       drunkBottles.filter((bottle) => bottleMatchesExactFilters(bottle, planning.filters)),
       mode,
