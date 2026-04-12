@@ -26,6 +26,7 @@ export interface RequestBody {
   profile?: string
   memories?: string
   memoryEvidenceMode?: 'exact' | 'synthesis'
+  memoryTrace?: Record<string, unknown>
   provider?: string
   debugTrace?: boolean
   image?: string

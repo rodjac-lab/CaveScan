@@ -457,10 +457,48 @@ export function DebugCelestinToolsPanel({
                     <span className="rounded-full border border-[var(--border-color)] px-2 py-0.5">turn: {trace.response?.turnType ?? '—'}</span>
                     <span className="rounded-full border border-[var(--border-color)] px-2 py-0.5">ui: {trace.response?.uiActionKind ?? '—'}</span>
                     <span className="rounded-full border border-[var(--border-color)] px-2 py-0.5">mem: {trace.request.memoryEvidenceMode ?? '—'} · {trace.request.memoriesChars} car.</span>
+                    {trace.request.retrieval && (
+                      <span className="rounded-full border border-[var(--border-color)] px-2 py-0.5">retrieval: {trace.request.retrieval.decision ?? '—'}</span>
+                    )}
                   </div>
                   <p className="mt-2">Message: {trace.userMessage}</p>
                   <p>State: {trace.request.conversationPhase ?? '—'} · task={trace.request.taskType ?? '—'} · focus={trace.request.memoryFocus ?? '—'}</p>
                   <p>Contexte: history={trace.request.historyTurns} · cave={trace.request.caveCount} · provider={trace.response?.provider ?? trace.request.provider ?? 'fallback'}</p>
+                  {trace.response?.state && (
+                    <p>
+                      State apres: {trace.response.state.afterPhase ?? '—'} · task={trace.response.state.afterTask ?? '—'} · focus={trace.response.state.afterMemoryFocus ?? '—'}
+                    </p>
+                  )}
+                  {trace.response?.prompt && (
+                    <p>
+                      Prompt: system={trace.response.prompt.systemChars ?? '—'} car. · user={trace.response.prompt.userChars ?? '—'} car. · context={trace.response.prompt.contextChars ?? '—'} car.
+                    </p>
+                  )}
+                  {trace.response?.policy && trace.response.policy.strippedUiAction && (
+                    <p className="text-[#a15c00]">
+                      Policy: ui_action retiree ({trace.response.policy.rawUiActionKind} {'->'} {trace.response.policy.finalUiActionKind})
+                    </p>
+                  )}
+                  {trace.request.retrieval && (
+                    <div className="mt-2 rounded-lg border border-[var(--border-color)] px-2 py-2">
+                      <p className="font-medium text-[var(--text-primary)]">Retrieval</p>
+                      <p>Planning query: {trace.request.retrieval.planningQuery ?? '—'}</p>
+                      <p>Decision: {trace.request.retrieval.decision ?? '—'} · profile={trace.request.retrieval.selectionProfile ?? '—'}</p>
+                      <p>Sources: {trace.request.retrieval.sourceBottleCount ?? '—'} bues · {trace.request.retrieval.sourceNoteCount ?? '—'} notes · candidates={trace.request.retrieval.candidateCount ?? '—'} · selection={trace.request.retrieval.selectedCount ?? '—'}</p>
+                      {trace.request.retrieval.matchedFilters.length > 0 && (
+                        <p>Filtres: {trace.request.retrieval.matchedFilters.join(', ')}</p>
+                      )}
+                      {trace.request.retrieval.selectedMemories.length > 0 && (
+                        <div className="mt-1 space-y-1">
+                          {trace.request.retrieval.selectedMemories.map((memory, index) => (
+                            <p key={`${trace.id}-memory-${memory.id ?? index}`}>
+                              [{index + 1}] {[memory.domaine, memory.cuvee, memory.appellation, memory.millesime].filter(Boolean).join(' · ') || memory.id} · note={memory.rating ?? '—'} · verbatim={memory.has_note ? 'oui' : 'non'}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {trace.response?.routing?.reasons && trace.response.routing.reasons.length > 0 && (
                     <p>Raisons: {trace.response.routing.reasons.join(', ')}</p>
                   )}

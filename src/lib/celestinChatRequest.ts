@@ -96,6 +96,7 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
     memoriesOverride,
     memoriesQuery: memoryQuery,
     memoryEvidenceMode: memoryEvidence?.mode,
+    memoryTrace: input.debugTrace ? memoryEvidence?.trace : undefined,
     conversationState: input.conversationState,
     compiledProfileMarkdown,
     debugTrace: input.debugTrace,

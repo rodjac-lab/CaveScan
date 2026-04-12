@@ -514,6 +514,7 @@ export function useDebugCelestinTools() {
         profile: profile ? serializeProfileForPrompt(profile) : undefined,
         memories: memoryEvidence?.serialized || undefined,
         memoryEvidenceMode: memoryEvidence?.mode,
+        memoryTrace: memoryEvidence?.trace,
         compiledProfileMarkdown: userProfile?.compiled_markdown ?? undefined,
         debugTrace: true,
         ...(routingProbe.provider ? { provider: routingProbe.provider } : {}),

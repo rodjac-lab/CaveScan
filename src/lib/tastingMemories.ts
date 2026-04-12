@@ -14,6 +14,7 @@ import {
 } from '@/lib/tastingMemoryRanking'
 import type {
   MemoryEvidenceBundle,
+  MemoryEvidenceTrace,
   MemoryEvidenceMode,
   MemorySearchMessage,
   MemorySelectionOptions,
@@ -23,6 +24,7 @@ import type {
 export type {
   ExactMemoryFilters,
   MemoryEvidenceBundle,
+  MemoryEvidenceTrace,
   MemoryEvidenceMode,
   MemorySearchMessage,
   MemorySelectionOptions,
@@ -31,6 +33,47 @@ export type {
 
 export { selectRelevantMemories, selectRelevantMemoriesAsync } from '@/lib/tastingMemoryRanking'
 export { buildContextualMemoryQuery } from '@/lib/tastingMemoryFilters'
+
+function summarizeTraceMemory(bottle: Bottle): MemoryEvidenceTrace['selectedMemories'][number] {
+  return {
+    id: bottle.id,
+    domaine: bottle.domaine,
+    cuvee: bottle.cuvee,
+    appellation: bottle.appellation,
+    millesime: bottle.millesime,
+    rating: bottle.rating,
+    drunk_at: bottle.drunk_at,
+    has_note: !!bottle.tasting_note?.trim(),
+  }
+}
+
+function buildEvidenceTrace(input: {
+  query: string
+  planningQuery: string
+  mode: MemoryEvidenceMode
+  selectionProfile: MemorySelectionProfile
+  usedConversationContext: boolean
+  matchedFilters: string[]
+  drunkBottles: Bottle[]
+  candidateCount: number
+  memories: Bottle[]
+  decision: MemoryEvidenceTrace['decision']
+}): MemoryEvidenceTrace {
+  return {
+    query: input.query,
+    planningQuery: input.planningQuery,
+    mode: input.mode,
+    selectionProfile: input.selectionProfile,
+    usedConversationContext: input.usedConversationContext,
+    matchedFilters: input.matchedFilters,
+    sourceBottleCount: input.drunkBottles.length,
+    sourceNoteCount: input.drunkBottles.filter((bottle) => bottle.tasting_note?.trim()).length,
+    candidateCount: input.candidateCount,
+    selectedCount: input.memories.length,
+    selectedMemories: input.memories.map(summarizeTraceMemory),
+    decision: input.decision,
+  }
+}
 
 function serializeEvidenceBundle(
   mode: MemoryEvidenceMode,
@@ -86,19 +129,32 @@ export async function buildMemoryEvidenceBundle(input: {
 
   if (hasFilters) {
     if (unmatchedProducerHint) {
+      const memories: Bottle[] = []
       return {
         mode,
         planningQuery: planning.planningQuery,
         usedConversationContext: planning.usedConversationContext,
         matchedFilters,
-        memories: [],
+        memories,
         serialized: serializeEvidenceBundle(
           mode,
           query,
           matchedFilters,
           planning.usedConversationContext,
-          [],
+          memories,
         ),
+        trace: buildEvidenceTrace({
+          query,
+          planningQuery: planning.planningQuery,
+          mode,
+          selectionProfile,
+          usedConversationContext: planning.usedConversationContext,
+          matchedFilters,
+          drunkBottles,
+          candidateCount: 0,
+          memories,
+          decision: 'exact_filters_blocked_unmatched_producer',
+        }),
       }
     }
 
@@ -121,6 +177,18 @@ export async function buildMemoryEvidenceBundle(input: {
         planning.usedConversationContext,
         memories,
       ),
+      trace: buildEvidenceTrace({
+        query,
+        planningQuery: planning.planningQuery,
+        mode,
+        selectionProfile,
+        usedConversationContext: planning.usedConversationContext,
+        matchedFilters,
+        drunkBottles,
+        candidateCount: exactMatches.length,
+        memories,
+        decision: 'exact_filters',
+      }),
     }
   }
 
@@ -146,5 +214,17 @@ export async function buildMemoryEvidenceBundle(input: {
       planning.usedConversationContext,
       memories,
     ),
+    trace: buildEvidenceTrace({
+      query,
+      planningQuery: planning.planningQuery,
+      mode,
+      selectionProfile,
+      usedConversationContext: planning.usedConversationContext,
+      matchedFilters,
+      drunkBottles,
+      candidateCount: memories.length,
+      memories,
+      decision: memories.length > 0 ? 'ranked_relevance' : 'no_memory_available',
+    }),
   }
 }

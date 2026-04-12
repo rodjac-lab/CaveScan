@@ -4,6 +4,7 @@ import { selectRelevantMemories } from '@/lib/tastingMemories'
 import { serializeMemoriesForPrompt } from '@/lib/tastingMemoryFormatting'
 import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
 import type { RecommendationCard } from '@/lib/recommendationStore'
+import type { MemoryEvidenceTrace } from '@/lib/tastingMemories'
 import type { Bottle, BottleVolumeOption, TasteProfile, WineColor, WineExtraction } from '@/lib/types'
 
 export interface WineActionData {
@@ -163,6 +164,7 @@ export function buildCelestinRequestBody(input: {
   memoriesOverride?: string
   memoriesQuery?: string
   memoryEvidenceMode?: 'exact' | 'synthesis'
+  memoryTrace?: MemoryEvidenceTrace
   conversationState?: Record<string, unknown> | null
   compiledProfileMarkdown?: string
   debugTrace?: boolean
@@ -200,6 +202,7 @@ export function buildCelestinRequestBody(input: {
     },
     zones: input.zones.length > 0 ? input.zones : undefined,
     ...(input.memoryEvidenceMode ? { memoryEvidenceMode: input.memoryEvidenceMode } : {}),
+    ...(input.memoryTrace ? { memoryTrace: input.memoryTrace } : {}),
     ...(input.conversationState ? { conversationState: input.conversationState } : {}),
     ...(input.image ? { image: input.image } : {}),
     ...(input.compiledProfileMarkdown ? { compiledProfileMarkdown: input.compiledProfileMarkdown } : {}),

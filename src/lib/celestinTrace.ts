@@ -31,6 +31,26 @@ export type CelestinRealTraceEntry = {
     memoryFocus: string | null
     provider: string | null
     compiledProfile: boolean
+    retrieval: {
+      decision: string | null
+      planningQuery: string | null
+      selectionProfile: string | null
+      matchedFilters: string[]
+      sourceBottleCount: number | null
+      sourceNoteCount: number | null
+      candidateCount: number | null
+      selectedCount: number | null
+      selectedMemories: Array<{
+        id?: string
+        domaine?: string | null
+        cuvee?: string | null
+        appellation?: string | null
+        millesime?: number | null
+        rating?: number | null
+        drunk_at?: string | null
+        has_note?: boolean
+      }>
+    } | null
   }
   response?: {
     messagePreview: string
@@ -40,6 +60,24 @@ export type CelestinRealTraceEntry = {
     cognitiveMode: string | null
     memoryFocus: string | null
     routing: CelestinRoutingTrace | null
+    state: {
+      beforePhase: string | null
+      beforeTask: string | null
+      afterPhase: string | null
+      afterTask: string | null
+      afterMemoryFocus: string | null
+    } | null
+    prompt: {
+      systemChars: number | null
+      userChars: number | null
+      contextChars: number | null
+      historyTurns: number | null
+    } | null
+    policy: {
+      rawUiActionKind: string
+      finalUiActionKind: string
+      strippedUiAction: boolean
+    } | null
   }
   error?: string
 }
@@ -49,6 +87,7 @@ type CelestinTraceBody = {
   cave?: unknown[]
   memories?: string
   memoryEvidenceMode?: string
+  memoryTrace?: unknown
   provider?: string
   image?: string
   compiledProfileMarkdown?: string
@@ -68,8 +107,13 @@ type CelestinTraceResponse = {
     cognitiveMode?: unknown
     memoryFocus?: unknown
     routing?: unknown
+    state?: unknown
+    prompt?: unknown
+    policy?: unknown
   } | null
 }
+
+type CelestinStoredResponseTrace = NonNullable<CelestinRealTraceEntry['response']>
 
 function getStorage(): Storage | null {
   if (typeof window === 'undefined') return null
@@ -104,6 +148,74 @@ function normalizeRouting(value: unknown): CelestinRoutingTrace | null {
     scope: asString(routing.scope) ?? undefined,
     reasons: asStringArray(routing.reasons),
     candidates,
+  }
+}
+
+function asNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function normalizeRetrievalTrace(value: unknown): CelestinRealTraceEntry['request']['retrieval'] {
+  if (!value || typeof value !== 'object') return null
+  const trace = value as Record<string, unknown>
+  const selectedMemories = Array.isArray(trace.selectedMemories)
+    ? trace.selectedMemories
+        .filter((memory): memory is Record<string, unknown> => !!memory && typeof memory === 'object')
+        .map((memory) => ({
+          id: asString(memory.id) ?? undefined,
+          domaine: asString(memory.domaine),
+          cuvee: asString(memory.cuvee),
+          appellation: asString(memory.appellation),
+          millesime: asNumber(memory.millesime),
+          rating: asNumber(memory.rating),
+          drunk_at: asString(memory.drunk_at),
+          has_note: typeof memory.has_note === 'boolean' ? memory.has_note : undefined,
+        }))
+    : []
+
+  return {
+    decision: asString(trace.decision),
+    planningQuery: asString(trace.planningQuery),
+    selectionProfile: asString(trace.selectionProfile),
+    matchedFilters: asStringArray(trace.matchedFilters) ?? [],
+    sourceBottleCount: asNumber(trace.sourceBottleCount),
+    sourceNoteCount: asNumber(trace.sourceNoteCount),
+    candidateCount: asNumber(trace.candidateCount),
+    selectedCount: asNumber(trace.selectedCount),
+    selectedMemories,
+  }
+}
+
+function normalizeStateTrace(value: unknown): CelestinStoredResponseTrace['state'] {
+  if (!value || typeof value !== 'object') return null
+  const state = value as Record<string, unknown>
+  return {
+    beforePhase: asString(state.beforePhase),
+    beforeTask: asString(state.beforeTask),
+    afterPhase: asString(state.afterPhase),
+    afterTask: asString(state.afterTask),
+    afterMemoryFocus: asString(state.afterMemoryFocus),
+  }
+}
+
+function normalizePromptTrace(value: unknown): CelestinStoredResponseTrace['prompt'] {
+  if (!value || typeof value !== 'object') return null
+  const prompt = value as Record<string, unknown>
+  return {
+    systemChars: asNumber(prompt.systemChars),
+    userChars: asNumber(prompt.userChars),
+    contextChars: asNumber(prompt.contextChars),
+    historyTurns: asNumber(prompt.historyTurns),
+  }
+}
+
+function normalizePolicyTrace(value: unknown): CelestinStoredResponseTrace['policy'] {
+  if (!value || typeof value !== 'object') return null
+  const policy = value as Record<string, unknown>
+  return {
+    rawUiActionKind: asString(policy.rawUiActionKind) ?? 'none',
+    finalUiActionKind: asString(policy.finalUiActionKind) ?? 'none',
+    strippedUiAction: typeof policy.strippedUiAction === 'boolean' ? policy.strippedUiAction : false,
   }
 }
 
@@ -176,6 +288,7 @@ export function buildCelestinRealTraceEntry(input: {
       memoryFocus: asString(conversationState?.memoryFocus),
       provider: body.provider ?? null,
       compiledProfile: !!body.compiledProfileMarkdown?.trim(),
+      retrieval: normalizeRetrievalTrace(body.memoryTrace),
     },
     ...(response ? {
       response: {
@@ -186,6 +299,9 @@ export function buildCelestinRealTraceEntry(input: {
         cognitiveMode: asString(debug?.cognitiveMode),
         memoryFocus: asString(debug?.memoryFocus),
         routing,
+        state: normalizeStateTrace(debug?.state),
+        prompt: normalizePromptTrace(debug?.prompt),
+        policy: normalizePolicyTrace(debug?.policy),
       },
     } : {}),
     ...(input.error ? {

@@ -14,6 +14,37 @@ export interface MemoryEvidenceBundle {
   matchedFilters: string[]
   memories: Bottle[]
   serialized: string
+  trace: MemoryEvidenceTrace
+}
+
+export interface MemoryEvidenceTrace {
+  query: string
+  planningQuery: string
+  mode: MemoryEvidenceMode
+  selectionProfile: MemorySelectionProfile
+  usedConversationContext: boolean
+  matchedFilters: string[]
+  sourceBottleCount: number
+  sourceNoteCount: number
+  candidateCount: number
+  selectedCount: number
+  selectedMemories: MemoryEvidenceTraceMemory[]
+  decision:
+    | 'exact_filters'
+    | 'exact_filters_blocked_unmatched_producer'
+    | 'ranked_relevance'
+    | 'no_memory_available'
+}
+
+export interface MemoryEvidenceTraceMemory {
+  id: string
+  domaine: string | null
+  cuvee: string | null
+  appellation: string | null
+  millesime: number | null
+  rating: number | null
+  drunk_at: string | null
+  has_note: boolean
 }
 
 export type MemorySelectionProfile = 'default' | 'recommendation'
