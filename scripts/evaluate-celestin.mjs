@@ -100,6 +100,7 @@ function buildRequestBody(fixture, message, history, conversationState, provider
     profile: fixture.profile,
     memories: fixture.memories,
     context: fixture.context,
+    debugTrace: true,
     ...(conversationState ? { conversationState } : {}),
     ...(provider ? { provider } : {}),
     ...(fixture.compiledProfileMarkdown ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown } : {}),
@@ -120,6 +121,7 @@ function buildSingleTurnBody(fixture, scenario, provider) {
     profile: fixture.profile,
     memories: fixture.memories,
     context: fixture.context,
+    debugTrace: true,
     ...(provider ? { provider } : {}),
     ...(fixture.compiledProfileMarkdown ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown } : {}),
   }
