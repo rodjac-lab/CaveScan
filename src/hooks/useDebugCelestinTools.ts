@@ -16,6 +16,13 @@ import {
 import { compileUserProfile, loadUserProfile, type UserProfileRow } from '@/lib/userProfiles'
 import { loadActiveMemoryFacts } from '@/lib/chatPersistence'
 import { buildMemoryAuditReport, buildMemoryWeightReport, type MemoryAuditReport, type MemoryWeightReport } from '@/lib/debugInsights'
+import {
+  clearCelestinRealTraces,
+  isCelestinTraceEnabled,
+  loadCelestinRealTraces,
+  setCelestinTraceEnabled,
+  type CelestinRealTraceEntry,
+} from '@/lib/celestinTrace'
 import type { Bottle, TasteProfile } from '@/lib/types'
 
 export type RoutingProbePhase = 'idle_smalltalk' | 'post_task_ack' | 'collecting_info' | 'active_task' | 'disambiguation'
@@ -102,6 +109,8 @@ export function useDebugCelestinTools() {
   const [runningRoutingProbe, setRunningRoutingProbe] = useState(false)
   const [routingProbeStatus, setRoutingProbeStatus] = useState<string | null>(null)
   const [routingProbeResult, setRoutingProbeResult] = useState<RoutingProbeResult | null>(null)
+  const [realTraceEnabled, setRealTraceEnabledState] = useState(isCelestinTraceEnabled)
+  const [realTraces, setRealTraces] = useState<CelestinRealTraceEntry[]>(loadCelestinRealTraces)
 
   useEffect(() => {
     let cancelled = false
@@ -506,6 +515,7 @@ export function useDebugCelestinTools() {
         memories: memoryEvidence?.serialized || undefined,
         memoryEvidenceMode: memoryEvidence?.mode,
         compiledProfileMarkdown: userProfile?.compiled_markdown ?? undefined,
+        debugTrace: true,
         ...(routingProbe.provider ? { provider: routingProbe.provider } : {}),
         ...(routingProbe.hasImage ? { image: 'data:image/png;base64,iVBORw0KGgo=' } : {}),
         conversationState: {
@@ -548,6 +558,20 @@ export function useDebugCelestinTools() {
     }
   }
 
+  const handleToggleRealTrace = (enabled: boolean) => {
+    setCelestinTraceEnabled(enabled)
+    setRealTraceEnabledState(enabled)
+  }
+
+  const handleRefreshRealTraces = () => {
+    setRealTraces(loadCelestinRealTraces())
+  }
+
+  const handleClearRealTraces = () => {
+    clearCelestinRealTraces()
+    setRealTraces([])
+  }
+
   return {
     exportingFixture,
     fixtureStatus,
@@ -570,6 +594,8 @@ export function useDebugCelestinTools() {
     runningRoutingProbe,
     routingProbeStatus,
     routingProbeResult,
+    realTraceEnabled,
+    realTraces,
     handleExportCelestinFixture,
     handlePickEvalFixture,
     handleRunCelestinEval,
@@ -577,5 +603,8 @@ export function useDebugCelestinTools() {
     handleAuditMemoryFacts,
     handleAnalyzeMemoryWeight,
     handleRunRoutingProbe,
+    handleToggleRealTrace,
+    handleRefreshRealTraces,
+    handleClearRealTraces,
   }
 }

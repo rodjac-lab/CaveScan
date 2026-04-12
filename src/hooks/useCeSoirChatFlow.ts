@@ -43,6 +43,11 @@ import {
   isQuestionnaireIntent,
   queryForStoredPhotoChip,
 } from '@/lib/ceSoirFlow'
+import {
+  appendCelestinRealTrace,
+  buildCelestinRealTraceEntry,
+  isCelestinTraceEnabled,
+} from '@/lib/celestinTrace'
 import type { CeSoirChatViewProps } from '@/components/discover/CeSoirChatView'
 import type { ChatMessage } from '@/lib/ceSoirChatTypes'
 
@@ -136,6 +141,9 @@ export function useCeSoirChatFlow(): CeSoirChatViewProps {
   }
 
   async function callCelestin(message: string, loadingMsgId: string, image?: string) {
+    const traceEnabled = isCelestinTraceEnabled()
+    let traceBody: Awaited<ReturnType<typeof prepareCelestinRequest>> | null = null
+
     try {
       persistMessage(sessionIdRef.current, 'user', message, { hasImage: !!image })
 
@@ -148,10 +156,20 @@ export function useCeSoirChatFlow(): CeSoirChatViewProps {
         messages: messagesRef.current,
         zones: zones.map((zone) => zone.name),
         conversationState: persistedConversationState,
+        debugTrace: traceEnabled,
       })
+      traceBody = body
 
       const fullResponse = await invokeCelestin(body)
       const response = fullResponse
+
+      if (traceEnabled) {
+        appendCelestinRealTrace(buildCelestinRealTraceEntry({
+          userMessage: message,
+          body,
+          response: fullResponse,
+        }))
+      }
 
       if (fullResponse?._nextState) {
         persistedConversationState = fullResponse._nextState
@@ -185,6 +203,13 @@ export function useCeSoirChatFlow(): CeSoirChatViewProps {
       }
     } catch (err) {
       console.error('[CeSoirModule] celestin error:', err)
+      if (traceEnabled && traceBody) {
+        appendCelestinRealTrace(buildCelestinRealTraceEntry({
+          userMessage: message,
+          body: traceBody,
+          error: err,
+        }))
+      }
       const debugMessage = await extractCelestinErrorMessage(err)
 
       setMessages((prev) => prev.map((entry) =>

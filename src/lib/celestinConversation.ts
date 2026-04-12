@@ -165,6 +165,7 @@ export function buildCelestinRequestBody(input: {
   memoryEvidenceMode?: 'exact' | 'synthesis'
   conversationState?: Record<string, unknown> | null
   compiledProfileMarkdown?: string
+  debugTrace?: boolean
 }) {
   const ranked = rankCaveBottles('generic', input.message, input.cave, input.drunk, input.profile, input.cave.length)
   const caveSummary = ranked.map(({ bottle, score }) => ({
@@ -202,6 +203,7 @@ export function buildCelestinRequestBody(input: {
     ...(input.conversationState ? { conversationState: input.conversationState } : {}),
     ...(input.image ? { image: input.image } : {}),
     ...(input.compiledProfileMarkdown ? { compiledProfileMarkdown: input.compiledProfileMarkdown } : {}),
+    ...(input.debugTrace ? { debugTrace: true } : {}),
   }
 }
 

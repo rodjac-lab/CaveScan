@@ -27,6 +27,7 @@ export interface RequestBody {
   memories?: string
   memoryEvidenceMode?: 'exact' | 'synthesis'
   provider?: string
+  debugTrace?: boolean
   image?: string
   conversationState?: ConversationState
   compiledProfileMarkdown?: string
@@ -78,4 +79,3 @@ export interface CelestinResponse {
   ui_action?: CelestinUiAction | null
   action_chips?: string[] | null
 }
-

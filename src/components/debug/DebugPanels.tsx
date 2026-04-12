@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import type { SessionSummary } from '@/lib/crossSessionMemory'
 import type { UserProfileRow } from '@/lib/userProfiles'
 import type { RoutingProbeResult, RoutingProbeState } from '@/hooks/useDebugCelestinTools'
+import type { CelestinRealTraceEntry } from '@/lib/celestinTrace'
 
 type MemoryWeightReport = {
   noteCount: number
@@ -84,6 +85,11 @@ type CelestinToolsPanelProps = {
   routingProbeStatus: string | null
   routingProbeResult: RoutingProbeResult | null
   onRunRoutingProbe: () => void
+  realTraceEnabled: boolean
+  realTraces: CelestinRealTraceEntry[]
+  onToggleRealTrace: (enabled: boolean) => void
+  onRefreshRealTraces: () => void
+  onClearRealTraces: () => void
 }
 
 type EnrichmentPanelProps = {
@@ -296,6 +302,11 @@ export function DebugCelestinToolsPanel({
   routingProbeStatus,
   routingProbeResult,
   onRunRoutingProbe,
+  realTraceEnabled,
+  realTraces,
+  onToggleRealTrace,
+  onRefreshRealTraces,
+  onClearRealTraces,
 }: CelestinToolsPanelProps) {
   return (
     <section className="mb-8">
@@ -398,9 +409,89 @@ export function DebugCelestinToolsPanel({
         {evalStatus && <p className="text-center text-[11px] text-[var(--text-muted)]">{evalStatus}</p>}
 
         <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
-          <p className="text-[11px] font-medium text-[var(--text-primary)] mb-2">Routing Celestin</p>
+          <p className="text-[11px] font-medium text-[var(--text-primary)] mb-2">Traces reelles Celestin</p>
           <p className="mb-3 text-[11px] text-[var(--text-muted)]">
-            Probe deterministe expose par `_debug.routing`: candidates, winner et raisons d'arbitrage.
+            Active la trace, reproduis le probleme dans le vrai chat, puis reviens ici pour analyser le routing et la memoire du tour reel.
+          </p>
+
+          <label className="mb-3 flex items-center gap-2 text-[12px] text-[var(--text-secondary)]">
+            <input
+              type="checkbox"
+              checked={realTraceEnabled}
+              onChange={(event) => onToggleRealTrace(event.target.checked)}
+            />
+            Enregistrer les prochains tours Celestin
+          </label>
+
+          <div className="mb-3 flex gap-2">
+            <button
+              onClick={onRefreshRealTraces}
+              className="flex-1 rounded-[10px] border border-[var(--border-color)] bg-transparent px-3 py-2 text-[12px] font-medium text-[var(--text-muted)]"
+            >
+              Actualiser
+            </button>
+            <button
+              onClick={onClearRealTraces}
+              className="flex items-center justify-center gap-1 rounded-[10px] border border-[var(--border-color)] bg-transparent px-3 py-2 text-[12px] font-medium text-[var(--text-muted)]"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Effacer
+            </button>
+          </div>
+
+          {realTraces.length === 0 ? (
+            <p className="text-[11px] text-[var(--text-muted)]">Aucune trace reelle locale.</p>
+          ) : (
+            <div className="space-y-2">
+              {realTraces.map((trace) => (
+                <details
+                  key={trace.id}
+                  className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-[11px] text-[var(--text-secondary)]"
+                >
+                  <summary className="cursor-pointer text-[var(--text-primary)]">
+                    {formatRelativeDate(trace.createdAt)} · {trace.response?.routing?.winner ?? 'route inconnue'} · {trace.userMessage.slice(0, 70)}
+                  </summary>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="rounded-full bg-[#2f4f3f] px-2 py-0.5 text-white">winner: {trace.response?.routing?.winner ?? '—'}</span>
+                    <span className="rounded-full border border-[var(--border-color)] px-2 py-0.5">mode: {trace.response?.cognitiveMode ?? '—'}</span>
+                    <span className="rounded-full border border-[var(--border-color)] px-2 py-0.5">turn: {trace.response?.turnType ?? '—'}</span>
+                    <span className="rounded-full border border-[var(--border-color)] px-2 py-0.5">ui: {trace.response?.uiActionKind ?? '—'}</span>
+                    <span className="rounded-full border border-[var(--border-color)] px-2 py-0.5">mem: {trace.request.memoryEvidenceMode ?? '—'} · {trace.request.memoriesChars} car.</span>
+                  </div>
+                  <p className="mt-2">Message: {trace.userMessage}</p>
+                  <p>State: {trace.request.conversationPhase ?? '—'} · task={trace.request.taskType ?? '—'} · focus={trace.request.memoryFocus ?? '—'}</p>
+                  <p>Contexte: history={trace.request.historyTurns} · cave={trace.request.caveCount} · provider={trace.response?.provider ?? trace.request.provider ?? 'fallback'}</p>
+                  {trace.response?.routing?.reasons && trace.response.routing.reasons.length > 0 && (
+                    <p>Raisons: {trace.response.routing.reasons.join(', ')}</p>
+                  )}
+                  {trace.response?.routing?.candidates && trace.response.routing.candidates.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {trace.response.routing.candidates.slice(0, 4).map((candidate, index) => (
+                        <p key={`${trace.id}-${candidate.intent}-${index}`}>
+                          {candidate.intent ?? 'unknown'} · {candidate.confidence ?? 0} · {(candidate.reasons ?? []).join(', ')}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {trace.request.memoriesPreview && (
+                    <p className="mt-2 whitespace-pre-wrap">Memoire injectee: {trace.request.memoriesPreview}</p>
+                  )}
+                  {trace.response?.messagePreview && (
+                    <p className="mt-2 whitespace-pre-wrap">Reponse: {trace.response.messagePreview}</p>
+                  )}
+                  {trace.error && (
+                    <p className="mt-2 text-red-500">Erreur: {trace.error}</p>
+                  )}
+                </details>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
+          <p className="text-[11px] font-medium text-[var(--text-primary)] mb-2">Probe routing manuel</p>
+          <p className="mb-3 text-[11px] text-[var(--text-muted)]">
+            Outil bas niveau pour tester un message isole. Pour un vrai probleme conversationnel, utilise plutot les traces reelles ci-dessus.
           </p>
 
           <label className="mb-1 block text-[11px] text-[var(--text-muted)]">Message utilisateur</label>

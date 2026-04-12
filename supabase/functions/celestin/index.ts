@@ -69,18 +69,20 @@ Deno.serve(async (req) => {
 
     console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} nextState=${nextState.phase} focus=${nextState.memoryFocus ?? 'none'} msg="${response.message.slice(0, 120)}" compiled=${body.compiledProfileMarkdown?.trim() ? 'yes' : 'no'}`)
 
+    const debugTrace = {
+      turnType: interpretation.turnType,
+      cognitiveMode: interpretation.cognitiveMode,
+      provider,
+      compiledProfile: !!body.compiledProfileMarkdown?.trim(),
+      memoryEvidenceMode: body.memoryEvidenceMode ?? null,
+      memoryFocus: activeMemoryFocus,
+      routing,
+    }
+
     return new Response(JSON.stringify({
       ...response,
       _nextState: nextState,
-      _debug: {
-        turnType: interpretation.turnType,
-        cognitiveMode: interpretation.cognitiveMode,
-        provider,
-        compiledProfile: !!body.compiledProfileMarkdown?.trim(),
-        memoryEvidenceMode: body.memoryEvidenceMode ?? null,
-        memoryFocus: activeMemoryFocus,
-        routing,
-      },
+      ...(body.debugTrace ? { _debug: debugTrace } : {}),
     }), {
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     })

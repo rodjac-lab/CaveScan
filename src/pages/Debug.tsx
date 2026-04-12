@@ -116,6 +116,11 @@ export default function Debug() {
           routingProbeStatus={celestinTools.routingProbeStatus}
           routingProbeResult={celestinTools.routingProbeResult}
           onRunRoutingProbe={celestinTools.handleRunRoutingProbe}
+          realTraceEnabled={celestinTools.realTraceEnabled}
+          realTraces={celestinTools.realTraces}
+          onToggleRealTrace={celestinTools.handleToggleRealTrace}
+          onRefreshRealTraces={celestinTools.handleRefreshRealTraces}
+          onClearRealTraces={celestinTools.handleClearRealTraces}
         />
 
         <DebugEnrichmentPanel
