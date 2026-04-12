@@ -227,7 +227,9 @@ function createTraceId(): string {
 }
 
 export function isCelestinTraceEnabled(): boolean {
-  return getStorage()?.getItem(TRACE_ENABLED_KEY) === 'true'
+  const storage = getStorage()
+  if (!storage) return false
+  return storage.getItem(TRACE_ENABLED_KEY) !== 'false'
 }
 
 export function setCelestinTraceEnabled(enabled: boolean): void {

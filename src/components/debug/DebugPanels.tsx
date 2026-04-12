@@ -411,7 +411,7 @@ export function DebugCelestinToolsPanel({
         <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
           <p className="text-[11px] font-medium text-[var(--text-primary)] mb-2">Traces reelles Celestin</p>
           <p className="mb-3 text-[11px] text-[var(--text-muted)]">
-            Active la trace, reproduis le probleme dans le vrai chat, puis reviens ici pour analyser le routing et la memoire du tour reel.
+            Capture locale automatique des 30 derniers tours Celestin. Reviens ici apres un bug pour analyser routing, retrieval, prompt et policy.
           </p>
 
           <label className="mb-3 flex items-center gap-2 text-[12px] text-[var(--text-secondary)]">
@@ -420,7 +420,7 @@ export function DebugCelestinToolsPanel({
               checked={realTraceEnabled}
               onChange={(event) => onToggleRealTrace(event.target.checked)}
             />
-            Enregistrer les prochains tours Celestin
+            Capture automatique active
           </label>
 
           <div className="mb-3 flex gap-2">
