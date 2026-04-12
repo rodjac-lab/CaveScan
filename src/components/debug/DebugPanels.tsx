@@ -472,6 +472,7 @@ export function DebugCelestinToolsPanel({
                   {trace.response?.prompt && (
                     <p>
                       Prompt: system={trace.response.prompt.systemChars ?? '—'} car. · user={trace.response.prompt.userChars ?? '—'} car. · context={trace.response.prompt.contextChars ?? '—'} car.
+                      {' '}History provider={trace.response.prompt.providerHistoryTurns ?? trace.response.prompt.historyTurns ?? '—'}/{trace.response.prompt.historyTurns ?? '—'}
                     </p>
                   )}
                   {trace.response?.policy && trace.response.policy.strippedUiAction && (

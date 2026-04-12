@@ -6,7 +6,7 @@ import { buildCelestinSystemPrompt } from "./prompt-builder.ts"
 import { applyResponsePolicy } from "./response-policy.ts"
 import { interpretTurnWithRouting } from "./turn-interpreter.ts"
 import { buildUserPrompt } from "./user-prompt.ts"
-import type { CelestinResponse, RequestBody } from "./types.ts"
+import type { CelestinResponse, ConversationTurn, RequestBody } from "./types.ts"
 
 export interface CelestinTurnRuntimeResult {
   response: CelestinResponse
@@ -17,6 +17,14 @@ export interface CelestinTurnRuntimeResult {
 
 function uiActionKind(response: CelestinResponse): string {
   return response.ui_action?.kind ?? 'none'
+}
+
+function buildProviderHistory(body: RequestBody, routingWinner: string): ConversationTurn[] {
+  if (routingWinner !== 'exploratory_reco_pivot') return body.history
+
+  // A pivot such as "Et si je veux plutôt un italien ?" must not let the model
+  // continue the previous dish/cards. Routing already used the full history.
+  return body.history.slice(0, -2)
 }
 
 function buildDebugTrace(input: {
@@ -55,6 +63,7 @@ function buildDebugTrace(input: {
       userChars: input.userPrompt.length,
       contextChars: input.contextBlock.length,
       historyTurns: body.history.length,
+      providerHistoryTurns: buildProviderHistory(body, routingResult.routing.winner).length,
       caveCount: body.cave.length,
       hasImage: !!body.image,
     },
@@ -87,12 +96,14 @@ export async function runCelestinTurn(body: RequestBody): Promise<CelestinTurnRu
     interpretation,
     { ...conversationState, memoryFocus: activeMemoryFocus },
     lastAssistantText,
+    routing.winner,
   )
+  const providerHistory = buildProviderHistory(body, routing.winner)
 
   const { provider, response: rawResponse } = await celestinWithFallback(
     systemPrompt,
     userPrompt,
-    body.history,
+    providerHistory,
     body.provider,
     body.image,
   )

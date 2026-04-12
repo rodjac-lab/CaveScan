@@ -163,7 +163,11 @@ function normalizeForRouting(text: string): string {
 
 function buildRoutingSignals(message: string, lastAssistantText?: string): RoutingSignals {
   const lower = normalizeForRouting(message)
-  const hadRecentReco = lastAssistantText ? normalizeForRouting(lastAssistantText).includes('[vins proposes') : false
+  const normalizedAssistant = lastAssistantText ? normalizeForRouting(lastAssistantText) : ''
+  const hadRecentReco = normalizedAssistant
+    ? normalizedAssistant.includes('[vins proposes')
+      || /\b(je te propose|voici .*pistes?|trois pistes?|recommandations?|je partirais sur|shortlist)\b/i.test(normalizedAssistant)
+    : false
   const isQuestion = matchesAny(lower, QUESTION)
   const isWineCulture = matchesAny(lower, WINE_CULTURE)
 

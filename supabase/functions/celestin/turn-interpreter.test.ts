@@ -151,6 +151,22 @@ describe('interpretTurn', () => {
     })
   })
 
+  it('recognizes recommendation refinement from natural assistant wording, not only card markers', () => {
+    const result = interpretTurnWithRouting(
+      'Tu en as d autres, plutot en blanc ?',
+      false,
+      state(),
+      'Pour une paella, je partirais sur un blanc tendu, un rose structure ou un rouge tres leger. Voici trois pistes pour toi.',
+    )
+
+    expect(result.routing.winner).toBe('recommendation_refinement')
+    expect(result.interpretation).toEqual({
+      turnType: 'task_continue',
+      cognitiveMode: 'cellar_assistant',
+      shouldAllowUiAction: true,
+    })
+  })
+
   it('treats a wine question with a photo as conversation, not automatic encavage', () => {
     const result = interpretTurn('Tu connais ce vin ?', true, state())
 

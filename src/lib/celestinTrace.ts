@@ -72,6 +72,7 @@ export type CelestinRealTraceEntry = {
       userChars: number | null
       contextChars: number | null
       historyTurns: number | null
+      providerHistoryTurns: number | null
     } | null
     policy: {
       rawUiActionKind: string
@@ -206,6 +207,7 @@ function normalizePromptTrace(value: unknown): CelestinStoredResponseTrace['prom
     userChars: asNumber(prompt.userChars),
     contextChars: asNumber(prompt.contextChars),
     historyTurns: asNumber(prompt.historyTurns),
+    providerHistoryTurns: asNumber(prompt.providerHistoryTurns),
   }
 }
 
