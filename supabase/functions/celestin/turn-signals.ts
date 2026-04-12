@@ -83,7 +83,7 @@ const WINE_CULTURE = [
 ]
 
 const QUESTION = [
-  /^(pourquoi|comment|quoi|c'est quoi|qu'est-ce qu|est-ce que|tu (aimes?|connais|preferes|penses|sais|crois))/i,
+  /^(pourquoi|comment|quoi|c'est quoi|c'est vrai que|qu'est-ce qu|est-ce que|tu (aimes?|connais|preferes|penses|sais|crois))/i,
 ]
 
 function matchesAny(text: string, patterns: RegExp[]): boolean {
