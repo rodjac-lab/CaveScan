@@ -69,3 +69,31 @@ export async function ensureCompiledUserProfile(reason = 'auto_runtime_bootstrap
 
   return compileUserProfile(reason)
 }
+
+export interface PatchProfileResponse {
+  success: boolean
+  action?: 'add' | 'edit' | 'remove' | 'no_change'
+  section?: string | null
+  changed?: boolean
+  apply_error?: string | null
+  patch_id?: string
+  version?: number
+  signals_consumed?: number
+  reason?: string
+  error?: string
+}
+
+export async function patchUserProfile(reason = 'session_close'): Promise<PatchProfileResponse> {
+  await ensureFreshSession()
+
+  const { data, error } = await supabase.functions.invoke('patch-user-profile', {
+    body: { reason },
+  })
+
+  if (error) {
+    const message = await extractFunctionErrorMessage(error)
+    return { success: false, error: message }
+  }
+
+  return (data ?? { success: false, error: 'Empty response' }) as PatchProfileResponse
+}

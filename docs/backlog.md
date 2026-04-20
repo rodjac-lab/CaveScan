@@ -104,8 +104,16 @@ Source unique de verite pour les travaux produit/tech.
 - [x] **Extraction d'insights conversationnels** — edge function extract-chat-insights (Gemini Flash → Claude Haiku), table user_memory_facts avec categories/supersedure/expiration, declenchement tous les 4 messages user
 - [x] **Injection memoire universelle** — memory facts injectes dans TOUS les cognitive modes (corrige le manque en wine_conversation/restaurant_assistant)
 - [x] **Retrieval de conversations completes** — regex detection + semantic search sur session summaries + chargement messages complets
-- [ ] Verification d'auth avancee dans le code des edge functions (decoder token, filtrer par user_id)
-- [ ] useRecentlyDrunk limit(30) est un plafond silencieux — a augmenter ou supprimer
+
+#### Chantier memoire — 5 taches pour finir
+
+Ordre de priorite (du plus structurel au plus hygienique).
+
+1. [ ] **Compilation par evenements** (doctrine `celestin-memory-compilation-events.md`). Remplacer le `forceFullRewrite` de `compile-user-profile` par un vrai cycle de vie du profil compile : detection de `candidate_signals` pendant la session (`rated_tasting_with_comment`, `explicit_reco_feedback`, `new_general_preference`, `profile_contradiction`, `long_topic_exploration`, `new_topic_first_seen`), check leger en fin de session qui decide `no_change` ou un patch minimal (add/edit/remove sur une section), reecriture complete periodique (~20 patchs ou ~1/mois) pour compacter.
+2. [ ] **Routeur SQL pour questions factuelles**. Detecter les questions temporelles / geographiques / quantitatives ("le 26 fevrier", "a Rome", "mes meilleurs Brunello", "combien de") et fabriquer une requete SQL ciblee sur sources brutes au lieu de passer par embeddings. Integrer comme couche au-dessus du retrieval actuel (SQL d'abord si pattern detecte, sinon retrieval existant).
+3. [ ] **Ranking contextuel des `user_memory_facts`**. Aujourd'hui les 40 derniers facts non-supersedes sont injectes en vrac quel que soit le tour. Filtrer/ponderer par pertinence au message en cours (categorie, recence, match semantique leger).
+4. [ ] **Feedback loop retrieval**. Capter les reactions negatives du user a un souvenir cite ("non pas ca", "ce vin je l'ai deteste") et baisser le score de ce souvenir pour les tours suivants — ou au minimum le marquer.
+5. [ ] **Hygiene mémoire**. `useRecentlyDrunk limit(30)` (plafond silencieux a remonter/supprimer) + auth in-function avancee sur edge functions (decoder token, filtrer par `user_id` en plus du RLS).
 
 ### Tech & Qualite
 

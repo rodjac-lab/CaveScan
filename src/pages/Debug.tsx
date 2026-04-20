@@ -19,6 +19,7 @@ import {
   DebugEnrichmentPanel,
   DebugHeader,
   DebugMemoryPanel,
+  DebugProfilePatchesPanel,
 } from '@/components/debug/DebugPanels'
 import { useDebugCelestinTools } from '@/hooks/useDebugCelestinTools'
 
@@ -122,6 +123,8 @@ export default function Debug() {
           onRefreshRealTraces={celestinTools.handleRefreshRealTraces}
           onClearRealTraces={celestinTools.handleClearRealTraces}
         />
+
+        <DebugProfilePatchesPanel />
 
         <DebugEnrichmentPanel
           enrichRunning={enrichRunning}

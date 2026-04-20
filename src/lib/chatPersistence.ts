@@ -3,6 +3,7 @@ import {
   findConflictingMemoryFacts,
   type StructuredMemoryFact,
 } from '../../shared/celestin/memory-fact-conflicts.ts'
+import { raiseCandidateSignal } from '@/lib/profileSignals'
 
 export interface MemoryFact {
   id: string
@@ -303,6 +304,26 @@ async function insertMemoryFact(row: Record<string, unknown>): Promise<MemoryFac
   return data as MemoryFact
 }
 
+const MEMORY_FACT_DURABLE_CATEGORIES = new Set(['preference', 'aversion', 'life_event'])
+const MEMORY_FACT_MIN_CONFIDENCE_FOR_SIGNAL = 0.7
+
+function raiseSignalForSavedFact(fact: MemoryFact, supersededExisting: boolean, sessionId: string): void {
+  if (fact.is_temporary) return
+  if (fact.confidence < MEMORY_FACT_MIN_CONFIDENCE_FOR_SIGNAL) return
+  if (!MEMORY_FACT_DURABLE_CATEGORIES.has(fact.category)) return
+
+  raiseCandidateSignal({
+    type: supersededExisting ? 'profile_contradiction' : 'new_general_preference',
+    sessionId,
+    payload: {
+      fact_id: fact.id,
+      category: fact.category,
+      fact: fact.fact,
+      confidence: fact.confidence,
+    },
+  })
+}
+
 async function supersedeFacts(savedFactId: string, supersedeIds: string[]): Promise<void> {
   if (supersedeIds.length === 0) return
 
@@ -370,6 +391,7 @@ export async function extractInsights(
       }
 
       activeFacts = [savedFact, ...activeFacts]
+      raiseSignalForSavedFact(savedFact, supersedeIds.length > 0, sessionId)
     }
 
     return activeFacts.slice(0, 40)

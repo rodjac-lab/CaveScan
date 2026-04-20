@@ -9,6 +9,7 @@ import { triggerProfileRecompute } from '@/lib/taste-profile'
 import { uploadPhoto } from '@/lib/uploadPhoto'
 import { extractAndSaveTags } from '@/lib/tastingTags'
 import { generateAndSaveEmbedding } from '@/lib/semanticMemory'
+import { signalRatedTastingWithComment } from '@/lib/profileSignals'
 import { shareWine, canShare as canShareWine } from '@/lib/shareWine'
 
 const TASTING_LABELS = ['Bouchon', 'Bouteille', 'Plat', 'Ambiance', 'Autre']
@@ -59,10 +60,14 @@ export function TastingSection({
   const canShare = canShareWine()
 
   useEffect(() => {
-    setTastingNote(bottle.tasting_note || '')
-    setRating(bottle.rating ?? null)
-    setRebuy(bottle.rebuy ?? null)
-    setQpr(bottle.qpr ?? null)
+    const timer = window.setTimeout(() => {
+      setTastingNote(bottle.tasting_note || '')
+      setRating(bottle.rating ?? null)
+      setRebuy(bottle.rebuy ?? null)
+      setQpr(bottle.qpr ?? null)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [bottle.id, bottle.updated_at, bottle.tasting_note, bottle.rating, bottle.rebuy, bottle.qpr])
 
   const handleDrunkAtChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,6 +111,7 @@ export function TastingSection({
     const updatedBottle = { ...bottle, tasting_note: noteValue, rating, rebuy, qpr }
     extractAndSaveTags(updatedBottle)
     generateAndSaveEmbedding(updatedBottle)
+    signalRatedTastingWithComment(updatedBottle)
     await onRefetch()
     setSaving(false)
   }
@@ -217,6 +223,7 @@ export function TastingSection({
       const updatedBottle = { ...bottle, tasting_note: noteVal, rating, rebuy, qpr }
       extractAndSaveTags(updatedBottle)
       generateAndSaveEmbedding(updatedBottle)
+      signalRatedTastingWithComment(updatedBottle)
     }
 
     setSaving(false)

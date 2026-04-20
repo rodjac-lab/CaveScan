@@ -1,7 +1,14 @@
 import { ArrowLeft, Loader2, Trash2 } from 'lucide-react'
-import type { Dispatch, SetStateAction } from 'react'
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import type { SessionSummary } from '@/lib/crossSessionMemory'
 import type { UserProfileRow } from '@/lib/userProfiles'
+import { patchUserProfile } from '@/lib/userProfiles'
+import {
+  loadRecentCandidateSignals,
+  loadRecentProfilePatches,
+  type CandidateSignalRow,
+  type ProfilePatchRow,
+} from '@/lib/profilePatchesDebug'
 import type { RoutingProbeResult, RoutingProbeState } from '@/hooks/useDebugCelestinTools'
 import type { CelestinRealTraceEntry } from '@/lib/celestinTrace'
 
@@ -766,6 +773,119 @@ export function DebugEnrichmentPanel({
         </button>
         {embeddingStatus && <p className="text-center text-[11px] text-[var(--text-muted)]">{embeddingStatus}</p>}
       </div>
+    </section>
+  )
+}
+
+export function DebugProfilePatchesPanel() {
+  const [signals, setSignals] = useState<CandidateSignalRow[]>([])
+  const [patches, setPatches] = useState<ProfilePatchRow[]>([])
+  const [loading, setLoading] = useState(false)
+  const [running, setRunning] = useState(false)
+  const [status, setStatus] = useState<string | null>(null)
+
+  async function refresh() {
+    setLoading(true)
+    try {
+      const [s, p] = await Promise.all([loadRecentCandidateSignals(20), loadRecentProfilePatches(20)])
+      setSignals(s)
+      setPatches(p)
+    } catch (err) {
+      console.warn('[DebugProfilePatchesPanel] refresh failed', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void refresh()
+  }, [])
+
+  async function handleRunCheck() {
+    setRunning(true)
+    setStatus(null)
+    try {
+      const result = await patchUserProfile('manual_debug_check')
+      if (!result.success) {
+        setStatus(`Erreur : ${result.error ?? 'unknown'}`)
+      } else if (result.action === 'no_change') {
+        setStatus(`Aucun patch (${result.signals_consumed ?? 0} signaux vérifiés)`)
+      } else {
+        setStatus(`Patch ${result.action} ${result.section ? `sur ${result.section}` : ''} (v${result.version})`)
+      }
+      await refresh()
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Erreur inconnue')
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  return (
+    <section className="mt-6 rounded-[14px] border border-[var(--border-color)] bg-[var(--card-background)] p-5">
+      <h2 className="mb-2 text-[14px] font-semibold text-[var(--text-primary)]">Profil — signaux & patchs</h2>
+      <p className="mb-4 text-[12px] text-[var(--text-muted)]">
+        Signaux candidats levés récemment et historique des patchs appliqués au profil compilé.
+      </p>
+
+      <div className="mb-4 flex items-center gap-3">
+        <button
+          onClick={handleRunCheck}
+          disabled={running}
+          className="flex items-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-2 text-[12px] font-medium text-[var(--text-muted)]"
+        >
+          {running && <Loader2 className="h-4 w-4 animate-spin" />}
+          Lancer un check léger maintenant
+        </button>
+        <button
+          onClick={refresh}
+          disabled={loading}
+          className="flex items-center gap-2 rounded-[10px] border border-[var(--border-color)] bg-transparent px-3 py-2 text-[11px] text-[var(--text-muted)]"
+        >
+          {loading ? 'Chargement…' : 'Rafraîchir'}
+        </button>
+      </div>
+      {status && <p className="mb-3 text-[11px] text-[var(--text-muted)]">{status}</p>}
+
+      <h3 className="mb-2 text-[12px] font-semibold text-[var(--text-primary)]">Derniers signaux ({signals.length})</h3>
+      <ul className="mb-5 space-y-2 text-[11px] text-[var(--text-muted)]">
+        {signals.length === 0 && <li className="italic">Aucun signal.</li>}
+        {signals.map((signal) => (
+          <li key={signal.id} className="rounded-[8px] border border-[var(--border-color)] p-2">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-mono text-[10px] text-[var(--text-primary)]">{signal.signal_type}</span>
+              <span className="text-[10px]">{new Date(signal.created_at).toLocaleString('fr-FR')}</span>
+            </div>
+            <div className="mt-1 text-[10px]">
+              {signal.consumed_at ? `Consommé ${new Date(signal.consumed_at).toLocaleString('fr-FR')}` : 'En attente'}
+            </div>
+            <pre className="mt-1 whitespace-pre-wrap break-words text-[10px] opacity-70">
+              {JSON.stringify(signal.payload, null, 2)}
+            </pre>
+          </li>
+        ))}
+      </ul>
+
+      <h3 className="mb-2 text-[12px] font-semibold text-[var(--text-primary)]">Derniers patchs ({patches.length})</h3>
+      <ul className="space-y-2 text-[11px] text-[var(--text-muted)]">
+        {patches.length === 0 && <li className="italic">Aucun patch.</li>}
+        {patches.map((patch) => (
+          <li key={patch.id} className="rounded-[8px] border border-[var(--border-color)] p-2">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-mono text-[10px] text-[var(--text-primary)]">
+                {patch.action}
+                {patch.section ? ` · ${patch.section}` : ''}
+              </span>
+              <span className="text-[10px]">
+                v{patch.profile_version_before} → v{patch.profile_version_after} · {new Date(patch.applied_at).toLocaleString('fr-FR')}
+              </span>
+            </div>
+            {patch.content && <div className="mt-1 text-[10px]">Contenu : {patch.content}</div>}
+            {patch.reason && <div className="mt-1 text-[10px] opacity-70">Raison : {patch.reason}</div>}
+            {patch.llm_model && <div className="mt-1 text-[10px] opacity-70">Modèle : {patch.llm_model}</div>}
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }
