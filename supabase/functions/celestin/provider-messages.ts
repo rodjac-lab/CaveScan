@@ -60,25 +60,6 @@ export function buildClaudeMessages(history: ConversationTurn[], message: string
   return messages
 }
 
-export function buildMistralMessages(
-  systemPrompt: string,
-  userPrompt: string,
-  history: ConversationTurn[],
-  image?: string,
-): Array<{ role: string; content: string }> {
-  const messages: Array<{ role: string; content: string }> = [
-    { role: 'system', content: systemPrompt },
-  ]
-  for (const turn of history) {
-    messages.push({ role: turn.role === 'user' ? 'user' : 'assistant', content: turn.text })
-  }
-  const finalPrompt = image
-    ? userPrompt + "\n\n(L'utilisateur a envoye une photo mais je ne peux pas la voir. Reponds en te basant uniquement sur le texte.)"
-    : userPrompt
-  messages.push({ role: 'user', content: finalPrompt })
-  return messages
-}
-
 export function buildOpenAIMessages(
   systemPrompt: string,
   userPrompt: string,

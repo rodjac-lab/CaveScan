@@ -85,7 +85,6 @@ export function useDebugCelestinTools() {
     claude: true,
     openai: true,
     gemini: false,
-    mistral: false,
   })
   const [analyzingMemories, setAnalyzingMemories] = useState(false)
   const [memoryWeightStatus, setMemoryWeightStatus] = useState<string | null>(null)

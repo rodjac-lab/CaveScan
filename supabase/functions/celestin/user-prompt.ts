@@ -28,11 +28,6 @@ export function buildUserPrompt(
     parts.push('- (18h, vendredi) "Vendredi soir, la cave t\'attend."')
     parts.push('- (20h, hiver) "Soiree d\'hiver, il fait bon ouvrir quelque chose de reconfortant."')
     parts.push('- (apres longue absence) "Ca faisait un moment ! Ta cave n\'a pas bouge."')
-    if ((body as Record<string, unknown>).greetingContext) {
-      const gc = (body as Record<string, unknown>).greetingContext as Record<string, unknown>
-      parts.push(`\nContexte : ${gc.hour}h, ${gc.season ?? ''}, cave de ${gc.caveSize} bouteilles.`)
-      if (gc.lastActivity) parts.push(`${gc.lastActivity}`)
-    }
     return parts.join('\n')
   }
 

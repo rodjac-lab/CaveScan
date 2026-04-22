@@ -2,7 +2,6 @@ import { detectMediaType } from "./media.ts"
 import {
   buildClaudeMessages,
   buildGeminiContents,
-  buildMistralMessages,
   buildOpenAIMessages,
 } from "./provider-messages.ts"
 import { GEMINI_RESPONSE_SCHEMA, OPENAI_RESPONSE_SCHEMA } from "./provider-schemas.ts"
@@ -10,11 +9,9 @@ import { extractErrorMessage, fetchWithTimeout } from "./provider-utils.ts"
 import { parseAndValidate } from "./response-validation.ts"
 import type { CelestinResponse, ConversationTurn } from "./types.ts"
 
-const MISTRAL_API_KEY = Deno.env.get('MISTRAL_API_KEY')
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
-const MISTRAL_MODEL = 'mistral-small-latest'
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001'
 const OPENAI_MODEL = 'gpt-4.1-mini'
 
@@ -51,37 +48,6 @@ async function callGemini(systemPrompt: string, userPrompt: string, history: Con
   const result = await response.json()
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text
   if (!text) throw new Error('No text response from Gemini')
-
-  return parseAndValidate(text)
-}
-
-async function callMistral(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string): Promise<CelestinResponse> {
-  if (!MISTRAL_API_KEY) throw new Error('MISTRAL_API_KEY not configured')
-
-  const messages = buildMistralMessages(systemPrompt, userPrompt, history, image)
-
-  const response = await fetchWithTimeout('https://api.mistral.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${MISTRAL_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: MISTRAL_MODEL,
-      max_tokens: 4096,
-      temperature: 0.5,
-      response_format: { type: 'json_object' },
-      messages,
-    }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`Mistral ${MISTRAL_MODEL} (${response.status}): ${extractErrorMessage(await response.text())}`)
-  }
-
-  const result = await response.json()
-  const text = result.choices?.[0]?.message?.content
-  if (!text) throw new Error('No text response from Mistral')
 
   return parseAndValidate(text)
 }
@@ -166,7 +132,6 @@ export async function celestinWithFallback(
     const providerMap: Record<string, { name: string; call: () => Promise<CelestinResponse> }> = {
       claude: { name: 'Claude', call: () => callClaude(systemPrompt, userPrompt, history, image) },
       gemini: { name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history, image) },
-      mistral: { name: 'Mistral', call: () => callMistral(systemPrompt, userPrompt, history, image) },
       openai: { name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history, image) },
     }
     const selected = providerMap[forcedProvider.toLowerCase()]

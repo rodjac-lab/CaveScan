@@ -85,9 +85,6 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
     loadCompiledProfileMarkdown(),
   ])
 
-  const memoryQuery = memoryEvidence?.planningQuery ?? input.message
-  const memoriesOverride = memoryEvidence?.serialized || undefined
-
   const sqlRetrieval = routeFactualQueryFromClassification(classified, input.drunk, input.cave)
 
   return buildCelestinRequestBody({
@@ -98,8 +95,7 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
     profile: input.profile,
     messages: input.messages,
     zones: input.zones,
-    memoriesOverride,
-    memoriesQuery: memoryQuery,
+    memoriesOverride: memoryEvidence?.serialized || undefined,
     memoryEvidenceMode: memoryEvidence?.mode,
     memoryTrace: input.debugTrace ? memoryEvidence?.trace : undefined,
     conversationState: input.conversationState,

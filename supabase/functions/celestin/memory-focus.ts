@@ -85,11 +85,6 @@ export function resolveActiveMemoryFocus(
     }
   }
 
-  if (/\b(rayas|gangloff|brunello|selosse|leflaive|dugat|dugat-py|grange des peres|grange des p[eè]res)\b/i.test(body.message)) {
-    const explicit = body.message.match(/\b(rayas|gangloff|brunello|selosse|leflaive|dugat-py|dugat|grange des peres|grange des p[eè]res)\b/i)
-    if (explicit?.[1]) return explicit[1]
-  }
-
   if (isMemoryFocusLookup(normalizedMessage) && existingFocus) {
     return existingFocus
   }

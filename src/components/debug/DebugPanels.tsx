@@ -394,7 +394,6 @@ export function DebugCelestinToolsPanel({
               { key: 'claude', label: 'Claude Haiku' },
               { key: 'openai', label: 'GPT-4.1 mini' },
               { key: 'gemini', label: 'Gemini Flash' },
-              { key: 'mistral', label: 'Mistral Small' },
             ] as const).map((provider) => (
               <label key={provider.key} className="flex items-center gap-1.5 text-[12px] text-[var(--text-secondary)]">
                 <input
@@ -624,7 +623,6 @@ export function DebugCelestinToolsPanel({
                 <option value="gemini">Gemini</option>
                 <option value="claude">Claude</option>
                 <option value="openai">OpenAI</option>
-                <option value="mistral">Mistral</option>
               </select>
             </label>
             <label className="flex items-center gap-2 pt-6 text-[12px] text-[var(--text-secondary)]">

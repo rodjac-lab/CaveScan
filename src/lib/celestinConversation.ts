@@ -1,7 +1,5 @@
 import { serializeProfileForPrompt } from '@/lib/taste-profile'
 import { rankCaveBottles } from '@/lib/recommendationRanking'
-import { selectRelevantMemories } from '@/lib/tastingMemories'
-import { serializeMemoriesForPrompt } from '@/lib/tastingMemoryFormatting'
 import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
 import type { RecommendationCard } from '@/lib/recommendationStore'
 import type { MemoryEvidenceTrace } from '@/lib/tastingMemories'
@@ -163,7 +161,6 @@ export function buildCelestinRequestBody(input: {
   messages: CelestinChatMessage[]
   zones: string[]
   memoriesOverride?: string
-  memoriesQuery?: string
   memoryEvidenceMode?: 'exact' | 'synthesis'
   memoryTrace?: MemoryEvidenceTrace
   conversationState?: Record<string, unknown> | null
@@ -186,10 +183,7 @@ export function buildCelestinRequestBody(input: {
   }))
 
   const profileStr = input.profile ? serializeProfileForPrompt(input.profile) : undefined
-  const memoriesQuery = input.memoriesQuery ?? input.message
-  const memoriesStr = input.memoriesOverride !== undefined
-    ? (input.memoriesOverride || undefined)
-    : (serializeMemoriesForPrompt(selectRelevantMemories(memoriesQuery, input.drunk)) || undefined)
+  const memoriesStr = input.memoriesOverride || undefined
   const recentDrunk = input.drunk.slice(0, 5).map(formatDrunkSummary)
 
   return {
