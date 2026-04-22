@@ -12,7 +12,8 @@ import {
 import type { RoutingProbeResult, RoutingProbeState } from '@/hooks/useDebugCelestinTools'
 import type { CelestinRealTraceEntry } from '@/lib/celestinTrace'
 import { supabase } from '@/lib/supabase'
-import { routeFactualQuery, type SqlRetrievalResult } from '@/lib/sqlRetrievalRouter'
+import { routeFactualQueryFromClassification, type SqlRetrievalResult } from '@/lib/sqlRetrievalRouter'
+import { classifyFactualIntent, type ClassifiedIntent } from '@/lib/celestinIntentClassifier'
 import type { Bottle } from '@/lib/types'
 
 type MemoryWeightReport = {
@@ -805,15 +806,16 @@ export function DebugEnrichmentPanel({
   )
 }
 
+type SqlPanelStatus = 'idle' | 'running' | 'done'
+
 export function DebugSqlRetrievalPanel() {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
-  const [drunkCount, setDrunkCount] = useState(0)
-  const [caveCount, setCaveCount] = useState(0)
   const [drunkBottles, setDrunkBottles] = useState<Bottle[]>([])
   const [caveBottles, setCaveBottles] = useState<Bottle[]>([])
   const [result, setResult] = useState<SqlRetrievalResult | null>(null)
-  const [hasRun, setHasRun] = useState(false)
+  const [classified, setClassified] = useState<ClassifiedIntent | null>(null)
+  const [status, setStatus] = useState<SqlPanelStatus>('idle')
 
   useEffect(() => {
     async function loadData() {
@@ -822,12 +824,8 @@ export function DebugSqlRetrievalPanel() {
           supabase.from('bottles').select('*').eq('status', 'drunk').order('drunk_at', { ascending: false }).limit(300),
           supabase.from('bottles').select('*').eq('status', 'in_stock').order('added_at', { ascending: false }).limit(500),
         ])
-        const drunk = (drunkRes.data as Bottle[]) ?? []
-        const cave = (caveRes.data as Bottle[]) ?? []
-        setDrunkBottles(drunk)
-        setCaveBottles(cave)
-        setDrunkCount(drunk.length)
-        setCaveCount(cave.length)
+        setDrunkBottles((drunkRes.data as Bottle[]) ?? [])
+        setCaveBottles((caveRes.data as Bottle[]) ?? [])
       } finally {
         setLoading(false)
       }
@@ -847,28 +845,33 @@ export function DebugSqlRetrievalPanel() {
     return Array.from(buckets.entries()).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12)
   }, [drunkBottles])
 
-  function handleRun() {
+  async function handleRun() {
     const trimmed = query.trim()
     if (!trimmed) {
       setResult(null)
-      setHasRun(true)
+      setClassified(null)
+      setStatus('done')
       return
     }
-    const output = routeFactualQuery({
-      query: trimmed,
-      drunkBottles,
-      caveBottles,
-      recentMessages: [],
-    })
-    setResult(output)
-    setHasRun(true)
+    setStatus('running')
+    try {
+      const classification = await classifyFactualIntent({
+        query: trimmed,
+        cave: caveBottles,
+        drunk: drunkBottles,
+      })
+      setClassified(classification)
+      setResult(routeFactualQueryFromClassification(classification, drunkBottles, caveBottles))
+    } finally {
+      setStatus('done')
+    }
   }
 
   return (
     <section className="mt-6 rounded-[14px] border border-[var(--border-color)] bg-[var(--card-background)] p-5">
       <h2 className="mb-2 text-[14px] font-semibold text-[var(--text-primary)]">SQL Retrieval Router (factuel)</h2>
       <p className="mb-4 text-[12px] text-[var(--text-muted)]">
-        Testeur manuel du routeur factuel déterministe : détection d'intent (temporel, géographique, quantitatif, classement, inventaire), fabrication du bloc texte injecté dans le prompt LLM.
+        Testeur manuel : classifier LLM (edge function <span className="font-mono">classify-celestin-intent</span>) → builders déterministes (temporel, géographique, quantitatif, classement, inventaire) → bloc texte injecté dans le prompt Celestin.
       </p>
 
       <div className="mb-3 text-[11px] text-[var(--text-muted)]">
@@ -876,7 +879,7 @@ export function DebugSqlRetrievalPanel() {
           'Chargement des bouteilles…'
         ) : (
           <>
-            Source : {drunkCount} bouteille(s) bue(s) · {caveCount} fiche(s) en cave.
+            Source : {drunkBottles.length} bouteille(s) bue(s) · {caveBottles.length} fiche(s) en cave.
           </>
         )}
       </div>
@@ -905,17 +908,28 @@ export function DebugSqlRetrievalPanel() {
           disabled={loading}
         />
         <button
-          onClick={handleRun}
-          disabled={loading}
-          className="rounded-[10px] border border-[var(--border-color)] bg-transparent px-4 py-2 text-[12px] font-medium text-[var(--text-primary)]"
+          onClick={() => { void handleRun() }}
+          disabled={loading || status === 'running'}
+          className="rounded-[10px] border border-[var(--border-color)] bg-transparent px-4 py-2 text-[12px] font-medium text-[var(--text-primary)] disabled:opacity-50"
         >
-          Tester
+          {status === 'running' ? 'Classification…' : 'Tester'}
         </button>
       </div>
 
-      {hasRun && !result && (
+      {status === 'done' && classified && (
+        <div className="mb-3 rounded-[8px] border border-[var(--border-color)] p-2 text-[11px] text-[var(--text-muted)]">
+          <p className="mb-1 font-medium text-[var(--text-primary)]">Classifier output</p>
+          <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px]">
+{JSON.stringify(classified, null, 2)}
+          </pre>
+        </div>
+      )}
+
+      {status === 'done' && !result && (
         <p className="text-[11px] italic text-[var(--text-muted)]">
-          Aucune intent factuelle détectée. Celestin passerait par la recherche sémantique seule.
+          {!classified || classified.isFactual === false
+            ? 'Query classée non-factuelle. Celestin répond sans bloc SQL.'
+            : 'Classification reçue mais aucun bloc SQL produit (intent inattendu ou filtres incomplets).'}
         </p>
       )}
 
@@ -925,7 +939,6 @@ export function DebugSqlRetrievalPanel() {
             <p className="font-medium text-[var(--text-primary)]">Trace</p>
             <p>Intents détectés : {result.trace.detectedIntents.join(', ')}</p>
             {result.trace.matchedFilters.length > 0 && <p>Filtres : {result.trace.matchedFilters.join(', ')}</p>}
-            <p>Query normalisée : <span className="font-mono">{result.trace.normalizedQuery}</span></p>
           </div>
 
           <div>

@@ -35,27 +35,32 @@ export interface ClassifyFactualIntentInput {
   today?: Date
 }
 
-function distinctStrings(values: Array<string | null | undefined>): string[] {
-  const seen = new Set<string>()
-  const out: string[] = []
-  for (const value of values) {
-    if (!value) continue
-    const trimmed = value.trim()
-    if (!trimmed) continue
-    const key = trimmed.toLowerCase()
-    if (seen.has(key)) continue
-    seen.add(key)
-    out.push(trimmed)
-  }
-  return out
+function addDistinct(bucket: { seen: Set<string>; values: string[] }, raw: string | null | undefined): void {
+  if (!raw) return
+  const trimmed = raw.trim()
+  if (!trimmed) return
+  const key = trimmed.toLowerCase()
+  if (bucket.seen.has(key)) return
+  bucket.seen.add(key)
+  bucket.values.push(trimmed)
 }
 
 function collectAvailableValues(bottles: Bottle[]) {
+  const countries = { seen: new Set<string>(), values: [] as string[] }
+  const regions = { seen: new Set<string>(), values: [] as string[] }
+  const appellations = { seen: new Set<string>(), values: [] as string[] }
+  const domaines = { seen: new Set<string>(), values: [] as string[] }
+  for (const b of bottles) {
+    addDistinct(countries, b.country)
+    addDistinct(regions, b.region)
+    addDistinct(appellations, b.appellation)
+    addDistinct(domaines, b.domaine)
+  }
   return {
-    countries: distinctStrings(bottles.map((b) => b.country)),
-    regions: distinctStrings(bottles.map((b) => b.region)),
-    appellations: distinctStrings(bottles.map((b) => b.appellation)),
-    domaines: distinctStrings(bottles.map((b) => b.domaine)),
+    countries: countries.values,
+    regions: regions.values,
+    appellations: appellations.values,
+    domaines: domaines.values,
   }
 }
 
