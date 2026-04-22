@@ -5,6 +5,7 @@ import { serializeMemoriesForPrompt } from '@/lib/tastingMemoryFormatting'
 import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
 import type { RecommendationCard } from '@/lib/recommendationStore'
 import type { MemoryEvidenceTrace } from '@/lib/tastingMemories'
+import type { SqlRetrievalTrace } from '@/lib/sqlRetrievalRouter'
 import type { Bottle, BottleVolumeOption, TasteProfile, WineColor, WineExtraction } from '@/lib/types'
 
 export interface WineActionData {
@@ -167,6 +168,8 @@ export function buildCelestinRequestBody(input: {
   memoryTrace?: MemoryEvidenceTrace
   conversationState?: Record<string, unknown> | null
   compiledProfileMarkdown?: string
+  sqlRetrievalBlock?: string
+  sqlRetrievalTrace?: SqlRetrievalTrace
   debugTrace?: boolean
 }) {
   const ranked = rankCaveBottles('generic', input.message, input.cave, input.drunk, input.profile, input.cave.length)
@@ -206,6 +209,8 @@ export function buildCelestinRequestBody(input: {
     ...(input.conversationState ? { conversationState: input.conversationState } : {}),
     ...(input.image ? { image: input.image } : {}),
     ...(input.compiledProfileMarkdown ? { compiledProfileMarkdown: input.compiledProfileMarkdown } : {}),
+    ...(input.sqlRetrievalBlock ? { sqlRetrieval: input.sqlRetrievalBlock } : {}),
+    ...(input.sqlRetrievalTrace ? { sqlRetrievalTrace: input.sqlRetrievalTrace } : {}),
     ...(input.debugTrace ? { debugTrace: true } : {}),
   }
 }

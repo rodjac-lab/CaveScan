@@ -50,11 +50,17 @@ The user is not a professional developer but is learning quickly and wants to im
 
 **STOP. Do not commit immediately after making changes. Follow these steps:**
 
-1. **Run the build** to check for errors:
+1. **Run standard validation** to check for regressions:
    ```
-   npm run build
+   npm run verify
    ```
-   If the build fails, fix the errors before continuing.
+   This runs lint, build, unit tests, and deterministic E2E flow tests. If it fails, fix the errors before continuing.
+
+   For large refactors, release-sensitive changes, or before a production deployment, run the full validation instead:
+   ```
+   npm run verify:full
+   ```
+   This also includes the authenticated smoke tests.
 
 2. **Trace the code flow** - You cannot see the running app, so you must trace through the code:
    - Start from the component/function you changed
@@ -104,3 +110,5 @@ Ce fichier est automatiquement chargé au début de chaque conversation.
 - Dev server: `npm run dev`
 - Build: `npm run build`
 - Lint: `npm run lint`
+- Standard validation: `npm run verify`
+- Full validation: `npm run verify:full`

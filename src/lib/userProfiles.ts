@@ -48,6 +48,30 @@ export async function loadUserProfile(): Promise<UserProfileRow | null> {
   return data as UserProfileRow | null
 }
 
+let compiledProfileCache: Promise<UserProfileRow | null> | null = null
+
+export function invalidateCompiledUserProfileCache(): void {
+  compiledProfileCache = null
+}
+
+export async function getCompiledUserProfileCached(): Promise<UserProfileRow | null> {
+  if (compiledProfileCache) return compiledProfileCache
+  const promise = (async () => {
+    try {
+      return await ensureCompiledUserProfile('auto_runtime_bootstrap')
+    } catch {
+      try {
+        return await loadUserProfile()
+      } catch {
+        return null
+      }
+    }
+  })()
+  compiledProfileCache = promise
+  promise.catch(() => { compiledProfileCache = null })
+  return promise
+}
+
 export async function compileUserProfile(reason = 'manual_debug_force'): Promise<UserProfileRow> {
   await ensureFreshSession()
 
@@ -58,6 +82,7 @@ export async function compileUserProfile(reason = 'manual_debug_force'): Promise
   if (error) {
     throw new Error(await extractFunctionErrorMessage(error))
   }
+  invalidateCompiledUserProfileCache()
   return data?.profile as UserProfileRow
 }
 
@@ -95,5 +120,9 @@ export async function patchUserProfile(reason = 'session_close'): Promise<PatchP
     return { success: false, error: message }
   }
 
-  return (data ?? { success: false, error: 'Empty response' }) as PatchProfileResponse
+  const response = (data ?? { success: false, error: 'Empty response' }) as PatchProfileResponse
+  if (response.success && response.changed) {
+    invalidateCompiledUserProfileCache()
+  }
+  return response
 }

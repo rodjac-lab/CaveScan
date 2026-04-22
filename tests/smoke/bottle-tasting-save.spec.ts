@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { login, requireSmokeEnv } from './helpers/auth'
+import { login, requireSmokeEnv } from '../helpers/auth'
 
 test.skip(
   !process.env.PLAYWRIGHT_TEST_EMAIL || !process.env.PLAYWRIGHT_TEST_PASSWORD || !process.env.PLAYWRIGHT_DRUNK_BOTTLE_ID,

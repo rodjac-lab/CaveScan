@@ -20,6 +20,7 @@ import {
   DebugHeader,
   DebugMemoryPanel,
   DebugProfilePatchesPanel,
+  DebugSqlRetrievalPanel,
 } from '@/components/debug/DebugPanels'
 import { useDebugCelestinTools } from '@/hooks/useDebugCelestinTools'
 
@@ -123,6 +124,8 @@ export default function Debug() {
           onRefreshRealTraces={celestinTools.handleRefreshRealTraces}
           onClearRealTraces={celestinTools.handleClearRealTraces}
         />
+
+        <DebugSqlRetrievalPanel />
 
         <DebugProfilePatchesPanel />
 

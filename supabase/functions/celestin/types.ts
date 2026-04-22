@@ -27,6 +27,8 @@ export interface RequestBody {
   memories?: string
   memoryEvidenceMode?: 'exact' | 'synthesis'
   memoryTrace?: Record<string, unknown>
+  sqlRetrieval?: string
+  sqlRetrievalTrace?: Record<string, unknown>
   provider?: string
   debugTrace?: boolean
   image?: string

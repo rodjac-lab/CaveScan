@@ -17,4 +17,4 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
-npx playwright test tests/smoke "$@"
+npx playwright test tests/flows --workers=1 "$@"

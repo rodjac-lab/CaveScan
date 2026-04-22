@@ -5,6 +5,7 @@ import {
   loadActiveMemoryFacts,
   type MemoryFact,
 } from '@/lib/chatPersistence'
+import { getCompiledUserProfileCached } from '@/lib/userProfiles'
 import {
   saveCurrentSession as saveCrossSession,
   rotateSessions,
@@ -31,7 +32,10 @@ export function useCeSoirSessionState(createMessageId: () => string) {
   }, [messages])
 
   const messagesRef = useRef(messages)
-  messagesRef.current = messages
+
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
 
   const sessionIdRef = useRef<string | null>(null)
   const userTurnCountRef = useRef(0)
@@ -50,15 +54,21 @@ export function useCeSoirSessionState(createMessageId: () => string) {
   useEffect(() => {
     createSession().then((id) => { sessionIdRef.current = id })
     loadActiveMemoryFacts().then(syncActiveMemoryFacts)
+    void getCompiledUserProfileCached()
 
     return () => {
-      if (sessionIdRef.current && userTurnCountRef.current > 0) {
+      const sessionId = sessionIdRef.current
+      // Read latest mutable count on unmount to decide whether to extract final insights.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      const userTurnCount = userTurnCountRef.current
+
+      if (sessionId && userTurnCount > 0) {
         const recent = (messagesRef.current ?? [])
           .filter((message) => !message.isLoading && message.text.length > 1)
           .slice(-12)
           .map((message) => ({ role: message.role === 'user' ? 'user' : 'celestin', content: message.text }))
         if (recent.length >= 2) {
-          void extractInsights(sessionIdRef.current, recent, memoryFactsRawRef.current)
+          void extractInsights(sessionId, recent, memoryFactsRawRef.current)
         }
       }
     }

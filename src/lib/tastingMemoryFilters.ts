@@ -81,6 +81,27 @@ const FRENCH_MONTHS: Record<string, string> = {
   décembre: '12',
 }
 
+const TEMPORAL_NOISE_TERMS = new Set([
+  'janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin',
+  'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre',
+  'hier', 'demain', 'weekend', 'week-end',
+  'semaine', 'mois', 'annee', 'an', 'ans',
+  'jour', 'jours', 'matin', 'soir', 'midi', 'nuit',
+  'recent', 'recents', 'recente', 'recentes',
+])
+
+const TOPONYM_NOISE_TERMS = new Set([
+  'saint', 'sainte', 'saints', 'saintes',
+  'san', 'santo', 'santa', 'sao',
+  'mont', 'monte', 'mons',
+  'haut', 'haute', 'hauts', 'hautes',
+  'bas', 'basse', 'basses',
+  'petit', 'petite', 'petits', 'petites',
+  'grand', 'grande', 'grands', 'grandes',
+  'nouveau', 'nouvelle', 'nouvelles', 'nouveaux',
+  'vieux', 'vieille', 'vieilles',
+])
+
 export function normalizeForMatch(text: string): string {
   return text
     .toLowerCase()
@@ -147,14 +168,16 @@ function isOneEditAway(left: string, right: string): boolean {
 export function termMatchesIdentity(term: string, field: string): boolean {
   const normalizedField = normalizeForMatch(field)
   if (!normalizedField) return false
-  if (normalizedField.includes(term)) return true
+  if (term.length >= 4 && normalizedField.includes(term)) return true
 
   const fieldTokens = normalizedField.split(/\s+/).filter((token) => token.length > 2)
-  return fieldTokens.some((token) =>
-    token.includes(term)
-    || term.includes(token)
-    || (term.length >= 6 && token.length >= 6 && isOneEditAway(term, token))
-  )
+  return fieldTokens.some((token) => {
+    if (token === term) return true
+    if (term.length >= 4 && token.includes(term)) return true
+    if (token.length >= 5 && term.includes(token)) return true
+    if (term.length >= 6 && token.length >= 6 && isOneEditAway(term, token)) return true
+    return false
+  })
 }
 
 function queryMentionsIdentityValue(normalizedQuery: string, value: string): boolean {
@@ -198,7 +221,7 @@ export function buildContextualMemoryQuery(
 }
 
 function emptyExactFilters(): ExactMemoryFilters {
-  return { dates: [], countries: [], regions: [], appellations: [], domaines: [], cuvees: [] }
+  return { dates: [], countries: [], regions: [], appellations: [], domaines: [], cuvees: [], millesimes: [] }
 }
 
 function addUnique(values: string[], value: string | null | undefined): void {
@@ -213,6 +236,7 @@ export function hasAnyExactFilter(filters: ExactMemoryFilters): boolean {
     || filters.appellations.length > 0
     || filters.domaines.length > 0
     || filters.cuvees.length > 0
+    || filters.millesimes.length > 0
 }
 
 export function hasUnmatchedProducerHint(query: string, filters: ExactMemoryFilters): boolean {
@@ -296,7 +320,7 @@ function extractDateFiltersFromQuery(query: string, drunkBottles: Bottle[]): str
   const normalizedQuery = normalizeForMatch(query)
   const results = new Set<string>()
 
-  const explicitNumeric = normalizedQuery.match(/\b(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?\b/)
+  const explicitNumeric = normalizedQuery.match(/\b(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?\b/)
   if (explicitNumeric) {
     const day = explicitNumeric[1].padStart(2, '0')
     const month = explicitNumeric[2].padStart(2, '0')
@@ -315,6 +339,23 @@ function extractDateFiltersFromQuery(query: string, drunkBottles: Bottle[]): str
   return Array.from(results)
 }
 
+function extractMillesimesFromQuery(query: string, drunkBottles: Bottle[]): number[] {
+  const normalizedQuery = normalizeForMatch(query)
+  const candidateYears = new Set<number>()
+  const yearPattern = /\b(19|20)\d{2}\b/g
+  let match: RegExpExecArray | null
+  while ((match = yearPattern.exec(normalizedQuery)) !== null) {
+    candidateYears.add(Number(match[0]))
+  }
+  if (candidateYears.size === 0) return []
+
+  const known = new Set<number>()
+  for (const bottle of drunkBottles) {
+    if (bottle.millesime != null) known.add(bottle.millesime)
+  }
+  return Array.from(candidateYears).filter((year) => known.has(year))
+}
+
 export function extractExactFiltersFromQuery(query: string, drunkBottles: Bottle[]): ExactMemoryFilters {
   const filters = emptyExactFilters()
   const normalizedQuery = normalizeForMatch(query)
@@ -324,20 +365,29 @@ export function extractExactFiltersFromQuery(query: string, drunkBottles: Bottle
     addUnique(filters.dates, isoDate)
   }
 
+  for (const millesime of extractMillesimesFromQuery(query, drunkBottles)) {
+    if (!filters.millesimes.includes(millesime)) filters.millesimes.push(millesime)
+  }
+
   for (const country of collectUniqueFieldValues(drunkBottles, (bottle) => bottle.country)) {
     if (queryMentionsCountry(normalizedQuery, country)) addUnique(filters.countries, country)
   }
 
-  const fieldSets: Array<{ values: string[]; target: keyof ExactMemoryFilters }> = [
+  type StringFilterKey = 'regions' | 'appellations' | 'domaines' | 'cuvees'
+  const fieldSets: Array<{ values: string[]; target: StringFilterKey }> = [
     { values: collectUniqueFieldValues(drunkBottles, (bottle) => bottle.region), target: 'regions' },
     { values: collectUniqueFieldValues(drunkBottles, (bottle) => bottle.appellation), target: 'appellations' },
     { values: collectUniqueFieldValues(drunkBottles, (bottle) => bottle.domaine), target: 'domaines' },
     { values: collectUniqueFieldValues(drunkBottles, (bottle) => bottle.cuvee), target: 'cuvees' },
   ]
 
+  const identityTerms = queryTerms.filter(
+    (term) => !TEMPORAL_NOISE_TERMS.has(term) && !TOPONYM_NOISE_TERMS.has(term),
+  )
+
   for (const { values, target } of fieldSets) {
     for (const value of values) {
-      if (queryMentionsIdentityValue(normalizedQuery, value) || queryTerms.some((term) => termMatchesIdentity(term, value))) {
+      if (queryMentionsIdentityValue(normalizedQuery, value) || identityTerms.some((term) => termMatchesIdentity(term, value))) {
         addUnique(filters[target], value)
       }
     }
@@ -397,12 +447,16 @@ export function bottleMatchesExactFilters(bottle: Bottle, filters: ExactMemoryFi
     matchesValueList(bottle.cuvee, filters.cuvees, matchesNormalizedValue),
   ]
 
+  const millesimeOk = filters.millesimes.length === 0
+    || (bottle.millesime != null && filters.millesimes.includes(bottle.millesime))
+
   return (filters.dates.length === 0 || Boolean(dateKeys && filters.dates.includes(dateKeys.iso)))
+    && millesimeOk
     && fieldChecks.every(Boolean)
 }
 
 export function buildFilterLabels(filters: ExactMemoryFilters): string[] {
-  return ([
+  const textLabels = ([
     ['date', filters.dates],
     ['pays', filters.countries],
     ['region', filters.regions],
@@ -410,6 +464,8 @@ export function buildFilterLabels(filters: ExactMemoryFilters): string[] {
     ['domaine', filters.domaines],
     ['cuvee', filters.cuvees],
   ] as const).flatMap(([label, values]) => values.map((value) => `${label}=${value}`))
+  const millesimeLabels = filters.millesimes.map((year) => `millesime=${year}`)
+  return [...textLabels, ...millesimeLabels]
 }
 
 export function classifyMemoryEvidenceMode(query: string, hasFilters: boolean): MemoryEvidenceMode {

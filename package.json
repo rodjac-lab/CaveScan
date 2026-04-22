@@ -11,6 +11,9 @@
     "test:critical": "vitest run",
     "test:smoke": "bash scripts/run-smoke-tests.sh",
     "test:smoke:headed": "bash scripts/run-smoke-tests.sh --headed",
+    "test:e2e:flows": "bash scripts/run-flow-tests.sh",
+    "verify": "npm run lint && npm run build && npm run test && npm run test:e2e:flows",
+    "verify:full": "npm run lint && npm run build && npm run test && npm run test:smoke && npm run test:e2e:flows",
     "preview": "vite preview",
     "eval:celestin": "node scripts/evaluate-celestin.mjs"
   },

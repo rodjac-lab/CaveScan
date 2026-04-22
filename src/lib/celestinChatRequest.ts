@@ -3,12 +3,14 @@ import {
   buildMemoryEvidenceBundle,
   type MemorySelectionProfile,
 } from '@/lib/tastingMemories'
+import { routeFactualQueryFromClassification } from '@/lib/sqlRetrievalRouter'
+import { classifyFactualIntent } from '@/lib/celestinIntentClassifier'
 import {
   buildCelestinRequestBody,
   type CelestinChatMessage,
   type CelestinResponse,
 } from '@/lib/celestinConversation'
-import { ensureCompiledUserProfile, loadUserProfile } from '@/lib/userProfiles'
+import { getCompiledUserProfileCached } from '@/lib/userProfiles'
 import type { Bottle, TasteProfile } from '@/lib/types'
 
 const RECOMMENDATION_PATTERN = /(?:qu['’]est-ce que j['’]ouvre|que boire|j['’]ai envie d['’]un|je cherche un vin|ce soir c['’]est|avec quoi|pour ce soir|plut[oô]t un rouge|plut[oô]t un blanc|vin italien|italien|poulet r[oô]ti|osso bucco|raclette|pizza|sushi)/i
@@ -55,6 +57,11 @@ export function buildTranscriptSnapshot(
   return nextTurns.slice(-12)
 }
 
+async function loadCompiledProfileMarkdown(): Promise<string | undefined> {
+  const userProfile = await getCompiledUserProfileCached()
+  return userProfile?.compiled_markdown ?? undefined
+}
+
 export async function prepareCelestinRequest(input: PrepareCelestinRequestInput) {
   const memorySelectionProfile: MemorySelectionProfile =
     input.conversationState && (input.conversationState as { taskType?: string | null }).taskType === 'recommendation'
@@ -62,28 +69,26 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
       : RECOMMENDATION_PATTERN.test(input.message)
         ? 'recommendation'
         : 'default'
-  const memoryEvidence = await buildMemoryEvidenceBundle({
-    query: input.message,
-    recentMessages: toMemoryMessages(input.messages),
-    drunkBottles: input.drunk,
-    selectionProfile: memorySelectionProfile,
-  })
+
+  const [memoryEvidence, classified, compiledProfileMarkdown] = await Promise.all([
+    buildMemoryEvidenceBundle({
+      query: input.message,
+      recentMessages: toMemoryMessages(input.messages),
+      drunkBottles: input.drunk,
+      selectionProfile: memorySelectionProfile,
+    }),
+    classifyFactualIntent({
+      query: input.message,
+      cave: input.cave,
+      drunk: input.drunk,
+    }),
+    loadCompiledProfileMarkdown(),
+  ])
 
   const memoryQuery = memoryEvidence?.planningQuery ?? input.message
   const memoriesOverride = memoryEvidence?.serialized || undefined
 
-  let compiledProfileMarkdown: string | undefined
-  try {
-    const userProfile = await ensureCompiledUserProfile('auto_runtime_bootstrap')
-    compiledProfileMarkdown = userProfile?.compiled_markdown ?? undefined
-  } catch {
-    try {
-      const userProfile = await loadUserProfile()
-      compiledProfileMarkdown = userProfile?.compiled_markdown ?? undefined
-    } catch {
-      // Continue without compiled profile.
-    }
-  }
+  const sqlRetrieval = routeFactualQueryFromClassification(classified, input.drunk, input.cave)
 
   return buildCelestinRequestBody({
     message: input.message,
@@ -99,6 +104,8 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
     memoryTrace: input.debugTrace ? memoryEvidence?.trace : undefined,
     conversationState: input.conversationState,
     compiledProfileMarkdown,
+    sqlRetrievalBlock: sqlRetrieval?.serialized,
+    sqlRetrievalTrace: input.debugTrace ? sqlRetrieval?.trace : undefined,
     debugTrace: input.debugTrace,
   })
 }

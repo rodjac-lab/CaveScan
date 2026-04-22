@@ -62,4 +62,5 @@ export interface ExactMemoryFilters {
   appellations: string[]
   domaines: string[]
   cuvees: string[]
+  millesimes: number[]
 }

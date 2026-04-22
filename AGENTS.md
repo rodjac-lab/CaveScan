@@ -42,6 +42,8 @@ Expected local commands:
 - `npm run build`
 - `npm run lint`
 - `npm run test`
+- `npm run verify` (validation locale standard: lint, build, unit, E2E flows déterministes)
+- `npm run verify:full` (validation complète: `verify` + smoke tests authentifiés)
 - `npx supabase status`
 - `npx vercel`
 
@@ -132,7 +134,7 @@ These files are large and behavior-dense. Read surrounding code before changing 
 
 Before proposing a commit or saying work is done:
 
-1. Run `npm run build`
+1. Run `npm run verify` for normal changes, or `npm run verify:full` after a large refactor/release-sensitive change
 2. Trace the code path beyond the edited file
 3. Check connected flows for regressions
 4. Tell the user exactly what to test manually

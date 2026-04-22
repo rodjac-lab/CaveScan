@@ -15,6 +15,14 @@ export type CelestinRoutingTrace = {
   candidates?: CelestinRoutingCandidateTrace[]
 }
 
+export type CelestinSqlRetrievalTrace = {
+  query: string | null
+  normalizedQuery: string | null
+  detectedIntents: string[]
+  matchedFilters: string[]
+  blocks: Array<{ intent: string; label: string; resultCount: number }>
+}
+
 export type CelestinRealTraceEntry = {
   id: string
   createdAt: string
@@ -31,6 +39,11 @@ export type CelestinRealTraceEntry = {
     memoryFocus: string | null
     provider: string | null
     compiledProfile: boolean
+    sqlRetrieval: {
+      chars: number
+      preview: string | null
+      trace: CelestinSqlRetrievalTrace | null
+    } | null
     retrieval: {
       decision: string | null
       planningQuery: string | null
@@ -89,6 +102,8 @@ type CelestinTraceBody = {
   memories?: string
   memoryEvidenceMode?: string
   memoryTrace?: unknown
+  sqlRetrieval?: string
+  sqlRetrievalTrace?: unknown
   provider?: string
   image?: string
   compiledProfileMarkdown?: string
@@ -154,6 +169,40 @@ function normalizeRouting(value: unknown): CelestinRoutingTrace | null {
 
 function asNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function normalizeSqlRetrievalTrace(value: unknown): CelestinSqlRetrievalTrace | null {
+  if (!value || typeof value !== 'object') return null
+  const trace = value as Record<string, unknown>
+  const intents = asStringArray(trace.detectedIntents) ?? []
+  const filters = asStringArray(trace.matchedFilters) ?? []
+  const blocks = Array.isArray(trace.blocks)
+    ? trace.blocks
+        .filter((block): block is Record<string, unknown> => !!block && typeof block === 'object')
+        .map((block) => ({
+          intent: asString(block.intent) ?? 'unknown',
+          label: asString(block.label) ?? '',
+          resultCount: asNumber(block.resultCount) ?? 0,
+        }))
+    : []
+  return {
+    query: asString(trace.query),
+    normalizedQuery: asString(trace.normalizedQuery),
+    detectedIntents: intents,
+    matchedFilters: filters,
+    blocks,
+  }
+}
+
+function buildSqlRetrievalEntry(body: CelestinTraceBody): CelestinRealTraceEntry['request']['sqlRetrieval'] {
+  const raw = typeof body.sqlRetrieval === 'string' ? body.sqlRetrieval : ''
+  const trace = normalizeSqlRetrievalTrace(body.sqlRetrievalTrace)
+  if (raw.length === 0 && !trace) return null
+  return {
+    chars: raw.length,
+    preview: raw.length > 0 ? raw.slice(0, 1200) : null,
+    trace,
+  }
 }
 
 function normalizeRetrievalTrace(value: unknown): CelestinRealTraceEntry['request']['retrieval'] {
@@ -292,6 +341,7 @@ export function buildCelestinRealTraceEntry(input: {
       memoryFocus: asString(conversationState?.memoryFocus),
       provider: body.provider ?? null,
       compiledProfile: !!body.compiledProfileMarkdown?.trim(),
+      sqlRetrieval: buildSqlRetrievalEntry(body),
       retrieval: normalizeRetrievalTrace(body.memoryTrace),
     },
     ...(response ? {

@@ -46,6 +46,32 @@ export function buildContextBlock(body: RequestBody, cognitiveMode: ContextMode)
     parts.push(buildMemoriesSection(body).join('\n\n'))
   }
 
+  const shouldIncludeSqlRetrieval =
+    !!body.sqlRetrieval?.trim()
+    && cognitiveMode !== 'greeting'
+    && cognitiveMode !== 'social'
+
+  if (shouldIncludeSqlRetrieval) {
+    parts.push(
+      [
+        'Faits deterministes extraits de la base (source exacte, pas une inference) :',
+        body.sqlRetrieval!.trim(),
+        [
+          'Regles d usage de ce bloc :',
+          '- Ces faits sont exhaustifs pour la question posee. Ne presume aucune omission ou erreur.',
+          '- Tu ne dois JAMAIS mentionner un vin qui n apparait pas explicitement dans ce bloc. Si le bloc ne cite pas un vin, il n existe pas pour cette reponse, meme si ton intuition ou tes connaissances le suggerent. C est une regle absolue anti-hallucination.',
+          '- Chaque bloc comporte un indicateur de rendu : si le bloc dit "Enumere les N vin(s) ci-dessous", liste-les tous, un par un. S il dit "L inventaire compte N fiches — TROP pour lister", donne uniquement le chiffre total + 2-3 exemples emblematiques tires du bloc, et renvoie l utilisateur vers la page Cave pour la liste complete.',
+          '- Le bloc classement (top N par note) doit toujours etre enumere dans son integralite, quel que soit son count.',
+          '- Le bloc temporel (vins bus sur une periode) doit etre enumere dans son integralite, meme pour 10+ vins — c est un historique, pas un inventaire de stock.',
+          '- Le chiffre total (ex: "15 vin(s) bu(s)", "9 fiche(s)", "10 exemplaire(s)") est la bonne reponse au "combien". Ne l arrondis pas.',
+          '- Quand plusieurs blocs coexistent, suis l indicateur de rendu de CHACUN independamment.',
+          '- Si un fait de ce bloc contredit un souvenir ou ton intuition, le fait prime.',
+          '- Le bloc "Souvenirs de degustation" reste utile pour la texture qualitative (verbatim, ambiance, descripteurs), pas pour les chiffres.',
+        ].join('\n'),
+      ].join('\n\n'),
+    )
+  }
+
   if (cognitiveMode === 'greeting' || cognitiveMode === 'social') {
     if (body.cave.length > 0) {
       parts.push(`Cave : ${caveCounts.totalBottles} bouteilles (${caveCounts.referenceCount} references).`)
