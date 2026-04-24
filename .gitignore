@@ -55,6 +55,9 @@ test-results/
 playwright-report/
 benchmark-results.html
 
+# Celestin real traces sink (dev-only, written by vite plugin)
+.celestin-debug/
+
 # Screenshots (non-app assets)
 public/Sceeenshot Landing/
 .env*.local

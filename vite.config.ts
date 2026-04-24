@@ -3,11 +3,13 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+import { celestinDebugTrace } from './vite-plugins/celestin-debug-trace'
 
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    celestinDebugTrace(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'mask-icon.svg'],

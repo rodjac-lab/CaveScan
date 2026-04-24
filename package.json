@@ -15,7 +15,9 @@
     "verify": "npm run lint && npm run build && npm run test && npm run test:e2e:flows",
     "verify:full": "npm run lint && npm run build && npm run test && npm run test:smoke && npm run test:e2e:flows",
     "preview": "vite preview",
-    "eval:celestin": "node scripts/evaluate-celestin.mjs"
+    "eval:celestin": "node scripts/evaluate-celestin.mjs",
+    "debug:last": "tail -n 1 .celestin-debug/traces.jsonl 2>/dev/null || echo 'No traces captured yet. Start npm run dev and interact with the app.'",
+    "debug:tail": "tail -n 5 .celestin-debug/traces.jsonl 2>/dev/null || echo 'No traces yet.'"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

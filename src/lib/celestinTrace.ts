@@ -310,6 +310,21 @@ export function appendCelestinRealTrace(entry: CelestinRealTraceEntry): void {
   const next = [entry, ...loadCelestinRealTraces()].slice(0, TRACE_LIMIT)
   storage.setItem(TRACE_LOG_KEY, JSON.stringify(next))
   console.info('[celestin:trace]', entry)
+  pushTraceToDevSink(entry)
+}
+
+function pushTraceToDevSink(entry: CelestinRealTraceEntry): void {
+  if (!import.meta.env.DEV) return
+  if (typeof fetch === 'undefined') return
+  fetch('/__debug/trace', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+    keepalive: true,
+  }).catch(() => {
+    // Best-effort: dev sink might be down or we're running tests; don't block
+    // the user-facing pipeline on its availability.
+  })
 }
 
 export function buildCelestinRealTraceEntry(input: {
