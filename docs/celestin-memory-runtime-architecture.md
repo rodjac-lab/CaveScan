@@ -124,12 +124,28 @@ Le bon support V1 est :
 Ce document n'est pas la base brute.
 C'est une mémoire compilée.
 
-## Sections V1 du profil
+## Sections du profil compilé
 
-- `Profil gustatif`
-- `Moments marquants`
-- `Explorations en cours`
-- `Style de conversation`
+Version actuelle (V2, avril 2026) — 6 sections. Les 2 dernières sont **omises si vides**, pour éviter d'injecter des headers sans contenu.
+
+- `Profil gustatif` — appellations, domaines, accords, descripteurs, preferences, aversions, extraits du questionnaire
+- `Moments marquants` — jusqu'à 8 dégustations notables avec note tronquée à 400 caractères
+- `Explorations en cours` — pistes récentes de dégustation + `wine_knowledge` + `life_event` (rendus comme "Jalon personnel : ...")
+- `Entourage et partages` — facts `social` sur l'entourage et les compagnons de dégustation (nouvelle section)
+- `Contexte et intentions` — `context` non expirés (préfixés `[contexte récent]`) + `cellar_intent` (nouvelle section)
+- `Style de conversation` — ton attendu, niveau technique, règles conversationnelles
+
+## Comment les `user_memory_facts` alimentent le profil
+
+7 catégories extraites par `extract-chat-insights` : `preference`, `aversion`, `wine_knowledge`, `life_event`, `social`, `cellar_intent`, `context`.
+
+Sélection au moment de la compilation (`shared/celestin/compiled-profile.ts`) :
+
+- **Scoring** : `score = confidence × (0.6 + 0.4 × recency_decay)` où `recency_decay = 0.5 ^ (ageDays / halfLifeDays)`. La confidence garde minimum 60% du poids — un fait récent mais peu sûr ne détrône jamais un fait ancien très sûr juste par fraîcheur.
+- **Demi-vies par nature** : `context` 30j, `cellar_intent` 90j, `wine_knowledge` 180j, `social` 270j, `preference`/`aversion` 365j, `life_event` 540j. Un contexte de voyage vieillit vite ; une préférence de goût pas.
+- **Seuils de confiance minimum** : 0.5 pour `context`, 0.6 pour `wine_knowledge`, 0.65 pour `social`, 0.7 pour les autres. Les facts en dessous sont écartés avant sélection (lutte contre les inférences hasardeuses de l'extraction).
+- **Quotas serrés par catégorie** : 5 préférences, 3 aversions/wine_knowledge/social, 2 life_event/cellar_intent/context. Au-delà, on tranche par score décroissant.
+- **Facts temporaires** : autorisés seulement pour `context` et `cellar_intent`, uniquement s'ils ne sont pas expirés. Les `context` temporaires sont préfixés `[contexte récent]` dans le Markdown pour signaler au LLM leur volatilité.
 
 ## 3. Runtime minimal
 
