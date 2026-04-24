@@ -1,5 +1,13 @@
 import type { ConversationState } from "./conversation-state.ts"
 
+export type ConversationalIntent =
+  | 'recommendation'
+  | 'inventory_lookup'
+  | 'memory_lookup'
+  | 'tasting_log'
+  | 'encavage'
+  | 'smalltalk'
+
 export interface ConversationTurn {
   role: 'user' | 'assistant'
   text: string
@@ -34,6 +42,7 @@ export interface RequestBody {
   image?: string
   conversationState?: ConversationState
   compiledProfileMarkdown?: string
+  conversationalIntent?: ConversationalIntent | string | null
   context?: {
     dayOfWeek: string
     season: string

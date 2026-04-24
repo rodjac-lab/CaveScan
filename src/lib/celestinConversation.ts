@@ -167,6 +167,7 @@ export function buildCelestinRequestBody(input: {
   compiledProfileMarkdown?: string
   sqlRetrievalBlock?: string
   sqlRetrievalTrace?: SqlRetrievalTrace
+  conversationalIntent?: string | null
   debugTrace?: boolean
 }) {
   const ranked = rankCaveBottles('generic', input.message, input.cave, input.drunk, input.profile, input.cave.length)
@@ -205,6 +206,7 @@ export function buildCelestinRequestBody(input: {
     ...(input.compiledProfileMarkdown ? { compiledProfileMarkdown: input.compiledProfileMarkdown } : {}),
     ...(input.sqlRetrievalBlock ? { sqlRetrieval: input.sqlRetrievalBlock } : {}),
     ...(input.sqlRetrievalTrace ? { sqlRetrievalTrace: input.sqlRetrievalTrace } : {}),
+    ...(input.conversationalIntent ? { conversationalIntent: input.conversationalIntent } : {}),
     ...(input.debugTrace ? { debugTrace: true } : {}),
   }
 }

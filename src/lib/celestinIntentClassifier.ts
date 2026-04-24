@@ -4,6 +4,13 @@ import type { Bottle } from '@/lib/types'
 
 export type FactualIntent = 'temporal' | 'geographic' | 'quantitative' | 'ranking' | 'inventory'
 export type InventoryScope = 'drunk' | 'cave' | 'both'
+export type ConversationalIntent =
+  | 'recommendation'
+  | 'inventory_lookup'
+  | 'memory_lookup'
+  | 'tasting_log'
+  | 'encavage'
+  | 'smalltalk'
 
 export interface ClassifiedFilters {
   millesime?: number
@@ -24,6 +31,7 @@ export interface ClassifiedIntent {
   scope: InventoryScope | null
   rankingDirection: 'desc' | 'asc' | null
   rankingLimit: number | null
+  conversationalIntent: ConversationalIntent | null
   confidence: number
   _meta?: { provider: string; latencyMs: number }
 }

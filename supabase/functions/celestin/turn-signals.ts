@@ -1,5 +1,21 @@
 import type { CognitiveMode } from './turn-types.ts'
 
+export type ConversationalIntent =
+  | 'recommendation'
+  | 'inventory_lookup'
+  | 'memory_lookup'
+  | 'tasting_log'
+  | 'encavage'
+  | 'smalltalk'
+
+const INTENT_CLASSIFICATION_KEYS = [
+  'isRecommendationRequest',
+  'isEncavageRequest',
+  'isTastingReference',
+  'isMemoryReference',
+  'isInventoryQuestion',
+] as const
+
 export interface RoutingSignals {
   lower: string
   hadRecentReco: boolean
@@ -140,7 +156,52 @@ export function detectCognitiveMode(lower: string): CognitiveMode {
   return 'wine_conversation'
 }
 
-export function buildRoutingSignals(message: string, lastAssistantText?: string): RoutingSignals {
+const VALID_CONVERSATIONAL_INTENTS: ReadonlySet<ConversationalIntent> = new Set([
+  'recommendation',
+  'inventory_lookup',
+  'memory_lookup',
+  'tasting_log',
+  'encavage',
+  'smalltalk',
+])
+
+function normalizeConversationalIntent(raw: string | null | undefined): ConversationalIntent | null {
+  if (!raw) return null
+  return VALID_CONVERSATIONAL_INTENTS.has(raw as ConversationalIntent)
+    ? (raw as ConversationalIntent)
+    : null
+}
+
+// Map: conversational intent -> regex signal that the intent force-enables.
+// All other intent-classification signals (see INTENT_CLASSIFICATION_KEYS) are forced to false.
+const INTENT_TO_SIGNAL: Record<Exclude<ConversationalIntent, 'smalltalk'>, typeof INTENT_CLASSIFICATION_KEYS[number]> = {
+  recommendation: 'isRecommendationRequest',
+  inventory_lookup: 'isInventoryQuestion',
+  memory_lookup: 'isMemoryReference',
+  tasting_log: 'isTastingReference',
+  encavage: 'isEncavageRequest',
+}
+
+function applyConversationalIntent(signals: RoutingSignals, intent: ConversationalIntent | null): RoutingSignals {
+  if (!intent) return signals
+  if (intent === 'smalltalk') {
+    const cleared = { ...signals }
+    for (const key of INTENT_CLASSIFICATION_KEYS) cleared[key] = false
+    return cleared
+  }
+  const winner = INTENT_TO_SIGNAL[intent]
+  const result = { ...signals }
+  for (const key of INTENT_CLASSIFICATION_KEYS) {
+    result[key] = key === winner
+  }
+  return result
+}
+
+export function buildRoutingSignals(
+  message: string,
+  lastAssistantText?: string,
+  conversationalIntent?: string | null,
+): RoutingSignals {
   const lower = normalizeForRouting(message)
   const normalizedAssistant = lastAssistantText ? normalizeForRouting(lastAssistantText) : ''
   const hadRecentReco = normalizedAssistant
@@ -150,7 +211,7 @@ export function buildRoutingSignals(message: string, lastAssistantText?: string)
   const isQuestion = matchesAny(lower, QUESTION)
   const isWineCulture = matchesAny(lower, WINE_CULTURE)
 
-  return {
+  const regexSignals: RoutingSignals = {
     lower,
     hadRecentReco,
     isInventoryQuestion: matchesAny(lower, CELLAR_LOOKUP) || isCellarFollowUp(lower, lastAssistantText),
@@ -169,4 +230,6 @@ export function buildRoutingSignals(message: string, lastAssistantText?: string)
     isRestaurantImage: /\b(carte|resto|restaurant|menu|ardoise)\b/i.test(lower),
     isImageWineQuestion: isQuestion || isWineCulture || /\b(penses|avis|tu connais|c'est bien|c'est bon)\b/i.test(lower),
   }
+
+  return applyConversationalIntent(regexSignals, normalizeConversationalIntent(conversationalIntent))
 }

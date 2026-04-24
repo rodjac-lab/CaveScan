@@ -16,6 +16,13 @@ const CORS_HEADERS = {
 
 type FactualIntent = 'temporal' | 'geographic' | 'quantitative' | 'ranking' | 'inventory'
 type InventoryScope = 'drunk' | 'cave' | 'both'
+type ConversationalIntent =
+  | 'recommendation'
+  | 'inventory_lookup'
+  | 'memory_lookup'
+  | 'tasting_log'
+  | 'encavage'
+  | 'smalltalk'
 
 interface RequestBody {
   query: string
@@ -45,6 +52,7 @@ interface ClassifiedIntent {
   scope: InventoryScope | null
   rankingDirection: 'desc' | 'asc' | null
   rankingLimit: number | null
+  conversationalIntent: ConversationalIntent | null
   confidence: number
 }
 
@@ -106,11 +114,29 @@ REGLES ABSOLUES sur les filtres :
 - Un possessif + un chiffre (ex "mes 2015") = ranking ou inventory
 - Les questions d'accord mets/vin, de culture generale, de recommandation pour ce soir, de salutation = isFactual=false, intent=null, filters={}, scope=null
 
+# Intent conversationnel (dimension independante)
+
+En plus de la classification factuelle ci-dessus, classe la query sur une SECONDE dimension : l'intent conversationnel. Ce champ sert a desambiguiser le routage cote app quand plusieurs formulations sont possibles. Les deux dimensions sont ORTHOGONALES : une query peut etre factuelle ET avoir un conversationalIntent (ex: "Combien j'ai de Bourgognes" -> isFactual=true, intent=quantitative, conversationalIntent=inventory_lookup).
+
+Valeurs possibles pour conversationalIntent :
+
+- "recommendation" : l'utilisateur veut qu'on lui PROPOSE un ou plusieurs vins a boire ou ouvrir, avec ou sans contrainte. "Que boire ce soir", "propose-moi un vin", "choisis dans ma cave", "sers-moi quelque chose", "trouve-moi un vin pour ce plat", "qu'est-ce que j'ouvre", "ouvre-moi un rouge", "un accord pour mon osso bucco", "plutot un italien du coup". Le verbe d'action (choisir, proposer, recommander, ouvrir, servir, trouver) combine a un vin/la cave/un plat est un signal fort.
+- "inventory_lookup" : question FACTUELLE sur ce qui est en cave ou a ete bu, sans demande de selection. "Combien j'ai de Bourgognes", "est-ce que j'ai du Barolo", "quels vins italiens j'ai", "liste mes Chianti", "ai-je deja bu un Brunello".
+- "memory_lookup" : reference a une degustation passee ou un souvenir. "Tu te souviens du vin chez Medric", "la derniere fois qu'on a bu du Barolo c'etait quand", "rappelle-moi ce vin qu'on avait aime".
+- "tasting_log" : l'utilisateur decrit une degustation en cours ou raconte une degustation recente pour la loguer. "Je bois un Barolo ce soir", "on vient d'ouvrir un Chianti 2015", "j'ai deguste un tres bon Pomerol hier".
+- "encavage" : l'utilisateur veut ajouter une bouteille en cave. "J'ai achete", "j'ai recu", "ajoute ce Bordeaux", "encave ces bouteilles", "je viens de recevoir une caisse".
+- "smalltalk" : conversation pure, culture du vin, questions generales, accord mets/vin theorique sans demande de recommandation explicite, salutations, remerciements. "Parle-moi du Savagnin", "c'est quoi la difference entre Chianti et Chianti Classico", "merci", "salut".
+- null : tu n'es pas confiant ou la query est trop ambigue pour trancher. Il vaut mieux null qu'une categorie fausse.
+
+REGLE CLE : "Choisis dans ma cave" est une RECOMMENDATION (verbe choisis), pas un inventory_lookup, meme si "ma cave" apparait. Le VERBE d'action prime sur les mots-cles.
+REGLE CLE : "Que boire ce soir" sans precision = RECOMMENDATION, pas smalltalk.
+REGLE CLE : si la query est une reference factuelle pure (combien, quels, liste, ai-je deja) sans verbe d'action -> inventory_lookup.
+
 # Confidence
 
 0.9-1.0 : tres clair. 0.7-0.89 : probable. 0.5-0.69 : incertain. <0.5 : ne pas marquer isFactual=true.
 
-Si isFactual=false, intent=null, filters={}, scope=null.
+Si isFactual=false, intent=null, filters={}, scope=null. conversationalIntent reste renseigne independamment (la plupart des conversationnels sont isFactual=false).
 
 Reponds UNIQUEMENT avec le JSON.`
 
@@ -141,6 +167,14 @@ function stripMarkdownCodeBlock(text: string): string {
 
 const VALID_INTENTS = new Set(['temporal', 'geographic', 'quantitative', 'ranking', 'inventory'])
 const VALID_SCOPES = new Set(['drunk', 'cave', 'both'])
+const VALID_CONVERSATIONAL_INTENTS = new Set([
+  'recommendation',
+  'inventory_lookup',
+  'memory_lookup',
+  'tasting_log',
+  'encavage',
+  'smalltalk',
+])
 
 function normalizeString(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
@@ -217,6 +251,13 @@ function parseAndValidate(text: string): ClassifiedIntent {
       ? rankingLimitRaw
       : null
 
+  const conversationalIntentRaw =
+    typeof data.conversationalIntent === 'string' ? data.conversationalIntent : null
+  const conversationalIntent: ConversationalIntent | null =
+    conversationalIntentRaw && VALID_CONVERSATIONAL_INTENTS.has(conversationalIntentRaw)
+      ? (conversationalIntentRaw as ConversationalIntent)
+      : null
+
   return {
     isFactual: isFactual && intent !== null,
     intent,
@@ -224,6 +265,7 @@ function parseAndValidate(text: string): ClassifiedIntent {
     scope,
     rankingDirection,
     rankingLimit,
+    conversationalIntent,
     confidence,
   }
 }
@@ -296,6 +338,11 @@ const GEMINI_RESPONSE_SCHEMA = {
       enum: ['desc', 'asc'],
     },
     rankingLimit: { type: 'NUMBER', nullable: true },
+    conversationalIntent: {
+      type: 'STRING',
+      nullable: true,
+      enum: ['recommendation', 'inventory_lookup', 'memory_lookup', 'tasting_log', 'encavage', 'smalltalk'],
+    },
     confidence: { type: 'NUMBER' },
   },
   required: ['isFactual', 'confidence'],
@@ -341,6 +388,10 @@ const OPENAI_RESPONSE_SCHEMA = {
         enum: ['desc', 'asc', null],
       },
       rankingLimit: { type: ['number', 'null'] },
+      conversationalIntent: {
+        type: ['string', 'null'],
+        enum: ['recommendation', 'inventory_lookup', 'memory_lookup', 'tasting_log', 'encavage', 'smalltalk', null],
+      },
       confidence: { type: 'number' },
     },
     required: ['isFactual', 'confidence'],
@@ -459,7 +510,7 @@ Deno.serve(async (req) => {
 
     const latencyMs = Date.now() - startedAt
     console.log(
-      `[classify-celestin-intent] provider=${provider} latency=${latencyMs}ms isFactual=${result.isFactual} intent=${result.intent ?? 'null'} conf=${result.confidence.toFixed(2)} query="${body.query.slice(0, 80)}"`,
+      `[classify-celestin-intent] provider=${provider} latency=${latencyMs}ms isFactual=${result.isFactual} intent=${result.intent ?? 'null'} convIntent=${result.conversationalIntent ?? 'null'} conf=${result.confidence.toFixed(2)} query="${body.query.slice(0, 80)}"`,
     )
 
     return new Response(

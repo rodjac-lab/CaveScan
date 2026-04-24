@@ -209,3 +209,139 @@ describe('interpretTurn', () => {
     })
   })
 })
+
+describe('conversationalIntent arbitrage', () => {
+  it('forces "Choisis dans ma cave" to recommendation when classifier says recommendation', () => {
+    const result = interpretTurnWithRouting(
+      'Choisis dans ma cave',
+      false,
+      state(),
+      undefined,
+      'recommendation',
+    )
+
+    expect(result.routing.winner).toBe('recommendation_request')
+    expect(result.interpretation).toEqual({
+      turnType: 'task_request',
+      cognitiveMode: 'cellar_assistant',
+      shouldAllowUiAction: true,
+      inferredTaskType: 'recommendation',
+    })
+  })
+
+  it('falls back to regex (cellar_lookup) for "Choisis dans ma cave" when classifier is null', () => {
+    const result = interpretTurnWithRouting(
+      'Choisis dans ma cave',
+      false,
+      state(),
+      undefined,
+      null,
+    )
+
+    expect(result.routing.winner).toBe('cellar_lookup')
+    expect(result.interpretation.shouldAllowUiAction).toBe(false)
+  })
+
+  it('keeps factual inventory query on cellar_lookup when classifier says inventory_lookup', () => {
+    const result = interpretTurnWithRouting(
+      "Combien de bouteilles j'ai en cave ?",
+      false,
+      state(),
+      undefined,
+      'inventory_lookup',
+    )
+
+    expect(result.routing.winner).toBe('cellar_lookup')
+    expect(result.interpretation).toEqual({
+      turnType: 'context_switch',
+      cognitiveMode: 'cellar_assistant',
+      shouldAllowUiAction: false,
+    })
+  })
+
+  it('routes pure recommendation phrasing when classifier agrees', () => {
+    const result = interpretTurnWithRouting(
+      'Trouve-moi un vin pour ce soir',
+      false,
+      state(),
+      undefined,
+      'recommendation',
+    )
+
+    expect(result.routing.winner).toBe('recommendation_request')
+    expect(result.interpretation.shouldAllowUiAction).toBe(true)
+    expect(result.interpretation.inferredTaskType).toBe('recommendation')
+  })
+
+  it('routes memory references when classifier says memory_lookup', () => {
+    const result = interpretTurnWithRouting(
+      'Tu te souviens de la derniere fois ?',
+      false,
+      state(),
+      undefined,
+      'memory_lookup',
+    )
+
+    expect(result.routing.winner).toBe('memory_lookup')
+    expect(result.interpretation).toEqual({
+      turnType: 'context_switch',
+      cognitiveMode: 'tasting_memory',
+      shouldAllowUiAction: false,
+    })
+  })
+
+  it('makes recommendation win over a competing memory regex signal', () => {
+    // "on avait bu" matches MEMORY regex. Classifier disambiguates toward recommendation.
+    const result = interpretTurnWithRouting(
+      "Sers-moi quelque chose dans l'esprit de ce qu'on avait bu la derniere fois",
+      false,
+      state(),
+      undefined,
+      'recommendation',
+    )
+
+    expect(result.routing.winner).toBe('recommendation_request')
+    expect(result.interpretation.shouldAllowUiAction).toBe(true)
+  })
+
+  it('clears intent signals on smalltalk and leaves contextual routing fluid', () => {
+    // "parle-moi" matches WINE_CULTURE — routing should still land on wine_question.
+    const result = interpretTurnWithRouting(
+      'Parle-moi du Savagnin',
+      false,
+      state(),
+      undefined,
+      'smalltalk',
+    )
+
+    expect(result.routing.winner).toBe('wine_question')
+    expect(result.interpretation.cognitiveMode).toBe('wine_conversation')
+    expect(result.interpretation.shouldAllowUiAction).toBe(false)
+  })
+
+  it('ignores unknown classifier values and falls back to regex', () => {
+    const result = interpretTurnWithRouting(
+      'Choisis dans ma cave',
+      false,
+      state(),
+      undefined,
+      'garbage_value',
+    )
+
+    expect(result.routing.winner).toBe('cellar_lookup')
+  })
+
+  it('still honours contextual signals (refinement) over the classifier intent', () => {
+    // Classifier says smalltalk, but a short refinement after a reco must still pivot to task_continue.
+    const result = interpretTurnWithRouting(
+      'Tu en as plutôt en blanc ?',
+      false,
+      state(),
+      'Je te propose quelques bouteilles pour le poulet rôti. [Vins proposés : ...]',
+      'smalltalk',
+    )
+
+    expect(result.routing.winner).toBe('recommendation_refinement')
+    expect(result.interpretation.shouldAllowUiAction).toBe(true)
+  })
+})

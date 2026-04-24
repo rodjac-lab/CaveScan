@@ -203,6 +203,16 @@ L'edge function Celestin contient déjà un turn interpreter déterministe qui c
 
 Ne pas précipiter la phase 2 : d'abord valider en conditions réelles que le classifier est fiable, que ses décisions sont cohérentes avec celles du turn interpreter, et que le chevauchement actuel n'est pas problématique. Puis faire la fusion.
 
+## Mise à jour 2026-04-24 — Phase A de l'articulation livrée
+
+La "Phase 1 : les deux systèmes restent isolés" décrite ci-dessus est dépassée. Le classifier émet désormais une seconde dimension `conversationalIntent` (`recommendation | inventory_lookup | memory_lookup | tasting_log | encavage | smalltalk | null`), propagée jusqu'à l'edge function Celestin via le body POST. Le turn interpreter la consomme comme **arbitre** : quand elle est non-nulle, elle force le signal regex correspondant (`isRecommendationRequest`, `isInventoryQuestion`, `isMemoryReference`, `isTastingReference`, `isEncavageRequest`) et neutralise les concurrents. En `null`, comportement regex inchangé (filet de sécurité).
+
+Les signaux **contextuels** (`isSocialAck`, `isCancel`, `isRefinement`, `isExploratoryRecoPivot`, `hadRecentReco`, `isTastingMemoryFollowUp`) restent regex — ils détectent une **forme** ("merci", "et si je prenais", message court après reco), pas un intent — et priment toujours dans les phases post-reco.
+
+**Déclencheur** : bug observé en prod. "Choisis dans ma cave" était routé en `cellar_lookup` par la regex `CELLAR_LOOKUP` (qui matche "dans ma cave"). La response policy strippait ensuite les cartes que Gemini avait correctement produites pour une recommendation. Le classifier savait déjà que c'était une recommendation (info disponible mais ignorée côté turn interpreter). Phase A corrige ça sans toucher le routing complet — zéro latence ajoutée, le classifier tourne déjà à chaque tour.
+
+**Phase B (hors scope)** : faire du classifier la source de vérité autoritaire pour **toutes** les décisions de routing, regex en filet de sécurité uniquement. Demanderait de retoucher les 5 fonctions `route*` imbriquées avec l'état conversationnel. À traiter dans un chantier séparé après Phase A en prod révèle d'éventuels cas d'arbitrage restants.
+
 ## Effort estimé
 
 - Edge function classify-celestin-intent : 2-3h (prompt + JSON schema + fallback + déploiement)

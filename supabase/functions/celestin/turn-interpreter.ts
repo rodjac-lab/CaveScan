@@ -253,6 +253,7 @@ export function interpretTurnWithRouting(
   hasImage: boolean,
   state: ConversationState,
   lastAssistantText?: string,
+  conversationalIntent?: string | null,
 ): TurnRoutingResult {
   if (message === '__greeting__') {
     const candidates = [candidate('greeting', 100, ['system_greeting'])]
@@ -269,7 +270,7 @@ export function interpretTurnWithRouting(
     }, 'system', 'prefetch', candidates)
   }
 
-  const signals = buildRoutingSignals(message, lastAssistantText)
+  const signals = buildRoutingSignals(message, lastAssistantText, conversationalIntent)
   const candidates = collectRoutingCandidates(signals, state, hasImage)
 
   if (hasImage) {
@@ -300,6 +301,7 @@ export function interpretTurn(
   hasImage: boolean,
   state: ConversationState,
   lastAssistantText?: string,
+  conversationalIntent?: string | null,
 ): TurnInterpretation {
-  return interpretTurnWithRouting(message, hasImage, state, lastAssistantText).interpretation
+  return interpretTurnWithRouting(message, hasImage, state, lastAssistantText, conversationalIntent).interpretation
 }

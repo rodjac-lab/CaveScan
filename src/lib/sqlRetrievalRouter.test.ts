@@ -52,6 +52,7 @@ function classified(overrides: Partial<ClassifiedIntent> & { intent: ClassifiedI
     scope: overrides.scope ?? null,
     rankingDirection: overrides.rankingDirection ?? null,
     rankingLimit: overrides.rankingLimit ?? null,
+    conversationalIntent: overrides.conversationalIntent ?? null,
     confidence: overrides.confidence ?? 0.9,
   }
 }
@@ -72,7 +73,7 @@ describe('routeFactualQueryFromClassification — dispatcher guards', () => {
 
   it('returns null when intent is null', () => {
     const result = routeFactualQueryFromClassification(
-      { isFactual: true, intent: null, filters: {}, scope: null, rankingDirection: null, rankingLimit: null, confidence: 0.5 },
+      { isFactual: true, intent: null, filters: {}, scope: null, rankingDirection: null, rankingLimit: null, conversationalIntent: null, confidence: 0.5 },
       [],
       [],
     )

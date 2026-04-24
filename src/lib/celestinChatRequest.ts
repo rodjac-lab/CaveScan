@@ -102,6 +102,7 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
     compiledProfileMarkdown,
     sqlRetrievalBlock: sqlRetrieval?.serialized,
     sqlRetrievalTrace: input.debugTrace ? sqlRetrieval?.trace : undefined,
+    conversationalIntent: classified?.conversationalIntent ?? null,
     debugTrace: input.debugTrace,
   })
 }

@@ -49,6 +49,7 @@ function buildDebugTrace(input: {
     compiledProfile: !!body.compiledProfileMarkdown?.trim(),
     memoryEvidenceMode: body.memoryEvidenceMode ?? null,
     memoryFocus: input.activeMemoryFocus,
+    conversationalIntent: (typeof body.conversationalIntent === 'string' ? body.conversationalIntent : null),
     routing: routingResult.routing,
     state: {
       beforePhase: conversationState.phase,
@@ -80,10 +81,11 @@ export async function runCelestinTurn(body: RequestBody): Promise<CelestinTurnRu
   const conversationState: ConversationState = body.conversationState ?? { ...INITIAL_STATE }
   const lastAssistantTurn = [...body.history].reverse().find((turn) => turn.role === 'assistant')
   const lastAssistantText = lastAssistantTurn?.text
-  const routingResult = interpretTurnWithRouting(body.message, !!body.image, conversationState, lastAssistantText)
+  const conversationalIntent = typeof body.conversationalIntent === 'string' ? body.conversationalIntent : null
+  const routingResult = interpretTurnWithRouting(body.message, !!body.image, conversationState, lastAssistantText, conversationalIntent)
   const { interpretation, routing } = routingResult
 
-  console.log(`[celestin] message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} route=${routing.winner} state=${conversationState.phase} history=${body.history.length} cave=${body.cave.length} image=${body.image ? 'yes' : 'no'}`)
+  console.log(`[celestin] message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} route=${routing.winner} state=${conversationState.phase} convIntent=${conversationalIntent ?? 'null'} history=${body.history.length} cave=${body.cave.length} image=${body.image ? 'yes' : 'no'}`)
 
   const contextBlock = buildContextBlock(body, interpretation.cognitiveMode)
   const systemPrompt = buildCelestinSystemPrompt(interpretation.cognitiveMode)
