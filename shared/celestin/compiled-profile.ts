@@ -46,6 +46,8 @@ interface MemoryFactLike {
   fact?: string | null
   confidence?: number | null
   is_temporary?: boolean | null
+  created_at?: string | null
+  expires_at?: string | null
 }
 
 interface TastingLike {
@@ -67,7 +69,36 @@ export interface CompiledProfileInput {
   memoryFacts?: MemoryFactLike[]
   topTastings?: TastingLike[]
   recentTastings?: TastingLike[]
+  nowIso?: string
 }
+
+type FactCategory =
+  | 'preference'
+  | 'aversion'
+  | 'wine_knowledge'
+  | 'life_event'
+  | 'social'
+  | 'cellar_intent'
+  | 'context'
+
+interface CategoryConfig {
+  halfLifeDays: number
+  quota: number
+  allowTemporary: boolean
+  minConfidence: number
+}
+
+const CATEGORY_CONFIG: Record<FactCategory, CategoryConfig> = {
+  preference: { halfLifeDays: 365, quota: 5, allowTemporary: false, minConfidence: 0.7 },
+  aversion: { halfLifeDays: 365, quota: 3, allowTemporary: false, minConfidence: 0.7 },
+  wine_knowledge: { halfLifeDays: 180, quota: 3, allowTemporary: false, minConfidence: 0.6 },
+  life_event: { halfLifeDays: 540, quota: 2, allowTemporary: false, minConfidence: 0.7 },
+  social: { halfLifeDays: 270, quota: 3, allowTemporary: false, minConfidence: 0.65 },
+  cellar_intent: { halfLifeDays: 90, quota: 2, allowTemporary: true, minConfidence: 0.7 },
+  context: { halfLifeDays: 30, quota: 2, allowTemporary: true, minConfidence: 0.5 },
+}
+
+const DAY_MS = 1000 * 60 * 60 * 24
 
 function trimSentence(text: string, max = 180): string {
   const normalized = text.replace(/\s+/g, ' ').trim()
@@ -94,17 +125,74 @@ function dedupeStrings(values: Array<string | null | undefined>): string[] {
   return result
 }
 
-function topFactLines(memoryFacts: MemoryFactLike[], category: string, limit: number): string[] {
-  return memoryFacts
-    .filter((fact) => fact.category === category && !fact.is_temporary && fact.fact)
-    .sort((left, right) => (right.confidence ?? 0) - (left.confidence ?? 0))
-    .map((fact) => fact.fact!.trim())
-    .filter(Boolean)
-    .filter((fact, index, array) => array.findIndex((entry) => entry.toLowerCase() === fact.toLowerCase()) === index)
-    .slice(0, limit)
+function resolveNowMs(nowIso?: string): number {
+  if (nowIso) {
+    const parsed = new Date(nowIso).getTime()
+    if (!Number.isNaN(parsed)) return parsed
+  }
+  return Date.now()
 }
 
-function buildTasteSection(input: CompiledProfileInput): string[] {
+function scoreFact(fact: MemoryFactLike, nowMs: number, halfLifeDays: number): number {
+  const confidence = typeof fact.confidence === 'number' ? fact.confidence : 0
+  const createdMs = fact.created_at ? new Date(fact.created_at).getTime() : nowMs
+  const ageDays = Math.max(0, (nowMs - (Number.isFinite(createdMs) ? createdMs : nowMs)) / DAY_MS)
+  const recency = halfLifeDays > 0 ? Math.pow(0.5, ageDays / halfLifeDays) : 1
+  return confidence * (0.6 + 0.4 * recency)
+}
+
+interface ScoredFact {
+  fact: MemoryFactLike
+  score: number
+  text: string
+}
+
+function pickTopFacts(
+  memoryFacts: MemoryFactLike[],
+  category: FactCategory,
+  nowMs: number,
+): ScoredFact[] {
+  const config = CATEGORY_CONFIG[category]
+  const seen = new Set<string>()
+  const scored: ScoredFact[] = []
+
+  for (const fact of memoryFacts) {
+    if (fact.category !== category) continue
+    if (!fact.fact) continue
+    const text = fact.fact.trim()
+    if (!text) continue
+
+    const confidence = typeof fact.confidence === 'number' ? fact.confidence : 0
+    if (confidence < config.minConfidence) continue
+
+    const isTemporary = !!fact.is_temporary
+    if (isTemporary && !config.allowTemporary) continue
+    if (isTemporary && fact.expires_at) {
+      const expiresMs = new Date(fact.expires_at).getTime()
+      if (Number.isFinite(expiresMs) && expiresMs <= nowMs) continue
+    }
+
+    const dedupKey = text.toLowerCase()
+    if (seen.has(dedupKey)) continue
+    seen.add(dedupKey)
+
+    scored.push({
+      fact,
+      score: scoreFact(fact, nowMs, config.halfLifeDays),
+      text,
+    })
+  }
+
+  scored.sort((left, right) => right.score - left.score)
+  return scored.slice(0, config.quota)
+}
+
+function formatContextLine(entry: ScoredFact): string {
+  const prefix = entry.fact.is_temporary ? '[contexte récent] ' : ''
+  return `- ${prefix}${entry.text}`
+}
+
+function buildTasteSection(input: CompiledProfileInput, nowMs: number): string[] {
   const lines: string[] = []
   const computed = input.computedProfile
   const questionnaire = input.questionnaireProfile
@@ -131,14 +219,14 @@ function buildTasteSection(input: CompiledProfileInput): string[] {
     lines.push(`- Descripteurs récurrents dans ses notes : ${descriptors.join(', ')}.`)
   }
 
-  const preferences = topFactLines(facts, 'preference', 3)
+  const preferences = pickTopFacts(facts, 'preference', nowMs)
   if (preferences.length > 0) {
-    lines.push(...preferences.map((fact) => `- ${fact}`))
+    lines.push(...preferences.map((entry) => `- ${entry.text}`))
   }
 
-  const aversions = topFactLines(facts, 'aversion', 3)
+  const aversions = pickTopFacts(facts, 'aversion', nowMs)
   if (aversions.length > 0) {
-    lines.push(`- Points de vigilance : ${aversions.join(' | ')}.`)
+    lines.push(`- Points de vigilance : ${aversions.map((entry) => entry.text).join(' | ')}.`)
   }
 
   const nuances: string[] = []
@@ -170,7 +258,7 @@ function buildMomentsSection(input: CompiledProfileInput): string[] {
 
   const lines = tastings.map((tasting) => {
     const identity = formatBottleIdentity(tasting)
-    const note = trimSentence(tasting.tasting_note ?? '')
+    const note = trimSentence(tasting.tasting_note ?? '', 400)
     const stars = tasting.rating != null ? ` (${tasting.rating}/5)` : ''
     return `- ${identity}${stars} — ${note}`
   })
@@ -180,23 +268,44 @@ function buildMomentsSection(input: CompiledProfileInput): string[] {
     : ['- Aucun moment marquant compilé pour le moment.']
 }
 
-function buildExplorationsSection(input: CompiledProfileInput): string[] {
+function buildExplorationsSection(input: CompiledProfileInput, nowMs: number): string[] {
   const recent = input.recentTastings ?? []
   const recentNames = dedupeStrings(
     recent.slice(0, 6).map((tasting) => tasting.appellation || tasting.domaine)
   )
-  const learningFacts = topFactLines(input.memoryFacts ?? [], 'wine_knowledge', 3)
+  const learningFacts = pickTopFacts(input.memoryFacts ?? [], 'wine_knowledge', nowMs)
+  const lifeEvents = pickTopFacts(input.memoryFacts ?? [], 'life_event', nowMs)
 
   const lines: string[] = []
   if (recentNames.length > 0) {
     lines.push(`- Pistes récentes dans les dégustations : ${recentNames.join(', ')}.`)
   }
   if (learningFacts.length > 0) {
-    lines.push(...learningFacts.map((fact) => `- ${fact}`))
+    lines.push(...learningFacts.map((entry) => `- ${entry.text}`))
+  }
+  if (lifeEvents.length > 0) {
+    lines.push(...lifeEvents.map((entry) => `- Jalon personnel : ${entry.text}`))
   }
   if (lines.length === 0) {
     lines.push('- Pas encore d’exploration durable clairement identifiée.')
   }
+  return lines
+}
+
+function buildEntourageSection(input: CompiledProfileInput, nowMs: number): string[] {
+  const socialFacts = pickTopFacts(input.memoryFacts ?? [], 'social', nowMs)
+  if (socialFacts.length === 0) return []
+  return socialFacts.map((entry) => `- ${entry.text}`)
+}
+
+function buildContexteIntentionsSection(input: CompiledProfileInput, nowMs: number): string[] {
+  const contextFacts = pickTopFacts(input.memoryFacts ?? [], 'context', nowMs)
+  const intentFacts = pickTopFacts(input.memoryFacts ?? [], 'cellar_intent', nowMs)
+
+  const lines: string[] = [
+    ...contextFacts.map(formatContextLine),
+    ...intentFacts.map((entry) => `- ${entry.text}`),
+  ]
   return lines
 }
 
@@ -227,19 +336,31 @@ function buildConversationStyleSection(input: CompiledProfileInput): string[] {
 }
 
 export function buildCompiledProfileMarkdown(input: CompiledProfileInput): string {
-  const sections = [
+  const nowMs = resolveNowMs(input.nowIso)
+
+  const entourageLines = buildEntourageSection(input, nowMs)
+  const contexteLines = buildContexteIntentionsSection(input, nowMs)
+
+  const sections: string[] = [
     '## Profil gustatif',
-    ...buildTasteSection(input),
+    ...buildTasteSection(input, nowMs),
     '',
     '## Moments marquants',
     ...buildMomentsSection(input),
     '',
     '## Explorations en cours',
-    ...buildExplorationsSection(input),
-    '',
-    '## Style de conversation',
-    ...buildConversationStyleSection(input),
+    ...buildExplorationsSection(input, nowMs),
   ]
+
+  if (entourageLines.length > 0) {
+    sections.push('', '## Entourage et partages', ...entourageLines)
+  }
+
+  if (contexteLines.length > 0) {
+    sections.push('', '## Contexte et intentions', ...contexteLines)
+  }
+
+  sections.push('', '## Style de conversation', ...buildConversationStyleSection(input))
 
   return sections.join('\n').trim()
 }

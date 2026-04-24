@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
         .eq('user_id', userId)
         .is('superseded_by', null)
         .order('created_at', { ascending: false })
-        .limit(80),
+        .limit(120),
       supabase
         .from('bottles')
         .select('domaine, cuvee, appellation, millesime, drunk_at, rating, tasting_note, tasting_tags')
@@ -128,6 +128,7 @@ Deno.serve(async (req) => {
       memoryFacts: activeFacts as Array<Record<string, unknown>>,
       topTastings: sortedTopTastings as Array<Record<string, unknown>>,
       recentTastings: (recentTastings ?? []) as Array<Record<string, unknown>>,
+      nowIso: new Date().toISOString(),
     })
 
     const version = Math.max(1, Number(existingProfile?.version ?? 0) + 1)

@@ -7,6 +7,8 @@ export type PatchSection =
   | 'profil_gustatif'
   | 'moments_marquants'
   | 'explorations_en_cours'
+  | 'entourage_et_partages'
+  | 'contexte_et_intentions'
   | 'style_de_conversation'
 
 export interface ProfilePatch {
@@ -21,6 +23,8 @@ const SECTION_HEADINGS: Record<PatchSection, string> = {
   profil_gustatif: '## Profil gustatif',
   moments_marquants: '## Moments marquants',
   explorations_en_cours: '## Explorations en cours',
+  entourage_et_partages: '## Entourage et partages',
+  contexte_et_intentions: '## Contexte et intentions',
   style_de_conversation: '## Style de conversation',
 }
 
@@ -28,6 +32,8 @@ const SECTION_ORDER: PatchSection[] = [
   'profil_gustatif',
   'moments_marquants',
   'explorations_en_cours',
+  'entourage_et_partages',
+  'contexte_et_intentions',
   'style_de_conversation',
 ]
 

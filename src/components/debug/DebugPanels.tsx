@@ -904,6 +904,16 @@ export function ForceCompileProfilePanel({
         Compiler le profil maintenant
       </button>
       {userProfileStatus && <p className="mt-2 text-center text-[11px] text-[var(--text-muted)]">{userProfileStatus}</p>}
+      {userProfile?.compiled_markdown?.trim() && (
+        <details className="mt-3">
+          <summary className="cursor-pointer text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+            Voir le Markdown compilé
+          </summary>
+          <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded-[8px] border border-[var(--border-color)] bg-[var(--bg-surface)] p-3 text-[11px] leading-relaxed text-[var(--text-primary)]">
+            {userProfile.compiled_markdown}
+          </pre>
+        </details>
+      )}
     </div>
   )
 }
