@@ -11,18 +11,24 @@ import {
   runTastingTagsBackfill,
 } from '@/lib/debugBackfills'
 import {
-  setCrossSessionConfig,
   getMemoryDebugInfo,
   clearAllSessions,
 } from '@/lib/crossSessionMemory'
 import {
-  DebugCelestinToolsPanel,
-  DebugEnrichmentPanel,
+  CrossSessionCleanupPanel,
   DebugHeader,
-  DebugMemoryPanel,
-  DebugProfilePatchesPanel,
-  DebugSqlRetrievalPanel,
+  EnrichmentBackfillsPanel,
+  ExportFixturePanel,
+  ForceCompileProfilePanel,
+  MemoryAuditPanel,
+  MemoryWeightPanel,
+  ProfilePatchesPanel,
+  RealTracesPanel,
+  RoutingProbePanel,
+  RunEvalPanel,
+  SqlRetrievalPanel,
 } from '@/components/debug/DebugPanels'
+import { DebugSection } from '@/components/debug/sections/DebugSection'
 import { useDebugCelestinTools } from '@/hooks/useDebugCelestinTools'
 
 export default function Debug() {
@@ -31,9 +37,6 @@ export default function Debug() {
   const celestinTools = useDebugCelestinTools()
 
   const [memoryInfo, setMemoryInfo] = useState(() => getMemoryDebugInfo())
-  const [maxSessions, setMaxSessions] = useState(String(memoryInfo.config.maxSessions))
-  const [ttlDays, setTtlDays] = useState(String(memoryInfo.config.ttlDays))
-  const [expandedSession, setExpandedSession] = useState<number | null>(null)
 
   const [enrichStatus, setEnrichStatus] = useState<string | null>(getEnrichBackfillState().status)
   const [enrichRunning, setEnrichRunning] = useState(getEnrichBackfillState().running)
@@ -65,15 +68,6 @@ export default function Debug() {
     setEmbeddingRunning(state.running)
   }
 
-  function handleApplyConfig() {
-    const newMax = Math.max(1, Math.min(10, parseInt(maxSessions, 10) || 4))
-    const newTtl = Math.max(1, Math.min(90, parseInt(ttlDays, 10) || 7))
-    setCrossSessionConfig({ maxSessions: newMax, ttlDays: newTtl })
-    setMaxSessions(String(newMax))
-    setTtlDays(String(newTtl))
-    setMemoryInfo(getMemoryDebugInfo())
-  }
-
   function handleClearMemory() {
     if (!confirm('Effacer toute la memoire conversationnelle de Celestin ?')) return
     clearAllSessions()
@@ -85,71 +79,81 @@ export default function Debug() {
       <DebugHeader onBack={() => navigate('/settings')} />
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-6 scrollbar-hide">
-        <DebugMemoryPanel
-          memoryInfo={memoryInfo}
-          maxSessions={maxSessions}
-          ttlDays={ttlDays}
-          setMaxSessions={setMaxSessions}
-          setTtlDays={setTtlDays}
-          expandedSession={expandedSession}
-          setExpandedSession={setExpandedSession}
-          onApplyConfig={handleApplyConfig}
-          onClearMemory={handleClearMemory}
-          formatRelativeDate={formatRelativeDate}
-        />
+        <DebugSection title="Observabilité" icon="🔍" subtitle="regarder le runtime">
+          <SqlRetrievalPanel />
+          <RealTracesPanel
+            realTraceEnabled={celestinTools.realTraceEnabled}
+            realTraces={celestinTools.realTraces}
+            onToggleRealTrace={celestinTools.handleToggleRealTrace}
+            onRefreshRealTraces={celestinTools.handleRefreshRealTraces}
+            onClearRealTraces={celestinTools.handleClearRealTraces}
+            formatRelativeDate={formatRelativeDate}
+          />
+          <RoutingProbePanel
+            routingProbe={celestinTools.routingProbe}
+            setRoutingProbe={celestinTools.setRoutingProbe}
+            runningRoutingProbe={celestinTools.runningRoutingProbe}
+            routingProbeStatus={celestinTools.routingProbeStatus}
+            routingProbeResult={celestinTools.routingProbeResult}
+            onRunRoutingProbe={celestinTools.handleRunRoutingProbe}
+          />
+          <MemoryAuditPanel
+            currentUserId={celestinTools.currentUserId}
+            auditingMemory={celestinTools.auditingMemory}
+            memoryAuditStatus={celestinTools.memoryAuditStatus}
+            memoryAuditReport={celestinTools.memoryAuditReport}
+            onAuditMemoryFacts={celestinTools.handleAuditMemoryFacts}
+          />
+          <ProfilePatchesPanel />
+        </DebugSection>
 
-        <DebugCelestinToolsPanel
-          exportingFixture={celestinTools.exportingFixture}
-          fixtureStatus={celestinTools.fixtureStatus}
-          onExportFixture={celestinTools.handleExportCelestinFixture}
-          analyzingMemories={celestinTools.analyzingMemories}
-          memoryWeightStatus={celestinTools.memoryWeightStatus}
-          memoryWeightReport={celestinTools.memoryWeightReport}
-          onAnalyzeMemoryWeight={celestinTools.handleAnalyzeMemoryWeight}
-          onPickEvalFixture={celestinTools.handlePickEvalFixture}
-          runningEval={celestinTools.runningEval}
-          evalProviders={celestinTools.evalProviders}
-          setEvalProviders={celestinTools.setEvalProviders}
-          userProfile={celestinTools.userProfile}
-          userProfileStatus={celestinTools.userProfileStatus}
-          compilingUserProfile={celestinTools.compilingUserProfile}
-          onForceCompileUserProfile={celestinTools.handleForceCompileUserProfile}
-          formatRelativeDate={formatRelativeDate}
-          evalStatus={celestinTools.evalStatus}
-          onRunCelestinEval={celestinTools.handleRunCelestinEval}
-          currentUserId={celestinTools.currentUserId}
-          auditingMemory={celestinTools.auditingMemory}
-          onAuditMemoryFacts={celestinTools.handleAuditMemoryFacts}
-          memoryAuditStatus={celestinTools.memoryAuditStatus}
-          memoryAuditReport={celestinTools.memoryAuditReport}
-          routingProbe={celestinTools.routingProbe}
-          setRoutingProbe={celestinTools.setRoutingProbe}
-          runningRoutingProbe={celestinTools.runningRoutingProbe}
-          routingProbeStatus={celestinTools.routingProbeStatus}
-          routingProbeResult={celestinTools.routingProbeResult}
-          onRunRoutingProbe={celestinTools.handleRunRoutingProbe}
-          realTraceEnabled={celestinTools.realTraceEnabled}
-          realTraces={celestinTools.realTraces}
-          onToggleRealTrace={celestinTools.handleToggleRealTrace}
-          onRefreshRealTraces={celestinTools.handleRefreshRealTraces}
-          onClearRealTraces={celestinTools.handleClearRealTraces}
-        />
+        <DebugSection title="Tests & évaluations" icon="🧪" subtitle="vérifier avant de ship">
+          <ExportFixturePanel
+            exportingFixture={celestinTools.exportingFixture}
+            fixtureStatus={celestinTools.fixtureStatus}
+            onExportFixture={celestinTools.handleExportCelestinFixture}
+          />
+          <RunEvalPanel
+            onPickEvalFixture={celestinTools.handlePickEvalFixture}
+            evalProviders={celestinTools.evalProviders}
+            setEvalProviders={celestinTools.setEvalProviders}
+            runningEval={celestinTools.runningEval}
+            evalStatus={celestinTools.evalStatus}
+            onRunCelestinEval={celestinTools.handleRunCelestinEval}
+          />
+        </DebugSection>
 
-        <DebugSqlRetrievalPanel />
-
-        <DebugProfilePatchesPanel />
-
-        <DebugEnrichmentPanel
-          enrichRunning={enrichRunning}
-          enrichStatus={enrichStatus}
-          onRunEnrichBackfill={() => runEnrichBackfill(enrichUpdater)}
-          backfillRunning={backfillRunning}
-          backfillStatus={backfillStatus}
-          onRunTastingTagsBackfill={() => runTastingTagsBackfill(tastingTagsUpdater)}
-          embeddingRunning={embeddingRunning}
-          embeddingStatus={embeddingStatus}
-          onRunEmbeddingBackfill={() => runEmbeddingBackfill(embeddingUpdater)}
-        />
+        <DebugSection title="Maintenance & données" icon="⚙️" subtitle="usage rare" defaultOpen={false}>
+          <MemoryWeightPanel
+            analyzingMemories={celestinTools.analyzingMemories}
+            memoryWeightStatus={celestinTools.memoryWeightStatus}
+            memoryWeightReport={celestinTools.memoryWeightReport}
+            onAnalyzeMemoryWeight={celestinTools.handleAnalyzeMemoryWeight}
+          />
+          <ForceCompileProfilePanel
+            userProfile={celestinTools.userProfile}
+            userProfileStatus={celestinTools.userProfileStatus}
+            compilingUserProfile={celestinTools.compilingUserProfile}
+            onForceCompileUserProfile={celestinTools.handleForceCompileUserProfile}
+            formatRelativeDate={formatRelativeDate}
+          />
+          <EnrichmentBackfillsPanel
+            enrichRunning={enrichRunning}
+            enrichStatus={enrichStatus}
+            onRunEnrichBackfill={() => runEnrichBackfill(enrichUpdater)}
+            backfillRunning={backfillRunning}
+            backfillStatus={backfillStatus}
+            onRunTastingTagsBackfill={() => runTastingTagsBackfill(tastingTagsUpdater)}
+            embeddingRunning={embeddingRunning}
+            embeddingStatus={embeddingStatus}
+            onRunEmbeddingBackfill={() => runEmbeddingBackfill(embeddingUpdater)}
+          />
+          <CrossSessionCleanupPanel
+            memoryInfo={memoryInfo}
+            onClearMemory={handleClearMemory}
+            formatRelativeDate={formatRelativeDate}
+          />
+        </DebugSection>
       </div>
     </div>
   )
