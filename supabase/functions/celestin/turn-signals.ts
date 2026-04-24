@@ -1,12 +1,5 @@
 import type { CognitiveMode } from './turn-types.ts'
-
-export type ConversationalIntent =
-  | 'recommendation'
-  | 'inventory_lookup'
-  | 'memory_lookup'
-  | 'tasting_log'
-  | 'encavage'
-  | 'smalltalk'
+import type { ConversationalIntent } from './types.ts'
 
 const INTENT_CLASSIFICATION_KEYS = [
   'isRecommendationRequest',
