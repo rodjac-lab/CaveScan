@@ -48,13 +48,21 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
   User tape un message (+ photo optionnelle)
        |
        v
-  buildRequestBody()
+  prepareCelestinRequest()
+       |
+       +-- Promise.all parallele :
+       |     +-- buildMemoryEvidenceBundle()    --> tasting memories ciblees
+       |     +-- classifyFactualIntent()        --> JSON intent classifier LLM
+       |     |     (edge function classify-celestin-intent, Gemini Flash Lite)
+       |     +-- getCompiledUserProfileCached() --> profil compile (cache module-level)
+       |
+       +-- routeFactualQueryFromClassification() --> bloc SQL factuel si classifier OK
+       |
+       v
+  buildCelestinRequestBody()
        |
        +-- rankCaveBottles()              --> cave triee par pertinence
        +-- serializeProfileForPrompt()    --> profil de gout texte
-       +-- serializeQuestionnaireForPrompt() --> bootstrap seulement
-       +-- buildMemoryEvidenceBundle()    --> tasting memories ciblees
-       +-- compiledProfileMarkdown        --> profil compile utilisateur
        +-- getDayOfWeek(), getSeason()    --> contexte temporel
        +-- zones, recentDrunk             --> metadonnees
        +-- persistedConversationState     --> etat dialogue courant
@@ -64,7 +72,8 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
     message, history[], cave[], profile,
     memories, context, zones, image?,
     conversationState?,
-    memoryEvidenceMode?, compiledProfileMarkdown?
+    memoryEvidenceMode?, compiledProfileMarkdown?,
+    sqlRetrieval?, sqlRetrievalTrace?
   }
        |
        v  HTTP POST --> supabase.functions.invoke('celestin')
@@ -119,8 +128,8 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
   |       | fail?                                |
   |  Provider 2: GPT-4.1 mini (OpenAI)          |
   |                                              |
-  |  Claude et Mistral restent disponibles       |
-  |  uniquement via forcedProvider (eval/debug)  |
+  |  Claude reste disponible via forcedProvider  |
+  |  pour les evals/debug uniquement             |
   |                                              |
   |  Chaque provider :                           |
   |  1. Envoie system prompt + contexte          |
@@ -319,8 +328,9 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 
 | Fichier | Role |
 |---------|------|
-| `index.ts` | Handler HTTP, orchestration, policy, providers LLM, fallback |
-| `turn-interpreter.ts` | **NOUVEAU** : Turn Interpreter (remplace classifyIntent) — routing state-aware |
+| `celestin/index.ts` | Handler HTTP, orchestration, policy, providers LLM, fallback |
+| `classify-celestin-intent/index.ts` | Classifier LLM (Gemini Flash Lite + GPT-4.1 mini fallback) qui retourne un JSON strict `{ isFactual, intent, filters, scope, rankingDirection, rankingLimit }` pour les questions factuelles. Déployé `--no-verify-jwt`. |
+| `turn-interpreter.ts` | Turn Interpreter (routing state-aware, déterministe) |
 | `conversation-state.ts` | **NOUVEAU** : types d'etat + transitions (computeNextState) |
 | `prompt-builder.ts` | Assemble le system prompt (concatene les 5 modules) |
 | `rules.ts` | Routing ui_action : quand recommander, encaver, deguster, converser. 2 exports : `CELESTIN_RULES` (complet) + `CELESTIN_RULES_MEMORY_ONLY` (mode tasting_memory) |
@@ -348,7 +358,12 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 | `lib/crossSessionMemory.ts` | Fallback local/debug, hors runtime prompt principal |
 | `lib/chatPersistence.ts` | Persistence conversations Supabase + extraction de facts bruts |
 | `lib/recommendationStore.ts` | Cache prefetch (module-level) |
-| `lib/celestinConversation.ts` | `buildCelestinRequestBody()` — assemble le payload (cave, profil, memories, state, compiled profile) |
+| `lib/celestinConversation.ts` | `buildCelestinRequestBody()` — assemble le payload (cave, profil, memories, state, compiled profile, sqlRetrieval) |
+| `lib/celestinChatRequest.ts` | `prepareCelestinRequest()` — orchestre l'appel : `Promise.all(memoryEvidence, classifier, profil)` + wiring SQL retrieval |
+| `lib/celestinIntentClassifier.ts` | Client de l'edge function `classify-celestin-intent` (classifier LLM JSON pour questions factuelles) |
+| `lib/celestinIntentPreFilter.ts` | Pre-filter ultra-restrictif : court-circuit classifier sur messages triviaux ("merci", "ok") |
+| `lib/sqlRetrievalRouter.ts` | `routeFactualQueryFromClassification()` : 5 builders déterministes (temporal/geographic/quantitative/ranking/inventory) qui traduisent le JSON classifier en bloc SQL texte |
+| `lib/userProfiles.ts` | Profil compilé utilisateur + `getCompiledUserProfileCached()` (cache module-level) |
 | `lib/enrichWine.ts` | Enrichissement async post-save (fire-and-forget) : arômes, accords, température, pays/région, maturité |
 
 Note de mise a jour sur le frontend :
@@ -359,15 +374,15 @@ Note de mise a jour sur le frontend :
 
 | Ordre | Provider | Modele | Particularites |
 |-------|----------|--------|----------------|
-| 1 | OpenAI | gpt-4.1-mini | Structured outputs (JSON schema strict), vision |
-| 2 | Anthropic | claude-haiku-4-5 | Meilleur suivi d'instructions, vision |
-| 3 | Google | gemini-2.5-flash | responseSchema natif, vision, thinkingBudget 1024 si image / 0 sinon |
-| 4 | Mistral | mistral-small-latest | Uniquement via forcedProvider (mode eval), pas dans la chaîne de prod |
+| 1 | Google | gemini-2.5-flash | Primaire. responseSchema natif, vision, thinkingBudget 1024 si image / 0 sinon |
+| 2 | OpenAI | gpt-4.1-mini | Fallback. Structured outputs (JSON schema strict), vision |
+| — | Anthropic | claude-haiku-4-5 | Uniquement via `forcedProvider` (eval/debug), pas dans la chaîne de prod |
 
 Ordre reel de production aujourd'hui :
 - primaire : `Gemini 2.5 Flash`
 - fallback : `GPT-4.1 mini`
-- `Claude` et `Mistral` restent disponibles via `forcedProvider` en eval/debug
+- `Claude` reste disponible via `forcedProvider` en eval/debug
+- `Mistral` a ete retire du runtime (commit aa2964c, 2026-04-23)
 
 Temperature : 0.5 pour tous les providers.
 
@@ -409,8 +424,19 @@ Couche 1 -- Donnees brutes (Supabase)
 
 Couche 2 -- Profil compile (Supabase)
   user_profiles.compiled_markdown
+  Compilation evenementielle : candidate_signals pendant la session,
+  check leger fin de session (no_change ou patch), reecriture complete
+  periodique (~20 patchs ou ~1/mois)
 
-Couche 3 -- Souvenirs de degustation (runtime cible)
+Couche 3a -- Retrieval factuel SQL (runtime, via classifier LLM)
+  classify-celestin-intent (edge function, Gemini Flash Lite) :
+    retourne { isFactual, intent, filters, scope, rankingDirection, rankingLimit }
+  routeFactualQueryFromClassification :
+    5 builders deterministes (temporal/geographic/quantitative/ranking/inventory)
+    produisent un bloc texte exact injecte dans le prompt
+  Pre-filter : court-circuit sur messages triviaux ("merci", "ok"...)
+
+Couche 3b -- Souvenirs de degustation (runtime, semantique)
   buildMemoryEvidenceBundle :
     1. filtres exacts si disponibles
     2. ranking local lisible
@@ -426,6 +452,8 @@ Couche 5 -- Etat conversationnel (runtime)
   Historique enrichi (cards + actions resumees dans les turns)
   Nettoyage images : seules les 2 dernieres photos user sont conservees
 ```
+
+Les couches 3a et 3b sont complementaires : le SQL factuel garantit la non-hallucination sur les questions "Ctrl+F enrichi" (combien, quels, ai-je bu, mes meilleurs, en mars, a Rome), les souvenirs de degustation apportent la couleur et les verbatims pour les questions de synthese et de subjectivite.
 
 - `src/lib/tastingMemories.ts`
 - `src/lib/tastingMemoryFilters.ts`

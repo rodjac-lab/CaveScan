@@ -17,6 +17,7 @@ Source unique de verite pour les travaux produit/tech.
 - [x] Celestin orchestrateur Phase 1 : response policy post-LLM, context levels (minimal/light/full), intent classifier context-aware, nettoyage images historique
 - [x] Celestin orchestrateur Phase 2 : state machine 6 etats, Turn Interpreter (remplace classifyIntent), 4 cognitive modes, state frontend persistent
 - [x] Celestin orchestrateur Phase 3 : prompt builder par cognitive mode, _debug dans la reponse API, eval multi-tours (11 conversations)
+- [x] Chantier memoire Celestin taches #1-#2 : compilation par evenements + routeur SQL via classifier LLM (commits 52b07a7, 474747d, 5953bfc, aa2964c entre 2026-04-21 et 2026-04-23)
 
 ---
 
@@ -109,11 +110,23 @@ Source unique de verite pour les travaux produit/tech.
 
 Ordre de priorite (du plus structurel au plus hygienique).
 
-1. [ ] **Compilation par evenements** (doctrine `celestin-memory-compilation-events.md`). Remplacer le `forceFullRewrite` de `compile-user-profile` par un vrai cycle de vie du profil compile : detection de `candidate_signals` pendant la session (`rated_tasting_with_comment`, `explicit_reco_feedback`, `new_general_preference`, `profile_contradiction`, `long_topic_exploration`, `new_topic_first_seen`), check leger en fin de session qui decide `no_change` ou un patch minimal (add/edit/remove sur une section), reecriture complete periodique (~20 patchs ou ~1/mois) pour compacter.
-2. [ ] **Routeur SQL pour questions factuelles**. Detecter les questions temporelles / geographiques / quantitatives ("le 26 fevrier", "a Rome", "mes meilleurs Brunello", "combien de") et fabriquer une requete SQL ciblee sur sources brutes au lieu de passer par embeddings. Integrer comme couche au-dessus du retrieval actuel (SQL d'abord si pattern detecte, sinon retrieval existant).
+1. [x] **Compilation par evenements** (doctrine `celestin-memory-compilation-events.md`, commit 52b07a7 du 2026-04-21). Cycle de vie en place : detection de `candidate_signals` pendant la session, check leger fin de session (no_change ou patch add/edit/remove), reecriture complete periodique (~20 patchs ou ~1/mois) pour compacter. Valide en prod.
+2. [x] **Routeur SQL pour questions factuelles** (commits 474747d + 5953bfc + aa2964c, 2026-04-22/23, doc `docs/celestin-sql-routing-refactor.md`). Classifier LLM dedie (`classify-celestin-intent`, Gemini Flash Lite) + 5 builders deterministes dans `sqlRetrievalRouter.ts`. La premiere version regex a ete abandonnee apres decouverte de faux positifs systemiques (mars/Marsannay, laval/Val de Loire, Saint/Saint-*, rôti/Côte Rôtie). Net : -809 lignes. Questions factuelles ~3-3.5s total, triviaux ~2s.
 3. [ ] **Ranking contextuel des `user_memory_facts`**. Aujourd'hui les 40 derniers facts non-supersedes sont injectes en vrac quel que soit le tour. Filtrer/ponderer par pertinence au message en cours (categorie, recence, match semantique leger).
 4. [ ] **Feedback loop retrieval**. Capter les reactions negatives du user a un souvenir cite ("non pas ca", "ce vin je l'ai deteste") et baisser le score de ce souvenir pour les tours suivants — ou au minimum le marquer.
 5. [ ] **Hygiene mémoire**. `useRecentlyDrunk limit(30)` (plafond silencieux a remonter/supprimer) + auth in-function avancee sur edge functions (decoder token, filtrer par `user_id` en plus du RLS).
+
+#### Dette technique Celestin (audit 2026-04-22)
+
+Identifie pendant le nettoyage SQL routing. Les quick wins sont deja livres (commit aa2964c). Reste :
+
+- [ ] **Alleger le prompt anti-hallucination** dans `supabase/functions/celestin/context-builder.ts`. ~350 tokens de regles defensives empilees qui conflictent avec la persona "3-5 lignes". Maintenant que le bloc SQL est garanti propre par le classifier, on peut reduire. Demande cycle de re-test + eval harness.
+- [ ] **Consolider les detecteurs de follow-up memoire** : 3 sets de patterns quasi-identiques dans `memory-focus.ts:16`, `turn-signals.ts:115` et `tastingMemoryFilters.ts:39`. Divergences subtiles, risque de bug de routing. Consolider dans `shared/celestin/memory-intent-patterns.ts`.
+- [ ] **`tastingMemoryFilters.ts`** (476 lignes) a 3 responsabilites melangees (normalize + extract + classify). A scinder en `normalization.ts` / `exactFilters.ts` / `evidenceMode.ts` lors du prochain passage sur la memoire.
+- [ ] **`user-prompt.ts`** : 12 branches if/else en cascade. State machine de directives a materialiser comme table de dispatch.
+- [ ] **6 sets de mots-bruits** (STOP_WORDS, CONTEXTLESS_TERMS, TEMPORAL_NOISE_TERMS, TOPONYM_NOISE_TERMS, FOCUS_STOP_WORDS, GENERIC_FOCUS_WORDS) avec overlaps non testes. Consolider dans `shared/celestin/wine-vocabulary.ts`.
+- [ ] **Unifier les patterns de recommandation** client (`celestinChatRequest.ts:16`) et serveur (`turn-signals.ts:32`). Les deux patterns couvrent des choses differentes (client = mots-plats, serveur = verbes/meta-phrases). Refactor dedie requis.
+- [ ] **`crossSessionMemory.ts`** (152 lignes) : plus consomme par le runtime prompt, seulement par /debug. A migrer dans un module debug.
 
 ### Tech & Qualite
 

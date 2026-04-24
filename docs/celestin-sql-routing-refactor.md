@@ -1,7 +1,42 @@
-# Refonte du routage SQL Celestin — plan pour la prochaine session
+# Refonte du routage SQL Celestin — livrée
 
-**Date** : 2026-04-22
-**Statut** : décision archi validée, implémentation à démarrer
+**Date de décision** : 2026-04-22
+**Date de livraison** : 2026-04-22 (classifier + wiring) / 2026-04-23 (nettoyage regex + simplify + quick wins)
+**Statut** : ✅ **LIVRÉ EN PROD**
+
+## TL;DR
+
+Le routage SQL factuel Celestin (tâche #2 du chantier mémoire) est en production, piloté par un classifier LLM dédié au lieu des regex substring qui produisaient des faux positifs (Marsannay/mars, Val de Loire/laval, Saint-* / "Saint Genis Laval", Côte Rôtie / "poulet rôti"). Ce document garde sa valeur de post-mortem — lire `celestin-architecture.md` pour le flow runtime actuel.
+
+### Ce qui a été livré
+
+- **Edge function `classify-celestin-intent`** (déployée). Gemini 2.5 Flash Lite primaire + GPT-4.1 mini fallback. JSON schema strict. Retourne `{ isFactual, intent, filters, scope, rankingDirection, rankingLimit, confidence }`.
+- **Module client `src/lib/celestinIntentClassifier.ts`** : appel edge function + collecte des listes canoniques (countries/regions/appellations/domaines) depuis la cave.
+- **Pre-filter `src/lib/celestinIntentPreFilter.ts`** : court-circuit ultra-restrictif sur ~40 messages triviaux ("merci", "ok", "salut"…) pour éviter l'appel LLM.
+- **Dispatcher `routeFactualQueryFromClassification`** dans `src/lib/sqlRetrievalRouter.ts` : traduit le JSON classifier en blocs SQL via 5 builders (temporal/geographic/quantitative/ranking/inventory).
+- **Wiring dans `celestinChatRequest.ts`** : `Promise.all(classifier + memoryEvidence + profil)` en parallèle.
+- **Cache module-level du profil compilé** + pre-warm au montage chat.
+
+### Performance mesurée
+
+- Triviaux ("merci", "ok") : ~2s total
+- Questions factuelles normales : ~3-3.5s total, dont ~2-2.5s incompressibles côté LLM principal Celestin
+- Classifier : ~900ms (Flash Lite)
+- Profil compilé : 620ms → 13ms (cache)
+
+### Commits
+
+- `474747d route celestin factual queries through an LLM intent classifier` — classifier + wiring
+- `5953bfc drop dead regex code from celestin SQL routing` — suppression ~600 lignes regex + simplify (table-driven filters, single-pass collectAvailableValues, etc.)
+- `aa2964c prune accumulated dead paths from celestin runtime` — quick wins audit (greetingContext mort, whitelist producteurs, fallback memories, Mistral provider)
+
+Net : **-809 lignes** sur 12 fichiers.
+
+---
+
+## Archive — plan original (2026-04-22)
+
+Ce qui suit est le plan tel qu'il a été rédigé avant implémentation. Gardé à titre historique pour la valeur de post-mortem (cas de faux positifs documentés, arbitrage classifier vs tool calling, pre-filter).
 
 ## Où on en est
 
@@ -178,16 +213,14 @@ Ne pas précipiter la phase 2 : d'abord valider en conditions réelles que le cl
 
 Total grosso modo une session focalisée de 6-8h, soit une journée.
 
-## Sur quoi reprendre demain
+## Rappels importants (toujours valides)
 
-1. Commencer par écrire l'edge function `classify-celestin-intent`. C'est le cœur.
-2. Test isolé sur une dizaine de queries (les cas ratés d'aujourd'hui : "mes meilleurs 2015", "accord pour un poulet rôti", "qu'ai-je bu à Saint Genis Laval", "les vins italiens en mars", etc.) pour valider que le JSON retourné est propre.
-3. Puis seulement wiring côté client.
-
-Ne pas toucher à la prod tant que les deux chemins ne cohabitent pas. Feature-flag éventuel pour activer le nouveau chemin sur un sous-ensemble de requêtes si nécessaire.
-
-## Rappels importants
-
-- Le backfill d'enrichissement (`runEnrichBackfill` dans `/debug`) reste à exécuter en prod pour remplir les champs country/region manquants (cas Sanlorenzo). Indépendant de cette refonte mais améliorera aussi le chemin classifier car celui-ci s'appuiera sur les valeurs canoniques présentes dans la base.
+- Le backfill d'enrichissement (`runEnrichBackfill` dans `/debug`) reste à exécuter en prod pour remplir les champs country/region manquants (cas Sanlorenzo). Indépendant de cette refonte mais améliore aussi le chemin classifier car celui-ci s'appuie sur les valeurs canoniques présentes dans la base.
 - La règle anti-hallucination absolue tient : le LLM ne doit JAMAIS mentionner un vin hors du bloc SQL injecté. Le classifier protège en amont, le prompt final protège en aval.
-- Règle produit : inventaires >5 fiches renvoient vers la page Cave, pas d'énumération exhaustive dans le chat. Déjà implémenté, à préserver.
+- Règle produit : inventaires >5 fiches renvoient vers la page Cave, pas d'énumération exhaustive dans le chat. Implémenté via `inventoryDisplayHint`, à préserver.
+
+## Suite logique (après cette refonte)
+
+- **Allègement du prompt anti-hallucination** dans `supabase/functions/celestin/context-builder.ts`. La version actuelle (datant de l'époque où le classifier n'existait pas) empile ~350 tokens de règles défensives qui conflictent avec la persona "3-5 lignes". Maintenant que le bloc SQL est garanti propre par le classifier, on peut réduire à 3 bullets. Demande un cycle de re-test manuel + eval harness.
+- **Streaming de la réponse LLM principale** : chantier à part, gros gain latence perçue attendu (-1.5s sur tous les tours).
+- **Unification des patterns de recommandation** client (`celestinChatRequest.ts`) et serveur (`turn-signals.ts`) : pas un doublon strict mais deux chevauchements qui divergent. Voir audit 2026-04-22.
