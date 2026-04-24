@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useQuestionnaireProfile } from '@/hooks/useQuestionnaireProfile'
 import { VivinoImportCard } from '@/components/VivinoImportCard'
 import { supabase } from '@/lib/supabase'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 import { track } from '@/lib/track'
 import { REGION_OPTIONS } from '@/lib/questionnaire-profile'
 import type { Zone } from '@/lib/types'
@@ -27,6 +28,7 @@ export default function Settings() {
   const navigate = useNavigate()
   const { zones, loading, error, refetch } = useZones()
   const { session, isAnonymous, signOut } = useAuth()
+  const { isAdmin } = useIsAdmin()
   const { profile: questionnaireProfile, clearProfile: clearQuestionnaireProfile } = useQuestionnaireProfile()
   const [loggingOut, setLoggingOut] = useState(false)
 
@@ -335,16 +337,18 @@ export default function Settings() {
           Celestin v1.0.0 · Reconnaissance d'étiquettes
         </p>
 
-        {/* 3. Debug tools link */}
-        <section className="mb-4">
-          <button
-            onClick={() => navigate('/debug')}
-            className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-3 text-[12px] font-medium text-[var(--text-muted)]"
-          >
-            <Wrench className="h-4 w-4" />
-            Outils debug
-          </button>
-        </section>
+        {/* 3. Debug tools link (admin only) */}
+        {isAdmin && (
+          <section className="mb-4">
+            <button
+              onClick={() => navigate('/debug')}
+              className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-[var(--border-color)] bg-transparent px-4 py-3 text-[12px] font-medium text-[var(--text-muted)]"
+            >
+              <Wrench className="h-4 w-4" />
+              Outils debug
+            </button>
+          </section>
+        )}
 
         {/* 4. Logout at bottom */}
         <section className="mb-4">

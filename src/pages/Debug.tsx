@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 import { formatRelativeDate } from '@/lib/debugInsights'
 import {
   getEmbeddingBackfillState,
@@ -26,6 +27,7 @@ import { useDebugCelestinTools } from '@/hooks/useDebugCelestinTools'
 
 export default function Debug() {
   const navigate = useNavigate()
+  const { loading: adminLoading, isAdmin } = useIsAdmin()
   const celestinTools = useDebugCelestinTools()
 
   const [memoryInfo, setMemoryInfo] = useState(() => getMemoryDebugInfo())
@@ -39,6 +41,14 @@ export default function Debug() {
   const [backfillRunning, setBackfillRunning] = useState(getTastingTagsBackfillState().running)
   const [embeddingStatus, setEmbeddingStatus] = useState<string | null>(getEmbeddingBackfillState().status)
   const [embeddingRunning, setEmbeddingRunning] = useState(getEmbeddingBackfillState().running)
+
+  useEffect(() => {
+    if (adminLoading) return
+    if (!isAdmin) navigate('/', { replace: true })
+  }, [adminLoading, isAdmin, navigate])
+
+  if (adminLoading) return null
+  if (!isAdmin) return null
 
   const enrichUpdater = (state: { status: string | null; running: boolean }) => {
     setEnrichStatus(state.status)
