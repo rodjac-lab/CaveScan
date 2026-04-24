@@ -2,6 +2,7 @@ import type { Bottle } from '@/lib/types'
 import type { ExactMemoryFilters } from '@/lib/tastingMemoryTypes'
 import {
   buildFilterLabels,
+  canonicalizeCountry,
   hasAnyExactFilter,
   normalizeForMatch,
 } from '@/lib/tastingMemoryFilters'
@@ -131,14 +132,17 @@ function applyIdentityFilters(bottles: Bottle[], filters: ExactMemoryFilters): B
 
   const normalizedFields = IDENTITY_FIELDS.map(([filterKey, bottleKey]) => {
     const values = filters[filterKey] as string[]
-    return { bottleKey, normalizedValues: values.map(normalizeForMatch) }
+    // Country comparisons are alias-aware ("USA" ≡ "États-Unis" ≡ "americain");
+    // other identity fields use the standard diacritic-strip match.
+    const normalize = bottleKey === 'country' ? canonicalizeCountry : normalizeForMatch
+    return { bottleKey, normalize, normalizedValues: values.map(normalize) }
   }).filter((entry) => entry.normalizedValues.length > 0)
 
   return bottles.filter((bottle) => {
-    for (const { bottleKey, normalizedValues } of normalizedFields) {
+    for (const { bottleKey, normalize, normalizedValues } of normalizedFields) {
       const raw = bottle[bottleKey] as string | null | undefined
       if (!raw) return false
-      const norm = normalizeForMatch(raw)
+      const norm = normalize(raw)
       if (!normalizedValues.includes(norm)) return false
     }
     if (filters.millesimes.length > 0) {

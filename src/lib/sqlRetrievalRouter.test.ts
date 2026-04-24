@@ -336,6 +336,62 @@ describe('routeFactualQueryFromClassification — inventory', () => {
   })
 })
 
+describe('routeFactualQueryFromClassification — country alias matching', () => {
+  it('matches when classifier emits "États-Unis" and bottle country is "USA"', () => {
+    const cave = [bottle({ id: 'us', country: 'USA', domaine: 'Birichino', status: 'in_stock' })]
+    const result = routeFactualQueryFromClassification(
+      classified({ intent: 'inventory', scope: 'cave', filters: { country: 'États-Unis' } }),
+      [],
+      cave,
+    )
+    expect(result!.blocks[0].resultCount).toBe(1)
+    expect(result!.blocks[0].formattedText).toContain('Birichino')
+  })
+
+  it('matches when classifier emits "USA" and bottle country is "États-Unis"', () => {
+    const cave = [bottle({ id: 'us', country: 'États-Unis', domaine: 'Sandlands', status: 'in_stock' })]
+    const result = routeFactualQueryFromClassification(
+      classified({ intent: 'inventory', scope: 'cave', filters: { country: 'USA' } }),
+      [],
+      cave,
+    )
+    expect(result!.blocks[0].resultCount).toBe(1)
+    expect(result!.blocks[0].formattedText).toContain('Sandlands')
+  })
+
+  it('still matches exact same-label country values (France / France)', () => {
+    const cave = [bottle({ id: 'fr', country: 'France', domaine: 'DomaineFR', status: 'in_stock' })]
+    const result = routeFactualQueryFromClassification(
+      classified({ intent: 'inventory', scope: 'cave', filters: { country: 'France' } }),
+      [],
+      cave,
+    )
+    expect(result!.blocks[0].resultCount).toBe(1)
+    expect(result!.blocks[0].formattedText).toContain('DomaineFR')
+  })
+
+  it('does not match different countries (France filter vs Italie bottle)', () => {
+    const cave = [bottle({ id: 'it', country: 'Italie', domaine: 'Italiano', status: 'in_stock' })]
+    const result = routeFactualQueryFromClassification(
+      classified({ intent: 'inventory', scope: 'cave', filters: { country: 'France' } }),
+      [],
+      cave,
+    )
+    expect(result!.blocks[0].resultCount).toBe(0)
+  })
+
+  it('falls back to diacritic-strip match for countries without alias table (Croatie)', () => {
+    const cave = [bottle({ id: 'hr', country: 'Croatie', domaine: 'DomaineHR', status: 'in_stock' })]
+    const result = routeFactualQueryFromClassification(
+      classified({ intent: 'inventory', scope: 'cave', filters: { country: 'Croatie' } }),
+      [],
+      cave,
+    )
+    expect(result!.blocks[0].resultCount).toBe(1)
+    expect(result!.blocks[0].formattedText).toContain('DomaineHR')
+  })
+})
+
 describe('routeFactualQueryFromClassification — geographic', () => {
   it('filters by country', () => {
     const bottles = [

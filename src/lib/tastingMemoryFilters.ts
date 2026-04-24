@@ -47,7 +47,7 @@ const EXACT_MEMORY_PATTERNS = [
   /\bpas de\b/,
 ]
 
-const COUNTRY_ALIASES: Record<string, string[]> = {
+export const COUNTRY_ALIASES: Record<string, string[]> = {
   italie: ['italie', 'italien', 'italiens', 'italienne', 'italiennes'],
   france: ['france', 'francais', 'francaises', 'francaise', 'francais'],
   espagne: ['espagne', 'espagnol', 'espagnols', 'espagnole', 'espagnoles'],
@@ -251,10 +251,14 @@ export function hasUnmatchedProducerHint(query: string, filters: ExactMemoryFilt
   )
 }
 
-function canonicalizeCountry(value: string): string {
-  const normalized = normalizeForMatch(value).replace(/\s+/g, '')
+// Aliases in COUNTRY_ALIASES are compact (no spaces, no hyphens) — strip both so
+// "États-Unis" → "etatsunis" matches the alias list for "usa".
+const COUNTRY_SEPARATOR_RE = /[\s-]+/g
+
+export function canonicalizeCountry(value: string): string {
+  const normalized = normalizeForMatch(value).replace(COUNTRY_SEPARATOR_RE, '')
   for (const [canonical, aliases] of Object.entries(COUNTRY_ALIASES)) {
-    const normalizedCanonical = canonical.replace(/\s+/g, '')
+    const normalizedCanonical = canonical.replace(COUNTRY_SEPARATOR_RE, '')
     if (normalized === normalizedCanonical || aliases.includes(normalized)) {
       return canonical
     }
@@ -263,9 +267,9 @@ function canonicalizeCountry(value: string): string {
 }
 
 function queryMentionsCountry(normalizedQuery: string, country: string): boolean {
-  const compactQuery = normalizedQuery.replace(/\s+/g, '')
+  const compactQuery = normalizedQuery.replace(COUNTRY_SEPARATOR_RE, '')
   const canonical = canonicalizeCountry(country)
-  const aliases = COUNTRY_ALIASES[canonical] ?? [canonical.replace(/\s+/g, '')]
+  const aliases = COUNTRY_ALIASES[canonical] ?? [canonical.replace(COUNTRY_SEPARATOR_RE, '')]
   return aliases.some((alias) => compactQuery.includes(alias))
 }
 
