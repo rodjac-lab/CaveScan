@@ -187,6 +187,40 @@ function extractWineEntities(text: string): string[] {
   return entities
 }
 
+const TOKEN_STOP_WORDS = new Set<string>([
+  'le', 'la', 'les', 'un', 'une', 'des', 'de', 'du', 'au', 'aux',
+  'et', 'ou', 'pour', 'avec', 'sur', 'sous',
+  'son', 'sa', 'ses', 'mon', 'ma', 'mes',
+  'domaine', 'chateau', 'maison', 'clos', 'cave',
+  'vin', 'vins', 'cuvee', 'cuvees',
+  'bouteille', 'bouteilles',
+])
+
+function stripDiacritics(text: string): string {
+  return text.normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
+function tokenizeForMatching(text: string): Set<string> {
+  if (!text) return new Set()
+  const tokens = stripDiacritics(text)
+    .toLowerCase()
+    .split(/[\s.,'’"()\-/]+/)
+    .filter((token) => token.length >= 3 && !TOKEN_STOP_WORDS.has(token))
+  return new Set(tokens)
+}
+
+function entityMatchesHaystack(entityTokens: Set<string>, haystack: string): boolean {
+  if (entityTokens.size === 0) return false
+  const haystackTokens = tokenizeForMatching(haystack)
+  if (haystackTokens.size === 0) return false
+  let shared = 0
+  for (const token of entityTokens) {
+    if (haystackTokens.has(token)) shared++
+  }
+  const threshold = entityTokens.size === 1 ? 1 : 2
+  return shared >= threshold
+}
+
 function countEvidenceForPreference(
   factText: string,
   factEntities: string[],
@@ -198,28 +232,30 @@ function countEvidenceForPreference(
   // No entity → unmeasurable; default to pillar via Infinity threshold.
   if (factEntities.length === 0) return Number.POSITIVE_INFINITY
 
-  const lowerEntities = factEntities.map((entity) => entity.toLowerCase())
+  const entityTokenSets = factEntities.map((entity) => tokenizeForMatching(entity)).filter((set) => set.size > 0)
+  if (entityTokenSets.length === 0) return Number.POSITIVE_INFINITY
+
+  const matchesAnyEntity = (haystack: string) =>
+    entityTokenSets.some((tokens) => entityMatchesHaystack(tokens, haystack))
+
   const factLower = factText.toLowerCase()
   let evidence = 0
 
   const tastings = [...(topTastings ?? []), ...(recentTastings ?? [])]
   for (const tasting of tastings) {
-    const haystack = `${tasting.domaine ?? ''} ${tasting.cuvee ?? ''}`.toLowerCase()
-    if (haystack.trim() && lowerEntities.some((entity) => haystack.includes(entity))) {
+    const haystack = [tasting.domaine, tasting.cuvee, tasting.appellation].filter(Boolean).join(' ')
+    if (matchesAnyEntity(haystack)) {
       evidence++
     }
   }
 
-  const matchedTopDomaine = (computed?.topDomaines ?? []).some((domaine) => {
-    const name = (domaine.name ?? '').toLowerCase()
-    return name.length > 0 && lowerEntities.some((entity) => name.includes(entity))
-  })
+  const matchedTopDomaine = (computed?.topDomaines ?? []).some((domaine) => matchesAnyEntity(domaine.name ?? ''))
   if (matchedTopDomaine) evidence++
 
   const hasOtherFact = allFacts.some((other) => {
-    const otherText = (other.fact ?? '').toLowerCase().trim()
-    if (!otherText || otherText === factLower) return false
-    return lowerEntities.some((entity) => otherText.includes(entity))
+    const otherText = (other.fact ?? '').trim()
+    if (!otherText || otherText.toLowerCase() === factLower) return false
+    return matchesAnyEntity(otherText)
   })
   if (hasOtherFact) evidence++
 
@@ -236,6 +272,19 @@ interface PreferenceClassification {
 
 function matchesAny(text: string, patterns: RegExp[]): boolean {
   return patterns.some((pattern) => pattern.test(text))
+}
+
+const TRAILING_TEMPORAL_ADVERBS = /\s+(actuellement|d[eé]sormais|aujourd['’]?hui|maintenant|en\s+ce\s+moment|pour\s+le\s+moment|ces\s+derniers\s+temps|depuis\s+peu|r[eé]cemment|en\s+ce\s+moment-?ci)$/i
+const TRAILING_PUNCTUATION = /[.,;:!?…]+$/
+
+function normalizeDedupKey(text: string): string {
+  let key = text.trim().toLowerCase()
+  let previous = ''
+  while (key !== previous) {
+    previous = key
+    key = key.replace(TRAILING_PUNCTUATION, '').trim().replace(TRAILING_TEMPORAL_ADVERBS, '').trim()
+  }
+  return key.replace(/\s+/g, ' ')
 }
 
 function sanitizeFacts(facts: MemoryFactLike[]): MemoryFactLike[] {
@@ -333,7 +382,7 @@ function pickTopFacts(
       if (Number.isFinite(expiresMs) && expiresMs <= nowMs) continue
     }
 
-    const dedupKey = text.toLowerCase()
+    const dedupKey = normalizeDedupKey(text)
     if (seen.has(dedupKey)) continue
     seen.add(dedupKey)
 
@@ -372,7 +421,7 @@ function classifyPreferences(input: CompiledProfileInput, nowMs: number): Prefer
     if (confidence < config.minConfidence) continue
     if (fact.is_temporary) continue
 
-    const dedupKey = text.toLowerCase()
+    const dedupKey = normalizeDedupKey(text)
     if (seen.has(dedupKey)) continue
     seen.add(dedupKey)
 

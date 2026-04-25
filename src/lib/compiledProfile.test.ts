@@ -263,6 +263,136 @@ describe('buildCompiledProfileMarkdown — deterministic sanitization (T3 layer)
   })
 })
 
+describe('buildCompiledProfileMarkdown — entity matching with token overlap', () => {
+  it('matches a long entity to a shorter tasting domaine via token overlap (Aloxe-Corton case)', () => {
+    const facts = [
+      fact({
+        category: 'preference',
+        fact: "L'utilisateur a apprécié l'Aloxe-Corton Domaine Céline Perrin 2022 pour son fruité",
+        confidence: 0.85,
+      }),
+    ]
+    const md = buildCompiledProfileMarkdown({
+      nowIso: NOW_ISO,
+      memoryFacts: facts,
+      topTastings: [
+        { domaine: 'Domaine Céline Perrin', cuvee: null, appellation: 'Aloxe-Corton', millesime: 2022, drunk_at: null, rating: 4, tasting_note: null },
+      ],
+      computedProfile: {
+        topDomaines: [{ name: 'Domaine Céline Perrin', count: 2, avgRating: 4 }],
+      },
+    })
+    const profilIdx = md.indexOf('## Profil gustatif')
+    const momentsIdx = md.indexOf('## Moments marquants')
+    const profilBlock = md.slice(profilIdx, momentsIdx)
+    expect(profilBlock).toContain('Aloxe-Corton')
+    expect(md).not.toContain('## Découvertes à confirmer')
+  })
+
+  it('still routes a single-mention preference with no tasting to discoveries', () => {
+    const facts = [
+      fact({
+        category: 'preference',
+        fact: "L'utilisateur a apprécié le domaine Inconnu",
+        confidence: 0.85,
+      }),
+    ]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    expect(md).toContain('## Découvertes à confirmer')
+    expect(md).toContain('domaine Inconnu')
+  })
+
+  it('matches accented and unaccented entity tokens (Cuvée vs cuvee)', () => {
+    const facts = [
+      fact({
+        category: 'preference',
+        fact: "L'utilisateur apprécie le domaine Prieuré Roch",
+        confidence: 0.85,
+      }),
+    ]
+    const md = buildCompiledProfileMarkdown({
+      nowIso: NOW_ISO,
+      memoryFacts: facts,
+      topTastings: [
+        { domaine: 'Prieure Roch', cuvee: null, appellation: 'Ladoix', millesime: 2019, drunk_at: null, rating: 4, tasting_note: null },
+      ],
+      computedProfile: {
+        topDomaines: [{ name: 'Prieure Roch', count: 2, avgRating: 4 }],
+      },
+    })
+    expect(md).not.toContain('## Découvertes à confirmer')
+    const profilIdx = md.indexOf('## Profil gustatif')
+    const momentsIdx = md.indexOf('## Moments marquants')
+    expect(md.slice(profilIdx, momentsIdx)).toContain('Prieuré Roch')
+  })
+
+  it('does not match unrelated domaines that share only stop tokens', () => {
+    const facts = [
+      fact({
+        category: 'preference',
+        fact: "L'utilisateur a apprécié le domaine Selosse",
+        confidence: 0.85,
+      }),
+    ]
+    const md = buildCompiledProfileMarkdown({
+      nowIso: NOW_ISO,
+      memoryFacts: facts,
+      topTastings: [
+        { domaine: 'Domaine Bollinger', cuvee: null, appellation: 'Champagne', millesime: 2018, drunk_at: null, rating: 4, tasting_note: null },
+      ],
+    })
+    expect(md).toContain('## Découvertes à confirmer')
+    const enviesIdx = md.indexOf('## Envies')
+    const explorationsIdx = md.indexOf('## Explorations en cours')
+    const blockEnd = enviesIdx > -1 ? enviesIdx : explorationsIdx
+    const discoveryBlock = md.slice(md.indexOf('## Découvertes à confirmer'), blockEnd)
+    expect(discoveryBlock).toContain('Selosse')
+  })
+})
+
+describe('buildCompiledProfileMarkdown — fuzzy dedupe', () => {
+  it('collapses two cellar_intent facts that differ only by a trailing temporal adverb', () => {
+    const facts = [
+      fact({ category: 'cellar_intent', fact: 'Trouve les vins de Macle difficiles à trouver et chers.', confidence: 0.85 }),
+      fact({ category: 'cellar_intent', fact: 'Trouve les vins de Macle difficiles à trouver et chers actuellement.', confidence: 0.85 }),
+    ]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    const macleMentions = md.match(/Macle/g)?.length ?? 0
+    expect(macleMentions).toBe(1)
+  })
+
+  it('collapses two preference facts that differ only by trailing punctuation', () => {
+    const facts = [
+      fact({ category: 'preference', fact: 'Aime les blancs tendus', confidence: 0.85 }),
+      fact({ category: 'preference', fact: 'Aime les blancs tendus.', confidence: 0.85 }),
+    ]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    const mentions = md.match(/Aime les blancs tendus/g)?.length ?? 0
+    expect(mentions).toBe(1)
+  })
+
+  it('keeps facts that genuinely differ (not just trailing noise)', () => {
+    const facts = [
+      fact({ category: 'preference', fact: 'Aime les blancs tendus', confidence: 0.85 }),
+      fact({ category: 'preference', fact: 'Aime les rouges tendus', confidence: 0.85 }),
+    ]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    expect(md).toContain('Aime les blancs tendus')
+    expect(md).toContain('Aime les rouges tendus')
+  })
+
+  it('collapses stacks of trailing adverbs and punctuation', () => {
+    const facts = [
+      fact({ category: 'cellar_intent', fact: 'Cherche du Champagne pour les fêtes', confidence: 0.85 }),
+      fact({ category: 'cellar_intent', fact: 'Cherche du Champagne pour les fêtes désormais.', confidence: 0.85 }),
+      fact({ category: 'cellar_intent', fact: 'Cherche du Champagne pour les fêtes en ce moment !', confidence: 0.85 }),
+    ]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    const mentions = md.match(/Cherche du Champagne/g)?.length ?? 0
+    expect(mentions).toBe(1)
+  })
+})
+
 describe('buildCompiledProfileMarkdown — funnel piliers / découvertes / envies', () => {
   it('places a preference with no identifiable wine entity in Profil gustatif (pillar by default)', () => {
     const facts = [fact({ category: 'preference', fact: 'Aime les blancs tendus', confidence: 0.85 })]
