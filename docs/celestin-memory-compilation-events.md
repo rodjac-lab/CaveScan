@@ -23,12 +23,18 @@ Table V1 proposée :
 - `user_profiles.last_compilation_reason`
 - `user_profiles.compilation_status`
 
-Le profil V1 contient 4 sections :
+Le profil V3 (avril 2026) contient jusqu'à 8 sections, certaines optionnelles (omises si vides) :
 
-- `Profil gustatif`
+- `Profil gustatif` — piliers durables uniquement (evidence ≥ 2)
 - `Moments marquants`
+- `Découvertes à confirmer` *(optionnelle)* — 1 mention positive, à confirmer
+- `Envies` *(optionnelle)* — vins voulus mais pas encore goûtés
 - `Explorations en cours`
+- `Entourage et partages` *(optionnelle)*
+- `Contexte et intentions` *(optionnelle)*
 - `Style de conversation`
+
+Voir `celestin-memory-runtime-architecture.md` pour la classification (funnel envie → découverte → pilier) et la sanitisation déterministe.
 
 ## Règle générale
 

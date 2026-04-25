@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from
 import type { SessionSummary } from '@/lib/crossSessionMemory'
 import type { UserProfileRow } from '@/lib/userProfiles'
 import { patchUserProfile } from '@/lib/userProfiles'
+import { downloadBlob } from '@/lib/downloadBlob'
 import {
   loadRecentCandidateSignals,
   loadRecentProfilePatches,
@@ -886,6 +887,19 @@ export function ForceCompileProfilePanel({
   onForceCompileUserProfile,
   formatRelativeDate,
 }: ForceCompileProfilePanelProps) {
+  const markdown = userProfile?.compiled_markdown ?? ''
+  const version = userProfile?.version ?? null
+  const versionLabel = version ?? '?'
+
+  const handleDownloadMarkdown = () => {
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+    downloadBlob(markdown, `compiled-profile-v${version ?? 'unknown'}-${stamp}.md`, 'text/markdown;charset=utf-8')
+  }
+
+  const handleCopyMarkdown = () => {
+    navigator.clipboard?.writeText(markdown)
+  }
+
   return (
     <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
       <p className="text-[11px] font-medium text-[var(--text-primary)] mb-2">Profil compilé</p>
@@ -904,14 +918,30 @@ export function ForceCompileProfilePanel({
         Compiler le profil maintenant
       </button>
       {userProfileStatus && <p className="mt-2 text-center text-[11px] text-[var(--text-muted)]">{userProfileStatus}</p>}
-      {userProfile?.compiled_markdown?.trim() && (
+      {markdown.trim() && (
         <details className="mt-3">
           <summary className="cursor-pointer text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)]">
             Voir le Markdown compilé
           </summary>
           <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded-[8px] border border-[var(--border-color)] bg-[var(--bg-surface)] p-3 text-[11px] leading-relaxed text-[var(--text-primary)]">
-            {userProfile.compiled_markdown}
+            {markdown}
           </pre>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadMarkdown}
+              className="rounded-[8px] border border-[var(--border-color)] bg-transparent px-3 py-1.5 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+            >
+              Télécharger v{versionLabel}
+            </button>
+            <button
+              type="button"
+              onClick={handleCopyMarkdown}
+              className="rounded-[8px] border border-[var(--border-color)] bg-transparent px-3 py-1.5 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+            >
+              Copier
+            </button>
+          </div>
         </details>
       )}
     </div>

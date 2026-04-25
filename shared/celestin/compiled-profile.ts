@@ -100,6 +100,167 @@ const CATEGORY_CONFIG: Record<FactCategory, CategoryConfig> = {
 
 const DAY_MS = 1000 * 60 * 60 * 24
 
+const CELLAR_OBSERVATION_PATTERNS: RegExp[] = [
+  /\bn['’]a\s+(aucun|aucune|pas\s+de|plus\s+de)\b/i,
+  /\bne\s+poss[eè]de\s+(pas|plus|aucun|aucune)\b/i,
+  /\bposs[eè]de(\s+\S+){0,2}\s+(un|une|des|deux|trois|quatre|\d+)\b/i,
+  /\b(a|avait)\s+(un|une|des|deux|trois|quatre|\d+)\s+\S+.*\b(dans\s+sa\s+cave|en\s+cave)\b/i,
+  /\bil\s+y\s+a\s+(un|une|des|\d+)\b/i,
+  /\bdans\s+sa\s+cave\b/i,
+  /\b(en\s+cave\s+sur)\b/i,
+]
+
+const APP_FEEDBACK_PATTERNS: RegExp[] = [
+  /\bcelestin\b/i,
+  /\bl['’]app(lication)?\b/i,
+  /\bla\s+fonctionnalit[eé]\b/i,
+  /\bs['’]attend\s+(à|a)\s+ce\s+que\b/i,
+  /\b(souhaite|aimerait|voudrait)\s+que\s+l['’]app/i,
+]
+
+const WINE_KNOWLEDGE_QUESTION_PATTERNS: RegExp[] = [
+  /\bse\s+demande\s+(si|s['’]il|comment|pourquoi|ce\s+que|quel)\b/i,
+  /\bs['’]int[eé]resse\s+(à|a|aux)\s+(la\s+)?diff[eé]rence/i,
+  /\bse\s+questionne\s+sur\b/i,
+  /\b(a|s['’])\s*pos[eé]\s+(la\s+)?question\b/i,
+  /\bdemande\s+(à|a)\s+celestin\b/i,
+]
+
+const ENVIE_PATTERNS: RegExp[] = [
+  /\baimerait\s+(essayer|go[uû]ter|d[eé]couvrir|boire|tester|conna[iî]tre)\b/i,
+  /\bvoudrait\s+(essayer|go[uû]ter|d[eé]couvrir|boire|tester)\b/i,
+  /\bsouhaiterait\s+(essayer|go[uû]ter|d[eé]couvrir|boire)\b/i,
+  /\ba\s+envie\s+(de|d['’])\s*(essayer|go[uû]ter|boire|d[eé]couvrir|tester)\b/i,
+  /\br[eê]ve\s+(de|d['’])\s*(go[uû]ter|essayer|boire|d[eé]couvrir)\b/i,
+  /\bn['’]a\s+pas\s+encore\s+(go[uû]t[eé]|bu|essay[eé])\b/i,
+  /\bveut\s+(essayer|go[uû]ter|d[eé]couvrir|tester|conna[iî]tre)\b/i,
+  /\b(il\s+)?(faudrait|faut)\s+(qu['’]il|que\s+l['’]utilisateur)\s+(go[uû]te|essaie)\b/i,
+]
+
+const ENTITY_STOP_WORDS = new Set<string>([
+  'L', 'Le', 'La', 'Les', 'Un', 'Une', 'Des', 'De', 'Du', 'Au', 'Aux',
+  'Et', 'Ou', 'Mais', 'Pour', 'Par', 'Avec', 'Sans', 'Sur', 'Sous',
+  'Ce', 'Cette', 'Ces', 'Son', 'Sa', 'Ses', 'Mon', 'Ma', 'Mes',
+  'Celestin', 'Apprécie', 'Aime', 'Adore', 'Déteste',
+  'Aimerait', 'Voudrait', 'Souhaite', 'Souhaiterait', 'Veut', 'Cherche',
+  'Bourgogne', 'Bordeaux', 'Champagne', 'Loire', 'Rhône', 'Rhone', 'Alsace', 'Jura',
+  'Provence', 'Beaujolais', 'Languedoc', 'Roussillon', 'Savoie',
+  'Italie', 'Espagne', 'France', 'Allemagne', 'Portugal',
+  'Italien', 'Italienne', 'Italiens', 'Italiennes',
+  'Pinot', 'Chardonnay', 'Riesling', 'Cabernet', 'Merlot', 'Syrah', 'Grenache', 'Chenin',
+  'Savagnin', 'Trousseau', 'Poulsard', 'Aligoté', 'Aligote', 'Gamay', 'Sauvignon', 'Viognier',
+  'Mourvèdre', 'Carignan', 'Cinsault', 'Nebbiolo', 'Sangiovese', 'Tempranillo',
+])
+
+function stripUtilisateurPrefix(text: string): string {
+  return text.replace(/^L['’]utilisateur\s+(a\s+|s['’]\w+\s+|appr[eé]cie\s+|aime\s+|adore\s+|aimerait\s+|voudrait\s+|veut\s+)?/i, '')
+}
+
+function extractWineEntities(text: string): string[] {
+  const cleaned = stripUtilisateurPrefix(text)
+  const entities: string[] = []
+  const seen = new Set<string>()
+  const stopFirstWord = (entity: string) => ENTITY_STOP_WORDS.has(entity.split(/[\s-]+/)[0])
+
+  // 1) "domaine X" / "chez X" / "maison X" / "château X" / "clos X"
+  const introRegex = /\b(?:domaine|chez|maison|ch[âa]teau|clos)\s+([A-ZÀ-Ÿ][\wÀ-ÿ'’-]*(?:[\s-][A-ZÀ-Ÿ][\wÀ-ÿ'’-]*)*)/gi
+  for (const match of cleaned.matchAll(introRegex)) {
+    const entity = match[1].trim()
+    if (!entity || stopFirstWord(entity)) continue
+    const key = entity.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    entities.push(entity)
+  }
+
+  // 2) Sequences de ≥ 2 mots capitalisés (Coche-Dury, Prieuré Roch, Côte Rôtie Sereine Noire)
+  const multiCapsRegex = /\b([A-ZÀ-Ÿ][\wÀ-ÿ'’-]+(?:[\s-][A-ZÀ-Ÿ][\wÀ-ÿ'’-]+)+)\b/g
+  for (const match of cleaned.matchAll(multiCapsRegex)) {
+    const entity = match[1].trim()
+    if (!entity || stopFirstWord(entity)) continue
+    const key = entity.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    entities.push(entity)
+  }
+
+  return entities
+}
+
+function countEvidenceForPreference(
+  factText: string,
+  factEntities: string[],
+  allFacts: MemoryFactLike[],
+  computed: ComputedProfileLike | null | undefined,
+  topTastings: TastingLike[],
+  recentTastings: TastingLike[],
+): number {
+  // No entity → unmeasurable; default to pillar via Infinity threshold.
+  if (factEntities.length === 0) return Number.POSITIVE_INFINITY
+
+  const lowerEntities = factEntities.map((entity) => entity.toLowerCase())
+  const factLower = factText.toLowerCase()
+  let evidence = 0
+
+  const tastings = [...(topTastings ?? []), ...(recentTastings ?? [])]
+  for (const tasting of tastings) {
+    const haystack = `${tasting.domaine ?? ''} ${tasting.cuvee ?? ''}`.toLowerCase()
+    if (haystack.trim() && lowerEntities.some((entity) => haystack.includes(entity))) {
+      evidence++
+    }
+  }
+
+  const matchedTopDomaine = (computed?.topDomaines ?? []).some((domaine) => {
+    const name = (domaine.name ?? '').toLowerCase()
+    return name.length > 0 && lowerEntities.some((entity) => name.includes(entity))
+  })
+  if (matchedTopDomaine) evidence++
+
+  const hasOtherFact = allFacts.some((other) => {
+    const otherText = (other.fact ?? '').toLowerCase().trim()
+    if (!otherText || otherText === factLower) return false
+    return lowerEntities.some((entity) => otherText.includes(entity))
+  })
+  if (hasOtherFact) evidence++
+
+  return evidence
+}
+
+const PILLAR_EVIDENCE_THRESHOLD = 2
+
+interface PreferenceClassification {
+  pillars: ScoredFact[]
+  discoveries: ScoredFact[]
+  envies: ScoredFact[]
+}
+
+function matchesAny(text: string, patterns: RegExp[]): boolean {
+  return patterns.some((pattern) => pattern.test(text))
+}
+
+function sanitizeFacts(facts: MemoryFactLike[]): MemoryFactLike[] {
+  const result: MemoryFactLike[] = []
+  for (const fact of facts) {
+    const text = (fact.fact ?? '').trim()
+    if (!text) continue
+
+    if (fact.category === 'cellar_intent' && matchesAny(text, CELLAR_OBSERVATION_PATTERNS)) {
+      continue
+    }
+
+    if (fact.category === 'wine_knowledge' && matchesAny(text, APP_FEEDBACK_PATTERNS)) {
+      continue
+    }
+
+    if (fact.category === 'wine_knowledge' && matchesAny(text, WINE_KNOWLEDGE_QUESTION_PATTERNS)) {
+      continue
+    }
+
+    result.push(fact)
+  }
+  return result
+}
+
 function trimSentence(text: string, max = 180): string {
   const normalized = text.replace(/\s+/g, ' ').trim()
   if (normalized.length <= max) return normalized
@@ -192,7 +353,71 @@ function formatContextLine(entry: ScoredFact): string {
   return `- ${prefix}${entry.text}`
 }
 
-function buildTasteSection(input: CompiledProfileInput, nowMs: number): string[] {
+function classifyPreferences(input: CompiledProfileInput, nowMs: number): PreferenceClassification {
+  const config = CATEGORY_CONFIG.preference
+  const facts = input.memoryFacts ?? []
+  const seen = new Set<string>()
+
+  const enviesAll: ScoredFact[] = []
+  const pillarsAll: ScoredFact[] = []
+  const discoveriesAll: ScoredFact[] = []
+
+  for (const fact of facts) {
+    if (fact.category !== 'preference') continue
+    if (!fact.fact) continue
+    const text = fact.fact.trim()
+    if (!text) continue
+
+    const confidence = typeof fact.confidence === 'number' ? fact.confidence : 0
+    if (confidence < config.minConfidence) continue
+    if (fact.is_temporary) continue
+
+    const dedupKey = text.toLowerCase()
+    if (seen.has(dedupKey)) continue
+    seen.add(dedupKey)
+
+    const entry: ScoredFact = {
+      fact,
+      score: scoreFact(fact, nowMs, config.halfLifeDays),
+      text,
+    }
+
+    if (matchesAny(text, ENVIE_PATTERNS)) {
+      enviesAll.push(entry)
+      continue
+    }
+
+    const entities = extractWineEntities(text)
+    const evidence = countEvidenceForPreference(
+      text,
+      entities,
+      facts,
+      input.computedProfile,
+      input.topTastings ?? [],
+      input.recentTastings ?? [],
+    )
+
+    if (evidence >= PILLAR_EVIDENCE_THRESHOLD) {
+      pillarsAll.push(entry)
+    } else {
+      discoveriesAll.push(entry)
+    }
+  }
+
+  const sortByScore = (arr: ScoredFact[]) => arr.sort((a, b) => b.score - a.score)
+
+  return {
+    pillars: sortByScore(pillarsAll).slice(0, config.quota),
+    discoveries: sortByScore(discoveriesAll).slice(0, 3),
+    envies: sortByScore(enviesAll).slice(0, 3),
+  }
+}
+
+function buildTasteSection(
+  input: CompiledProfileInput,
+  nowMs: number,
+  pillars: ScoredFact[],
+): string[] {
   const lines: string[] = []
   const computed = input.computedProfile
   const questionnaire = input.questionnaireProfile
@@ -219,9 +444,8 @@ function buildTasteSection(input: CompiledProfileInput, nowMs: number): string[]
     lines.push(`- Descripteurs récurrents dans ses notes : ${descriptors.join(', ')}.`)
   }
 
-  const preferences = pickTopFacts(facts, 'preference', nowMs)
-  if (preferences.length > 0) {
-    lines.push(...preferences.map((entry) => `- ${entry.text}`))
+  if (pillars.length > 0) {
+    lines.push(...pillars.map((entry) => `- ${entry.text}`))
   }
 
   const aversions = pickTopFacts(facts, 'aversion', nowMs)
@@ -292,6 +516,10 @@ function buildExplorationsSection(input: CompiledProfileInput, nowMs: number): s
   return lines
 }
 
+function renderFactList(entries: ScoredFact[]): string[] {
+  return entries.map((entry) => `- ${entry.text}`)
+}
+
 function buildEntourageSection(input: CompiledProfileInput, nowMs: number): string[] {
   const socialFacts = pickTopFacts(input.memoryFacts ?? [], 'social', nowMs)
   if (socialFacts.length === 0) return []
@@ -337,20 +565,32 @@ function buildConversationStyleSection(input: CompiledProfileInput): string[] {
 
 export function buildCompiledProfileMarkdown(input: CompiledProfileInput): string {
   const nowMs = resolveNowMs(input.nowIso)
+  const sanitizedInput: CompiledProfileInput = {
+    ...input,
+    memoryFacts: sanitizeFacts(input.memoryFacts ?? []),
+  }
 
-  const entourageLines = buildEntourageSection(input, nowMs)
-  const contexteLines = buildContexteIntentionsSection(input, nowMs)
+  const preferenceBuckets = classifyPreferences(sanitizedInput, nowMs)
+  const entourageLines = buildEntourageSection(sanitizedInput, nowMs)
+  const contexteLines = buildContexteIntentionsSection(sanitizedInput, nowMs)
 
   const sections: string[] = [
     '## Profil gustatif',
-    ...buildTasteSection(input, nowMs),
+    ...buildTasteSection(sanitizedInput, nowMs, preferenceBuckets.pillars),
     '',
     '## Moments marquants',
-    ...buildMomentsSection(input),
-    '',
-    '## Explorations en cours',
-    ...buildExplorationsSection(input, nowMs),
+    ...buildMomentsSection(sanitizedInput),
   ]
+
+  if (preferenceBuckets.discoveries.length > 0) {
+    sections.push('', '## Découvertes à confirmer', ...renderFactList(preferenceBuckets.discoveries))
+  }
+
+  if (preferenceBuckets.envies.length > 0) {
+    sections.push('', '## Envies', ...renderFactList(preferenceBuckets.envies))
+  }
+
+  sections.push('', '## Explorations en cours', ...buildExplorationsSection(sanitizedInput, nowMs))
 
   if (entourageLines.length > 0) {
     sections.push('', '## Entourage et partages', ...entourageLines)
@@ -360,7 +600,7 @@ export function buildCompiledProfileMarkdown(input: CompiledProfileInput): strin
     sections.push('', '## Contexte et intentions', ...contexteLines)
   }
 
-  sections.push('', '## Style de conversation', ...buildConversationStyleSection(input))
+  sections.push('', '## Style de conversation', ...buildConversationStyleSection(sanitizedInput))
 
   return sections.join('\n').trim()
 }

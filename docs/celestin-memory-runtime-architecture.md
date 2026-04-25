@@ -126,14 +126,27 @@ C'est une mémoire compilée.
 
 ## Sections du profil compilé
 
-Version actuelle (V2, avril 2026) — 6 sections. Les 2 dernières sont **omises si vides**, pour éviter d'injecter des headers sans contenu.
+Version actuelle (V3, avril 2026) — jusqu'à 8 sections. Les sections marquées (optionnelles) sont **omises si vides**, pour éviter d'injecter des headers sans contenu.
 
-- `Profil gustatif` — appellations, domaines, accords, descripteurs, preferences, aversions, extraits du questionnaire
+- `Profil gustatif` — appellations, domaines, accords, descripteurs, **piliers durables** (préférences avec evidence ≥ 2), aversions, extraits du questionnaire
 - `Moments marquants` — jusqu'à 8 dégustations notables avec note tronquée à 400 caractères
+- `Découvertes à confirmer` (optionnelle) — préférences sur 1 dégustation, à valider dans le temps
+- `Envies` (optionnelle) — vins que l'utilisateur veut goûter mais n'a pas encore goûtés
 - `Explorations en cours` — pistes récentes de dégustation + `wine_knowledge` + `life_event` (rendus comme "Jalon personnel : ...")
-- `Entourage et partages` — facts `social` sur l'entourage et les compagnons de dégustation (nouvelle section)
-- `Contexte et intentions` — `context` non expirés (préfixés `[contexte récent]`) + `cellar_intent` (nouvelle section)
+- `Entourage et partages` (optionnelle) — facts `social` sur l'entourage et les compagnons de dégustation
+- `Contexte et intentions` (optionnelle) — `context` non expirés (préfixés `[contexte récent]`) + `cellar_intent`
 - `Style de conversation` — ton attendu, niveau technique, règles conversationnelles
+
+### Le funnel envie → découverte → pilier
+
+Modèle du parcours d'un amateur en progression : `envie → découverte → pilier`. Une mention positive ponctuelle doit pouvoir signaler à Celestin "à confirmer" sans être traitée comme une préférence durable. Une envie doit pouvoir être suivie dans le temps ("tu m'avais dit vouloir essayer Coche-Dury, ça t'a tenté ?"). C'est exactement ce que les sections `Découvertes à confirmer` et `Envies` matérialisent au compile-time.
+
+La classification se fait dans `classifyPreferences` (`shared/celestin/compiled-profile.ts`) :
+
+1. **Détection des envies** par patterns verbaux au futur/conditionnel : "aimerait essayer", "voudrait goûter", "a envie de", "n'a pas encore goûté". Direct vers `Envies`.
+2. **Extraction d'entités** par regex (`domaine X`, `chez X`, séquences ≥2 mots capitalisés type "Coche-Dury", "Prieuré Roch") avec stop-list pour exclure les régions/cépages/articles.
+3. **Comptage d'evidence** par croisement avec : dégustations enregistrées (`topTastings`/`recentTastings`), domaines récurrents (`computedProfile.topDomaines`), autres `user_memory_facts` mentionnant la même entité.
+4. **Routage** : evidence ≥ 2 → `Profil gustatif` (pilier), evidence < 2 → `Découvertes à confirmer`. Les préférences sans entité identifiable (ex : "Aime les blancs tendus") sont traitées comme piliers par défaut.
 
 ## Comment les `user_memory_facts` alimentent le profil
 
@@ -141,11 +154,17 @@ Version actuelle (V2, avril 2026) — 6 sections. Les 2 dernières sont **omises
 
 Sélection au moment de la compilation (`shared/celestin/compiled-profile.ts`) :
 
+- **Sanitisation déterministe en amont** (`sanitizeFacts`) : la DB peut contenir des facts mal catégorisés par le LLM. La compilation filtre par regex sur le texte du fact :
+  - `cellar_intent` qui sont des observations d'inventaire ("n'a aucun italien", "possède X dans sa cave") → skipés (l'info est déjà dans la table `bottles`).
+  - `wine_knowledge` qui sont du feedback produit ("Celestin", "l'app", "s'attend à ce que") → skipés.
+  - `wine_knowledge` qui sont des questions ponctuelles ("se demande si...", "s'intéresse aux différences") → skipés.
 - **Scoring** : `score = confidence × (0.6 + 0.4 × recency_decay)` où `recency_decay = 0.5 ^ (ageDays / halfLifeDays)`. La confidence garde minimum 60% du poids — un fait récent mais peu sûr ne détrône jamais un fait ancien très sûr juste par fraîcheur.
 - **Demi-vies par nature** : `context` 30j, `cellar_intent` 90j, `wine_knowledge` 180j, `social` 270j, `preference`/`aversion` 365j, `life_event` 540j. Un contexte de voyage vieillit vite ; une préférence de goût pas.
 - **Seuils de confiance minimum** : 0.5 pour `context`, 0.6 pour `wine_knowledge`, 0.65 pour `social`, 0.7 pour les autres. Les facts en dessous sont écartés avant sélection (lutte contre les inférences hasardeuses de l'extraction).
-- **Quotas serrés par catégorie** : 5 préférences, 3 aversions/wine_knowledge/social, 2 life_event/cellar_intent/context. Au-delà, on tranche par score décroissant.
+- **Quotas serrés par catégorie** : 5 piliers (preferences), 3 découvertes, 3 envies, 3 aversions/wine_knowledge/social, 2 life_event/cellar_intent/context. Au-delà, on tranche par score décroissant.
 - **Facts temporaires** : autorisés seulement pour `context` et `cellar_intent`, uniquement s'ils ne sont pas expirés. Les `context` temporaires sont préfixés `[contexte récent]` dans le Markdown pour signaler au LLM leur volatilité.
+
+> **Doctrine appliquée : DB = bac brut, compilation = contrat de qualité.** Les règles déterministes (sanitisation + funnel) tournent en lecture, n'altèrent jamais la DB. Quand on durcit ou assouplit une règle, on régénère les profils sans migration. C'est ce qui permet d'itérer sur la qualité du profil sans perdre l'historique.
 
 ## 3. Runtime minimal
 

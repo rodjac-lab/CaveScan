@@ -61,3 +61,6 @@ benchmark-results.html
 # Screenshots (non-app assets)
 public/Sceeenshot Landing/
 .env*.local
+
+# Local scratch (debug exports, profile snapshots, etc.)
+tmp/

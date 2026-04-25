@@ -13,6 +13,7 @@ import {
   type CelestinEvalFixture,
   type CelestinEvalResult,
 } from '@/lib/celestinEval'
+import { downloadBlob } from '@/lib/downloadBlob'
 import { compileUserProfile, loadUserProfile, type UserProfileRow } from '@/lib/userProfiles'
 import { loadActiveMemoryFacts } from '@/lib/chatPersistence'
 import { buildMemoryAuditReport, buildMemoryWeightReport, type MemoryAuditReport, type MemoryWeightReport } from '@/lib/debugInsights'
@@ -216,16 +217,8 @@ export function useDebugCelestinTools() {
         },
       }
 
-      const blob = new Blob([JSON.stringify(fixture, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
       const date = new Date().toISOString().slice(0, 10)
-      anchor.href = url
-      anchor.download = `celestin-fixture-${date}.json`
-      document.body.appendChild(anchor)
-      anchor.click()
-      document.body.removeChild(anchor)
-      URL.revokeObjectURL(url)
+      downloadBlob(JSON.stringify(fixture, null, 2), `celestin-fixture-${date}.json`, 'application/json')
 
       setFixtureStatus(
         `Fixture exportee (${fixture.cave?.length ?? 0} bouteilles en cave, ${fixture.drunk?.length ?? 0} degustees, profil compilé ${fixture.compiledProfileMarkdown ? 'oui' : 'non'})`
@@ -353,18 +346,6 @@ export function useDebugCelestinTools() {
       const report = { fixture, scenarios: CELESTIN_EVAL_SCENARIOS, providers: selectedProviders, memoryRuntime: 'compiled_profile_v1', results }
       const html = renderCelestinEvalHtmlReport(results, fixture, CELESTIN_EVAL_SCENARIOS)
       const baseName = `celestin-eval-${providerSuffix}-compiled_profile_v1-${timestamp}`
-
-      function downloadBlob(content: string, filename: string, type: string) {
-        const blob = new Blob([content], { type })
-        const url = URL.createObjectURL(blob)
-        const anchor = document.createElement('a')
-        anchor.href = url
-        anchor.download = filename
-        document.body.appendChild(anchor)
-        anchor.click()
-        document.body.removeChild(anchor)
-        URL.revokeObjectURL(url)
-      }
 
       downloadBlob(JSON.stringify(report, null, 2), `${baseName}.json`, 'application/json')
       downloadBlob(html, `${baseName}.html`, 'text/html')

@@ -190,6 +190,180 @@ describe('buildCompiledProfileMarkdown — new sections', () => {
   })
 })
 
+describe('buildCompiledProfileMarkdown — deterministic sanitization (T3 layer)', () => {
+  it('skips cellar_intent facts that are actually negative cellar state observations', () => {
+    const facts = [
+      fact({ category: 'cellar_intent', fact: "N'a aucune bouteille italienne dans sa cave", confidence: 0.85 }),
+      fact({ category: 'cellar_intent', fact: 'Veut renforcer son rayon Bourgogne', confidence: 0.85 }),
+    ]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    expect(md).not.toContain('aucune bouteille italienne')
+    expect(md).toContain('renforcer son rayon Bourgogne')
+  })
+
+  it('skips cellar_intent facts that are actually positive cellar inventory statements', () => {
+    const facts = [
+      fact({ category: 'cellar_intent', fact: 'Possède un Birichino Cinsault dans sa cave', confidence: 0.85 }),
+      fact({ category: 'cellar_intent', fact: 'Cherche à découvrir le Jura', confidence: 0.85 }),
+    ]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    expect(md).not.toContain('Birichino Cinsault')
+    expect(md).toContain('découvrir le Jura')
+  })
+
+  it('skips wine_knowledge facts that are actually app feedback', () => {
+    const facts = [
+      fact({ category: 'wine_knowledge', fact: "S'attend à ce que Celestin puisse lire ses notes", confidence: 0.8 }),
+      fact({ category: 'wine_knowledge', fact: 'Comprend le rôle du soutirage', confidence: 0.8 }),
+    ]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    expect(md).not.toContain('Celestin puisse lire')
+    expect(md).toContain('soutirage')
+  })
+
+  it('keeps real cellar_intent facts about plans, budgets, and exploration goals', () => {
+    const facts = [
+      fact({ category: 'cellar_intent', fact: 'Veut etoffer sa cave en Nebbiolo pour la garde', confidence: 0.85 }),
+      fact({ category: 'cellar_intent', fact: 'Cherche un budget de 200 euros pour son anniversaire', confidence: 0.85 }),
+    ]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    expect(md).toContain('Nebbiolo pour la garde')
+    expect(md).toContain('budget de 200 euros')
+  })
+
+  it('skips cellar_intent observations even when an adverb is inserted between possède and the count', () => {
+    const facts = [
+      fact({ category: 'cellar_intent', fact: 'Possède actuellement 108 bouteilles en cave sur 74 références.', confidence: 0.85 }),
+      fact({ category: 'cellar_intent', fact: 'Possède désormais des Riesling allemands', confidence: 0.85 }),
+    ]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    expect(md).not.toContain('108 bouteilles')
+    expect(md).not.toContain('Riesling allemands')
+  })
+
+  it('skips wine_knowledge facts that capture a passing question rather than knowledge', () => {
+    const facts = [
+      fact({ category: 'wine_knowledge', fact: "L'utilisateur se demande s'il a déjà bu du Barolo", confidence: 0.8 }),
+      fact({ category: 'wine_knowledge', fact: 'S’intéresse aux différences entre Barolo et Barbaresco', confidence: 0.8 }),
+      fact({ category: 'wine_knowledge', fact: 'Comprend le rôle du soutirage', confidence: 0.8 }),
+    ]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    expect(md).not.toContain('a déjà bu du Barolo')
+    expect(md).not.toContain('différences entre Barolo')
+    expect(md).toContain('soutirage')
+  })
+
+  it('omits the Contexte section entirely when every cellar_intent is sanitized away', () => {
+    const facts = [
+      fact({ category: 'cellar_intent', fact: 'Possède un Birichino Cinsault dans sa cave', confidence: 0.85 }),
+      fact({ category: 'cellar_intent', fact: "N'a pas de Bordeaux", confidence: 0.85 }),
+    ]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    expect(md).not.toContain('## Contexte et intentions')
+  })
+})
+
+describe('buildCompiledProfileMarkdown — funnel piliers / découvertes / envies', () => {
+  it('places a preference with no identifiable wine entity in Profil gustatif (pillar by default)', () => {
+    const facts = [fact({ category: 'preference', fact: 'Aime les blancs tendus', confidence: 0.85 })]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    expect(md).toContain('Aime les blancs tendus')
+    expect(md).not.toContain('## Découvertes à confirmer')
+    expect(md).not.toContain('## Envies')
+  })
+
+  it('classifies a single-tasting preference as a discovery', () => {
+    const facts = [
+      fact({
+        category: 'preference',
+        fact: "L'utilisateur a apprécié le domaine Prieuré Roch",
+        confidence: 0.85,
+      }),
+    ]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    expect(md).toContain('## Découvertes à confirmer')
+    expect(md).toContain('Prieuré Roch')
+    const profilIdx = md.indexOf('## Profil gustatif')
+    const discoveryIdx = md.indexOf('## Découvertes à confirmer')
+    const profilBlock = md.slice(profilIdx, discoveryIdx)
+    expect(profilBlock).not.toContain('Prieuré Roch')
+  })
+
+  it('promotes a preference to a pillar when it has at least 2 evidence sources', () => {
+    const facts = [
+      fact({
+        category: 'preference',
+        fact: "L'utilisateur apprécie le domaine Macle",
+        confidence: 0.9,
+      }),
+    ]
+    const md = buildCompiledProfileMarkdown({
+      nowIso: NOW_ISO,
+      memoryFacts: facts,
+      topTastings: [
+        { domaine: 'Domaine MACLE', cuvee: null, appellation: 'Côtes du Jura', millesime: 2016, drunk_at: null, rating: 4, tasting_note: 'Belle bouteille' },
+        { domaine: 'Domaine Macle', cuvee: null, appellation: 'Côtes du Jura', millesime: 2018, drunk_at: null, rating: 4, tasting_note: null },
+      ],
+      computedProfile: {
+        topDomaines: [{ name: 'Domaine Macle', count: 3, avgRating: 4 }],
+      },
+    })
+    const profilIdx = md.indexOf('## Profil gustatif')
+    const nextSectionIdx = md.indexOf('## Moments marquants', profilIdx)
+    const profilBlock = md.slice(profilIdx, nextSectionIdx)
+    expect(profilBlock).toContain('Macle')
+    expect(md).not.toContain('## Découvertes à confirmer')
+  })
+
+  it('places preferences with a future-tense verb in the Envies section', () => {
+    const facts = [
+      fact({
+        category: 'preference',
+        fact: "L'utilisateur aimerait essayer Coche-Dury",
+        confidence: 0.8,
+      }),
+      fact({
+        category: 'preference',
+        fact: "L'utilisateur a envie de goûter un Barolo de Giacomo Conterno",
+        confidence: 0.8,
+      }),
+    ]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    expect(md).toContain('## Envies')
+    expect(md).toContain('Coche-Dury')
+    expect(md).toContain('Giacomo Conterno')
+    const enviesIdx = md.indexOf('## Envies')
+    const enviesBlock = md.slice(enviesIdx)
+    expect(enviesBlock).toContain('aimerait essayer')
+    expect(enviesBlock).toContain('a envie de goûter')
+  })
+
+  it('puts the three new sections in the order Découvertes → Envies → Explorations', () => {
+    const facts = [
+      fact({ category: 'preference', fact: "L'utilisateur a apprécié le domaine Prieuré Roch", confidence: 0.85 }),
+      fact({ category: 'preference', fact: "L'utilisateur aimerait essayer Coche-Dury", confidence: 0.8 }),
+    ]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    const momentsIdx = md.indexOf('## Moments marquants')
+    const discoveriesIdx = md.indexOf('## Découvertes à confirmer')
+    const enviesIdx = md.indexOf('## Envies')
+    const explorationsIdx = md.indexOf('## Explorations en cours')
+    expect(momentsIdx).toBeGreaterThan(-1)
+    expect(discoveriesIdx).toBeGreaterThan(momentsIdx)
+    expect(enviesIdx).toBeGreaterThan(discoveriesIdx)
+    expect(explorationsIdx).toBeGreaterThan(enviesIdx)
+  })
+
+  it('omits Découvertes and Envies sections entirely when no preference fits them', () => {
+    const facts = [
+      fact({ category: 'preference', fact: 'Aime les blancs tendus', confidence: 0.85 }),
+    ]
+    const md = buildCompiledProfileMarkdown({ nowIso: NOW_ISO, memoryFacts: facts })
+    expect(md).not.toContain('## Découvertes à confirmer')
+    expect(md).not.toContain('## Envies')
+  })
+})
+
 describe('buildCompiledProfileMarkdown — scoring confidence x recency', () => {
   it('prefers a very recent medium-confidence fact over an old high-confidence fact after enough decay', () => {
     // cellar_intent quota = 2, half-life = 90d. With these numbers:
