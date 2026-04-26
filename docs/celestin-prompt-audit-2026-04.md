@@ -120,3 +120,28 @@ dans tous les modes). Méthodologie : profiter du snapshot prompt-builder pour m
 - Snapshots prompt-builder : **2 modes mis à jour** (`restaurant_assistant`, `cellar_assistant`) — seuls modes qui chargent `CELESTIN_RULES`. Diff isolé à la section ciblée, aucun autre changement.
 - Eval LLM : **40/40 pass** (143s, 2026-04-26 17h22).
 - `npm run verify` : lint + build + 250 unit + 6/6 e2e flows verts.
+
+## Phase 2 scorecard — findings 2026-04-26 soir
+
+Phase 2 du scorecard (5 critères sémantiques jugés par Claude Haiku 4.5 via la nouvelle edge function `scorecard-judge`) livrée et calibrée. Baseline sur 71 réponses : **OVERALL 94.2%** (556/590 critères pass), avec 34 fails sémantiques que les 4 critères déterministes ne voyaient pas.
+
+**Diagnostic honnête** : la plupart des fails sémantiques détectés (J3 80.3% surtout, J1 90.1%, J4 93%) sont des **travers connus de Gemini 2.5 Flash** :
+
+- **J3 no_theatre** (14 fails, le plus net) : drift lyrique récurrent. Mots-types attrapés : *pépites, polishé, noble, incroyable, parfait, ultra, totalement, superbement*. Gemini préfère les superlatifs et l'emphase malgré la directive persona "Pas de théâtre ni de lyrisme". Même pattern que le bug `Ah/!` mais sur du contenu lexical, donc **moins facile à fixer en déterministe** (suppression mécanique = trou syntaxique).
+- **J1 anti_echo** (7 fails) : reprise en début de réponse, surtout sur les actes d'encavage ("Trois Chablis 2022, c'est noté !" au lieu de "C'est noté."). Pattern modeste, parfois intentionnel.
+- **J4 no_permission_seeking** (5 fails) : softener "On peut y remedier si tu veux !" au lieu d'agir directement.
+- **J2** (4 fails) et **J5** (3 fails) : marginal.
+
+**Décision archi** : Phase 2 du scorecard est **opt-in** (`--with-judge` flag, off par défaut). Raisons :
+- Ces drifts sont reproductibles et largement connus — pas la peine de les remesurer à chaque commit.
+- Le coût ($0.20/run) et la latence (~5min) ne se justifient que pour valider un fix ciblé sur un de ces patterns.
+- Les 4 critères déterministes (par défaut, ~$0.10/run, ~2.5min) restent le KPI de progrès quotidien.
+
+**À reprendre dans une session fraîche** :
+- J3 lyrisme : la suppression déterministe des **adverbes intensificateurs** (`ultra`, `totalement`, `incroyable`, `parfaitement`) est probablement la voie la plus propre — le mot-noyau reste, la phrase tient. Substitution de mots-noyaux (`pépites` → `vins`) est plus risqué côté lisibilité.
+- J1 encavage : possible fix prompt ciblé (au lieu de "Trois Chablis 2022, c'est noté", juste "C'est noté").
+- J4 softeners : pattern `on peut .* si tu veux` peut être attrapé par un strip déterministe ciblé sur la fin de phrase.
+
+Commands :
+- `npm run scorecard:celestin` — déterministe seul (default, ~$0.10).
+- `npm run scorecard:celestin:with-judge` — Phase 2 complet (~$0.20).

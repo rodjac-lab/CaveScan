@@ -22,9 +22,14 @@
  *   J5 direct_answer_first             — answers the question before citing memory
  *
  * Usage:
- *   node scripts/scorecard-celestin.mjs           # full run + judge (~5min, ~$0.20)
- *   node scripts/scorecard-celestin.mjs --quick   # only single-turn (~1min)
- *   node scripts/scorecard-celestin.mjs --no-judge  # deterministic only (~2.5min, ~$0.10)
+ *   node scripts/scorecard-celestin.mjs                  # deterministic only, default (~2.5min, ~$0.10)
+ *   node scripts/scorecard-celestin.mjs --quick          # 10 single-turn deterministic (~30s)
+ *   node scripts/scorecard-celestin.mjs --with-judge     # Phase 2: + LLM judge (~5min, ~$0.20)
+ *
+ * The LLM judge (J1-J5 semantic criteria) is OFF by default — it surfaces drifts
+ * that are largely well-known Gemini quirks (lyrism, light parroting on
+ * acks, "on peut ... si tu veux" softeners). Enable it explicitly when you
+ * want to measure those, or to validate a fix targeted at one of them.
  */
 
 import fs from 'fs'
@@ -45,7 +50,10 @@ import {
 import { summarizeAssistantMessage } from '../evals/lib/assertions.mjs'
 
 const QUICK = process.argv.includes('--quick')
-const NO_JUDGE = process.argv.includes('--no-judge')
+// LLM judge is OFF by default — enable explicitly with --with-judge.
+// --no-judge accepted for back-compat / clarity but matches the default.
+const WITH_JUDGE = process.argv.includes('--with-judge')
+const NO_JUDGE = !WITH_JUDGE
 
 const JUDGE_KEYS = [
   'j1_anti_echo',
