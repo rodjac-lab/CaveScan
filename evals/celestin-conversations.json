@@ -21,7 +21,8 @@
         "message": "Merci, parfait !",
         "expect": {
           "uiAction": "none",
-          "nextPhase": "idle_smalltalk"
+          "nextPhase": "idle_smalltalk",
+          "responseMaxLines": 2
         }
       }
     ]
@@ -438,6 +439,7 @@
     ]
   },
   {
+    "id": "quality_honesty_fake_appellation",
     "type": "conversation",
     "description": "Honnêteté intellectuelle — ne pas valider une appellation fictive",
     "turns": [
@@ -579,6 +581,51 @@
         "message": "Ce soir c'est raclette",
         "expect": {
           "uiAction": "show_recommendations"
+        }
+      }
+    ]
+  },
+  {
+    "id": "inventory_large_count",
+    "type": "conversation",
+    "description": "Inventaire volumineux (>50 vins) — doit citer le total exact + 2-3 emblématiques, jamais énumérer toute la cave",
+    "turns": [
+      {
+        "message": "Combien de bouteilles j'ai en cave ?",
+        "expect": {
+          "uiAction": "none",
+          "responseMaxLines": 5,
+          "responseMaxLength": 500
+        }
+      }
+    ]
+  },
+  {
+    "id": "exact_quantity_magnums",
+    "type": "conversation",
+    "description": "Quantité exacte — doit compter les exemplaires (volume='1.5'), pas les références. Réponse contient un chiffre.",
+    "turns": [
+      {
+        "message": "Combien de magnums j'ai en cave ?",
+        "expect": {
+          "uiAction": "none",
+          "responseMaxLines": 4,
+          "responseNotContains": ["énumère toute"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "anti_hallu_no_note",
+    "type": "conversation",
+    "description": "Le Thillardon Les Carrières est en cave mais sans note de dégustation. Celestin doit dire qu'il ne retrouve pas la dégustation, jamais inventer une note ni un verbatim.",
+    "turns": [
+      {
+        "message": "Quelle note j'avais mis au Thillardon Les Carrières ?",
+        "expect": {
+          "uiAction": "none",
+          "responseNotContains": ["étoile", "etoile", "★", "j'ai noté", "j'avais noté", "noté 4", "noté 3", "noté 5"],
+          "responseMaxLines": 4
         }
       }
     ]
