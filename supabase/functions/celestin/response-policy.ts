@@ -18,13 +18,24 @@ function stripBannedOpener(message: string): string {
   return message.replace(openerPattern, '').trimStart()
 }
 
+function limitExclamations(message: string): string {
+  let kept = false
+  return message.replace(/\s*!/g, (match) => {
+    if (!kept) {
+      kept = true
+      return match
+    }
+    return '.'
+  })
+}
+
 export function applyResponsePolicy(
   response: CelestinResponse,
   interpretation: TurnInterpretation,
 ): CelestinResponse {
   const result = {
     ...response,
-    message: stripBannedOpener(response.message),
+    message: limitExclamations(stripBannedOpener(response.message)),
   }
 
   if (!interpretation.shouldAllowUiAction && result.ui_action) {
