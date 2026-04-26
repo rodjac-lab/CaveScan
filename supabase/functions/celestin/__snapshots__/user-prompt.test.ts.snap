@@ -1,0 +1,122 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: context_switch cellar_assistant 1`] = `
+"[QUESTION CAVE - Reponds uniquement a partir de la cave transmise. Pas de ui_action. Pour les questions de quantite, compte les bouteilles a partir des quantites, pas seulement les references.]
+combien de magnums ?"
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: context_switch tasting_memory with focus 1`] = `
+"[SOUVENIR — L'utilisateur fait reference a une degustation passee. Utilise uniquement les souvenirs explicitement fournis. Si un vin n'apparait pas dans ces souvenirs, dis-le franchement. PAS de ui_action sauf si l'utilisateur demande explicitement de noter.]
+[FOCUS MEMOIRE — La relance courte porte probablement sur : 2018. Si l'utilisateur demande "combien d'etoiles", "quelle note" ou "quel millesime", reste focalise sur ce vin precis.]
+et le 2018 ?"
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: context_switch wine_conversation pivot exploratoire 1`] = `
+"[QUESTION VIN — Reponds avec tes connaissances. PAS de ui_action. Sois concis et direct. N'utilise cave, memoire ou preferences que si la question le demande explicitement. Si un nom est inconnu, dis-le sans valider sa categorie implicite.]
+[PIVOT EXPLORATOIRE — L'utilisateur change d'angle apres une recommandation. Reponds a la nouvelle piste comme une question autonome. Ne mentionne PAS le plat precedent, ne reprends PAS les cartes precedentes, ne donne PAS de shortlist et ne declenche PAS de ui_action.]
+Et si je veux plutot un italien ?"
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: context_switch wine_conversation pivot reco 1`] = `
+"[QUESTION VIN — Reponds avec tes connaissances. PAS de ui_action. Sois concis et direct. N'utilise cave, memoire ou preferences que si la question le demande explicitement. Si un nom est inconnu, dis-le sans valider sa categorie implicite.]
+[PIVOT DE RECOMMANDATION — L'utilisateur explore une autre direction. Reponds sobrement a cette nouvelle piste sans recycler automatiquement le plat precedent, les cartes precedentes ou un souvenir marquant.]
+autre chose ?"
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: fallback default reco persistent 1`] = `
+"[RECOMMANDATION — Reponds d'abord a la demande actuelle. N'invente pas un autre contexte. Ne cite un souvenir que s'il aide directement le choix, jamais pour decorer.]
+et un dessert ?"
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: fallback recommendation_refinement 1`] = `
+"[NOUVELLE SELECTION — L'utilisateur demande d'autres bouteilles ou une variante. Utilise show_recommendations maintenant, en respectant la nouvelle contrainte.]
+autre chose en blanc ?"
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: fallback task_request reco immediate 1`] = `
+"[RECOMMANDATION IMMEDIATE — La demande actuelle suffit pour proposer des bouteilles. Utilise show_recommendations maintenant avec 2-3 cartes de la cave. Ne reponds pas seulement par des styles generiques.]
+ce soir c'est pizza"
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: fallback tasting_memory with focus 1`] = `
+"[FOCUS MEMOIRE — La relance courte porte probablement sur : 2018. Reste focalise sur ce vin precis.]
+et le 2018 ?"
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: greeting 1`] = `
+"DEMANDE SPECIALE : message d'accueil a l'ouverture de l'app.
+1 phrase. Pas de ui_action. Inclus 2-3 action_chips.
+
+Le ton : comme un ami sommelier qui t'accueille. Subtil, jamais vendeur.
+Inspire-toi du moment (heure, saison) et glisse une touche personnelle.
+Ne cite JAMAIS un vin par son nom. Ne dis pas "Salut l'ami".
+
+Exemples du ton juste :
+- (8h, printemps) "Le printemps s'installe, c'est la saison ou les blancs reprennent du service."
+- (12h) "Tu as prevu quelque chose de bon ce midi ?"
+- (18h, vendredi) "Vendredi soir, la cave t'attend."
+- (20h, hiver) "Soiree d'hiver, il fait bon ouvrir quelque chose de reconfortant."
+- (apres longue absence) "Ca faisait un moment ! Ta cave n'a pas bouge.""
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: prefetch 1`] = `
+"Demande : suggestions personnalisees pour ce soir, pas de contrainte de plat.
+Pas d'accord mets-vins a appliquer : priorise la pertinence contextuelle et la diversite."
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: recentDrunk trailer 1`] = `
+"[RECOMMANDATION IMMEDIATE — La demande actuelle suffit pour proposer des bouteilles. Utilise show_recommendations maintenant avec 2-3 cartes de la cave. Ne reponds pas seulement par des styles generiques.]
+que boire ?
+
+Vins bus recemment (a eviter) : Domaine A 2020, Domaine B 2019"
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: smalltalk wine_conversation basic 1`] = `
+"[QUESTION VIN — Reponds avec tes connaissances. PAS de ui_action. Sois concis et direct. N'utilise cave, memoire ou preferences que si la question le demande explicitement. Si un nom est inconnu, dis-le sans valider sa categorie implicite.]
+c'est quoi un Saint-Emilion ?"
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: social_ack idle 1`] = `
+"[CONVERSATION — PAS de ui_action. Reponds BRIEVEMENT (1-2 phrases max) + action_chips.]
+ok"
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: social_ack post_task_ack 1`] = `
+"[ACQUITTEMENT — L'utilisateur acquiesce apres ta derniere action. 1 phrase COURTE. Ne propose PAS d'autres vins, ne fais PAS de suggestion. Cloture chaleureuse + action_chips pour changer de sujet.]
+merci !"
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: task_cancel 1`] = `
+"[L'utilisateur decline ou veut arreter. Reponds brievement, pas de ui_action. Propose des action_chips pour changer de sujet.]
+laisse tomber"
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: task_continue collecting encavage 1`] = `
+"[ENCAVAGE — L'utilisateur complete la fiche d'un vin a encaver. Si le vin est maintenant suffisamment identifie (domaine/appellation/millesime ou equivalent), envoie prepare_add_wine IMMEDIATEMENT. Ne demande PAS "tu veux que je l'ajoute ?" et ne cherche PAS une confirmation supplementaire.]
+[STYLE — Reponse tres courte. Pas de commentaire de degustation, pas d'avis sur le domaine. Juste l'accuse de reception et l'action.]
+Domaine Tempier 2018"
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: task_continue collecting recommendation 1`] = `
+"[RECOMMANDATION IMMEDIATE — L'utilisateur vient d'apporter la precision manquante. Si le contexte suffit, utilise MAINTENANT show_recommendations. Base-toi sur la demande courante; n'introduis pas un autre plat, pays ou souvenir non mentionne.]
+plutot un blanc"
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: unknown with image 1`] = `
+"[CONVERSATION — Reponds naturellement. PAS de ui_action. action_chips : questions pour approfondir le sujet, PAS de suggestions de reco cave.]
+regarde
+L'utilisateur a joint une photo. Analyse-la et reponds en fonction de ce que tu vois."
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: unknown with image and recentDrunk 1`] = `
+"[CONVERSATION — Reponds naturellement. PAS de ui_action. action_chips : questions pour approfondir le sujet, PAS de suggestions de reco cave.]
+regarde
+L'utilisateur a joint une photo. Analyse-la et reponds en fonction de ce que tu vois.
+
+Vins bus recemment (a eviter) : Mas de Daumas 2018"
+`;
+
+exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: unknown without image 1`] = `
+"[CONVERSATION — Reponds naturellement. PAS de ui_action. action_chips : questions pour approfondir le sujet, PAS de suggestions de reco cave.]
+hmm"
+`;
