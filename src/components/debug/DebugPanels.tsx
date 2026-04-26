@@ -1,6 +1,6 @@
 import { ArrowLeft, Loader2, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
-import type { SessionSummary } from '@/lib/crossSessionMemory'
+import type { SessionSummary } from '@/lib/debug/crossSessionMemory'
 import type { UserProfileRow } from '@/lib/userProfiles'
 import { patchUserProfile } from '@/lib/userProfiles'
 import { downloadBlob } from '@/lib/downloadBlob'

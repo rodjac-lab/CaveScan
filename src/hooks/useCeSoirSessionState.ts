@@ -9,7 +9,7 @@ import { getCompiledUserProfileCached } from '@/lib/userProfiles'
 import {
   saveCurrentSession as saveCrossSession,
   rotateSessions,
-} from '@/lib/crossSessionMemory'
+} from '@/lib/debug/crossSessionMemory'
 import {
   buildGreeting as buildSharedGreeting,
   buildWelcomeChips as buildSharedWelcomeChips,

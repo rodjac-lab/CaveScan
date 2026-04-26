@@ -13,7 +13,7 @@ import {
 import {
   getMemoryDebugInfo,
   clearAllSessions,
-} from '@/lib/crossSessionMemory'
+} from '@/lib/debug/crossSessionMemory'
 import {
   CrossSessionCleanupPanel,
   DebugHeader,
