@@ -104,3 +104,19 @@ dans tous les modes). Méthodologie : profiter du snapshot prompt-builder pour m
 - Snapshots prompt-builder : **6 modes mis à jour** (greeting, social, wine_conversation, tasting_memory, restaurant_assistant, cellar_assistant) — diff isolé aux 4 bullets ciblés, aucun autre changement.
 - Eval LLM : **40/40 pass** (145s, 2026-04-26 17h13).
 - `npm run verify` : lint + build + 250 unit + 6/6 e2e flows verts.
+
+## rules.ts (audité 2026-04-26 après-midi — section "Regles cave")
+
+**Cluster identifié** : section "Regles cave" (L43-L47) contient une duplication d'emphase entre L44 et L45 sur la même règle (priorité des données cave sur les connaissances LLM).
+
+| # | Règle (extrait) | Statut | Justification |
+|---|----------------|--------|---------------|
+| L44 | "Ne change JAMAIS couleur, cuvee ou format... Si la cave dit 'rouge', le vin est rouge..." | **FUSIONNÉE avec L45** | Noyau gardé, "AUCUNE exception" intégré inline. |
+| L45 | "Un rouge reste rouge. Un blanc reste blanc... AUCUNE exception." | **SUPPRIMÉE** | Pure emphase répétitive de L44. La règle de couleur est déjà dans L44 ("Ne change JAMAIS couleur..."). |
+
+**Bilan** :
+- Section "Regles cave" : 5 bullets → 4.
+- Sémantique préservée : la priorité données cave + l'emphase "AUCUNE exception" restent toutes deux dans la règle consolidée.
+- Snapshots prompt-builder : **2 modes mis à jour** (`restaurant_assistant`, `cellar_assistant`) — seuls modes qui chargent `CELESTIN_RULES`. Diff isolé à la section ciblée, aucun autre changement.
+- Eval LLM : **40/40 pass** (143s, 2026-04-26 17h22).
+- `npm run verify` : lint + build + 250 unit + 6/6 e2e flows verts.
