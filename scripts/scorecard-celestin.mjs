@@ -14,9 +14,17 @@
  *   C3 max_1_exclamation       — at most 1 "!" in message
  *   C4 reco_cards_2_to_5       — when ui_action=show_recommendations, cards in [2..5]
  *
+ * Phase 2: semantic criteria via Claude Haiku 4.5 judge (scorecard-judge edge fn)
+ *   J1 anti_echo                       — does not parrot the user's words back
+ *   J2 no_rhetorical_question_finale   — does not close with a closed-ended hook
+ *   J3 no_theatre                      — no "Quelle liste !", "C'est du lourd !"
+ *   J4 no_permission_seeking           — does not ask "Tu veux que je propose ?"
+ *   J5 direct_answer_first             — answers the question before citing memory
+ *
  * Usage:
- *   node scripts/scorecard-celestin.mjs           # full run (~2.5min, ~$0.10)
- *   node scripts/scorecard-celestin.mjs --quick   # only single-turn scenarios (~30s)
+ *   node scripts/scorecard-celestin.mjs           # full run + judge (~5min, ~$0.20)
+ *   node scripts/scorecard-celestin.mjs --quick   # only single-turn (~1min)
+ *   node scripts/scorecard-celestin.mjs --no-judge  # deterministic only (~2.5min, ~$0.10)
  */
 
 import fs from 'fs'
@@ -37,6 +45,15 @@ import {
 import { summarizeAssistantMessage } from '../evals/lib/assertions.mjs'
 
 const QUICK = process.argv.includes('--quick')
+const NO_JUDGE = process.argv.includes('--no-judge')
+
+const JUDGE_KEYS = [
+  'j1_anti_echo',
+  'j2_no_rhetorical_question_finale',
+  'j3_no_theatre',
+  'j4_no_permission_seeking',
+  'j5_direct_answer_first',
+]
 
 const FORBIDDEN_FIRST_WORDS = new Set(
   ['ah', 'oh', 'tiens', 'bon', 'alors', 'absolument', 'bien', 'excellente'].map((w) => w.toLowerCase()),
@@ -68,7 +85,7 @@ function recoCardCount(uiAction) {
   return uiAction.payload?.cards?.length ?? 0
 }
 
-function evaluateResponse(message, uiAction) {
+function evaluateDeterministic(message, uiAction) {
   const fw = firstWord(message)
   const lines = nonEmptyLineCount(message)
   const excls = exclamationCount(message)
@@ -87,6 +104,52 @@ function evaluateResponse(message, uiAction) {
   }
 }
 
+async function callJudge(userMessage, assistantMessage, supabaseUrl, anonKey) {
+  const res = await fetch(`${supabaseUrl}/functions/v1/scorecard-judge`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${anonKey}`,
+      apikey: anonKey,
+    },
+    body: JSON.stringify({ user_message: userMessage, assistant_message: assistantMessage }),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`)
+  }
+  const data = await res.json()
+  if (data.error) throw new Error(data.error)
+  return data
+}
+
+function emptyJudgeResult() {
+  const out = {}
+  for (const key of JUDGE_KEYS) {
+    out[key] = { pass: null, detail: { reason: 'judge skipped or unavailable' } }
+  }
+  return out
+}
+
+async function judgeResponse(userMessage, assistantMessage, ctx) {
+  if (NO_JUDGE) return emptyJudgeResult()
+  try {
+    const verdict = await callJudge(userMessage, assistantMessage, ctx.supabaseUrl, ctx.supabaseAnonKey)
+    const reasoning = verdict._reasoning ?? ''
+    const out = {}
+    for (const key of JUDGE_KEYS) {
+      out[key] = { pass: verdict[key] === true, detail: { reasoning } }
+    }
+    return out
+  } catch (err) {
+    const out = {}
+    for (const key of JUDGE_KEYS) {
+      out[key] = { pass: null, detail: { error: err.message } }
+    }
+    return out
+  }
+}
+
 function aggregate(results) {
   const counters = {
     c1_first_word_non_filler: { pass: 0, fail: 0, na: 0 },
@@ -94,6 +157,7 @@ function aggregate(results) {
     c3_max_1_exclamation: { pass: 0, fail: 0, na: 0 },
     c4_reco_cards_2_to_5: { pass: 0, fail: 0, na: 0 },
   }
+  for (const key of JUDGE_KEYS) counters[key] = { pass: 0, fail: 0, na: 0 }
 
   for (const r of results) {
     for (const key of Object.keys(counters)) {
@@ -194,7 +258,8 @@ async function runSingleTurn(ctx, scenarios) {
       const { data } = await callCelestin(body, ctx.supabaseUrl, ctx.supabaseAnonKey)
       const message = data.message ?? ''
       const uiAction = data.ui_action ?? null
-      const scorecard = evaluateResponse(message, uiAction)
+      const deterministic = evaluateDeterministic(message, uiAction)
+      const judge = await judgeResponse(scenario.message, message, ctx)
       results.push({
         kind: 'single',
         scenarioId: scenario.id,
@@ -202,7 +267,7 @@ async function runSingleTurn(ctx, scenarios) {
         userMessage: scenario.message,
         assistantMessage: message,
         uiActionKind: uiAction?.kind ?? null,
-        scorecard,
+        scorecard: { ...deterministic, ...judge },
       })
       process.stdout.write('ok\n')
     } catch (err) {
@@ -227,7 +292,8 @@ async function runMultiTurn(ctx, conversations) {
         const { data } = await callCelestin(body, ctx.supabaseUrl, ctx.supabaseAnonKey)
         const message = data.message ?? ''
         const uiAction = data.ui_action ?? null
-        const scorecard = evaluateResponse(message, uiAction)
+        const deterministic = evaluateDeterministic(message, uiAction)
+        const judge = await judgeResponse(turn.message, message, ctx)
         results.push({
           kind: 'multi',
           scenarioId: conv.id,
@@ -235,7 +301,7 @@ async function runMultiTurn(ctx, conversations) {
           userMessage: turn.message,
           assistantMessage: message,
           uiActionKind: uiAction?.kind ?? null,
-          scorecard,
+          scorecard: { ...deterministic, ...judge },
         })
 
         const assistantText = summarizeAssistantMessage(data)
@@ -305,10 +371,10 @@ async function main() {
   console.log('=== SUMMARY ===')
   for (const [key, s] of Object.entries(summary)) {
     if (key === 'overall') continue
-    console.log(`  ${key.padEnd(30)} ${fmtPct(s.passRate).padStart(7)}  (${s.pass}/${s.pass + s.fail}, ${s.na} N/A)`)
+    console.log(`  ${key.padEnd(36)} ${fmtPct(s.passRate).padStart(7)}  (${s.pass}/${s.pass + s.fail}, ${s.na} N/A)`)
   }
   console.log('  ---')
-  console.log(`  ${'OVERALL'.padEnd(30)} ${fmtPct(summary.overall.passRate).padStart(7)}  (${summary.overall.pass}/${summary.overall.total})`)
+  console.log(`  ${'OVERALL'.padEnd(36)} ${fmtPct(summary.overall.passRate).padStart(7)}  (${summary.overall.pass}/${summary.overall.total})`)
   console.log('')
   console.log(`Reports written:`)
   console.log(`  - ${path.relative(process.cwd(), jsonPath)}`)
