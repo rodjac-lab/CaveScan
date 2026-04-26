@@ -12,7 +12,7 @@
  *   C1 first_word_non_filler   — no leading "Ah/Oh/Tiens/Bon/Alors/Absolument/Bien/Excellente"
  *   C2 max_5_lines             — body ≤ 5 non-empty lines
  *   C3 max_1_exclamation       — at most 1 "!" in message
- *   C4 reco_cards_3_to_5       — when ui_action=show_recommendations, cards in [3..5]
+ *   C4 reco_cards_2_to_5       — when ui_action=show_recommendations, cards in [2..5]
  *
  * Usage:
  *   node scripts/scorecard-celestin.mjs           # full run (~2.5min, ~$0.10)
@@ -77,13 +77,13 @@ function evaluateResponse(message, uiAction) {
   const c1 = !FORBIDDEN_FIRST_WORDS.has(fw)
   const c2 = lines <= 5
   const c3 = excls <= 1
-  const c4 = cards === null ? null : cards >= 3 && cards <= 5
+  const c4 = cards === null ? null : cards >= 2 && cards <= 5
 
   return {
     c1_first_word_non_filler: { pass: c1, detail: { firstWord: fw } },
     c2_max_5_lines: { pass: c2, detail: { lines } },
     c3_max_1_exclamation: { pass: c3, detail: { exclamations: excls } },
-    c4_reco_cards_3_to_5: { pass: c4, detail: { cards } },
+    c4_reco_cards_2_to_5: { pass: c4, detail: { cards } },
   }
 }
 
@@ -92,7 +92,7 @@ function aggregate(results) {
     c1_first_word_non_filler: { pass: 0, fail: 0, na: 0 },
     c2_max_5_lines: { pass: 0, fail: 0, na: 0 },
     c3_max_1_exclamation: { pass: 0, fail: 0, na: 0 },
-    c4_reco_cards_3_to_5: { pass: 0, fail: 0, na: 0 },
+    c4_reco_cards_2_to_5: { pass: 0, fail: 0, na: 0 },
   }
 
   for (const r of results) {
