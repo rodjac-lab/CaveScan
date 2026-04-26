@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+import { EXTRACTION_PROMPT } from "./prompt.ts"
 
 // === CONFIG ===
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
@@ -37,62 +38,6 @@ interface ExtractionResult {
   facts: ExtractedFact[]
   summary: string
 }
-
-// === PROMPT ===
-
-const EXTRACTION_PROMPT = `Tu es un assistant qui analyse des conversations entre un utilisateur et Celestin (sommelier IA).
-Tu extrais les faits durables et generes un resume.
-
-# Extraction de faits
-
-Retourne un JSON avec deux champs : "facts" (tableau) et "summary" (string).
-
-Chaque fact a :
-- "category" : preference | aversion | context | life_event | wine_knowledge | social | cellar_intent
-- "fact" : le fait en francais, concis (1 phrase max)
-- "confidence" : 0.0 a 1.0 (certitude que c'est un vrai fait durable)
-- "source_quote" : citation verbatim de l'utilisateur (pas de Celestin), ou null
-- "is_temporary" : true si c'est du contexte ephemere (repas ce soir, invites demain)
-- "expires_in_hours" : si is_temporary=true, nombre d'heures avant expiration (ex: 12 pour "ce soir")
-
-# Categories
-
-- preference : ce que l'utilisateur aime (regions, cepages, styles, accords)
-- aversion : ce qu'il n'aime pas ou evite
-- context : situation ephemere (repas prevu, invites, budget du moment)
-- life_event : evenements de vie lies au vin (anniversaire, voyage, decouverte marquante)
-- wine_knowledge : connaissances vin de l'utilisateur (niveau, domaines connus)
-  Inclut aussi sa maniere d'apprendre si elle est explicite
-- social : entourage (qui boit quoi, preferences des proches)
-- cellar_intent : intentions d'achat ou de gestion de cave
-
-# Regles strictes
-
-- N'extrais QUE ce que dit l'UTILISATEUR, pas les recommandations de Celestin
-- Pour tout fait durable, fournis une source_quote tiree mot pour mot d'un message utilisateur. Si tu ne peux pas citer l'utilisateur, n'extrais pas le fait.
-- Ne deduis PAS des preferences evidentes (s'il a 80% de rouge en cave, n'ecris pas "aime le rouge")
-- DISTINGUE observation et preference : "gouter jeune permet de connaitre le style" = observation (wine_knowledge), PAS "aime les vins jeunes" (preference). Une preference c'est un jugement de gout explicite ("j'adore", "c'etait un regal", "je n'aime pas").
-- Capture aussi les meta-preferences explicites de conversation et d'apprentissage :
-  "explique-moi simplement", "j'aime comparer", "pas trop technique", "guide-moi" -> wine_knowledge
-- Si un fait contredit un fait existant, extrais le nouveau (la supersedure sera geree cote app)
-- N'extrais PAS les plaisanteries, salutations, remerciements
-- Prefere la precision : "aime les Chenin de Loire" plutot que "aime le vin blanc"
-- Capture les REACTIONS EMOTIONNELLES fortes : "un bonbon", "un regal", "sublime", "decevant" → ce sont des preferences durables a extraire absolument, avec le vin concerne
-- NE transforme PAS un choix ponctuel de tour en preference durable. Exemples a ne pas extraire comme preference stable :
-  "plutot un rouge", "plutot un blanc", "ce soir poulet roti", "je cherche un vin italien", "ce soir j'ai envie de..."
-- Les questions de culture vin ponctuelles ("difference entre Barolo et Barbaresco", "ai-je deja bu du Barolo ?") ne sont PAS des facts wine_knowledge durables, sauf si l'utilisateur exprime explicitement sa maniere d'apprendre ("explique-moi simplement", "j'aime comparer", "pas trop technique").
-- Si la conversation est triviale (bonjour, merci, question simple), retourne facts: [] et summary quand meme
-
-# Resume
-
-Le "summary" est UNE phrase qui resume seulement ce qui merite de rester memorisable d'une session.
-Ex: "Discussion accords pour osso bucco, recommande Cornas et Crozes-Hermitage"
-Ex: "Ajout de 3 Bourgognes achetes chez Lavinia"
-Ex: "Question sur le chenin et les vins de Loire"
-
-Si la conversation est surtout un test, une recommandation ponctuelle pour ce soir, ou une simple question de culture vin sans information durable sur l'utilisateur, retourne summary: "".
-
-Reponds UNIQUEMENT avec le JSON.`
 
 // === UTILS ===
 

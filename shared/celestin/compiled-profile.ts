@@ -41,7 +41,7 @@ interface QuestionnaireLike {
   }
 }
 
-interface MemoryFactLike {
+export interface MemoryFactLike {
   category?: string | null
   fact?: string | null
   confidence?: number | null
@@ -287,7 +287,7 @@ function normalizeDedupKey(text: string): string {
   return key.replace(/\s+/g, ' ')
 }
 
-function sanitizeFacts(facts: MemoryFactLike[]): MemoryFactLike[] {
+export function sanitizeFacts(facts: MemoryFactLike[]): MemoryFactLike[] {
   const result: MemoryFactLike[] = []
   for (const fact of facts) {
     const text = (fact.fact ?? '').trim()
