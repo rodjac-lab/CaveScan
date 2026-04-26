@@ -9,12 +9,9 @@ export function buildMemoriesSection(body: RequestBody): string[] {
   const parts = [`Souvenirs de degustation :\n${body.memories}`]
 
   if (body.memoryEvidenceMode === 'exact') {
-    parts.push('Le bloc ci-dessus est un inventaire exact deja filtre. N ajoute aucun autre vin.')
-    parts.push('Si l utilisateur demande une note, des etoiles ou un commentaire de degustation, tu dois repondre uniquement avec la note/verbatim explicitement presents dans ce bloc. Si le vin ou sa note n apparait pas, dis clairement que tu ne retrouves pas cette degustation. N invente jamais une note.')
+    parts.push('Le bloc ci-dessus est un inventaire exact deja filtre. N ajoute aucun autre vin. Pour une question sur une note ou un verbatim, reponds uniquement avec ce qui apparait ici ; sinon dis que tu ne retrouves pas la degustation.')
   } else if (body.memoryEvidenceMode === 'synthesis') {
     parts.push('Le bloc ci-dessus est la base exacte de synthese. N affirme rien hors de ces degustations.')
-  } else {
-    parts.push('Cite des souvenirs specifiques quand pertinent.')
   }
 
   return parts
@@ -58,15 +55,11 @@ export function buildContextBlock(body: RequestBody, cognitiveMode: ContextMode)
         body.sqlRetrieval!.trim(),
         [
           'Regles d usage de ce bloc :',
-          '- Ces faits sont exhaustifs pour la question posee. Ne presume aucune omission ou erreur.',
-          '- Tu ne dois JAMAIS mentionner un vin qui n apparait pas explicitement dans ce bloc. Si le bloc ne cite pas un vin, il n existe pas pour cette reponse, meme si ton intuition ou tes connaissances le suggerent. C est une regle absolue anti-hallucination.',
-          '- Chaque bloc comporte un indicateur de rendu : si le bloc dit "Enumere les N vin(s) ci-dessous", liste-les tous, un par un. S il dit "L inventaire compte N fiches — TROP pour lister", donne uniquement le chiffre total + 2-3 exemples emblematiques tires du bloc, et renvoie l utilisateur vers la page Cave pour la liste complete.',
-          '- Le bloc classement (top N par note) doit toujours etre enumere dans son integralite, quel que soit son count.',
-          '- Le bloc temporel (vins bus sur une periode) doit etre enumere dans son integralite, meme pour 10+ vins — c est un historique, pas un inventaire de stock.',
-          '- Le chiffre total (ex: "15 vin(s) bu(s)", "9 fiche(s)", "10 exemplaire(s)") est la bonne reponse au "combien". Ne l arrondis pas.',
-          '- Quand plusieurs blocs coexistent, suis l indicateur de rendu de CHACUN independamment.',
+          '- Tu ne dois JAMAIS mentionner un vin qui n apparait pas explicitement dans ce bloc — regle absolue anti-hallucination.',
+          '- Suis l indicateur de rendu present dans chaque sous-bloc (ex: "Enumere les N vin(s)" liste tout ; "TROP pour lister" donne le total + 2-3 exemples + renvoie vers la page Cave).',
+          '- Les blocs classement (top N par note) et temporel (vins bus sur une periode) sont toujours enumeres en entier, quel que soit leur count.',
           '- Si un fait de ce bloc contredit un souvenir ou ton intuition, le fait prime.',
-          '- Le bloc "Souvenirs de degustation" reste utile pour la texture qualitative (verbatim, ambiance, descripteurs), pas pour les chiffres.',
+          '- Le bloc "Souvenirs de degustation" sert pour la texture qualitative (verbatim, ambiance), pas pour les chiffres.',
         ].join('\n'),
       ].join('\n\n'),
     )

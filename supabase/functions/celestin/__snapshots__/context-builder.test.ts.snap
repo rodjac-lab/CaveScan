@@ -1,0 +1,145 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildContextBlock > matches snapshot for mode=cellar_assistant 1`] = `
+"Profil utilisateur compile :
+## Profil compilé
+- Loire blanc
+- Beaujolais
+
+Souvenirs de degustation :
+Souvenir Domaine Gangloff 2018 — note 4/5, ouvert le 2026-02-26.
+
+Le bloc ci-dessus est la base exacte de synthese. N affirme rien hors de ces degustations.
+
+Faits deterministes extraits de la base (source exacte, pas une inference) :
+
+[Inventaire]
+L inventaire compte 6 fiche(s) — TROP pour lister.
+- Domaine Gangloff · Côte-Rôtie · 2018
+
+Regles d usage de ce bloc :
+- Tu ne dois JAMAIS mentionner un vin qui n apparait pas explicitement dans ce bloc — regle absolue anti-hallucination.
+- Suis l indicateur de rendu present dans chaque sous-bloc (ex: "Enumere les N vin(s)" liste tout ; "TROP pour lister" donne le total + 2-3 exemples + renvoie vers la page Cave).
+- Les blocs classement (top N par note) et temporel (vins bus sur une periode) sont toujours enumeres en entier, quel que soit leur count.
+- Si un fait de ce bloc contredit un souvenir ou ton intuition, le fait prime.
+- Le bloc "Souvenirs de degustation" sert pour la texture qualitative (verbatim, ambiance), pas pour les chiffres.
+
+Bouteilles en cave : 3 bouteilles (2 references).
+
+- [b1] Domaine Gangloff · Côte-Rôtie · 2018 · rouge | 2× btl
+
+- [b2] Thillardon · Les Carrières · Chénas · 2020 · rouge | 1× magnum — jus tendu | score_local=0.82"
+`;
+
+exports[`buildContextBlock > matches snapshot for mode=greeting 1`] = `
+"Profil utilisateur compile :
+## Profil compilé
+- Loire blanc
+- Beaujolais
+
+Cave : 3 bouteilles (2 references)."
+`;
+
+exports[`buildContextBlock > matches snapshot for mode=restaurant_assistant 1`] = `
+"Profil utilisateur compile :
+## Profil compilé
+- Loire blanc
+- Beaujolais
+
+Faits deterministes extraits de la base (source exacte, pas une inference) :
+
+[Inventaire]
+L inventaire compte 6 fiche(s) — TROP pour lister.
+- Domaine Gangloff · Côte-Rôtie · 2018
+
+Regles d usage de ce bloc :
+- Tu ne dois JAMAIS mentionner un vin qui n apparait pas explicitement dans ce bloc — regle absolue anti-hallucination.
+- Suis l indicateur de rendu present dans chaque sous-bloc (ex: "Enumere les N vin(s)" liste tout ; "TROP pour lister" donne le total + 2-3 exemples + renvoie vers la page Cave).
+- Les blocs classement (top N par note) et temporel (vins bus sur une periode) sont toujours enumeres en entier, quel que soit leur count.
+- Si un fait de ce bloc contredit un souvenir ou ton intuition, le fait prime.
+- Le bloc "Souvenirs de degustation" sert pour la texture qualitative (verbatim, ambiance), pas pour les chiffres."
+`;
+
+exports[`buildContextBlock > matches snapshot for mode=social 1`] = `
+"Profil utilisateur compile :
+## Profil compilé
+- Loire blanc
+- Beaujolais
+
+Cave : 3 bouteilles (2 references)."
+`;
+
+exports[`buildContextBlock > matches snapshot for mode=tasting_memory 1`] = `
+"Profil utilisateur compile :
+## Profil compilé
+- Loire blanc
+- Beaujolais
+
+Souvenirs de degustation :
+Souvenir Domaine Gangloff 2018 — note 4/5, ouvert le 2026-02-26.
+
+Le bloc ci-dessus est la base exacte de synthese. N affirme rien hors de ces degustations.
+
+Faits deterministes extraits de la base (source exacte, pas une inference) :
+
+[Inventaire]
+L inventaire compte 6 fiche(s) — TROP pour lister.
+- Domaine Gangloff · Côte-Rôtie · 2018
+
+Regles d usage de ce bloc :
+- Tu ne dois JAMAIS mentionner un vin qui n apparait pas explicitement dans ce bloc — regle absolue anti-hallucination.
+- Suis l indicateur de rendu present dans chaque sous-bloc (ex: "Enumere les N vin(s)" liste tout ; "TROP pour lister" donne le total + 2-3 exemples + renvoie vers la page Cave).
+- Les blocs classement (top N par note) et temporel (vins bus sur une periode) sont toujours enumeres en entier, quel que soit leur count.
+- Si un fait de ce bloc contredit un souvenir ou ton intuition, le fait prime.
+- Le bloc "Souvenirs de degustation" sert pour la texture qualitative (verbatim, ambiance), pas pour les chiffres.
+
+Cave : 3 bouteilles (2 references, detail non inclus)."
+`;
+
+exports[`buildContextBlock > matches snapshot for mode=wine_conversation 1`] = `
+"Profil utilisateur compile :
+## Profil compilé
+- Loire blanc
+- Beaujolais
+
+Souvenirs de degustation :
+Souvenir Domaine Gangloff 2018 — note 4/5, ouvert le 2026-02-26.
+
+Le bloc ci-dessus est la base exacte de synthese. N affirme rien hors de ces degustations.
+
+Faits deterministes extraits de la base (source exacte, pas une inference) :
+
+[Inventaire]
+L inventaire compte 6 fiche(s) — TROP pour lister.
+- Domaine Gangloff · Côte-Rôtie · 2018
+
+Regles d usage de ce bloc :
+- Tu ne dois JAMAIS mentionner un vin qui n apparait pas explicitement dans ce bloc — regle absolue anti-hallucination.
+- Suis l indicateur de rendu present dans chaque sous-bloc (ex: "Enumere les N vin(s)" liste tout ; "TROP pour lister" donne le total + 2-3 exemples + renvoie vers la page Cave).
+- Les blocs classement (top N par note) et temporel (vins bus sur une periode) sont toujours enumeres en entier, quel que soit leur count.
+- Si un fait de ce bloc contredit un souvenir ou ton intuition, le fait prime.
+- Le bloc "Souvenirs de degustation" sert pour la texture qualitative (verbatim, ambiance), pas pour les chiffres."
+`;
+
+exports[`buildMemoriesSection > exact mode adds strict-inventory directive 1`] = `
+[
+  "Souvenirs de degustation :
+Souvenir Domaine Gangloff 2018 — note 4/5, ouvert le 2026-02-26.",
+  "Le bloc ci-dessus est un inventaire exact deja filtre. N ajoute aucun autre vin. Pour une question sur une note ou un verbatim, reponds uniquement avec ce qui apparait ici ; sinon dis que tu ne retrouves pas la degustation.",
+]
+`;
+
+exports[`buildMemoriesSection > permissive mode emits memories alone, persona handles citation guidance 1`] = `
+[
+  "Souvenirs de degustation :
+Souvenir Domaine Gangloff 2018 — note 4/5, ouvert le 2026-02-26.",
+]
+`;
+
+exports[`buildMemoriesSection > synthesis mode adds base-de-synthese directive 1`] = `
+[
+  "Souvenirs de degustation :
+Souvenir Domaine Gangloff 2018 — note 4/5, ouvert le 2026-02-26.",
+  "Le bloc ci-dessus est la base exacte de synthese. N affirme rien hors de ces degustations.",
+]
+`;
