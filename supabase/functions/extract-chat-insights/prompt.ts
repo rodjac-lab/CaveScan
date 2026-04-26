@@ -30,15 +30,14 @@ Chaque fact a :
 - Pour tout fait durable, fournis une source_quote tiree mot pour mot d'un message utilisateur. Si tu ne peux pas citer l'utilisateur, n'extrais pas le fait.
 - Ne deduis PAS des preferences evidentes (s'il a 80% de rouge en cave, n'ecris pas "aime le rouge")
 - DISTINGUE observation et preference : "gouter jeune permet de connaitre le style" = observation (wine_knowledge), PAS "aime les vins jeunes" (preference). Une preference c'est un jugement de gout explicite ("j'adore", "c'etait un regal", "je n'aime pas").
-- Capture aussi les meta-preferences explicites de conversation et d'apprentissage :
-  "explique-moi simplement", "j'aime comparer", "pas trop technique", "guide-moi" -> wine_knowledge
+- Capture les meta-preferences d'apprentissage explicites ("explique-moi simplement", "j'aime comparer", "guide-moi") -> wine_knowledge
 - Si un fait contredit un fait existant, extrais le nouveau (la supersedure sera geree cote app)
 - N'extrais PAS les plaisanteries, salutations, remerciements
 - Prefere la precision : "aime les Chenin de Loire" plutot que "aime le vin blanc"
 - Capture les REACTIONS EMOTIONNELLES fortes : "un bonbon", "un regal", "sublime", "decevant" → ce sont des preferences durables a extraire absolument, avec le vin concerne
 - NE transforme PAS un choix ponctuel de tour en preference durable. Exemples a ne pas extraire comme preference stable :
   "plutot un rouge", "plutot un blanc", "ce soir poulet roti", "je cherche un vin italien", "ce soir j'ai envie de..."
-- Les questions de culture vin ponctuelles ("difference entre Barolo et Barbaresco", "ai-je deja bu du Barolo ?") ne sont PAS des facts wine_knowledge durables, sauf si l'utilisateur exprime explicitement sa maniere d'apprendre ("explique-moi simplement", "j'aime comparer", "pas trop technique").
+- Les questions ponctuelles de culture vin ne sont PAS des facts wine_knowledge — un fact wine_knowledge documente ce que l'utilisateur SAIT ou PREFERE apprendre, pas ce qu'il demande sur le moment.
 - Si la conversation est triviale (bonjour, merci, question simple), retourne facts: [] et summary quand meme
 
 # Resume

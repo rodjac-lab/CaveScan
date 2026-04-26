@@ -62,8 +62,27 @@ Pour chaque règle candidate à modification :
 
 À auditer dans une session suivante.
 
-## extract-chat-insights/index.ts (priorité 3)
+## extract-chat-insights/prompt.ts (audité 2026-04-26)
 
-À auditer en session séparée. La couche T3 (sanitizeFacts + classifyPreferences)
-filtre déjà à la compilation ; certaines règles d'extraction du prompt sont devenues
-redondantes (anti-inventaire de cave, anti-feedback Celestin).
+**Pré-requis posés avant l'audit** :
+- Prompt extrait dans `prompt.ts` (séparé du runtime Deno) pour permettre snapshot test côté Vitest.
+- Snapshot test du prompt → `extract-chat-insights.test.ts`.
+- Tests unitaires de `sanitizeFacts` (T3) → `src/lib/sanitizeFacts.test.ts` (15 cas), documente le filet de sécurité.
+
+**Découverte clé** : `WINE_KNOWLEDGE_QUESTION_PATTERNS` (T3) attrape les **méta-formulations** ("se demande", "s'intéresse à la différence", "demande à celestin") mais pas les facts directs comme "Aime comparer Barolo et Barbaresco". La règle prompt L83 garde donc une utilité résiduelle — condensée plutôt que supprimée.
+
+| # | Règle (extrait court) | Garantie pipeline | Statut | Justification |
+|---|----------------------|-------------------|--------|---------------|
+| L75-76 | "Capture les meta-preferences explicites... 4 exemples" | aucune (sémantique pure) | **CONDENSÉE** | Liste d'exemples 4 → 3, retrait de `pas trop technique` (proche de `explique-moi simplement`). |
+| L83 | "Les questions ponctuelles de culture vin... ne sont PAS des facts wine_knowledge durables, sauf si explicitement..." | T3 `WINE_KNOWLEDGE_QUESTION_PATTERNS` (couvre méta-formulations) | **CONDENSÉE** | Reformulé en principe ("ce que SAIT vs ce que demande") au lieu de liste d'exemples qui doublent T3. La clause d'exception (renvoi à L75-76) supprimée car L75-76 stand-alone. |
+
+**Bilan A** :
+- ~36 tokens économisés par appel à extract-chat-insights (~3 700 → ~3 588 chars).
+- Impact direct : extraction mémoire en fin de chaque session de chat → marginal en wall-clock mais récurrent.
+- Garde-fou inchangé : T3 continue de filtrer les questions de culture vin déguisées en facts.
+- Snapshot + sanitizeFacts.test.ts en place pour les futurs audits.
+
+## persona.ts / rules.ts (priorité 2 — pas dans cette session)
+
+À auditer dans une session suivante. Plus risqué (ces fichiers conditionnent la voix Celestin
+dans tous les modes). Méthodologie : profiter du snapshot prompt-builder pour mesurer l'impact.
