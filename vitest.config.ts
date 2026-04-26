@@ -8,7 +8,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['src/**/*.test.ts', 'supabase/functions/**/*.test.ts'],
-    exclude: ['.agents/**', 'docs/**', 'public/**', 'evals/**'],
+    include: ['src/**/*.test.ts', 'supabase/functions/**/*.test.ts', 'evals/**/*.test.ts'],
+    exclude: ['.agents/**', 'docs/**', 'public/**'],
   },
 })

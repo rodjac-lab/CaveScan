@@ -1,51 +1,38 @@
+/**
+ * Celestin eval CLI runner — produces JSON + HTML report.
+ *
+ * Pure assertions, fixture loading, and HTTP calls live in evals/lib/ so the
+ * Vitest suite (evals/celestin-eval.test.ts) can reuse them. This script
+ * orchestrates a one-shot run with rich console output and an HTML report.
+ */
+
 import fs from 'fs'
 import path from 'path'
 
+import {
+  analyzeScenarioResult,
+  analyzeTurnResult,
+  detectIntroFlags,
+  getCards,
+  getUiActionKind,
+  summarizeAssistantMessage,
+} from '../evals/lib/assertions.mjs'
+
+import {
+  DEFAULT_CONVERSATIONS,
+  DEFAULT_OUT_DIR,
+  DEFAULT_SCENARIOS,
+  TEMPLATE_FIXTURE,
+  buildRequestBody,
+  buildSingleTurnBody,
+  callCelestin,
+  ensureDir,
+  findLatestRealFixture,
+  loadJson,
+  loadSupabaseEnv,
+} from '../evals/lib/runner.mjs'
+
 const ROOT = process.cwd()
-const FIXTURE_DIR = path.join(ROOT, 'evals')
-const TEMPLATE_FIXTURE = path.join(FIXTURE_DIR, 'celestin-fixture.template.json')
-const DEFAULT_SCENARIOS = path.join(ROOT, 'evals', 'celestin-scenarios.json')
-const DEFAULT_CONVERSATIONS = path.join(ROOT, 'evals', 'celestin-conversations.json')
-const DEFAULT_OUT_DIR = path.join(ROOT, 'evals', 'results')
-
-function findLatestRealFixture() {
-  if (!fs.existsSync(FIXTURE_DIR)) return null
-
-  const candidates = fs.readdirSync(FIXTURE_DIR)
-    .filter((name) => /^celestin-fixture.*\.json$/i.test(name))
-    .filter((name) => name !== 'celestin-fixture.template.json')
-    .map((name) => {
-      const fullPath = path.join(FIXTURE_DIR, name)
-      return {
-        name,
-        fullPath,
-        mtimeMs: fs.statSync(fullPath).mtimeMs,
-      }
-    })
-    .sort((left, right) => right.mtimeMs - left.mtimeMs)
-
-  return candidates[0]?.fullPath ?? null
-}
-
-function readEnvFile(filePath) {
-  if (!fs.existsSync(filePath)) return {}
-  const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/)
-  const env = {}
-  for (const line of lines) {
-    if (!line || line.trim().startsWith('#')) continue
-    const idx = line.indexOf('=')
-    if (idx === -1) continue
-    const key = line.slice(0, idx).trim()
-    const value = line
-      .slice(idx + 1)
-      .trim()
-      .replace(/^['"]|['"]$/g, '')
-      .replace(/\\n/g, '')
-      .trim()
-    env[key] = value
-  }
-  return env
-}
 
 function parseArgs(argv) {
   const args = {
@@ -67,17 +54,12 @@ function parseArgs(argv) {
     else if (arg === '--dry-run') args.dryRun = true
   }
 
-  // Default: run both if neither is specified
   if (!args.scenarios && !args.conversations) {
     args.scenarios = DEFAULT_SCENARIOS
     args.conversations = DEFAULT_CONVERSATIONS
   }
 
   return args
-}
-
-function ensureDir(dir) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
 }
 
 function escapeHtml(value) {
@@ -87,278 +69,12 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
 }
 
-function loadJson(filePath) {
-  if (!filePath || !fs.existsSync(filePath)) return null
-  return JSON.parse(fs.readFileSync(filePath, 'utf8'))
-}
-
-function buildRequestBody(fixture, message, history, conversationState, provider) {
-  return {
-    message,
-    history,
-    cave: fixture.cave ?? [],
-    profile: fixture.profile,
-    memories: fixture.memories,
-    context: fixture.context,
-    debugTrace: true,
-    ...(conversationState ? { conversationState } : {}),
-    ...(provider ? { provider } : {}),
-    ...(fixture.compiledProfileMarkdown ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown } : {}),
-  }
-}
-
-// Legacy: build body from single-turn scenario format
-function buildSingleTurnBody(fixture, scenario, provider) {
-  const history = (scenario.history ?? fixture.history ?? []).map((turn) => ({
-    role: turn.role,
-    text: turn.content,
-  }))
-
-  return {
-    message: scenario.message,
-    history,
-    cave: fixture.cave ?? [],
-    profile: fixture.profile,
-    memories: fixture.memories,
-    context: fixture.context,
-    debugTrace: true,
-    ...(provider ? { provider } : {}),
-    ...(fixture.compiledProfileMarkdown ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown } : {}),
-  }
-}
-
-function detectMemoryUsage(text, cards) {
-  const haystack = [text, ...(cards ?? []).map((card) => `${card.reason ?? ''}`)]
-    .join(' ')
-    .toLowerCase()
-
-  const patterns = [
-    'tu avais adore',
-    'tu avais adoré',
-    'tu as aime',
-    'tu as aimé',
-    'tu avais aime',
-    'tu te souviens',
-    'on a deja bu',
-    'on a déjà bu',
-    'tu avais trouve',
-    'tu avais trouvé',
-    'comme le ',
-  ]
-
-  return patterns.some((pattern) => haystack.includes(pattern))
-}
-
-function detectIntroFlags(text) {
-  const normalized = (text ?? '').toLowerCase()
-  return {
-    hasTiens: normalized.includes('tiens'),
-    hasPepites: normalized.includes('pépite') || normalized.includes('pepite'),
-    hasAhLead: normalized.startsWith('ah,') || normalized.startsWith('ah '),
-  }
-}
-
-function getUiActionKind(response) {
-  return response?.ui_action?.kind ?? 'none'
-}
-
-function getCards(response) {
-  if (response?.ui_action?.kind === 'show_recommendations') {
-    return response.ui_action.payload?.cards ?? []
-  }
-  return response?.cards ?? []
-}
-
-function normalizeEvalText(value) {
-  return String(value ?? '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-}
-
-function textContainsNumericToken(responseText, token) {
-  return new RegExp(`(^|[^0-9])${token}([^0-9]|$)`).test(responseText)
-}
-
-function responseContainsExpectedTerm(responseText, term) {
-  const normalizedText = normalizeEvalText(responseText)
-  const normalizedTerm = normalizeEvalText(term)
-
-  const ratingAliases = {
-    '1': ['1', '1/5', 'un', 'une'],
-    '2': ['2', '2/5', 'deux'],
-    '3': ['3', '3/5', 'trois'],
-    '4': ['4', '4/5', 'quatre'],
-    '5': ['5', '5/5', 'cinq'],
-  }
-
-  const aliases = ratingAliases[normalizedTerm] ?? [normalizedTerm]
-  return aliases.some((alias) => {
-    if (/^[1-5]$/.test(alias)) return textContainsNumericToken(normalizedText, alias)
-    return normalizedText.includes(alias)
-  })
-}
-
-function analyzeScenarioResult(scenario, response) {
-  const cards = getCards(response)
-  const avoidColors = scenario.expectations?.avoidColors ?? []
-  const avoidColorHits = cards.filter((card) => avoidColors.includes(card.color))
-  const expectedUiActionKind = scenario.expectations?.expectedUiActionKind
-
-  return {
-    uiActionKind: getUiActionKind(response),
-    cardCount: cards.length,
-    memoryUsed: detectMemoryUsage(response.message, cards),
-    introFlags: detectIntroFlags(response.message),
-    expectedUiActionKindMismatch: Boolean(expectedUiActionKind && getUiActionKind(response) !== expectedUiActionKind),
-    avoidColorHits: avoidColorHits.map((card) => ({
-      name: card.name,
-      color: card.color,
-      badge: card.badge,
-    })),
-    maxCardsExceeded: typeof scenario.expectations?.maxCards === 'number'
-      ? cards.length > scenario.expectations.maxCards
-      : false,
-  }
-}
-
-async function callCelestin(body, baseUrl, anonKey) {
-  const start = Date.now()
-  const res = await fetch(`${baseUrl}/functions/v1/celestin`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${anonKey}`,
-      apikey: anonKey,
-    },
-    body: JSON.stringify(body),
-  })
-
-  const elapsedMs = Date.now() - start
-  const data = await res.json()
-  if (!res.ok || data?.error) {
-    throw new Error(data?.error || `HTTP ${res.status}`)
-  }
-
-  return { data, elapsedMs }
-}
-
-// --- Conversation (multi-turn) runner ---
-
-function analyzeTurnResult(turn, response) {
-  const actualUiAction = getUiActionKind(response)
-  const actualPhase = response._nextState?.phase ?? null
-  const checks = []
-
-  // Check uiAction expectation
-  if (turn.expect.uiAction !== null && turn.expect.uiAction !== undefined) {
-    const pass = actualUiAction === turn.expect.uiAction
-    checks.push({
-      check: 'uiAction',
-      expected: turn.expect.uiAction,
-      actual: actualUiAction,
-      pass,
-    })
-  }
-
-  // Check nextPhase expectation
-  if (turn.expect.nextPhase !== null && turn.expect.nextPhase !== undefined) {
-    const pass = actualPhase === turn.expect.nextPhase
-    checks.push({
-      check: 'nextPhase',
-      expected: turn.expect.nextPhase,
-      actual: actualPhase,
-      pass,
-    })
-  }
-
-  // Check cognitiveMode (requires _debug in response)
-  if (turn.expect.cognitiveMode !== null && turn.expect.cognitiveMode !== undefined) {
-    const actualMode = response._debug?.cognitiveMode ?? null
-    const pass = actualMode === turn.expect.cognitiveMode
-    checks.push({
-      check: 'cognitiveMode',
-      expected: turn.expect.cognitiveMode,
-      actual: actualMode ?? 'unknown',
-      pass,
-    })
-  }
-
-  // Check responseContains — verify specific words/phrases appear in the response
-  if (Array.isArray(turn.expect.responseContains)) {
-    const responseText = response.message ?? ''
-    for (const term of turn.expect.responseContains) {
-      const pass = responseContainsExpectedTerm(responseText, term)
-      checks.push({
-        check: 'contains',
-        expected: term,
-        actual: pass ? 'found' : 'missing',
-        pass,
-      })
-    }
-  }
-
-  // Check responseNotContains — verify specific words/phrases do NOT appear
-  if (Array.isArray(turn.expect.responseNotContains)) {
-    const responseText = (response.message ?? '').toLowerCase()
-    for (const term of turn.expect.responseNotContains) {
-      const found = responseText.includes(term.toLowerCase())
-      checks.push({
-        check: 'not_contains',
-        expected: `absent: "${term}"`,
-        actual: found ? 'found (bad)' : 'absent (good)',
-        pass: !found,
-      })
-    }
-  }
-
-  // Check responseMaxLength — verify response isn't too long
-  if (typeof turn.expect.responseMaxLength === 'number') {
-    const len = (response.message ?? '').length
-    const pass = len <= turn.expect.responseMaxLength
-    checks.push({
-      check: 'maxLength',
-      expected: `≤${turn.expect.responseMaxLength}`,
-      actual: `${len}`,
-      pass,
-    })
-  }
-
-  return {
-    uiActionKind: actualUiAction,
-    nextPhase: actualPhase,
-    cardCount: getCards(response).length,
-    checks,
-    allPassed: checks.every((c) => c.pass),
-  }
-}
-
-function summarizeAssistantMessage(response) {
-  // Build a text summary of assistant response for history (like the frontend does)
-  let text = response.message ?? ''
-  const uiAction = response.ui_action
-  if (uiAction?.kind === 'show_recommendations') {
-    const cards = uiAction.payload?.cards ?? []
-    if (cards.length > 0) {
-      text += ` [${cards.length} recommandations : ${cards.map((c) => c.name).join(', ')}]`
-    }
-  } else if (uiAction?.kind === 'prepare_add_wine') {
-    text += ' [propose encavage]'
-  } else if (uiAction?.kind === 'prepare_add_wines') {
-    const count = uiAction.payload?.wines?.length ?? 0
-    text += ` [propose ${count} encavages]`
-  } else if (uiAction?.kind === 'prepare_log_tasting') {
-    text += ' [propose dégustation]'
-  }
-  return text
-}
-
 async function runConversation(conversation, fixture, baseUrl, anonKey, dryRun, provider) {
   const turns = conversation.turns
   const turnResults = []
   let history = []
   let conversationState = null
-  let chainBroken = false // true after a turn fails — subsequent turns are "skipped"
+  let chainBroken = false
 
   console.log(`\n  Conversation ${conversation.id}: ${conversation.description}`)
 
@@ -391,10 +107,9 @@ async function runConversation(conversation, fixture, baseUrl, anonKey, dryRun, 
 
       const analysis = analyzeTurnResult(turn, data)
 
-      // If the chain is already broken, mark this turn as skipped instead of fail
       if (chainBroken) {
         analysis.skipped = true
-        analysis.allPassed = true // don't count skipped turns as failures
+        analysis.allPassed = true
         console.log(`      ⊘ skipped (previous turn failed) | ui=${analysis.uiActionKind} phase=${analysis.nextPhase} | ${elapsedMs}ms`)
       } else {
         analysis.skipped = false
@@ -402,7 +117,6 @@ async function runConversation(conversation, fixture, baseUrl, anonKey, dryRun, 
         const checksStr = analysis.checks.map((c) => `${c.check}:${c.pass ? '✓' : `✗(${c.expected}≠${c.actual})`}`).join(' ')
         console.log(`      ${statusIcon} ${checksStr} | ui=${analysis.uiActionKind} phase=${analysis.nextPhase} | ${elapsedMs}ms`)
 
-        // Break the chain if this turn failed
         if (!analysis.allPassed) {
           chainBroken = true
         }
@@ -416,7 +130,6 @@ async function runConversation(conversation, fixture, baseUrl, anonKey, dryRun, 
         analysis,
       })
 
-      // Chain: update history and conversationState for next turn
       const assistantText = summarizeAssistantMessage(data)
       history = [
         ...history,
@@ -441,7 +154,6 @@ async function runConversation(conversation, fixture, baseUrl, anonKey, dryRun, 
           skipped: false,
         },
       })
-      // Stop conversation on network error — no point continuing
       break
     }
   }
@@ -583,7 +295,6 @@ function renderHtmlReport(singleResults, conversationResults, fixture, scenarios
 
   const convRows = conversationResults.map(renderConversationResult).join('\n')
 
-  // Compute conversation stats
   const convTotal = conversationResults.length
   const convPassed = conversationResults.filter((c) => c.allPassed).length
   const convFailed = convTotal - convPassed
@@ -618,7 +329,6 @@ function renderHtmlReport(singleResults, conversationResults, fixture, scenarios
     .reason { margin-top: 8px; font-size: 14px; line-height: 1.45; }
     .empty { color: #8a7e73; font-style: italic; }
 
-    /* Conversation-specific styles */
     .conversation { background: #fffdf9; border: 1px solid #e2d8ca; border-radius: 16px; padding: 18px; margin-bottom: 18px; box-shadow: 0 8px 24px rgba(0,0,0,0.04); }
     .conv-badge { font-size: 12px; padding: 2px 10px; border-radius: 999px; font-weight: 600; vertical-align: middle; }
     .conv-pass .conv-badge, .conv-badge.conv-pass { background: #e4efe2; color: #275d2e; }
@@ -673,12 +383,12 @@ function renderHtmlReport(singleResults, conversationResults, fixture, scenarios
 
 async function main() {
   const args = parseArgs(process.argv)
-  const env = { ...readEnvFile(path.join(ROOT, '.env.local')), ...process.env }
-  const supabaseUrl = env.VITE_SUPABASE_URL
-  const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY
+  const dryRun = args.dryRun
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY')
+  let supabaseUrl = ''
+  let supabaseAnonKey = ''
+  if (!dryRun) {
+    ({ supabaseUrl, supabaseAnonKey } = loadSupabaseEnv())
   }
 
   if (!args.fixture) {
@@ -725,90 +435,94 @@ async function main() {
   console.log(`\n=== Memory runtime: compiled_profile_v1 ===`)
 
   if (scenarios && scenarios.length > 0) {
-      console.log(`\n=== Single-turn scenarios (${scenarios.length}) ===`)
-      for (const scenario of scenarios) {
-        const body = buildSingleTurnBody(fixture, scenario, args.provider)
-        console.log(`Running ${scenario.id}: ${scenario.message}`)
-        if (args.dryRun) {
-          singleResults.push({
-            id: scenario.id,
-            elapsedMs: 0,
-            request: body,
-            response: { message: 'Dry run: no network call', ui_action: null },
-            analysis: {
-              uiActionKind: 'none',
-              cardCount: 0,
-              memoryUsed: false,
-              introFlags: { hasTiens: false, hasPepites: false, hasAhLead: false },
-              expectedUiActionKindMismatch: false,
-              maxCardsExceeded: false,
-              avoidColorHits: [],
-            },
-          })
-          continue
+    console.log(`\n=== Single-turn scenarios (${scenarios.length}) ===`)
+    // Single-turn scenarios are independent: parallel calls cut wall-clock time
+    // ~3-4× without changing per-scenario semantics. Conversations stay
+    // sequential below because turns chain state.
+    const runOne = async (scenario) => {
+      const body = buildSingleTurnBody(fixture, scenario, args.provider)
+      console.log(`Running ${scenario.id}: ${scenario.message}`)
+      if (args.dryRun) {
+        return {
+          id: scenario.id,
+          elapsedMs: 0,
+          request: body,
+          response: { message: 'Dry run: no network call', ui_action: null },
+          analysis: {
+            uiActionKind: 'none',
+            cardCount: 0,
+            memoryUsed: false,
+            introFlags: { hasTiens: false, hasPepites: false, hasAhLead: false },
+            expectedUiActionKindMismatch: false,
+            maxCardsExceeded: false,
+            avoidColorHits: [],
+          },
         }
-        try {
-          const { data, elapsedMs } = await callCelestin(body, supabaseUrl, supabaseAnonKey)
-          singleResults.push({
-            id: scenario.id,
-            elapsedMs,
-            request: body,
-            response: data,
-            analysis: analyzeScenarioResult(scenario, data),
-          })
-        } catch (error) {
-          singleResults.push({
-            id: scenario.id,
-            elapsedMs: null,
-            request: body,
-            response: { message: error instanceof Error ? error.message : String(error), ui_action: null },
-            analysis: {
-              uiActionKind: 'none',
-              cardCount: 0,
-              memoryUsed: false,
-              introFlags: { hasTiens: false, hasPepites: false, hasAhLead: false },
-              expectedUiActionKindMismatch: Boolean(scenario.expectations?.expectedUiActionKind && scenario.expectations.expectedUiActionKind !== 'none'),
-              maxCardsExceeded: false,
-              avoidColorHits: [],
-            },
-          })
+      }
+      try {
+        const { data, elapsedMs } = await callCelestin(body, supabaseUrl, supabaseAnonKey)
+        return {
+          id: scenario.id,
+          elapsedMs,
+          request: body,
+          response: data,
+          analysis: analyzeScenarioResult(scenario, data),
+        }
+      } catch (error) {
+        return {
+          id: scenario.id,
+          elapsedMs: null,
+          request: body,
+          response: { message: error instanceof Error ? error.message : String(error), ui_action: null },
+          analysis: {
+            uiActionKind: 'none',
+            cardCount: 0,
+            memoryUsed: false,
+            introFlags: { hasTiens: false, hasPepites: false, hasAhLead: false },
+            expectedUiActionKindMismatch: Boolean(scenario.expectations?.expectedUiActionKind && scenario.expectations.expectedUiActionKind !== 'none'),
+            maxCardsExceeded: false,
+            avoidColorHits: [],
+          },
         }
       }
     }
+    const results = await Promise.all(scenarios.map(runOne))
+    singleResults.push(...results)
+  }
 
   if (conversations && conversations.length > 0) {
-      console.log(`\n=== Multi-turn conversations (${conversations.length}) ===`)
-      for (const conversation of conversations) {
-        const result = await runConversation(
-          conversation,
-          fixture,
-          supabaseUrl,
-          supabaseAnonKey,
-          args.dryRun,
-          args.provider,
-        )
-        conversationResults.push(result)
-      }
-
-      const passed = conversationResults.filter((c) => c.allPassed).length
-      const failed = conversationResults.length - passed
-      console.log(`\n  Conversations: ${passed} passed, ${failed} failed out of ${conversationResults.length}`)
+    console.log(`\n=== Multi-turn conversations (${conversations.length}) ===`)
+    for (const conversation of conversations) {
+      const result = await runConversation(
+        conversation,
+        fixture,
+        supabaseUrl,
+        supabaseAnonKey,
+        args.dryRun,
+        args.provider,
+      )
+      conversationResults.push(result)
     }
+
+    const passed = conversationResults.filter((c) => c.allPassed).length
+    const failed = conversationResults.length - passed
+    console.log(`\n  Conversations: ${passed} passed, ${failed} failed out of ${conversationResults.length}`)
+  }
 
   const jsonPath = path.join(args.outDir, `celestin-eval-compiled_profile_v1-${timestamp}.json`)
   const htmlPath = path.join(args.outDir, `celestin-eval-compiled_profile_v1-${timestamp}.html`)
 
   fs.writeFileSync(jsonPath, JSON.stringify({
-      fixture,
-      scenarios: scenarios ?? [],
-      conversations: conversations ?? [],
-      memoryRuntime: {
-        id: 'compiled_profile_v1',
-        label: 'Compiled profile',
-      },
-      singleResults,
-      conversationResults,
-    }, null, 2))
+    fixture,
+    scenarios: scenarios ?? [],
+    conversations: conversations ?? [],
+    memoryRuntime: {
+      id: 'compiled_profile_v1',
+      label: 'Compiled profile',
+    },
+    singleResults,
+    conversationResults,
+  }, null, 2))
   fs.writeFileSync(
     htmlPath,
     renderHtmlReport(singleResults, conversationResults, fixture, scenarios ?? [], {
