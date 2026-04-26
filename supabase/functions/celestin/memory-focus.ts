@@ -1,28 +1,18 @@
 import type { ConversationState } from "./conversation-state.ts"
 import type { TurnInterpretation } from "./turn-interpreter.ts"
 import type { RequestBody } from "./types.ts"
+import { isMemoryFocusLookup } from "../../../shared/celestin/memory-intent-patterns.ts"
 
 function normalizeForRouting(text: string): string {
   return text
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[̀-ͯ]/g, '')
     .trim()
 }
 
 const FOCUS_STOP_WORDS = /^(Le|La|Les|Un|Une|Et|Je|Tu|Il|Elle|On|Ce|Cet|Cette|Ca|Ça)$/i
 const GENERIC_FOCUS_WORDS = new Set(['degustation', 'note', 'souvenir', 'vin', 'vins', 'etoiles', 'millesime', 'impression'])
-
-function isMemoryFocusLookup(normalizedMessage: string): boolean {
-  return (
-    /\b(combien d'etoiles|combien etoiles|quelle note|quel millesime|quelle impression)\b/i.test(normalizedMessage)
-    || /\bdeja\b.*\b(note|notee|degustation)\b/i.test(normalizedMessage)
-    || /\b(retrouve|retrouver|retrouverais|retrouvera?is|retrouveras)\b.*\b(note|degustation|souvenir)\b/i.test(normalizedMessage)
-    || /\bje l[' ]?ai\b.*\b(note|deguste|goute|bu)\b/i.test(normalizedMessage)
-    || /^(et|et le|et la|et les|et lui|et elle)\b/i.test(normalizedMessage)
-    || /^c'est tout[?! ]*$/i.test(normalizedMessage)
-  )
-}
 
 function extractFocusCandidate(source: string): string | null {
   const matches = source.match(/\b([A-Z][A-Za-zÀ-ÿ'’.-]{2,}(?:\s+[A-Z][A-Za-zÀ-ÿ'’.-]{2,}){0,3})\b/g)

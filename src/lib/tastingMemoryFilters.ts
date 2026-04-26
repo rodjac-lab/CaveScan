@@ -4,6 +4,10 @@ import type {
   MemoryEvidenceMode,
   MemorySearchMessage,
 } from '@/lib/tastingMemoryTypes'
+import {
+  isContextDependentMemoryQuery,
+  isExactPastTastingQuery,
+} from '../../shared/celestin/memory-intent-patterns.ts'
 
 const STOP_WORDS = new Set([
   'je', "j'ai", 'tu', 'il', 'on', 'nous', 'vous', 'ils',
@@ -24,28 +28,6 @@ const CONTEXTLESS_TERMS = new Set([
   'note', 'notes', 'degustation', 'retrouve', 'retrouver',
 ])
 
-const FOLLOW_UP_PATTERNS = [
-  /\bj'en\b/,
-  /\ben ai[- ]?je\b/,
-  /\bce vin\b/,
-  /\bce flacon\b/,
-  /\bcette bouteille\b/,
-  /\bce style\b/,
-  /\bcela\b/,
-  /\bca\b/,
-  /^et\b/,
-]
-
-const EXACT_MEMORY_PATTERNS = [
-  /\bdeja\b.*\b(bu|goute|ouvert|deguste)\b/,
-  /\b(ai[- ]?je|jai|j'en|jen)\b.*\b(bu|goute|ouvert|deguste)\b/,
-  /\b(quels|lesquels|combien|liste|inventaire)\b.*\b(jai|j'en|jen|deja|bu|goute|ouvert|deguste)\b/,
-  /\bdeja\b.*\b(note|notes|notee|noté|notée|degustation)\b/,
-  /\b(note|notes|etoiles?|rating)\b.*\b(degustation|deguste|bu|goute|mis)\b/,
-  /\b(retrouve|retrouver|retrouverais|retrouvera?is|retrouveras)\b.*\b(note|notes|degustation|souvenir)\b/,
-  /\bje l[' ]?ai\b.*\b(note|notee|noté|notée|deguste|goute|bu)\b/,
-  /\bpas de\b/,
-]
 
 export const COUNTRY_ALIASES: Record<string, string[]> = {
   italie: ['italie', 'italien', 'italiens', 'italienne', 'italiennes'],
@@ -203,10 +185,9 @@ export function buildContextualMemoryQuery(
   const normalized = normalizeForMatch(trimmed)
   const terms = extractQueryTerms(trimmed)
   const needsContext =
-    FOLLOW_UP_PATTERNS.some((pattern) => pattern.test(normalized))
+    isContextDependentMemoryQuery(normalized)
     || terms.length === 0
     || terms.every((term) => CONTEXTLESS_TERMS.has(term))
-    || EXACT_MEMORY_PATTERNS.some((pattern) => pattern.test(normalized))
 
   if (!needsContext) return trimmed
 
@@ -474,7 +455,7 @@ export function buildFilterLabels(filters: ExactMemoryFilters): string[] {
 
 export function classifyMemoryEvidenceMode(query: string, hasFilters: boolean): MemoryEvidenceMode {
   const normalized = normalizeForMatch(query)
-  if (EXACT_MEMORY_PATTERNS.some((pattern) => pattern.test(normalized))) return 'exact'
+  if (isExactPastTastingQuery(normalized)) return 'exact'
   if (hasFilters && /\b(souviens|souvenir|rappelle|rappel|soiree|soirée)\b/.test(normalized)) return 'synthesis'
   return 'synthesis'
 }

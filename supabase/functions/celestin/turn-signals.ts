@@ -1,5 +1,6 @@
 import type { CognitiveMode } from './turn-types.ts'
 import type { ConversationalIntent } from './types.ts'
+import { isMemoryFollowUpReply } from '../../../shared/celestin/memory-intent-patterns.ts'
 
 const INTENT_CLASSIFICATION_KEYS = [
   'isRecommendationRequest',
@@ -132,13 +133,7 @@ function isMemoryFollowUp(text: string, lastAssistantText?: string): boolean {
 
   if (!assistantWasTalkingAboutMemory) return false
 
-  return (
-    /^(et|et le|et la|et les|et lui|et elle)\b/i.test(normalizedText)
-    || /\b(c'etait comment|c.etait comment|c'etait quoi|c.etait quoi)\b/i.test(normalizedText)
-    || /\b(quel millesime|quelle note|combien d'etoiles|combien etoiles|quelle impression)\b/i.test(normalizedText)
-    || /\bon avait\b.*\b(note|notes|etoiles?)\b/i.test(normalizedText)
-    || /^c'est tout[?! ]*$/i.test(normalizedText)
-  )
+  return isMemoryFollowUpReply(normalizedText)
 }
 
 export function detectCognitiveMode(lower: string): CognitiveMode {
