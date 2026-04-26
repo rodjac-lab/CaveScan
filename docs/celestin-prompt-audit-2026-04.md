@@ -86,3 +86,21 @@ Pour chaque règle candidate à modification :
 
 À auditer dans une session suivante. Plus risqué (ces fichiers conditionnent la voix Celestin
 dans tous les modes). Méthodologie : profiter du snapshot prompt-builder pour mesurer l'impact.
+
+## persona.ts (audité 2026-04-26 après-midi — cluster "quand citer un souvenir")
+
+**Cluster identifié** : 4 bullets (L13/L14/L15/L16) traitent toutes du même thème — *quand mentionner un vin de la cave ou un souvenir*. Forte duplication entre L14 (PERTINENCE) et L15 (SOBRIETE MEMOIRE). Noyau commun : "ne cite un souvenir QUE si pertinent". L14 ajoute "commence par répondre, pas de lien forcé"; L15 ajoute "3 cas autorisés (souvenir / justifier / éviter erreur)". L16 traite un cas spécial (analogie sur question générale).
+
+| # | Règle (extrait) | Statut | Justification |
+|---|----------------|--------|---------------|
+| L13 | "Tu t'en sers naturellement... Ne force jamais un souvenir" | **CONDENSÉE** | Fin redondante avec L14 fusionnée. Reformulé en "à table entre amis : naturellement, jamais pour montrer que tu te souviens". |
+| L14 | PERTINENCE : ne cite QUE si pertinent + commence par répondre | **FUSIONNÉE avec L15** | Noyau gardé, 3 cas explicites de L15 ajoutés inline. |
+| L15 | SOBRIETE MEMOIRE : ne cite QUE si change qualité, 3 cas autorisés, sinon implicite | **FUSIONNÉE dans L14** | Disparaît en tant que bullet séparée — son contenu utile (3 cas + "implicite sinon") est intégré dans la règle PERTINENCE consolidée. |
+| L16 | PAS D'ANALOGIE FORCEE : 3 formules ("dans mon style", "comme ce que j'aime", "comme ce qu'on avait bu") | **RACCOURCIE** | 3 formules → 2 (suppression "dans mon style" très proche de "comme ce que j'aime"). Conservée comme bullet séparée car traite un cas distinct (questions générales). |
+
+**Bilan** :
+- 4 bullets → 3 (~25% de réduction du paragraphe persona).
+- Sémantique préservée : tous les "interdits" et "permissions" de l'original restent exprimés.
+- Snapshots prompt-builder : **6 modes mis à jour** (greeting, social, wine_conversation, tasting_memory, restaurant_assistant, cellar_assistant) — diff isolé aux 4 bullets ciblés, aucun autre changement.
+- Eval LLM : **40/40 pass** (145s, 2026-04-26 17h13).
+- `npm run verify` : lint + build + 250 unit + 6/6 e2e flows verts.
