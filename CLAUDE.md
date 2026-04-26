@@ -60,7 +60,9 @@ The user is not a professional developer but is learning quickly and wants to im
    ```
    npm run verify:full
    ```
-   This also includes the authenticated smoke tests.
+   This adds the authenticated smoke tests AND the LLM eval suite (real Gemini calls, ~30 conversations + 10 single-turn scenarios, ~$0.10/run).
+
+   **Always run `verify:full` before any prompt change in `supabase/functions/celestin/`** (context-builder, persona, rules, prompt-builder, user-prompt) — the LLM eval is the only check that actually exercises Celestin's response quality.
 
 2. **Trace the code flow** - You cannot see the running app, so you must trace through the code:
    - Start from the component/function you changed
@@ -105,10 +107,28 @@ Avant de terminer une session de travail, mettre à jour le fichier MEMORY.md
 
 Ce fichier est automatiquement chargé au début de chaque conversation.
 
+## Test architecture
+
+Four layers, each with its own role and cost:
+
+| Layer | Files | Triggered by | Cost | Catches |
+|-------|-------|--------------|------|---------|
+| **Unit (déterministe)** | `src/**/*.test.ts`, `supabase/functions/celestin/*.test.ts` | `npm test` (always) | Free | Logic bugs, routing, response policy |
+| **Snapshot prompts** | `supabase/functions/celestin/prompt-builder.test.ts`, `context-builder.test.ts` | `npm test` (always) | Free | Any drift in the system prompt per cognitive mode |
+| **LLM eval (qualité)** | `evals/celestin-eval.test.ts` (gated by `RUN_LLM_EVAL=1`) | `npm run eval:celestin` or `verify:full` | ~$0.10/run | Real Gemini regressions on 10 single-turn + 30 multi-turn scenarios |
+| **E2E / Smoke (Playwright)** | `tests/flows/`, `tests/smoke/` | `verify` (flows) and `verify:full` (smoke) | Free | UI integration, network mocking |
+
+Snapshots: when a prompt change is intentional, update with `npx vitest -u <path>` and review the diff before committing.
+
+Eval HTML report (one-shot, with rich UI): `npm run eval:celestin:report` — useful for dogfooding a single change. The `npm run eval:celestin` (Vitest) is the gated assertion-based version that integrates with `verify:full`.
+
 ## Quick Reference
 
 - Dev server: `npm run dev`
 - Build: `npm run build`
 - Lint: `npm run lint`
-- Standard validation: `npm run verify`
-- Full validation: `npm run verify:full`
+- Standard validation: `npm run verify` (lint + build + unit + e2e flows, ~90s)
+- Full validation: `npm run verify:full` (verify + smoke + LLM eval, ~5min, ~$0.10)
+- LLM eval only: `npm run eval:celestin`
+- Update prompt snapshots: `npx vitest -u supabase/functions/celestin/`
+- Eval HTML report: `npm run eval:celestin:report`
