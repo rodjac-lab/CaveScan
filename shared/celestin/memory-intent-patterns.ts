@@ -72,7 +72,7 @@ export function matchesAny(text: string, patterns: readonly RegExp[]): boolean {
   return patterns.some((pattern) => pattern.test(text))
 }
 
-export function matchesAnyGroup(text: string, ...groups: readonly RegExp[][]): boolean {
+export function matchesAnyGroup(text: string, ...groups: ReadonlyArray<readonly RegExp[]>): boolean {
   return groups.some((group) => matchesAny(text, group))
 }
 
