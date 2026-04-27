@@ -126,6 +126,7 @@ export default function BottlePage() {
       {/* ===== TASTING SECTION (drunk bottles) ===== */}
       {isDrunk && (
         <TastingSection
+          key={bottle.id}
           bottle={bottle}
           onRefetch={refetch}
           onZoom={handleZoom}
