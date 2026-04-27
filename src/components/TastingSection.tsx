@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Loader2, Save, Share2, ArrowRight, Plus, Camera, ImageIcon, X, Check, Star, RefreshCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
@@ -58,17 +58,6 @@ export function TastingSection({
   const drunkAtInputRef = useRef<HTMLInputElement>(null)
 
   const canShare = canShareWine()
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setTastingNote(bottle.tasting_note || '')
-      setRating(bottle.rating ?? null)
-      setRebuy(bottle.rebuy ?? null)
-      setQpr(bottle.qpr ?? null)
-    }, 0)
-
-    return () => window.clearTimeout(timer)
-  }, [bottle.id, bottle.updated_at, bottle.tasting_note, bottle.rating, bottle.rebuy, bottle.qpr])
 
   const handleDrunkAtChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
