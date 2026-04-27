@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, Save, Share2, ArrowRight, Plus, Camera, ImageIcon, X, Check, Star, RefreshCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
@@ -59,6 +59,56 @@ export function TastingSection({
 
   const canShare = canShareWine()
 
+  // Auto-save draft on unmount (covers navigating to /edit, going back, switching tabs).
+  // Snapshot of last-saved values so the cleanup knows whether the form is dirty.
+  const lastSavedRef = useRef({
+    tastingNote: bottle.tasting_note || '',
+    rating: bottle.rating ?? null,
+    rebuy: bottle.rebuy ?? null,
+    qpr: bottle.qpr ?? null,
+  })
+  const valuesRef = useRef({ tastingNote, rating, rebuy, qpr, bottle })
+  useEffect(() => {
+    valuesRef.current = { tastingNote, rating, rebuy, qpr, bottle }
+  })
+
+  useEffect(() => {
+    return () => {
+      const { tastingNote, rating, rebuy, qpr, bottle } = valuesRef.current
+      const saved = lastSavedRef.current
+      const dirty =
+        tastingNote !== saved.tastingNote ||
+        rating !== saved.rating ||
+        rebuy !== saved.rebuy ||
+        qpr !== saved.qpr
+      if (!dirty) return
+
+      const noteValue = tastingNote || null
+      void (async () => {
+        const { error } = await supabase
+          .from('bottles')
+          .update({
+            tasting_note: noteValue,
+            rating,
+            rebuy,
+            qpr,
+            ...(!noteValue ? { tasting_tags: null } : {}),
+          })
+          .eq('id', bottle.id)
+        if (error) {
+          console.error('Tasting auto-save error:', error)
+          return
+        }
+        const updatedBottle = { ...bottle, tasting_note: noteValue, rating, rebuy, qpr }
+        track('tasting_autosaved')
+        triggerProfileRecompute()
+        extractAndSaveTags(updatedBottle)
+        generateAndSaveEmbedding(updatedBottle)
+        signalRatedTastingWithComment(updatedBottle)
+      })()
+    }
+  }, [])
+
   const handleDrunkAtChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     if (!value) return
@@ -97,6 +147,7 @@ export function TastingSection({
 
     track('tasting_saved')
     triggerProfileRecompute()
+    lastSavedRef.current = { tastingNote, rating, rebuy, qpr }
     const updatedBottle = { ...bottle, tasting_note: noteValue, rating, rebuy, qpr }
     extractAndSaveTags(updatedBottle)
     generateAndSaveEmbedding(updatedBottle)
@@ -209,6 +260,7 @@ export function TastingSection({
         setSaving(false)
         return
       }
+      lastSavedRef.current = { tastingNote, rating, rebuy, qpr }
       const updatedBottle = { ...bottle, tasting_note: noteVal, rating, rebuy, qpr }
       extractAndSaveTags(updatedBottle)
       generateAndSaveEmbedding(updatedBottle)
