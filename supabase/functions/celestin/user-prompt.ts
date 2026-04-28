@@ -38,22 +38,22 @@ export function buildUserPrompt(
 
   else if (turnType === 'social_ack') {
     if (state.phase === 'post_task_ack') {
-      parts.push(`[ACQUITTEMENT — L'utilisateur acquiesce apres ta derniere action. 1 phrase COURTE. Ne propose PAS d'autres vins, ne fais PAS de suggestion. Cloture chaleureuse + action_chips pour changer de sujet.]`)
+      parts.push(`[ACQUITTEMENT — L'utilisateur acquiesce apres ta derniere action. 1 phrase COURTE. Cloture chaleureuse + action_chips pour changer de sujet.]`)
     } else {
-      parts.push(`[CONVERSATION — PAS de ui_action. Reponds BRIEVEMENT (1-2 phrases max) + action_chips.]`)
+      parts.push(`[CONVERSATION — Reponds BRIEVEMENT (1-2 phrases max) + action_chips.]`)
     }
     parts.push(body.message)
   }
 
   else if (turnType === 'task_cancel') {
-    parts.push(`[L'utilisateur decline ou veut arreter. Reponds brievement, pas de ui_action. Propose des action_chips pour changer de sujet.]`)
+    parts.push(`[L'utilisateur decline ou veut arreter. Reponds brievement. Propose des action_chips pour changer de sujet.]`)
     parts.push(body.message)
   }
 
   else if (turnType === 'smalltalk' || (turnType === 'context_switch' && cognitiveMode === 'wine_conversation')) {
-    parts.push(`[QUESTION VIN — Reponds avec tes connaissances. PAS de ui_action. Sois concis et direct. N'utilise cave, memoire ou preferences que si la question le demande explicitement. Si un nom est inconnu, dis-le sans valider sa categorie implicite.]`)
+    parts.push(`[QUESTION VIN — Reponds avec tes connaissances. Sois concis et direct. N'utilise cave, memoire ou preferences que si la question le demande explicitement. Si un nom est inconnu, dis-le sans valider sa categorie implicite.]`)
     if (routingIntent === 'exploratory_reco_pivot') {
-      parts.push(`[PIVOT EXPLORATOIRE — L'utilisateur change d'angle apres une recommandation. Reponds a la nouvelle piste comme une question autonome. Ne mentionne PAS le plat precedent, ne reprends PAS les cartes precedentes, ne donne PAS de shortlist et ne declenche PAS de ui_action.]`)
+      parts.push(`[PIVOT EXPLORATOIRE — L'utilisateur change d'angle apres une recommandation. Reponds a la nouvelle piste comme une question autonome. Ne mentionne PAS le plat precedent, ne reprends PAS les cartes precedentes et ne donne PAS de shortlist.]`)
     } else if (turnType === 'context_switch' && state.taskType === 'recommendation') {
       parts.push(`[PIVOT DE RECOMMANDATION — L'utilisateur explore une autre direction. Reponds sobrement a cette nouvelle piste sans recycler automatiquement le plat precedent, les cartes precedentes ou un souvenir marquant.]`)
     }
@@ -61,7 +61,7 @@ export function buildUserPrompt(
   }
 
   else if (turnType === 'context_switch' && cognitiveMode === 'tasting_memory') {
-    parts.push(`[SOUVENIR — L'utilisateur fait reference a une degustation passee. Utilise uniquement les souvenirs explicitement fournis. Si un vin n'apparait pas dans ces souvenirs, dis-le franchement. PAS de ui_action sauf si l'utilisateur demande explicitement de noter.]`)
+    parts.push(`[SOUVENIR — L'utilisateur fait reference a une degustation passee. Utilise uniquement les souvenirs explicitement fournis. Si un vin n'apparait pas dans ces souvenirs, dis-le franchement.]`)
     if (memoryFocus) {
       parts.push(`[FOCUS MEMOIRE — La relance courte porte probablement sur : ${memoryFocus}. Si l'utilisateur demande "combien d'etoiles", "quelle note" ou "quel millesime", reste focalise sur ce vin precis.]`)
     }
@@ -69,7 +69,7 @@ export function buildUserPrompt(
   }
 
   else if (turnType === 'context_switch' && cognitiveMode === 'cellar_assistant') {
-    parts.push(`[QUESTION CAVE - Reponds uniquement a partir de la cave transmise. Pas de ui_action. Pour les questions de quantite, compte les bouteilles a partir des quantites, pas seulement les references.]`)
+    parts.push(`[QUESTION CAVE - Reponds uniquement a partir de la cave transmise. Pour les questions de quantite, compte les bouteilles a partir des quantites, pas seulement les references.]`)
     parts.push(body.message)
   }
 
@@ -95,7 +95,7 @@ export function buildUserPrompt(
   }
 
   else if (turnType === 'unknown') {
-    parts.push(`[CONVERSATION — Reponds naturellement. PAS de ui_action. action_chips : questions pour approfondir le sujet, PAS de suggestions de reco cave.]`)
+    parts.push(`[CONVERSATION — Reponds naturellement. action_chips : questions pour approfondir le sujet, PAS de suggestions de reco cave.]`)
     parts.push(body.message)
     if (body.image) {
       parts.push("L'utilisateur a joint une photo. Analyse-la et reponds en fonction de ce que tu vois.")

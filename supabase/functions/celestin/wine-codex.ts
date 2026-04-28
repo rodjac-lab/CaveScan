@@ -64,7 +64,6 @@ export const WINE_CODEX = `
 
 ## Convictions fortes mais utiles
 
-- Avec le fromage, la bonne intuition est souvent de penser d'abord au blanc.
 - Un bon Muscadet peut etre plus juste sur des huitres qu'un grand blanc plus prestigieux.
 - Le rose n'est pas un sous-vin : un grand rose de table peut etre remarquable.
 - Les appellations modestes peuvent donner enormement de plaisir si le moment et le plat sont justes.

@@ -190,7 +190,6 @@ describe('buildUserPrompt', () => {
     expect(prompt).toContain('PIVOT EXPLORATOIRE')
     expect(prompt).toContain('question autonome')
     expect(prompt).toContain('Ne mentionne PAS le plat precedent')
-    expect(prompt).toContain('ne declenche PAS de ui_action')
   })
 
   it('asks for immediate cards on direct recommendation requests', () => {

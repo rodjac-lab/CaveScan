@@ -22,9 +22,10 @@
  *   J5 direct_answer_first             — answers the question before citing memory
  *
  * Usage:
- *   node scripts/scorecard-celestin.mjs                  # deterministic only, default (~2.5min, ~$0.10)
- *   node scripts/scorecard-celestin.mjs --quick          # 10 single-turn deterministic (~30s)
- *   node scripts/scorecard-celestin.mjs --with-judge     # Phase 2: + LLM judge (~5min, ~$0.20)
+ *   node scripts/scorecard-celestin.mjs                       # deterministic only, default (~2.5min, ~$0.10)
+ *   node scripts/scorecard-celestin.mjs --quick               # 10 single-turn deterministic (~30s)
+ *   node scripts/scorecard-celestin.mjs --with-judge          # Phase 2: + LLM judge (~5min, ~$0.20)
+ *   node scripts/scorecard-celestin.mjs --provider claude     # force a specific provider (gemini|claude|openai)
  *
  * The LLM judge (J1-J5 semantic criteria) is OFF by default — it surfaces drifts
  * that are largely well-known Gemini quirks (lyrism, light parroting on
@@ -51,9 +52,28 @@ import { summarizeAssistantMessage } from '../evals/lib/assertions.mjs'
 
 const QUICK = process.argv.includes('--quick')
 // LLM judge is OFF by default — enable explicitly with --with-judge.
-// --no-judge accepted for back-compat / clarity but matches the default.
 const WITH_JUDGE = process.argv.includes('--with-judge')
 const NO_JUDGE = !WITH_JUDGE
+
+function parseFlagValue(name) {
+  const idx = process.argv.indexOf(`--${name}`)
+  if (idx >= 0 && idx + 1 < process.argv.length) return process.argv[idx + 1]
+  const eq = process.argv.find((a) => a.startsWith(`--${name}=`))
+  return eq ? eq.slice(name.length + 3) : null
+}
+
+const PROVIDER = parseFlagValue('provider')
+const VALID_PROVIDERS = ['gemini', 'claude', 'openai']
+if (PROVIDER && !VALID_PROVIDERS.includes(PROVIDER)) {
+  console.error(`Invalid --provider: ${PROVIDER}. Must be one of: ${VALID_PROVIDERS.join(', ')}`)
+  process.exit(1)
+}
+
+const THROTTLE_MS = Number(parseFlagValue('throttle-ms') ?? 0)
+function throttle() {
+  if (!Number.isFinite(THROTTLE_MS) || THROTTLE_MS <= 0) return Promise.resolve()
+  return new Promise((resolve) => setTimeout(resolve, THROTTLE_MS))
+}
 
 const JUDGE_KEYS = [
   'j1_anti_echo',
@@ -202,6 +222,14 @@ function aggregate(results) {
     passRate: overallTotal === 0 ? null : overallPass / overallTotal,
   }
 
+  const latencies = results.map((r) => r.latencyMs).filter((n) => Number.isFinite(n)).sort((a, b) => a - b)
+  if (latencies.length > 0) {
+    const mean = Math.round(latencies.reduce((sum, n) => sum + n, 0) / latencies.length)
+    const p50 = latencies[Math.floor(latencies.length * 0.5)]
+    const p95 = latencies[Math.floor(latencies.length * 0.95)]
+    summary.latencyMs = { count: latencies.length, mean, p50, p95, min: latencies[0], max: latencies[latencies.length - 1] }
+  }
+
   return summary
 }
 
@@ -214,18 +242,26 @@ function buildMarkdown(summary, results, meta) {
   const lines = []
   lines.push(`# Celestin Scorecard — ${meta.timestamp}`)
   lines.push('')
-  lines.push(`Mode: ${meta.mode} | Total responses scored: ${meta.totalResponses} | Wall-clock: ${meta.elapsedSec}s`)
+  lines.push(`Mode: ${meta.mode} | Provider: ${meta.provider} | Total responses scored: ${meta.totalResponses} | Wall-clock: ${meta.elapsedSec}s`)
   lines.push('')
   lines.push('## Summary by criterion')
   lines.push('')
   lines.push('| Criterion | Pass | Fail | N/A | Pass rate |')
   lines.push('|-----------|------|------|-----|-----------|')
   for (const [key, s] of Object.entries(summary)) {
-    if (key === 'overall') continue
+    if (key === 'overall' || key === 'latencyMs') continue
     lines.push(`| ${key} | ${s.pass} | ${s.fail} | ${s.na} | **${fmtPct(s.passRate)}** |`)
   }
   lines.push(`| **OVERALL** | ${summary.overall.pass} | ${summary.overall.fail} | — | **${fmtPct(summary.overall.passRate)}** |`)
   lines.push('')
+
+  if (summary.latencyMs) {
+    const l = summary.latencyMs
+    lines.push(`## Latency (per Celestin call, ms)`)
+    lines.push('')
+    lines.push(`mean=${l.mean} | p50=${l.p50} | p95=${l.p95} | min=${l.min} | max=${l.max} | n=${l.count}`)
+    lines.push('')
+  }
 
   const failures = results.flatMap((r) =>
     Object.entries(r.scorecard)
@@ -262,8 +298,10 @@ async function runSingleTurn(ctx, scenarios) {
     const scenario = scenarios[i]
     process.stdout.write(`  [single ${i + 1}/${scenarios.length}] ${scenario.id}... `)
     try {
-      const body = buildSingleTurnBody(ctx.fixture, scenario, null)
+      const body = buildSingleTurnBody(ctx.fixture, scenario, PROVIDER)
+      const callStart = Date.now()
       const { data } = await callCelestin(body, ctx.supabaseUrl, ctx.supabaseAnonKey)
+      const latencyMs = Date.now() - callStart
       const message = data.message ?? ''
       const uiAction = data.ui_action ?? null
       const deterministic = evaluateDeterministic(message, uiAction)
@@ -275,12 +313,14 @@ async function runSingleTurn(ctx, scenarios) {
         userMessage: scenario.message,
         assistantMessage: message,
         uiActionKind: uiAction?.kind ?? null,
+        latencyMs,
         scorecard: { ...deterministic, ...judge },
       })
       process.stdout.write('ok\n')
     } catch (err) {
       process.stdout.write(`ERROR: ${err.message}\n`)
     }
+    await throttle()
   }
   return results
 }
@@ -296,8 +336,10 @@ async function runMultiTurn(ctx, conversations) {
     for (let t = 0; t < conv.turns.length; t++) {
       const turn = conv.turns[t]
       try {
-        const body = buildRequestBody(ctx.fixture, turn.message, history, conversationState, null)
+        const body = buildRequestBody(ctx.fixture, turn.message, history, conversationState, PROVIDER)
+        const callStart = Date.now()
         const { data } = await callCelestin(body, ctx.supabaseUrl, ctx.supabaseAnonKey)
+        const latencyMs = Date.now() - callStart
         const message = data.message ?? ''
         const uiAction = data.ui_action ?? null
         const deterministic = evaluateDeterministic(message, uiAction)
@@ -309,6 +351,7 @@ async function runMultiTurn(ctx, conversations) {
           userMessage: turn.message,
           assistantMessage: message,
           uiActionKind: uiAction?.kind ?? null,
+          latencyMs,
           scorecard: { ...deterministic, ...judge },
         })
 
@@ -323,6 +366,7 @@ async function runMultiTurn(ctx, conversations) {
         process.stdout.write(`    turn ${t + 1} ERROR: ${err.message}\n`)
         break
       }
+      await throttle()
     }
   }
   return results
@@ -341,6 +385,7 @@ async function main() {
 
   console.log(`Celestin scorecard — ${scenarios.length} single-turn + ${conversations.length} multi-turn`)
   console.log(`Fixture: ${path.relative(process.cwd(), fixturePath)}`)
+  console.log(`Provider: ${PROVIDER ?? 'default (Gemini → OpenAI fallback)'}`)
   console.log('')
 
   const startedAt = Date.now()
@@ -363,13 +408,15 @@ async function main() {
   const meta = {
     timestamp,
     mode: QUICK ? 'quick (single-turn only)' : 'full',
+    provider: PROVIDER ?? 'default',
     totalResponses: allResults.length,
     elapsedSec,
     fixture: path.basename(fixturePath),
   }
 
   ensureDir(DEFAULT_OUT_DIR)
-  const baseName = `scorecard-${timestamp}`
+  const providerSuffix = PROVIDER ? `-${PROVIDER}` : ''
+  const baseName = `scorecard${providerSuffix}-${timestamp}`
   const jsonPath = path.join(DEFAULT_OUT_DIR, `${baseName}.json`)
   const mdPath = path.join(DEFAULT_OUT_DIR, `${baseName}.md`)
 
@@ -378,11 +425,15 @@ async function main() {
 
   console.log('=== SUMMARY ===')
   for (const [key, s] of Object.entries(summary)) {
-    if (key === 'overall') continue
+    if (key === 'overall' || key === 'latencyMs') continue
     console.log(`  ${key.padEnd(36)} ${fmtPct(s.passRate).padStart(7)}  (${s.pass}/${s.pass + s.fail}, ${s.na} N/A)`)
   }
   console.log('  ---')
   console.log(`  ${'OVERALL'.padEnd(36)} ${fmtPct(summary.overall.passRate).padStart(7)}  (${summary.overall.pass}/${summary.overall.total})`)
+  if (summary.latencyMs) {
+    const l = summary.latencyMs
+    console.log(`  ${'LATENCY ms (mean/p50/p95)'.padEnd(36)} ${l.mean}/${l.p50}/${l.p95}  (n=${l.count})`)
+  }
   console.log('')
   console.log(`Reports written:`)
   console.log(`  - ${path.relative(process.cwd(), jsonPath)}`)
