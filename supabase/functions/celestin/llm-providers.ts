@@ -142,6 +142,7 @@ export async function celestinWithFallback(
   }
 
   const providers: Array<{ name: string; call: () => Promise<CelestinResponse> }> = []
+  if (ANTHROPIC_API_KEY) providers.push({ name: 'Claude Haiku 4.5', call: () => callClaude(systemPrompt, userPrompt, history, image) })
   if (GEMINI_API_KEY) providers.push({ name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history, image) })
   if (OPENAI_API_KEY) providers.push({ name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history, image) })
 
