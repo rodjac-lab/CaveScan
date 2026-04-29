@@ -40,7 +40,7 @@ Source unique de verite pour les travaux produit/tech.
 - [ ] Suppression/restauration controlee d'entrees/sorties (historique robuste)
 - [x] Fenetres de maturite : remplir drink_from/drink_until via enrichissement (fait), alertes quand une bouteille arrive a maturite (reste a faire)
 - [ ] Import facture (photo/PDF) pour creation batch assistee, pipeline multi-lignes
-- [ ] Import concurrent mobile-first : CellarTracker puis Vivino, reconnaissance automatique de formats
+- [ ] Import concurrent mobile-first : CellarTracker puis Vivino, reconnaissance automatique de formats. **Coupler avec un hook conversion** : "+1 mois de trial offert si tu importes ta cave Vivino". L'import = moment de wow puissant (50+ bouteilles d'un coup) + switching cost immédiat investi dans Celestin. Coût LLM marginal du bonus (~$0.13/user) trivial vs valeur d'un user enthusiaste qui apporte une cave constituée. Voir `docs/business_model_thinking.md` section "Hooks d'acquisition".
 
 ### OCR & Scan
 
