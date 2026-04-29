@@ -25,7 +25,7 @@
  *   node scripts/scorecard-celestin.mjs                       # deterministic only, default (~2.5min, ~$0.10)
  *   node scripts/scorecard-celestin.mjs --quick               # 10 single-turn deterministic (~30s)
  *   node scripts/scorecard-celestin.mjs --with-judge          # Phase 2: + LLM judge (~5min, ~$0.20)
- *   node scripts/scorecard-celestin.mjs --provider claude     # force a specific provider (gemini|claude|openai)
+ *   node scripts/scorecard-celestin.mjs --provider claude     # force a specific provider (gemini|gemini-flash-lite|claude|openai)
  *
  * The LLM judge (J1-J5 semantic criteria) is OFF by default — it surfaces drifts
  * that are largely well-known Gemini quirks (lyrism, light parroting on
@@ -63,7 +63,7 @@ function parseFlagValue(name) {
 }
 
 const PROVIDER = parseFlagValue('provider')
-const VALID_PROVIDERS = ['gemini', 'claude', 'openai']
+const VALID_PROVIDERS = ['gemini', 'gemini-flash-lite', 'gemini-3-flash', 'gemini-3-flash-low', 'claude', 'openai']
 if (PROVIDER && !VALID_PROVIDERS.includes(PROVIDER)) {
   console.error(`Invalid --provider: ${PROVIDER}. Must be one of: ${VALID_PROVIDERS.join(', ')}`)
   process.exit(1)
@@ -111,6 +111,11 @@ function exclamationCount(text) {
 function recoCardCount(uiAction) {
   if (!uiAction || uiAction.kind !== 'show_recommendations') return null
   return uiAction.payload?.cards?.length ?? 0
+}
+
+function isProviderErrorMessage(message) {
+  if (!message) return false
+  return /^\[[a-z0-9-]+\]\s/i.test(message.trim())
 }
 
 function evaluateDeterministic(message, uiAction) {
@@ -304,6 +309,10 @@ async function runSingleTurn(ctx, scenarios) {
       const latencyMs = Date.now() - callStart
       const message = data.message ?? ''
       const uiAction = data.ui_action ?? null
+      if (isProviderErrorMessage(message)) {
+        process.stdout.write(`PROVIDER ERROR (${latencyMs}ms): ${message.slice(0, 120)}\n`)
+        continue
+      }
       const deterministic = evaluateDeterministic(message, uiAction)
       const judge = await judgeResponse(scenario.message, message, ctx)
       results.push({
@@ -342,6 +351,10 @@ async function runMultiTurn(ctx, conversations) {
         const latencyMs = Date.now() - callStart
         const message = data.message ?? ''
         const uiAction = data.ui_action ?? null
+        if (isProviderErrorMessage(message)) {
+          process.stdout.write(`    turn ${t + 1} PROVIDER ERROR (${latencyMs}ms): ${message.slice(0, 100)}\n`)
+          break
+        }
         const deterministic = evaluateDeterministic(message, uiAction)
         const judge = await judgeResponse(turn.message, message, ctx)
         results.push({

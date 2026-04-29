@@ -15,10 +15,18 @@ const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001'
 const OPENAI_MODEL = 'gpt-4.1-mini'
 
-async function callGemini(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string): Promise<CelestinResponse> {
+async function callGeminiModel(
+  modelId: string,
+  label: string,
+  systemPrompt: string,
+  userPrompt: string,
+  history: ConversationTurn[],
+  image: string | undefined,
+  thinkingConfig: Record<string, unknown>,
+): Promise<CelestinResponse> {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured')
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${GEMINI_API_KEY}`
   const contents = history.length > 0
     ? buildGeminiContents(history, userPrompt, image)
     : image
@@ -36,20 +44,68 @@ async function callGemini(systemPrompt: string, userPrompt: string, history: Con
         maxOutputTokens: 4096,
         responseMimeType: 'application/json',
         responseSchema: GEMINI_RESPONSE_SCHEMA,
-        thinkingConfig: { thinkingBudget: image ? 1024 : 0 },
+        thinkingConfig,
       },
     }),
   })
 
   if (!response.ok) {
-    throw new Error(`Gemini 2.5 Flash (${response.status}): ${extractErrorMessage(await response.text())}`)
+    throw new Error(`${label} (${response.status}): ${extractErrorMessage(await response.text())}`)
   }
 
   const result = await response.json()
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!text) throw new Error('No text response from Gemini')
+  if (!text) throw new Error(`No text response from ${label}`)
 
   return parseAndValidate(text)
+}
+
+async function callGemini(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string): Promise<CelestinResponse> {
+  return callGeminiModel(
+    'gemini-2.5-flash',
+    'Gemini 2.5 Flash',
+    systemPrompt,
+    userPrompt,
+    history,
+    image,
+    { thinkingBudget: image ? 1024 : 0 },
+  )
+}
+
+async function callGeminiFlashLite(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string): Promise<CelestinResponse> {
+  return callGeminiModel(
+    'gemini-3.1-flash-lite-preview',
+    'Gemini 3.1 Flash-Lite',
+    systemPrompt,
+    userPrompt,
+    history,
+    image,
+    { thinkingLevel: 'minimal' },
+  )
+}
+
+async function callGemini3Flash(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string): Promise<CelestinResponse> {
+  return callGeminiModel(
+    'gemini-3-flash-preview',
+    'Gemini 3 Flash',
+    systemPrompt,
+    userPrompt,
+    history,
+    image,
+    { thinkingLevel: 'minimal' },
+  )
+}
+
+async function callGemini3FlashLow(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string): Promise<CelestinResponse> {
+  return callGeminiModel(
+    'gemini-3-flash-preview',
+    'Gemini 3 Flash (thinking low)',
+    systemPrompt,
+    userPrompt,
+    history,
+    image,
+    { thinkingLevel: 'low' },
+  )
 }
 
 async function callClaude(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string): Promise<CelestinResponse> {
@@ -132,6 +188,9 @@ export async function celestinWithFallback(
     const providerMap: Record<string, { name: string; call: () => Promise<CelestinResponse> }> = {
       claude: { name: 'Claude', call: () => callClaude(systemPrompt, userPrompt, history, image) },
       gemini: { name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history, image) },
+      'gemini-flash-lite': { name: 'Gemini 3.1 Flash-Lite', call: () => callGeminiFlashLite(systemPrompt, userPrompt, history, image) },
+      'gemini-3-flash': { name: 'Gemini 3 Flash', call: () => callGemini3Flash(systemPrompt, userPrompt, history, image) },
+      'gemini-3-flash-low': { name: 'Gemini 3 Flash (low)', call: () => callGemini3FlashLow(systemPrompt, userPrompt, history, image) },
       openai: { name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history, image) },
     }
     const selected = providerMap[forcedProvider.toLowerCase()]
