@@ -58,6 +58,17 @@ Source unique de verite pour les travaux produit/tech.
 - [x] Millesime comme champ explicite des cartes de recommandation
 - [ ] Signal de style bouteille structure en remplacement du champ libre `character`
 
+### Celestin — Cout & Latence
+
+- [ ] **Activer le prompt caching Anthropic sur `callClaude`** (ROI fort avant scale).
+  Le system prompt (persona + rules + wine codex ~1500 tokens) + compiledProfileMarkdown du user (700-3000 tokens) + memories + profile sont **stables pendant une session**. Empiles dans la partie cachee, ca fait 3-5k tokens cacheables, repetes a chaque tour.
+  - Ajouter `cache_control: { type: 'ephemeral' }` sur les blocs system + compiledProfile dans le payload Claude (`supabase/functions/celestin/llm-providers.ts:55-91`).
+  - Anthropic facture les tokens caches a -90% en read, +25% en write (one-time per session).
+  - Effort : ~30 min de code + redeploy + verifier via console.log que `cache_creation_input_tokens` et `cache_read_input_tokens` apparaissent.
+  - **Gain estime** : ~50% sur le main call Celestin = ~$0.13/user/mois (au lieu de $0.27). A 1000 users : ~$1700/an d'economies + delta vs Gemini ramene a $0.04/user/mois (vs $0.16 sans cache). A 10k users : ~$17k/an.
+  - **Bonus latence** : tokens caches sont lus depuis le cache, pas re-traites. Reduit le TTFT de plusieurs centaines de ms sur les tours 2+ d'une conversation.
+  - Note : Google Gemini propose aussi du context caching mais minimum 32k tokens (notre prompt = 4k max). Inutilisable pour nous, donc avantage architectural d'Anthropic specifique a notre cas.
+
 ### Celestin — Sommelier au resto
 
 - [x] Photo de la carte des vins → OCR → Celestin recommande en fonction du plat et du profil utilisateur
