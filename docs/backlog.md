@@ -69,6 +69,12 @@ Source unique de verite pour les travaux produit/tech.
   - **Bonus latence** : tokens caches sont lus depuis le cache, pas re-traites. Reduit le TTFT de plusieurs centaines de ms sur les tours 2+ d'une conversation.
   - Note : Google Gemini propose aussi du context caching mais minimum 32k tokens (notre prompt = 4k max). Inutilisable pour nous, donc avantage architectural d'Anthropic specifique a notre cas.
 
+  **Pre-requis non negociables avant d'activer** (eviter de payer +25% silencieusement) :
+  - **Mesurer le ratio sessions multi-tour avant d'activer**. Le break-even est a partir du 2eme tour : sessions 1-tour coutent +25%, sessions 2+ tours economisent. Si <50% des sessions ont 2+ tours (ex : beaucoup de "Ce soir" / "Le debrief" / chips de bienvenue cliques sans suite), le ROI s'effrite voire devient negatif. Verifier dans la table `events` ou via une requete sur `chat_messages` group by `chat_session_id` pour compter turn count par session.
+  - **Observabilite du cache hit rate des le jour 1**. Logger `cache_creation_input_tokens` et `cache_read_input_tokens` (presents dans `response.usage` Anthropic) dans la table `events` ou via console.log structure. Un changement involontaire dans le prefixe (timestamp, ordre des blocs, edit silencieux de persona.ts) tue le cache sans erreur visible — on paie juste +25% sans s'en rendre compte. Alerte si hit rate < 80% sur 24h.
+  - TTL 5 min par defaut : utilisateur qui revient apres 10 min repaie un write. Acceptable pour Celestin (chat actif), mais a savoir.
+  - Le cache est par-user des qu'on inclut compiledProfileMarkdown — beneficie surtout aux users recurrents (plusieurs sessions/semaine). Users one-shot ne profitent pas.
+
 ### Celestin — Sommelier au resto
 
 - [x] Photo de la carte des vins → OCR → Celestin recommande en fonction du plat et du profil utilisateur
