@@ -15,6 +15,7 @@ import {
   clearAllSessions,
 } from '@/lib/debug/crossSessionMemory'
 import {
+  CelestinTimingsPanel,
   CrossSessionCleanupPanel,
   DebugHeader,
   EnrichmentBackfillsPanel,
@@ -148,6 +149,7 @@ export default function Debug() {
             embeddingStatus={embeddingStatus}
             onRunEmbeddingBackfill={() => runEmbeddingBackfill(embeddingUpdater)}
           />
+          <CelestinTimingsPanel />
           <CrossSessionCleanupPanel
             memoryInfo={memoryInfo}
             onClearMemory={handleClearMemory}

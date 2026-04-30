@@ -1,6 +1,7 @@
 import { ArrowLeft, Loader2, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import type { SessionSummary } from '@/lib/debug/crossSessionMemory'
+import { clearCelestinTimings, getCelestinTimings, type CelestinTimingEntry } from '@/lib/debug/celestinTimings'
 import type { UserProfileRow } from '@/lib/userProfiles'
 import { patchUserProfile } from '@/lib/userProfiles'
 import { downloadBlob } from '@/lib/downloadBlob'
@@ -1016,6 +1017,102 @@ type CrossSessionCleanupPanelProps = {
   memoryInfo: CrossSessionMemoryInfo
   onClearMemory: () => void
   formatRelativeDate: (value: string) => string
+}
+
+export function CelestinTimingsPanel() {
+  const [entries, setEntries] = useState<CelestinTimingEntry[]>(() => getCelestinTimings())
+
+  const refresh = () => setEntries(getCelestinTimings())
+
+  const stats = useMemo(() => {
+    if (entries.length === 0) return null
+    const totals = entries.map((e) => e.totalMs).sort((a, b) => a - b)
+    const preps = entries.map((e) => e.prepMs).sort((a, b) => a - b)
+    const cels = entries.map((e) => e.celestinMs).sort((a, b) => a - b)
+    const median = (arr: number[]) => arr[Math.floor(arr.length / 2)]
+    const p95 = (arr: number[]) => arr[Math.min(arr.length - 1, Math.floor(arr.length * 0.95))]
+    return {
+      count: entries.length,
+      total: { p50: median(totals), p95: p95(totals), max: totals[totals.length - 1] },
+      prep: { p50: median(preps), p95: p95(preps) },
+      celestin: { p50: median(cels), p95: p95(cels) },
+    }
+  }, [entries])
+
+  return (
+    <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-[11px] font-medium text-[var(--text-primary)]">Latences Celestin (20 derniers tours)</p>
+        <button
+          onClick={refresh}
+          className="rounded-[8px] border border-[var(--border-color)] px-2 py-1 text-[10px] text-[var(--text-secondary)]"
+        >
+          Rafraîchir
+        </button>
+      </div>
+      <p className="mb-3 text-[11px] text-[var(--text-muted)]">
+        Mesure end-to-end côté client. <strong>prep</strong> = Promise.all(memory + classifier + compiledProfile). <strong>celestin</strong> = appel edge function (Claude). Total = ce que l'utilisateur ressent.
+      </p>
+
+      {stats ? (
+        <div className="mb-3 space-y-1 text-[11px] text-[var(--text-secondary)]">
+          <p>{stats.count} tour(s) capturé(s)</p>
+          <p>
+            <strong>Total</strong> p50 {stats.total.p50}ms · p95 {stats.total.p95}ms · max {stats.total.max}ms
+          </p>
+          <p>
+            <strong>prep</strong> p50 {stats.prep.p50}ms · p95 {stats.prep.p95}ms
+          </p>
+          <p>
+            <strong>celestin</strong> p50 {stats.celestin.p50}ms · p95 {stats.celestin.p95}ms
+          </p>
+        </div>
+      ) : (
+        <p className="mb-3 text-[11px] text-[var(--text-muted)]">Aucune donnée. Envoie quelques messages à Celestin et reviens ici.</p>
+      )}
+
+      {entries.length > 0 && (
+        <details className="mb-3">
+          <summary className="cursor-pointer text-[11px] text-[var(--text-secondary)]">Détail tour par tour</summary>
+          <div className="mt-2 max-h-64 overflow-y-auto">
+            <table className="w-full text-[10px] text-[var(--text-secondary)]">
+              <thead className="text-[var(--text-muted)]">
+                <tr>
+                  <th className="text-left">Heure</th>
+                  <th className="text-right">prep</th>
+                  <th className="text-right">celestin</th>
+                  <th className="text-right">total</th>
+                  <th className="text-left pl-2">Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map((e, i) => (
+                  <tr key={i} className="border-t border-[var(--border-color)]">
+                    <td>{new Date(e.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
+                    <td className="text-right tabular-nums">{e.prepMs}</td>
+                    <td className="text-right tabular-nums">{e.celestinMs}</td>
+                    <td className="text-right tabular-nums font-medium">{e.totalMs}</td>
+                    <td className="pl-2 text-[var(--text-muted)]">{e.messagePreview}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
+
+      <button
+        onClick={() => {
+          clearCelestinTimings()
+          refresh()
+        }}
+        className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-red-300 px-4 py-2 text-[12px] font-medium text-red-600"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+        Purger les latences
+      </button>
+    </div>
+  )
 }
 
 export function CrossSessionCleanupPanel({

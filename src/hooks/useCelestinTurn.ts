@@ -14,6 +14,7 @@ import {
   extractInsights,
   type MemoryFact,
 } from '@/lib/chatPersistence'
+import { recordCelestinTiming } from '@/lib/debug/celestinTimings'
 import {
   appendCelestinRealTrace,
   buildCelestinRealTraceEntry,
@@ -66,6 +67,7 @@ export function useCelestinTurn({
     try {
       persistMessage(sessionIdRef.current, 'user', message, { hasImage: !!image })
 
+      const t0 = performance.now()
       const body = await prepareCelestinRequest({
         message,
         image,
@@ -78,9 +80,21 @@ export function useCelestinTurn({
         debugTrace: traceEnabled,
       })
       traceBody = body
+      const t1 = performance.now()
 
       const fullResponse = await invokeCelestin(body)
+      const t2 = performance.now()
       const response = fullResponse
+
+      recordCelestinTiming({
+        timestamp: new Date().toISOString(),
+        messagePreview: message.slice(0, 80),
+        prepMs: Math.round(t1 - t0),
+        celestinMs: Math.round(t2 - t1),
+        totalMs: Math.round(t2 - t0),
+        hadImage: !!image,
+        uiActionKind: fullResponse?.ui_action?.kind ?? null,
+      })
 
       if (traceEnabled) {
         appendCelestinRealTrace(buildCelestinRealTraceEntry({
