@@ -398,11 +398,12 @@ const OPENAI_RESPONSE_SCHEMA = {
   },
 }
 
-async function callGemini(userPrompt: string): Promise<ClassifiedIntent> {
+async function callGemini(userPrompt: string, timing: { geminiMs: number }): Promise<ClassifiedIntent> {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured')
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`
 
+  const t0 = performance.now()
   const response = await fetchWithTimeout(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -417,6 +418,7 @@ async function callGemini(userPrompt: string): Promise<ClassifiedIntent> {
       },
     }),
   })
+  timing.geminiMs = Math.round(performance.now() - t0)
 
   if (!response.ok) {
     throw new Error(`Gemini 2.5 Flash Lite (${response.status}): ${extractErrorMessage(await response.text())}`)
@@ -463,10 +465,10 @@ async function callOpenAI(userPrompt: string): Promise<ClassifiedIntent> {
 
 // === FALLBACK ===
 
-async function classifyWithFallback(userPrompt: string): Promise<{ provider: string; result: ClassifiedIntent }> {
+async function classifyWithFallback(userPrompt: string, timing: { geminiMs: number }): Promise<{ provider: string; result: ClassifiedIntent }> {
   const providers: Array<{ name: string; call: () => Promise<ClassifiedIntent> }> = []
 
-  if (GEMINI_API_KEY) providers.push({ name: 'Gemini Flash Lite', call: () => callGemini(userPrompt) })
+  if (GEMINI_API_KEY) providers.push({ name: 'Gemini Flash Lite', call: () => callGemini(userPrompt, timing) })
   if (OPENAI_API_KEY) providers.push({ name: 'GPT-4.1 mini', call: () => callOpenAI(userPrompt) })
 
   if (providers.length === 0) throw new Error('No API keys configured (GEMINI_API_KEY or OPENAI_API_KEY).')
@@ -506,15 +508,17 @@ Deno.serve(async (req) => {
     }
 
     const userPrompt = buildUserPrompt(body)
-    const { provider, result } = await classifyWithFallback(userPrompt)
+    const timing = { geminiMs: 0 }
+    const { provider, result } = await classifyWithFallback(userPrompt, timing)
 
     const latencyMs = Date.now() - startedAt
+    const overheadMs = latencyMs - timing.geminiMs
     console.log(
-      `[classify-celestin-intent] provider=${provider} latency=${latencyMs}ms isFactual=${result.isFactual} intent=${result.intent ?? 'null'} convIntent=${result.conversationalIntent ?? 'null'} conf=${result.confidence.toFixed(2)} query="${body.query.slice(0, 80)}"`,
+      `[classify-celestin-intent] provider=${provider} total=${latencyMs}ms gemini=${timing.geminiMs}ms overhead=${overheadMs}ms isFactual=${result.isFactual} intent=${result.intent ?? 'null'} convIntent=${result.conversationalIntent ?? 'null'} conf=${result.confidence.toFixed(2)} query="${body.query.slice(0, 80)}"`,
     )
 
     return new Response(
-      JSON.stringify({ ...result, _meta: { provider, latencyMs } }),
+      JSON.stringify({ ...result, _meta: { provider, latencyMs, geminiMs: timing.geminiMs, overheadMs } }),
       { headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     )
   } catch (error) {

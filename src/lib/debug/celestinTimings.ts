@@ -18,6 +18,8 @@ export interface CelestinTimingEntry {
   prepBreakdown?: {
     memoryMs: number
     classifierMs: number
+    classifierServerMs?: number
+    classifierGeminiMs?: number
     compiledProfileMs: number
   }
   hadImage: boolean

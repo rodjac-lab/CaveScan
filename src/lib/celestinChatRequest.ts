@@ -65,6 +65,8 @@ async function loadCompiledProfileMarkdown(): Promise<string | undefined> {
 export interface PrepTimings {
   memoryMs: number
   classifierMs: number
+  classifierServerMs?: number
+  classifierGeminiMs?: number
   compiledProfileMs: number
 }
 
@@ -130,6 +132,8 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
     prepTimings: {
       memoryMs: memoryEvidenceT.ms,
       classifierMs: classifiedT.ms,
+      classifierServerMs: classified?._meta?.latencyMs,
+      classifierGeminiMs: classified?._meta?.geminiMs,
       compiledProfileMs: compiledProfileT.ms,
     },
   }

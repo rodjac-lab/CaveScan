@@ -30,10 +30,15 @@ export interface ClassifiedIntent {
   filters: ClassifiedFilters
   scope: InventoryScope | null
   rankingDirection: 'desc' | 'asc' | null
+  _meta?: {
+    provider: string
+    latencyMs: number
+    geminiMs: number
+    overheadMs: number
+  }
   rankingLimit: number | null
   conversationalIntent: ConversationalIntent | null
   confidence: number
-  _meta?: { provider: string; latencyMs: number }
 }
 
 export interface ClassifyFactualIntentInput {

@@ -1035,6 +1035,10 @@ export function CelestinTimingsPanel() {
     const memoryMs = withBreakdown.map((e) => e.prepBreakdown!.memoryMs).sort((a, b) => a - b)
     const classifierMs = withBreakdown.map((e) => e.prepBreakdown!.classifierMs).sort((a, b) => a - b)
     const profileMs = withBreakdown.map((e) => e.prepBreakdown!.compiledProfileMs).sort((a, b) => a - b)
+    const withClassifierBreakdown = withBreakdown.filter((e) => e.prepBreakdown!.classifierGeminiMs !== undefined)
+    const geminiMs = withClassifierBreakdown.map((e) => e.prepBreakdown!.classifierGeminiMs!).sort((a, b) => a - b)
+    const overheadMs = withClassifierBreakdown.map((e) => e.prepBreakdown!.classifierMs - (e.prepBreakdown!.classifierServerMs ?? 0)).sort((a, b) => a - b)
+    const serverOverheadMs = withClassifierBreakdown.map((e) => (e.prepBreakdown!.classifierServerMs ?? 0) - (e.prepBreakdown!.classifierGeminiMs ?? 0)).sort((a, b) => a - b)
     return {
       count: entries.length,
       total: { p50: median(totals), p95: p95(totals), max: totals[totals.length - 1] },
@@ -1045,6 +1049,12 @@ export function CelestinTimingsPanel() {
         memory: { p50: median(memoryMs), p95: p95(memoryMs) },
         classifier: { p50: median(classifierMs), p95: p95(classifierMs) },
         profile: { p50: median(profileMs), p95: p95(profileMs) },
+      } : null,
+      classifierBreakdown: withClassifierBreakdown.length > 0 ? {
+        count: withClassifierBreakdown.length,
+        gemini: { p50: median(geminiMs), p95: p95(geminiMs) },
+        serverOverhead: { p50: median(serverOverheadMs), p95: p95(serverOverheadMs) },
+        networkOverhead: { p50: median(overheadMs), p95: p95(overheadMs) },
       } : null,
     }
   }, [entries])
@@ -1087,6 +1097,20 @@ export function CelestinTimingsPanel() {
               </p>
               <p className="pl-3">
                 <strong>compiledProfile</strong> p50 {stats.breakdown.profile.p50}ms · p95 {stats.breakdown.profile.p95}ms
+              </p>
+            </>
+          )}
+          {stats.classifierBreakdown && (
+            <>
+              <p className="mt-2 text-[var(--text-muted)]">Décomposition classifier ({stats.classifierBreakdown.count} tour(s)) :</p>
+              <p className="pl-3">
+                <strong>gemini</strong> (LLM seul) p50 {stats.classifierBreakdown.gemini.p50}ms · p95 {stats.classifierBreakdown.gemini.p95}ms
+              </p>
+              <p className="pl-3">
+                <strong>server overhead</strong> (Deno boot + JSON validation) p50 {stats.classifierBreakdown.serverOverhead.p50}ms · p95 {stats.classifierBreakdown.serverOverhead.p95}ms
+              </p>
+              <p className="pl-3">
+                <strong>network overhead</strong> (TLS + Supabase Functions invoke) p50 {stats.classifierBreakdown.networkOverhead.p50}ms · p95 {stats.classifierBreakdown.networkOverhead.p95}ms
               </p>
             </>
           )}
