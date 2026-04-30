@@ -62,7 +62,22 @@ async function loadCompiledProfileMarkdown(): Promise<string | undefined> {
   return userProfile?.compiled_markdown ?? undefined
 }
 
-export async function prepareCelestinRequest(input: PrepareCelestinRequestInput) {
+export interface PrepTimings {
+  memoryMs: number
+  classifierMs: number
+  compiledProfileMs: number
+}
+
+async function timed<T>(fn: () => Promise<T>): Promise<{ result: T; ms: number }> {
+  const t0 = performance.now()
+  const result = await fn()
+  return { result, ms: Math.round(performance.now() - t0) }
+}
+
+export async function prepareCelestinRequest(input: PrepareCelestinRequestInput): Promise<{
+  body: ReturnType<typeof buildCelestinRequestBody>
+  prepTimings: PrepTimings
+}> {
   const memorySelectionProfile: MemorySelectionProfile =
     input.conversationState && (input.conversationState as { taskType?: string | null }).taskType === 'recommendation'
       ? 'recommendation'
@@ -70,24 +85,28 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
         ? 'recommendation'
         : 'default'
 
-  const [memoryEvidence, classified, compiledProfileMarkdown] = await Promise.all([
-    buildMemoryEvidenceBundle({
+  const [memoryEvidenceT, classifiedT, compiledProfileT] = await Promise.all([
+    timed(() => buildMemoryEvidenceBundle({
       query: input.message,
       recentMessages: toMemoryMessages(input.messages),
       drunkBottles: input.drunk,
       selectionProfile: memorySelectionProfile,
-    }),
-    classifyFactualIntent({
+    })),
+    timed(() => classifyFactualIntent({
       query: input.message,
       cave: input.cave,
       drunk: input.drunk,
-    }),
-    loadCompiledProfileMarkdown(),
+    })),
+    timed(() => loadCompiledProfileMarkdown()),
   ])
+
+  const memoryEvidence = memoryEvidenceT.result
+  const classified = classifiedT.result
+  const compiledProfileMarkdown = compiledProfileT.result
 
   const sqlRetrieval = routeFactualQueryFromClassification(classified, input.drunk, input.cave)
 
-  return buildCelestinRequestBody({
+  const body = buildCelestinRequestBody({
     message: input.message,
     image: input.image,
     cave: input.cave,
@@ -105,6 +124,15 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
     conversationalIntent: classified?.conversationalIntent ?? null,
     debugTrace: input.debugTrace,
   })
+
+  return {
+    body,
+    prepTimings: {
+      memoryMs: memoryEvidenceT.ms,
+      classifierMs: classifiedT.ms,
+      compiledProfileMs: compiledProfileT.ms,
+    },
+  }
 }
 
 export async function invokeCelestin(body: ReturnType<typeof buildCelestinRequestBody>) {

@@ -62,13 +62,14 @@ export function useCelestinTurn({
 }: UseCelestinTurnInput) {
   return useCallback(async (message: string, loadingMsgId: string, image?: string) => {
     const traceEnabled = isCelestinTraceEnabled()
-    let traceBody: Awaited<ReturnType<typeof prepareCelestinRequest>> | null = null
+    type PreparedBody = Awaited<ReturnType<typeof prepareCelestinRequest>>['body']
+    let traceBody: PreparedBody | null = null
 
     try {
       persistMessage(sessionIdRef.current, 'user', message, { hasImage: !!image })
 
       const t0 = performance.now()
-      const body = await prepareCelestinRequest({
+      const { body, prepTimings } = await prepareCelestinRequest({
         message,
         image,
         cave: caveRef.current ?? [],
@@ -92,6 +93,7 @@ export function useCelestinTurn({
         prepMs: Math.round(t1 - t0),
         celestinMs: Math.round(t2 - t1),
         totalMs: Math.round(t2 - t0),
+        prepBreakdown: prepTimings,
         hadImage: !!image,
         uiActionKind: fullResponse?.ui_action?.kind ?? null,
       })

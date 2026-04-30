@@ -1031,11 +1031,21 @@ export function CelestinTimingsPanel() {
     const cels = entries.map((e) => e.celestinMs).sort((a, b) => a - b)
     const median = (arr: number[]) => arr[Math.floor(arr.length / 2)]
     const p95 = (arr: number[]) => arr[Math.min(arr.length - 1, Math.floor(arr.length * 0.95))]
+    const withBreakdown = entries.filter((e) => e.prepBreakdown)
+    const memoryMs = withBreakdown.map((e) => e.prepBreakdown!.memoryMs).sort((a, b) => a - b)
+    const classifierMs = withBreakdown.map((e) => e.prepBreakdown!.classifierMs).sort((a, b) => a - b)
+    const profileMs = withBreakdown.map((e) => e.prepBreakdown!.compiledProfileMs).sort((a, b) => a - b)
     return {
       count: entries.length,
       total: { p50: median(totals), p95: p95(totals), max: totals[totals.length - 1] },
       prep: { p50: median(preps), p95: p95(preps) },
       celestin: { p50: median(cels), p95: p95(cels) },
+      breakdown: withBreakdown.length > 0 ? {
+        count: withBreakdown.length,
+        memory: { p50: median(memoryMs), p95: p95(memoryMs) },
+        classifier: { p50: median(classifierMs), p95: p95(classifierMs) },
+        profile: { p50: median(profileMs), p95: p95(profileMs) },
+      } : null,
     }
   }, [entries])
 
@@ -1066,6 +1076,20 @@ export function CelestinTimingsPanel() {
           <p>
             <strong>celestin</strong> p50 {stats.celestin.p50}ms · p95 {stats.celestin.p95}ms
           </p>
+          {stats.breakdown && (
+            <>
+              <p className="mt-2 text-[var(--text-muted)]">Décomposition prep ({stats.breakdown.count} tour(s)) :</p>
+              <p className="pl-3">
+                <strong>memory</strong> p50 {stats.breakdown.memory.p50}ms · p95 {stats.breakdown.memory.p95}ms
+              </p>
+              <p className="pl-3">
+                <strong>classifier</strong> p50 {stats.breakdown.classifier.p50}ms · p95 {stats.breakdown.classifier.p95}ms
+              </p>
+              <p className="pl-3">
+                <strong>compiledProfile</strong> p50 {stats.breakdown.profile.p50}ms · p95 {stats.breakdown.profile.p95}ms
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <p className="mb-3 text-[11px] text-[var(--text-muted)]">Aucune donnée. Envoie quelques messages à Celestin et reviens ici.</p>
@@ -1079,6 +1103,9 @@ export function CelestinTimingsPanel() {
               <thead className="text-[var(--text-muted)]">
                 <tr>
                   <th className="text-left">Heure</th>
+                  <th className="text-right" title="Memory evidence (DB queries + embeddings)">mem</th>
+                  <th className="text-right" title="Classifier (Gemini Flash-Lite)">cls</th>
+                  <th className="text-right" title="Compiled profile (DB query)">prof</th>
                   <th className="text-right">prep</th>
                   <th className="text-right">celestin</th>
                   <th className="text-right">total</th>
@@ -1089,6 +1116,9 @@ export function CelestinTimingsPanel() {
                 {entries.map((e, i) => (
                   <tr key={i} className="border-t border-[var(--border-color)]">
                     <td>{new Date(e.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
+                    <td className="text-right tabular-nums text-[var(--text-muted)]">{e.prepBreakdown?.memoryMs ?? '–'}</td>
+                    <td className="text-right tabular-nums text-[var(--text-muted)]">{e.prepBreakdown?.classifierMs ?? '–'}</td>
+                    <td className="text-right tabular-nums text-[var(--text-muted)]">{e.prepBreakdown?.compiledProfileMs ?? '–'}</td>
                     <td className="text-right tabular-nums">{e.prepMs}</td>
                     <td className="text-right tabular-nums">{e.celestinMs}</td>
                     <td className="text-right tabular-nums font-medium">{e.totalMs}</td>

@@ -15,6 +15,11 @@ export interface CelestinTimingEntry {
   prepMs: number
   celestinMs: number
   totalMs: number
+  prepBreakdown?: {
+    memoryMs: number
+    classifierMs: number
+    compiledProfileMs: number
+  }
   hadImage: boolean
   uiActionKind: string | null
 }
