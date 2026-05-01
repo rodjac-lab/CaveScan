@@ -216,7 +216,7 @@ La réponse de Celestin doit s'appuyer sur :
 
 - le tour en cours
 - la mémoire compilée pertinente
-- des requêtes SQL ciblées sur les sources brutes utiles
+- des tools factuels bornés sur les sources brutes utiles
 
 Mais elle ne doit pas être construite comme si toutes les sources avaient le même statut.
 

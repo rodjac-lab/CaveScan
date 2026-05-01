@@ -1,12 +1,16 @@
-# Refonte du routage SQL Celestin — livrée
+# Refonte du routage SQL Celestin — archive historique
 
 **Date de décision** : 2026-04-22
 **Date de livraison** : 2026-04-22 (classifier + wiring) / 2026-04-23 (nettoyage regex + simplify + quick wins)
-**Statut** : ✅ **LIVRÉ EN PROD**
+**Statut** : archive. Depuis le 2026-05-01, ce n'est plus le chemin runtime principal.
+
+> Ce document décrit une étape importante du raisonnement, pas l'architecture active.
+> Le classifier `classify-celestin-intent` et `sqlRetrievalRouter.ts` restent des artefacts legacy/debug.
+> Le runtime principal passe par Claude Haiku 4.5 avec tools factuels internes (`query_cellar`, `query_tastings`, `query_memory`).
 
 ## TL;DR
 
-Le routage SQL factuel Celestin (tâche #2 du chantier mémoire) est en production, piloté par un classifier LLM dédié au lieu des regex substring qui produisaient des faux positifs (Marsannay/mars, Val de Loire/laval, Saint-* / "Saint Genis Laval", Côte Rôtie / "poulet rôti"). Ce document garde sa valeur de post-mortem — lire `celestin-architecture.md` pour le flow runtime actuel.
+Le routage SQL factuel Celestin (tâche #2 du chantier mémoire) a été livré en production, piloté par un classifier LLM dédié au lieu des regex substring qui produisaient des faux positifs (Marsannay/mars, Val de Loire/laval, Saint-* / "Saint Genis Laval", Côte Rôtie / "poulet rôti"). La passe du 2026-05-01 a retiré ce classifier du chemin principal pour revenir au principe simple : Claude comprend le tour et appelle lui-même des tools factuels si nécessaire. Ce document garde sa valeur de post-mortem — lire `celestin-architecture.md` pour le flow runtime actuel.
 
 ### Ce qui a été livré
 

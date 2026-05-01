@@ -13,7 +13,8 @@ Celestin est le sommelier IA de l'app. Ce document decrit comment un message uti
 > `previousSessionSummaries` et `retrievedConversation` ne sont plus l'architecture active.
 > Le runtime memoire actuel est plus simple :
 > - profil compile utilisateur
-> - tasting memories ciblees
+> - tools factuels Claude pour cave/degustations/memoire conversationnelle exacte
+> - tasting memories ciblees seulement quand elles apportent de la texture
 > - cave
 > - history courte + conversation state
 
@@ -291,13 +292,13 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 
 | Cognitive Mode | Contexte envoye | Tokens estimes |
 |----------------|-----------------|----------------|
-| `greeting` / `social` | Memory facts + profil + cave count | ~250 |
-| `wine_conversation` | Memory facts + profil + questionnaire + souvenirs de degustation | ~500 |
-| `cellar_assistant` | Memory facts + TOUT : cave complete + profil + souvenirs + sessions + zones + questionnaire | ~3000+ |
-| `restaurant_assistant` | Memory facts + profil + questionnaire (image dans le message) | ~400 |
-| `tasting_memory` | Memory facts + profil + souvenirs + sessions + cave count | ~700 |
+| `greeting` / `social` | Profil compile minimal + cave count, sans retrieval memoire si message social evident | ~250 |
+| `wine_conversation` | Profil compile + cave count + souvenirs ciblés si signal vin/memoire pertinent | ~500-1500 |
+| `cellar_assistant` | Cave resumee/triee + profil compile + zones + tools factuels disponibles | ~3000+ |
+| `restaurant_assistant` | Profil compile + contexte image/carte, sans cave complete | ~400-1200 |
+| `tasting_memory` | Profil compile + tools `query_tastings`/`query_memory` + souvenirs ciblés si utiles | ~700-2000 |
 
-**Note V2.5** : Memory facts (preferences extraites des conversations) sont injectes dans TOUS les modes. Souvenirs de degustation (verbatim, tags) disponibles en `wine_conversation`, `tasting_memory` et `cellar_assistant`.
+**Note 2026-05-01** : les `user_memory_facts` ne doivent pas redevenir un vrac injecte partout. Ils alimentent surtout le profil compile ; au runtime, Claude peut interroger `query_memory` si une question exige une verification. Les questions exactes sur cave/degustations passent par les tools, pas par le profil ni par un classifier en amont.
 
 ### Prompt hint par turnType
 
@@ -328,7 +329,8 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 | Fichier | Role |
 |---------|------|
 | `celestin/index.ts` | Handler HTTP, orchestration, policy, providers LLM, fallback |
-| `classify-celestin-intent/index.ts` | Classifier LLM (Gemini Flash Lite + GPT-4.1 mini fallback) qui retourne un JSON strict `{ isFactual, intent, filters, scope, rankingDirection, rankingLimit }` pour les questions factuelles. Déployé `--no-verify-jwt`. |
+| `auth.ts` | Resolution user authentifie via JWT Supabase ; les tools sont desactives si l'utilisateur n'est pas authentifie |
+| `tools.ts` | Outils factuels bornes `query_cellar`, `query_tastings`, `query_memory` ; user-scopes, sans SQL libre, limites en volume |
 | `turn-interpreter.ts` | Turn Interpreter (routing state-aware, déterministe) |
 | `conversation-state.ts` | **NOUVEAU** : types d'etat + transitions (computeNextState) |
 | `prompt-builder.ts` | Assemble le system prompt (concatene les 5 modules) |
@@ -358,7 +360,7 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 | `lib/chatPersistence.ts` | Persistence conversations Supabase + extraction de facts bruts |
 | `lib/recommendationStore.ts` | Cache prefetch (module-level) |
 | `lib/celestinConversation.ts` | `buildCelestinRequestBody()` — assemble le payload (cave resumee, profil, memories, state, compiled profile) |
-| `lib/celestinChatRequest.ts` | `prepareCelestinRequest()` — orchestre l'appel : `Promise.all(memoryEvidence, profil)` puis appel unique `celestin` |
+| `lib/celestinChatRequest.ts` | `prepareCelestinRequest()` — orchestre l'appel : `Promise.all(memoryEvidence, profil)` puis appel unique `celestin`; le classifier n'est plus dans le chemin principal |
 | `lib/celestinIntentClassifier.ts` | Client legacy/debug de l'edge function `classify-celestin-intent` (n'est plus appele sur le chemin principal Celestin) |
 | `lib/sqlRetrievalRouter.ts` | Builders factuels legacy/debug. Le runtime principal passe par les outils internes Claude dans `supabase/functions/celestin/tools.ts` |
 | `lib/userProfiles.ts` | Profil compilé utilisateur + `getCompiledUserProfileCached()` (cache module-level) |
@@ -390,6 +392,8 @@ Claude peut appeler au plus un round d'outils internes :
 - `query_memory` : faits de memoire conversationnelle user-scope
 
 Ces outils ne sont pas du SQL libre et sont des fonctions serveur bornees. Si l'utilisateur n'est pas authentifie, les outils sont desactives et Claude repond avec le contexte injecte.
+
+Les fallbacks Gemini/OpenAI n'ont pas les tools internes. Ils peuvent servir de secours conversationnel, mais ne doivent pas devenir la source de verite pour une question exacte. Le debug expose `providerTrace`, les tool calls et les erreurs provider pour detecter ces cas.
 
 ## Types de reponse
 

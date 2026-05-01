@@ -25,7 +25,7 @@ Profil compile unique
         |
         v
 Runtime
-= profil compile + requetes SQL ciblees
+= profil compile + tools factuels + tasting memories ciblees
         |
         v
 Reponse Celestin
@@ -48,8 +48,8 @@ sources brutes
 APRES
 sources brutes
 -> profil compile utilisateur
--> tasting memories ciblees
--> SQL cible si besoin
+-> tools factuels a la demande
+-> tasting memories ciblees si elles apportent de la texture
 -> prompt plus simple
 -> LLM
 ```
@@ -71,9 +71,9 @@ message
 + history
 + conversationState
 + cave
-+ tasting memories
 + profil compile
--> LLM
++ tasting memories ciblees quand utiles
+-> Claude primaire avec tools factuels bornes
 ```
 
 ## 1. Supabase : les sources brutes
@@ -101,7 +101,7 @@ Exemples :
 
 Le bon outil ici est :
 
-- SQL ciblé
+- un tool factuel borné (`query_cellar`, `query_tastings`, `query_memory`)
 - éventuellement enrichi par un peu d'extraction structurée
 
 ## 2. Profil compilé : la connaissance durable de l'utilisateur
@@ -174,8 +174,8 @@ Il lit :
 
 - le profil compilé
 - la cave et l'état conversationnel courant
-- quelques résultats ciblés sur les dégustations passées
-- des requêtes SQL ciblées selon la question
+- quelques souvenirs de dégustation ciblés quand ils aident la conversation
+- des tools factuels selon la question exacte
 
 Il n'a pas besoin d'une couche complexe de retrieval généraliste si les responsabilités sont bien séparées.
 
@@ -186,9 +186,10 @@ message courant
 + history courte
 + conversationState
 + cave
-+ tasting memories ciblees
 + profil compile
--> LLM
++ tasting memories ciblees si signal pertinent
+-> Claude primaire
+   + tools factuels user-scopes si besoin
 ```
 
 ## Quand utiliser le profil compilé
@@ -207,9 +208,9 @@ Exemples :
 - `explore en ce moment le Sangiovese et le Brunello`
 - `préfère un ton direct, sans trop de jargon`
 
-## Quand utiliser SQL ciblé
+## Quand utiliser les tools factuels
 
-Le SQL ciblé sert surtout pour :
+Les tools factuels servent surtout pour :
 
 - retrouver un événement précis
 - retrouver un vin précis
@@ -223,7 +224,13 @@ Exemples :
 - vins bus à `Rome`
 - meilleurs `Brunello` dégustés
 
-Dans le code actuel, la récupération des dégustations utiles passe par `tastingMemories` :
+Dans le code actuel, les faits exacts passent par `supabase/functions/celestin/tools.ts` :
+
+- `query_cellar` pour le stock actuel
+- `query_tastings` pour les bouteilles bues et notes
+- `query_memory` pour les faits conversationnels bruts
+
+La récupération de souvenirs utiles garde un rôle complémentaire via `tastingMemories` :
 
 - filtres exacts quand ils existent
 - ranking local lisible
@@ -251,7 +258,7 @@ Le questionnaire ne doit plus dominer dès qu'on a de vrais signaux vécus.
 
 Parce qu'il donne au modèle deux choses très différentes, chacune dans le bon format :
 
-- des faits exacts, récupérés par requêtes ciblées
+- des faits exacts, récupérés par tools bornés
 - un portrait utilisateur compact, lisible, déjà maintenu
 
 Le LLM n'a pas à reconstruire l'utilisateur à partir d'un vrac de sources.
@@ -261,7 +268,7 @@ Le LLM n'a pas à reconstruire l'utilisateur à partir d'un vrac de sources.
 ```text
 Donnees brutes et evenements -> Supabase
 Connaissance durable utilisateur -> Markdown compile en base
-Runtime -> profil + tasting memories + SQL cible
+Runtime -> profil + tools factuels + tasting memories ciblees
 ```
 
 ## Règle finale

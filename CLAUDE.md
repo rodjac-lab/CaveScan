@@ -38,7 +38,7 @@ Message utilisateur → `buildCelestinRequestBody()` (cave résumée + profil + 
 - OCR scan : Gemini Flash en primaire prod (10× moins cher, suffisant en single-bottle), Claude Haiku en fallback (benchmark fév 2026 : 19/20, légèrement plus fiable). Switch via secret `PRIMARY_PROVIDER`
 - `extract-wine`, `celestin`, `extract-chat-insights` et `generate-embedding` déployés avec `--no-verify-jwt` (obligatoire, sinon 401)
 - Multi-bouteilles : feature-flagged OFF (`ENABLE_MULTI_BOTTLE_SCAN = false`) — qualité OCR insuffisante
-- Mémoire : architecture cible `Supabase + compiled profile markdown + tasting memories + SQL ciblé`
+- Mémoire : architecture cible `Supabase + compiled profile markdown + Claude tools factuels + tasting memories ciblées`
 - Cross-session : localStorage TTL 7j, max 4 sessions
 - Rating : demi-étoiles NUMERIC 0.5-5
 
