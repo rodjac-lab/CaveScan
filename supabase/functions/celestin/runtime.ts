@@ -94,6 +94,7 @@ function buildDebugTrace(input: {
 }
 
 export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Promise<CelestinTurnRuntimeResult> {
+  const turnId = crypto.randomUUID()
   const conversationState: ConversationState = body.conversationState ?? { ...INITIAL_STATE }
   const lastAssistantTurn = [...body.history].reverse().find((turn) => turn.role === 'assistant')
   const lastAssistantText = lastAssistantTurn?.text
@@ -125,7 +126,16 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
     providerHistory,
     body.provider,
     body.image,
-    { auth, requestSource },
+    {
+      auth,
+      requestSource,
+      usageContext: {
+        turnId,
+        route: routing.winner,
+        turnType: interpretation.turnType,
+        mode: interpretation.cognitiveMode,
+      },
+    },
   )
 
   const response = applyResponsePolicy(rawResponse, interpretation)

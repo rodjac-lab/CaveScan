@@ -20,10 +20,19 @@ const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001'
 const OPENAI_MODEL = 'gpt-4.1-mini'
+type ClaudeToolChoice = 'auto' | 'none'
 
 export interface CelestinProviderOptions {
   auth?: AuthContext
   requestSource?: string
+  usageContext?: CelestinUsageContext
+}
+
+export interface CelestinUsageContext {
+  turnId: string
+  route: string
+  turnType: string
+  mode: string
 }
 
 export interface CelestinProviderAttemptTrace {
@@ -182,6 +191,16 @@ function buildClaudeSystem(systemPrompt: string) {
   }]
 }
 
+function buildClaudeTools() {
+  return CELESTIN_TOOLS.map((tool, index) => {
+    if (index !== CELESTIN_TOOLS.length - 1) return tool
+    return {
+      ...tool,
+      cache_control: { type: 'ephemeral' },
+    }
+  })
+}
+
 function extractClaudeText(result: { content?: Array<{ type: string; text?: string }> }): string {
   const textContent = result.content?.find((c) => c.type === 'text' && c.text)
   if (!textContent?.text) throw new Error('No text response from Claude')
@@ -202,12 +221,15 @@ function parseClaudeResponse(text: string): CelestinResponse {
 async function postClaudeMessages(input: {
   systemPrompt: string
   messages: ClaudeMessage[]
-  toolsEnabled: boolean
+  toolChoice: ClaudeToolChoice
   caller: string
   messagePreview: string
   requestSource?: string
+  auth?: AuthContext
+  usageContext?: CelestinUsageContext
   trace?: CelestinProviderTrace
 }) {
+  const toolsIncluded = true
   const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -220,8 +242,8 @@ async function postClaudeMessages(input: {
       max_tokens: 4096,
       system: buildClaudeSystem(input.systemPrompt),
       messages: input.messages,
-      tools: CELESTIN_TOOLS,
-      tool_choice: input.toolsEnabled ? { type: 'auto' } : { type: 'none' },
+      tools: buildClaudeTools(),
+      tool_choice: { type: input.toolChoice },
     }),
   })
 
@@ -230,10 +252,25 @@ async function postClaudeMessages(input: {
   }
 
   const result = await response.json()
-  logAnthropicUsage(input.caller, result, {
+  const toolsEnabled = input.toolChoice !== 'none'
+  const usageExtra = {
     messagePreview: input.messagePreview,
-    toolsEnabled: input.toolsEnabled,
+    toolsEnabled,
+    toolsIncluded,
+    toolChoice: input.toolChoice,
     requestSource: input.requestSource,
+  }
+  logAnthropicUsage(input.caller, result, usageExtra)
+  await persistClaudeUsage({
+    auth: input.auth,
+    caller: input.caller,
+    result,
+    requestSource: input.requestSource,
+    messagePreview: input.messagePreview,
+    toolsEnabled,
+    toolsIncluded,
+    toolChoice: input.toolChoice,
+    usageContext: input.usageContext,
   })
   const usage = result.usage as {
     cache_creation_input_tokens?: number
@@ -249,6 +286,53 @@ async function postClaudeMessages(input: {
     console.log(`[celestin:claude-cache] create=${create} read=${read}`)
   }
   return result
+}
+
+async function persistClaudeUsage(input: {
+  auth?: AuthContext
+  caller: string
+  result: { usage?: Record<string, unknown> }
+  requestSource?: string
+  messagePreview: string
+  toolsEnabled: boolean
+  toolsIncluded: boolean
+  toolChoice: ClaudeToolChoice
+  usageContext?: CelestinUsageContext
+}) {
+  const supabase = input.auth?.supabase
+  if (!supabase) return
+
+  const usage = input.result.usage ?? {}
+  const numeric = (key: string): number => {
+    const value = usage[key]
+    return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0
+  }
+
+  try {
+    const { error } = await supabase.from('celestin_llm_usage').insert({
+      user_id: input.auth?.userId ?? null,
+      turn_id: input.usageContext?.turnId ?? null,
+      request_source: input.requestSource ?? null,
+      caller: input.caller,
+      provider: 'anthropic',
+      model: CLAUDE_MODEL,
+      route: input.usageContext?.route ?? null,
+      turn_type: input.usageContext?.turnType ?? null,
+      mode: input.usageContext?.mode ?? null,
+      input_tokens: numeric('input_tokens'),
+      output_tokens: numeric('output_tokens'),
+      cache_creation_input_tokens: numeric('cache_creation_input_tokens'),
+      cache_read_input_tokens: numeric('cache_read_input_tokens'),
+      tools_enabled: input.toolsEnabled,
+      tools_included: input.toolsIncluded,
+      tool_choice: input.toolChoice,
+      message_preview: input.messagePreview,
+      raw_usage: usage,
+    })
+    if (error) console.warn('[celestin:usage-db] insert failed:', error.message)
+  } catch (err) {
+    console.warn('[celestin:usage-db] insert failed:', err instanceof Error ? err.message : String(err))
+  }
 }
 
 function toolUseBlocks(result: { content?: unknown[] }): ClaudeToolUseContent[] {
@@ -287,11 +371,13 @@ async function callClaude(
   const first = await postClaudeMessages({
     systemPrompt,
     messages,
-    toolsEnabled,
+    toolChoice: toolsEnabled ? 'auto' : 'none',
     trace,
     caller: 'celestin.claude.first',
     messagePreview,
     requestSource: options?.requestSource,
+    auth,
+    usageContext: options?.usageContext,
   })
   const toolUses = toolsEnabled ? toolUseBlocks(first) : []
 
@@ -348,11 +434,13 @@ async function callClaude(
   const final = await postClaudeMessages({
     systemPrompt,
     messages: followupMessages,
-    toolsEnabled: false,
+    toolChoice: 'none',
     trace,
     caller: 'celestin.claude.tool_followup',
     messagePreview,
     requestSource: options?.requestSource,
+    auth,
+    usageContext: options?.usageContext,
   })
 
   if (final.stop_reason === 'tool_use') {

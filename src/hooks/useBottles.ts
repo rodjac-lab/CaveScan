@@ -5,7 +5,7 @@ import { CELESTIN_TASTING_MEMORY_LIMIT } from '@/lib/memoryConfig'
 
 const BOTTLES_SELECT_QUERY = `*, zone:zones(*)`
 
-// Module-level cache so prefetch can reuse hook data (avoids duplicate Supabase queries)
+// Module-level cache shared by bottle consumers to avoid duplicate Supabase queries.
 let cachedInStock: Bottle[] | null = null
 let cachedDrunk: Bottle[] | null = null
 

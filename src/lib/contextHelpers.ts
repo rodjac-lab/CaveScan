@@ -1,6 +1,5 @@
 /**
  * Shared helpers for building context sent to the Celestin edge function.
- * Used by both CeSoirModule (live chat) and useRecommendations (prefetch).
  */
 
 export function getSeason(): string {
