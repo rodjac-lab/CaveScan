@@ -14,6 +14,7 @@ import {
 import type { RoutingProbeResult, RoutingProbeState } from '@/hooks/useDebugCelestinTools'
 import type { CelestinRealTraceEntry } from '@/lib/celestinTrace'
 import {
+  formatSupabaseError,
   loadAdminCelestinObservability,
   type AdminCelestinObservabilitySnapshot,
 } from '@/lib/adminCelestinObservability'
@@ -100,7 +101,7 @@ export function AdminCelestinObservabilityPanel() {
     try {
       setSnapshot(await loadAdminCelestinObservability())
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(formatSupabaseError(err))
     } finally {
       setLoading(false)
     }

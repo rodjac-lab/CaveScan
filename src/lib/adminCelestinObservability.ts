@@ -61,6 +61,23 @@ export type AdminCelestinObservabilitySnapshot = {
   slowTurns: AdminCelestinSlowTurn[]
 }
 
+export function formatSupabaseError(error: unknown): string {
+  if (!error) return 'Erreur inconnue'
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  if (typeof error !== 'object') return String(error)
+
+  const record = error as Record<string, unknown>
+  const parts = [
+    typeof record.message === 'string' ? record.message : null,
+    typeof record.details === 'string' ? record.details : null,
+    typeof record.hint === 'string' ? `Hint: ${record.hint}` : null,
+    typeof record.code === 'string' ? `Code: ${record.code}` : null,
+  ].filter(Boolean)
+
+  return parts.length > 0 ? parts.join(' · ') : JSON.stringify(record)
+}
+
 export async function loadAdminCelestinObservability(): Promise<AdminCelestinObservabilitySnapshot> {
   const [daily, costByUser, slowTurns] = await Promise.all([
     supabase.from('admin_celestin_daily_health_v').select('*').limit(14),
@@ -69,7 +86,7 @@ export async function loadAdminCelestinObservability(): Promise<AdminCelestinObs
   ])
 
   const firstError = daily.error ?? costByUser.error ?? slowTurns.error
-  if (firstError) throw firstError
+  if (firstError) throw new Error(formatSupabaseError(firstError))
 
   return {
     daily: (daily.data ?? []) as AdminCelestinDailyHealth[],
