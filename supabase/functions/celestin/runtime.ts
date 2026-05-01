@@ -5,6 +5,7 @@ import { resolveActiveMemoryFocus } from "./memory-focus.ts"
 import { buildCelestinSystemPrompt } from "./prompt-builder.ts"
 import { applyResponsePolicy } from "./response-policy.ts"
 import { interpretTurnWithRouting } from "./turn-interpreter.ts"
+import { persistCelestinTurnObservability } from "./observability.ts"
 import { buildUserPrompt } from "./user-prompt.ts"
 import type { AuthContext } from "./auth.ts"
 import type { CelestinResponse, ConversationTurn, RequestBody } from "./types.ts"
@@ -93,97 +94,138 @@ function buildDebugTrace(input: {
 }
 
 export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Promise<CelestinTurnRuntimeResult> {
+  const startedAt = performance.now()
   const turnId = crypto.randomUUID()
   const conversationState: ConversationState = body.conversationState ?? { ...INITIAL_STATE }
-  const lastAssistantTurn = [...body.history].reverse().find((turn) => turn.role === 'assistant')
-  const lastAssistantText = lastAssistantTurn?.text
-  const conversationalIntent = typeof body.conversationalIntent === 'string' ? body.conversationalIntent : null
-  const routingResult = interpretTurnWithRouting(body.message, !!body.image, conversationState, lastAssistantText, conversationalIntent)
-  const { interpretation, routing } = routingResult
-
   const requestSource = resolveRequestSource(body)
-  console.log(`[celestin] source=${requestSource} message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} route=${routing.winner} state=${conversationState.phase} convIntent=${conversationalIntent ?? 'null'} history=${body.history.length} cave=${body.cave.length} image=${body.image ? 'yes' : 'no'}`)
 
-  const contextBlock = buildContextBlock(body, interpretation.cognitiveMode)
-  const systemPrompt = buildCelestinSystemPrompt(interpretation.cognitiveMode)
-    + '\n\n--- CONTEXTE UTILISATEUR ---\n\n'
-    + contextBlock
+  try {
+    const lastAssistantTurn = [...body.history].reverse().find((turn) => turn.role === 'assistant')
+    const lastAssistantText = lastAssistantTurn?.text
+    const conversationalIntent = typeof body.conversationalIntent === 'string' ? body.conversationalIntent : null
+    const routingResult = interpretTurnWithRouting(body.message, !!body.image, conversationState, lastAssistantText, conversationalIntent)
+    const { interpretation, routing } = routingResult
 
-  const activeMemoryFocus = resolveActiveMemoryFocus(body, interpretation, conversationState, lastAssistantText)
-  const userPrompt = buildUserPrompt(
-    body,
-    interpretation,
-    { ...conversationState, memoryFocus: activeMemoryFocus },
-    lastAssistantText,
-    routing.winner,
-  )
-  const providerHistory = buildProviderHistory(body, routing.winner)
+    console.log(`[celestin] source=${requestSource} message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} route=${routing.winner} state=${conversationState.phase} convIntent=${conversationalIntent ?? 'null'} history=${body.history.length} cave=${body.cave.length} image=${body.image ? 'yes' : 'no'}`)
 
-  const { provider, response: rawResponse, providerErrors, trace: providerTrace } = await celestinWithFallback(
-    systemPrompt,
-    userPrompt,
-    providerHistory,
-    body.provider,
-    body.image,
-    {
-      auth,
-      requestSource,
-      usageContext: {
-        turnId,
-        route: routing.winner,
-        turnType: interpretation.turnType,
-        mode: interpretation.cognitiveMode,
+    const contextBlock = buildContextBlock(body, interpretation.cognitiveMode)
+    const systemPrompt = buildCelestinSystemPrompt(interpretation.cognitiveMode)
+      + '\n\n--- CONTEXTE UTILISATEUR ---\n\n'
+      + contextBlock
+
+    const activeMemoryFocus = resolveActiveMemoryFocus(body, interpretation, conversationState, lastAssistantText)
+    const userPrompt = buildUserPrompt(
+      body,
+      interpretation,
+      { ...conversationState, memoryFocus: activeMemoryFocus },
+      lastAssistantText,
+      routing.winner,
+    )
+    const providerHistory = buildProviderHistory(body, routing.winner)
+
+    const { provider, response: rawResponse, providerErrors, trace: providerTrace } = await celestinWithFallback(
+      systemPrompt,
+      userPrompt,
+      providerHistory,
+      body.provider,
+      body.image,
+      {
+        auth,
+        requestSource,
+        usageContext: {
+          turnId,
+          route: routing.winner,
+          turnType: interpretation.turnType,
+          mode: interpretation.cognitiveMode,
+        },
       },
-    },
-  )
+    )
 
-  const response = applyResponsePolicy(rawResponse, interpretation)
+    const response = applyResponsePolicy(rawResponse, interpretation)
 
-  const nextState = computeNextState(
-    conversationState,
-    interpretation.turnType,
-    !!response.ui_action,
-    response.ui_action?.kind,
-    interpretation.inferredTaskType,
-    activeMemoryFocus,
-  )
+    const nextState = computeNextState(
+      conversationState,
+      interpretation.turnType,
+      !!response.ui_action,
+      response.ui_action?.kind,
+      interpretation.inferredTaskType,
+      activeMemoryFocus,
+    )
 
-  const debugTrace = buildDebugTrace({
-    body,
-    conversationState,
-    nextState,
-    contextBlock,
-    systemPrompt,
-    userPrompt,
-    provider,
-    activeMemoryFocus,
-    rawResponse,
-    response,
-    routingResult,
-    providerErrors,
-    providerTrace,
-  })
+    const debugTrace = buildDebugTrace({
+      body,
+      conversationState,
+      nextState,
+      contextBlock,
+      systemPrompt,
+      userPrompt,
+      provider,
+      activeMemoryFocus,
+      rawResponse,
+      response,
+      routingResult,
+      providerErrors,
+      providerTrace,
+    })
 
-  if (body.debugTrace) {
-    console.log('[celestin:trace]', JSON.stringify({
+    await persistCelestinTurnObservability({
+      supabase: auth?.supabase ?? null,
+      turnId,
+      userId: auth?.userId ?? null,
+      body,
+      startedAt,
+      success: true,
       route: routing.winner,
-      source: requestSource,
       turnType: interpretation.turnType,
       mode: interpretation.cognitiveMode,
-      memoryDecision: (body.memoryTrace as { decision?: unknown } | undefined)?.decision ?? null,
-      uiAction: uiActionKind(response),
+      stateBefore: conversationState,
+      stateAfter: nextState,
+      activeMemoryFocus,
+      prompt: {
+        systemChars: systemPrompt.length,
+        userChars: userPrompt.length,
+        contextChars: contextBlock.length,
+        providerHistoryTurns: providerHistory.length,
+      },
+      response,
       provider,
-      providerPath: providerTrace.providerPath,
-      toolCalls: providerTrace.toolCalls.map((tool) => ({ name: tool.name, totalRows: tool.totalRows, durationMs: tool.durationMs })),
-    }))
-  }
+      providerErrors,
+      providerTrace,
+    })
 
-  console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} nextState=${nextState.phase} focus=${nextState.memoryFocus ?? 'none'} msg="${response.message.slice(0, 120)}" compiled=${body.compiledProfileMarkdown?.trim() ? 'yes' : 'no'}`)
+    if (body.debugTrace) {
+      console.log('[celestin:trace]', JSON.stringify({
+        route: routing.winner,
+        source: requestSource,
+        turnType: interpretation.turnType,
+        mode: interpretation.cognitiveMode,
+        memoryDecision: (body.memoryTrace as { decision?: unknown } | undefined)?.decision ?? null,
+        uiAction: uiActionKind(response),
+        provider,
+        providerPath: providerTrace.providerPath,
+        toolCalls: providerTrace.toolCalls.map((tool) => ({ name: tool.name, totalRows: tool.totalRows, durationMs: tool.durationMs })),
+      }))
+    }
 
-  return {
-    response,
-    nextState,
-    debugTrace,
-    provider,
+    console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} nextState=${nextState.phase} focus=${nextState.memoryFocus ?? 'none'} msg="${response.message.slice(0, 120)}" compiled=${body.compiledProfileMarkdown?.trim() ? 'yes' : 'no'}`)
+
+    return {
+      response,
+      nextState,
+      debugTrace,
+      provider,
+    }
+  } catch (error) {
+    await persistCelestinTurnObservability({
+      supabase: auth?.supabase ?? null,
+      turnId,
+      userId: auth?.userId ?? null,
+      body,
+      startedAt,
+      success: false,
+      error,
+      stateBefore: conversationState,
+    })
+    throw error
   }
 }

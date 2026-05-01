@@ -23,6 +23,7 @@ interface PrepareCelestinRequestInput {
   zones: string[]
   conversationState?: Record<string, unknown> | null
   debugTrace?: boolean
+  sessionId?: string | null
 }
 
 function toMemoryMessages(messages: CelestinChatMessage[]) {
@@ -193,6 +194,7 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
     compiledProfileMarkdown,
     debugTrace: input.debugTrace,
     requestSource: 'chat',
+    sessionId: input.sessionId,
   })
 
   return {

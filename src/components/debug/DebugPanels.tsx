@@ -13,6 +13,10 @@ import {
 } from '@/lib/profilePatchesDebug'
 import type { RoutingProbeResult, RoutingProbeState } from '@/hooks/useDebugCelestinTools'
 import type { CelestinRealTraceEntry } from '@/lib/celestinTrace'
+import {
+  loadAdminCelestinObservability,
+  type AdminCelestinObservabilitySnapshot,
+} from '@/lib/adminCelestinObservability'
 import { supabase } from '@/lib/supabase'
 import { routeFactualQueryFromClassification, type SqlRetrievalResult } from '@/lib/sqlRetrievalRouter'
 import { classifyFactualIntent, type ClassifiedIntent } from '@/lib/celestinIntentClassifier'
@@ -74,6 +78,151 @@ export function DebugHeader({ onBack }: { onBack: () => void }) {
 // ============================================================================
 // Observabilité — regarder ce qui se passe dans le runtime
 // ============================================================================
+
+function formatNumber(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—'
+  return Math.round(value).toLocaleString('fr-FR')
+}
+
+function formatCompactUserId(value: string | null): string {
+  if (!value) return 'anonyme'
+  return value.slice(0, 8)
+}
+
+export function AdminCelestinObservabilityPanel() {
+  const [snapshot, setSnapshot] = useState<AdminCelestinObservabilitySnapshot | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  async function refresh() {
+    setLoading(true)
+    setError(null)
+    try {
+      setSnapshot(await loadAdminCelestinObservability())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void refresh()
+  }, [])
+
+  const today = snapshot?.daily[0] ?? null
+
+  return (
+    <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-[11px] font-medium text-[var(--text-primary)]">Observabilité admin Celestin</p>
+        <button
+          onClick={refresh}
+          disabled={loading}
+          className="rounded-[8px] border border-[var(--border-color)] px-2 py-1 text-[10px] text-[var(--text-secondary)] disabled:opacity-50"
+        >
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Rafraîchir'}
+        </button>
+      </div>
+      <p className="mb-3 text-[11px] text-[var(--text-muted)]">
+        Données persistées en base, consultables par vues SQL admin. Les coûts sont suivis en tokens/cache; les prix fournisseur restent à appliquer séparément.
+      </p>
+
+      {error && (
+        <p className="mb-3 rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700">
+          {error}
+        </p>
+      )}
+
+      {today && (
+        <div className="mb-3 grid grid-cols-2 gap-2 text-[11px] text-[var(--text-secondary)]">
+          <div className="rounded-[8px] border border-[var(--border-color)] px-3 py-2">
+            <p className="text-[var(--text-muted)]">Tours aujourd'hui</p>
+            <p className="text-[16px] font-semibold text-[var(--text-primary)]">{formatNumber(today.turns)}</p>
+            <p>{formatNumber(today.failed_turns)} erreur(s)</p>
+          </div>
+          <div className="rounded-[8px] border border-[var(--border-color)] px-3 py-2">
+            <p className="text-[var(--text-muted)]">Latence edge</p>
+            <p className="text-[16px] font-semibold text-[var(--text-primary)]">p95 {formatNumber(today.edge_p95_ms)}ms</p>
+            <p>LLM p95 {formatNumber(today.llm_p95_ms)}ms</p>
+          </div>
+          <div className="rounded-[8px] border border-[var(--border-color)] px-3 py-2">
+            <p className="text-[var(--text-muted)]">Tokens</p>
+            <p className="text-[16px] font-semibold text-[var(--text-primary)]">{formatNumber(today.input_tokens + today.output_tokens)}</p>
+            <p>cache read {formatNumber(today.cache_read_input_tokens)}</p>
+          </div>
+          <div className="rounded-[8px] border border-[var(--border-color)] px-3 py-2">
+            <p className="text-[var(--text-muted)]">Cache/fallback</p>
+            <p className="text-[16px] font-semibold text-[var(--text-primary)]">{formatNumber(today.cache_read_turns)} hit(s)</p>
+            <p>{formatNumber(today.fallback_turns)} fallback(s)</p>
+          </div>
+        </div>
+      )}
+
+      {snapshot?.costByUser.length ? (
+        <details className="mb-3">
+          <summary className="cursor-pointer text-[11px] text-[var(--text-secondary)]">Top users par volume tokens</summary>
+          <div className="mt-2 max-h-48 overflow-y-auto">
+            <table className="w-full text-[10px] text-[var(--text-secondary)]">
+              <thead className="text-[var(--text-muted)]">
+                <tr>
+                  <th className="text-left">User</th>
+                  <th className="text-right">Tours</th>
+                  <th className="text-right">Tokens</th>
+                  <th className="text-right">Cache read</th>
+                  <th className="text-right">p95</th>
+                  <th className="text-right">Err.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {snapshot.costByUser.map((row) => (
+                  <tr key={row.user_id ?? 'anon'} className="border-t border-[var(--border-color)]">
+                    <td>{formatCompactUserId(row.user_id)}</td>
+                    <td className="text-right tabular-nums">{row.turns}</td>
+                    <td className="text-right tabular-nums">{formatNumber(row.input_tokens + row.output_tokens)}</td>
+                    <td className="text-right tabular-nums">{formatNumber(row.cache_read_input_tokens)}</td>
+                    <td className="text-right tabular-nums">{formatNumber(row.edge_p95_ms)}ms</td>
+                    <td className="text-right tabular-nums">{row.failed_turns}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      ) : null}
+
+      {snapshot?.slowTurns.length ? (
+        <details>
+          <summary className="cursor-pointer text-[11px] text-[var(--text-secondary)]">Tours les plus lents</summary>
+          <div className="mt-2 max-h-56 overflow-y-auto">
+            <table className="w-full text-[10px] text-[var(--text-secondary)]">
+              <thead className="text-[var(--text-muted)]">
+                <tr>
+                  <th className="text-left">Heure</th>
+                  <th className="text-right">edge</th>
+                  <th className="text-right">LLM</th>
+                  <th className="text-left pl-2">Route</th>
+                  <th className="text-left pl-2">Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {snapshot.slowTurns.map((row) => (
+                  <tr key={row.turn_id} className="border-t border-[var(--border-color)]">
+                    <td>{new Date(row.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td>
+                    <td className="text-right tabular-nums">{formatNumber(row.edge_ms)}</td>
+                    <td className="text-right tabular-nums">{formatNumber(row.llm_ms)}</td>
+                    <td className="pl-2">{row.route ?? '—'}</td>
+                    <td className="pl-2 text-[var(--text-muted)]">{row.message_preview ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      ) : null}
+    </div>
+  )
+}
 
 type RealTracesPanelProps = {
   realTraceEnabled: boolean

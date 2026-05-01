@@ -40,6 +40,7 @@ export interface RequestBody {
   provider?: string
   debugTrace?: boolean
   requestSource?: string
+  sessionId?: string | null
   image?: string
   conversationState?: ConversationState
   compiledProfileMarkdown?: string

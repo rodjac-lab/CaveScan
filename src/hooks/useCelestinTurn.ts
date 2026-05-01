@@ -79,6 +79,7 @@ export function useCelestinTurn({
         zones,
         conversationState: conversationStateRef.current,
         debugTrace: traceEnabled,
+        sessionId: sessionIdRef.current,
       })
       traceBody = body
       const t1 = performance.now()

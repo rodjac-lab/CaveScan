@@ -170,6 +170,7 @@ export function buildCelestinRequestBody(input: {
   conversationalIntent?: string | null
   debugTrace?: boolean
   requestSource?: string
+  sessionId?: string | null
 }) {
   const ranked = rankCaveBottles('generic', input.message, input.cave, input.drunk, input.profile, input.cave.length)
   const caveSummary = ranked.map(({ bottle, score }) => ({
@@ -210,6 +211,7 @@ export function buildCelestinRequestBody(input: {
     ...(input.conversationalIntent ? { conversationalIntent: input.conversationalIntent } : {}),
     ...(input.debugTrace ? { debugTrace: true } : {}),
     ...(input.requestSource ? { requestSource: input.requestSource } : {}),
+    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
   }
 }
 

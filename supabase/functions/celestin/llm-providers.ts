@@ -58,10 +58,18 @@ export interface CelestinClaudeCacheTrace {
   readInputTokens: number
 }
 
+export interface CelestinProviderUsageTrace {
+  inputTokens: number
+  outputTokens: number
+  cacheCreationInputTokens: number
+  cacheReadInputTokens: number
+}
+
 export interface CelestinProviderTrace {
   attempts: CelestinProviderAttemptTrace[]
   toolCalls: CelestinToolCallTrace[]
   claudeCache: CelestinClaudeCacheTrace
+  usage: CelestinProviderUsageTrace
   providerPath: 'direct_response' | 'tool_response' | 'fallback_response'
 }
 
@@ -70,6 +78,7 @@ function createProviderTrace(): CelestinProviderTrace {
     attempts: [],
     toolCalls: [],
     claudeCache: { creationInputTokens: 0, readInputTokens: 0 },
+    usage: { inputTokens: 0, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 },
     providerPath: 'direct_response',
   }
 }
@@ -265,6 +274,7 @@ async function postClaudeMessages(input: {
     auth: input.auth,
     caller: input.caller,
     result,
+    trace: input.trace,
     requestSource: input.requestSource,
     messagePreview: input.messagePreview,
     toolsEnabled,
@@ -292,6 +302,7 @@ async function persistClaudeUsage(input: {
   auth?: AuthContext
   caller: string
   result: { usage?: Record<string, unknown> }
+  trace?: CelestinProviderTrace
   requestSource?: string
   messagePreview: string
   toolsEnabled: boolean
@@ -307,6 +318,17 @@ async function persistClaudeUsage(input: {
     const value = usage[key]
     return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0
   }
+  const inputTokens = numeric('input_tokens')
+  const outputTokens = numeric('output_tokens')
+  const cacheCreationInputTokens = numeric('cache_creation_input_tokens')
+  const cacheReadInputTokens = numeric('cache_read_input_tokens')
+
+  if (input.trace) {
+    input.trace.usage.inputTokens += inputTokens
+    input.trace.usage.outputTokens += outputTokens
+    input.trace.usage.cacheCreationInputTokens += cacheCreationInputTokens
+    input.trace.usage.cacheReadInputTokens += cacheReadInputTokens
+  }
 
   try {
     const { error } = await supabase.from('celestin_llm_usage').insert({
@@ -319,10 +341,10 @@ async function persistClaudeUsage(input: {
       route: input.usageContext?.route ?? null,
       turn_type: input.usageContext?.turnType ?? null,
       mode: input.usageContext?.mode ?? null,
-      input_tokens: numeric('input_tokens'),
-      output_tokens: numeric('output_tokens'),
-      cache_creation_input_tokens: numeric('cache_creation_input_tokens'),
-      cache_read_input_tokens: numeric('cache_read_input_tokens'),
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      cache_creation_input_tokens: cacheCreationInputTokens,
+      cache_read_input_tokens: cacheReadInputTokens,
       tools_enabled: input.toolsEnabled,
       tools_included: input.toolsIncluded,
       tool_choice: input.toolChoice,
