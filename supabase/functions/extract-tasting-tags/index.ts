@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+import { logAnthropicUsage } from "../_shared/anthropic-usage.ts"
 
 // === CONFIG ===
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
@@ -224,6 +225,9 @@ async function callClaude(userPrompt: string): Promise<ProviderResult> {
   }
 
   const result = await response.json()
+  logAnthropicUsage('extract-tasting-tags.claude', result, {
+    promptChars: userPrompt.length,
+  })
   const textContent = result.content?.find((c: { type: string; text?: string }) => c.type === 'text')
   if (!textContent?.text) throw new Error('No text response from Claude')
 

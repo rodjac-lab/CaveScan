@@ -12,6 +12,7 @@ import { extractErrorMessage, fetchWithTimeout } from "./provider-utils.ts"
 import { parseAndValidate } from "./response-validation.ts"
 import type { AuthContext } from "./auth.ts"
 import { CELESTIN_TOOLS, executeCelestinTool } from "./tools.ts"
+import { logAnthropicUsage } from "../_shared/anthropic-usage.ts"
 import type { CelestinResponse, ConversationTurn } from "./types.ts"
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
@@ -201,6 +202,8 @@ async function postClaudeMessages(input: {
   systemPrompt: string
   messages: ClaudeMessage[]
   toolsEnabled: boolean
+  caller: string
+  messagePreview: string
   trace?: CelestinProviderTrace
 }) {
   const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
@@ -224,6 +227,10 @@ async function postClaudeMessages(input: {
   }
 
   const result = await response.json()
+  logAnthropicUsage(input.caller, result, {
+    messagePreview: input.messagePreview,
+    toolsEnabled: input.toolsEnabled,
+  })
   const usage = result.usage as {
     cache_creation_input_tokens?: number
     cache_read_input_tokens?: number
@@ -272,7 +279,15 @@ async function callClaude(
 
   const auth = options?.auth
   const toolsEnabled = !!auth?.userId && !!auth.supabase && !image
-  const first = await postClaudeMessages({ systemPrompt, messages, toolsEnabled, trace })
+  const messagePreview = userPrompt.replace(/\s+/g, ' ').slice(0, 120)
+  const first = await postClaudeMessages({
+    systemPrompt,
+    messages,
+    toolsEnabled,
+    trace,
+    caller: 'celestin.claude.first',
+    messagePreview,
+  })
   const toolUses = toolsEnabled ? toolUseBlocks(first) : []
 
   if (first.stop_reason !== 'tool_use' || toolUses.length === 0) {
@@ -325,7 +340,14 @@ async function callClaude(
     { role: 'assistant', content: first.content },
     { role: 'user', content: toolResults },
   ]
-  const final = await postClaudeMessages({ systemPrompt, messages: followupMessages, toolsEnabled: false, trace })
+  const final = await postClaudeMessages({
+    systemPrompt,
+    messages: followupMessages,
+    toolsEnabled: false,
+    trace,
+    caller: 'celestin.claude.tool_followup',
+    messagePreview,
+  })
 
   if (final.stop_reason === 'tool_use') {
     throw new Error('Claude requested a second tool round; refusing to continue')

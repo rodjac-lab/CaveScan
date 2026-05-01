@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { EXTRACTION_PROMPT } from "./prompt.ts"
+import { logAnthropicUsage } from "../_shared/anthropic-usage.ts"
 
 // === CONFIG ===
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
@@ -178,6 +179,9 @@ async function callClaude(userPrompt: string): Promise<ExtractionResult> {
   }
 
   const result = await response.json()
+  logAnthropicUsage('extract-chat-insights.claude', result, {
+    promptChars: userPrompt.length,
+  })
   const textContent = result.content?.find((c: { type: string; text?: string }) => c.type === 'text')
   if (!textContent?.text) throw new Error('No text response from Claude')
 

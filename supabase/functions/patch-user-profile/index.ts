@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "jsr:@supabase/supabase-js@2"
 import { applyPatchToMarkdown, countBulletsInSection, type ProfilePatch } from "../../../shared/celestin/profile-patch.ts"
+import { logAnthropicUsage } from "../_shared/anthropic-usage.ts"
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -200,6 +201,9 @@ async function callClaude(userPrompt: string): Promise<PatchResult> {
   }
 
   const result = await response.json()
+  logAnthropicUsage('patch-user-profile.claude', result, {
+    promptChars: userPrompt.length,
+  })
   const textContent = result.content?.find((c: { type: string; text?: string }) => c.type === 'text')
   if (!textContent?.text) throw new Error('No text response from Claude')
 

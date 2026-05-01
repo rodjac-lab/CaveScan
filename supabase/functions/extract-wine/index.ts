@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+import { logAnthropicUsage } from "../_shared/anthropic-usage.ts"
 
 // === CONFIG ===
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
@@ -207,6 +208,10 @@ async function callClaude(imageBase64: string | undefined, imageUrl: string | un
   }
 
   const result = await response.json()
+  logAnthropicUsage('extract-wine.claude', result, {
+    hasImageBase64: !!imageBase64,
+    hasImageUrl: !!imageUrl,
+  })
   const textContent = result.content?.find((c: { type: string; text?: string }) => c.type === 'text')
   if (!textContent?.text) throw new Error('No text response from Claude')
 
