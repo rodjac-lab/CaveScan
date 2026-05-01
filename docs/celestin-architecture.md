@@ -52,11 +52,7 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
        |
        +-- Promise.all parallele :
        |     +-- buildMemoryEvidenceBundle()    --> tasting memories ciblees
-       |     +-- classifyFactualIntent()        --> JSON intent classifier LLM
-       |     |     (edge function classify-celestin-intent, Gemini Flash Lite)
        |     +-- getCompiledUserProfileCached() --> profil compile (cache module-level)
-       |
-       +-- routeFactualQueryFromClassification() --> bloc SQL factuel si classifier OK
        |
        v
   buildCelestinRequestBody()
@@ -72,8 +68,7 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
     message, history[], cave[], profile,
     memories, context, zones, image?,
     conversationState?,
-    memoryEvidenceMode?, compiledProfileMarkdown?,
-    sqlRetrieval?, sqlRetrievalTrace?
+    memoryEvidenceMode?, compiledProfileMarkdown?
   }
        |
        v  HTTP POST --> supabase.functions.invoke('celestin')
@@ -124,18 +119,22 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
   +----------------------------------------------+
   |       celestinWithFallback()                 |
   |                                              |
-  |  Provider 1: Gemini 2.5 Flash (Google)      |
+  |  Provider 1: Claude Haiku 4.5 (Anthropic)   |
   |       | fail?                                |
-  |  Provider 2: GPT-4.1 mini (OpenAI)          |
+  |  Provider 2: Gemini 2.5 Flash (Google)      |
+  |       | fail?                                |
+  |  Provider 3: GPT-4.1 mini (OpenAI)          |
   |                                              |
-  |  Claude reste disponible via forcedProvider  |
-  |  pour les evals/debug uniquement             |
+  |  Claude peut appeler des outils internes     |
+  |  user-scopes (query_cellar, query_tastings,  |
+  |  query_memory) avant sa reponse finale.      |
   |                                              |
   |  Chaque provider :                           |
   |  1. Envoie system prompt + contexte          |
   |  2. Reconstruit history[] en format natif    |
   |  3. Ajoute userPrompt comme dernier message  |
-  |  4. Parse JSON --> parseAndValidate()        |
+  |  4. Claude seulement : tool_use max 1 round  |
+  |  5. Parse JSON --> parseAndValidate()        |
   +--------------------+-------------------------+
                        |
                        v
@@ -358,11 +357,10 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 | `lib/crossSessionMemory.ts` | Fallback local/debug, hors runtime prompt principal |
 | `lib/chatPersistence.ts` | Persistence conversations Supabase + extraction de facts bruts |
 | `lib/recommendationStore.ts` | Cache prefetch (module-level) |
-| `lib/celestinConversation.ts` | `buildCelestinRequestBody()` — assemble le payload (cave, profil, memories, state, compiled profile, sqlRetrieval) |
-| `lib/celestinChatRequest.ts` | `prepareCelestinRequest()` — orchestre l'appel : `Promise.all(memoryEvidence, classifier, profil)` + wiring SQL retrieval |
-| `lib/celestinIntentClassifier.ts` | Client de l'edge function `classify-celestin-intent` (classifier LLM JSON pour questions factuelles) |
-| `lib/celestinIntentPreFilter.ts` | Pre-filter ultra-restrictif : court-circuit classifier sur messages triviaux ("merci", "ok") |
-| `lib/sqlRetrievalRouter.ts` | `routeFactualQueryFromClassification()` : 5 builders déterministes (temporal/geographic/quantitative/ranking/inventory) qui traduisent le JSON classifier en bloc SQL texte |
+| `lib/celestinConversation.ts` | `buildCelestinRequestBody()` — assemble le payload (cave resumee, profil, memories, state, compiled profile) |
+| `lib/celestinChatRequest.ts` | `prepareCelestinRequest()` — orchestre l'appel : `Promise.all(memoryEvidence, profil)` puis appel unique `celestin` |
+| `lib/celestinIntentClassifier.ts` | Client legacy/debug de l'edge function `classify-celestin-intent` (n'est plus appele sur le chemin principal Celestin) |
+| `lib/sqlRetrievalRouter.ts` | Builders factuels legacy/debug. Le runtime principal passe par les outils internes Claude dans `supabase/functions/celestin/tools.ts` |
 | `lib/userProfiles.ts` | Profil compilé utilisateur + `getCompiledUserProfileCached()` (cache module-level) |
 | `lib/enrichWine.ts` | Enrichissement async post-save (fire-and-forget) : arômes, accords, température, pays/région, maturité |
 
@@ -374,19 +372,24 @@ Note de mise a jour sur le frontend :
 
 | Ordre | Provider | Modele | Particularites |
 |-------|----------|--------|----------------|
-| 1 | Google | gemini-2.5-flash | Primaire. responseSchema natif, vision, thinkingBudget 1024 si image / 0 sinon |
-| 2 | OpenAI | gpt-4.1-mini | Fallback. Structured outputs (JSON schema strict), vision |
-| — | Anthropic | claude-haiku-4-5 | Uniquement via `forcedProvider` (eval/debug), pas dans la chaîne de prod |
+| 1 | Anthropic | claude-haiku-4-5 | Primaire qualite. Prompt caching sur le system prompt. Tool-use interne sur tours texte authentifies |
+| 2 | Google | gemini-2.5-flash | Fallback. responseSchema natif, vision, thinkingBudget 1024 si image / 0 sinon |
+| 3 | OpenAI | gpt-4.1-mini | Fallback. Structured outputs (JSON schema strict), vision |
 
 Ordre reel de production aujourd'hui :
-- primaire : `Gemini 2.5 Flash`
-- fallback : `GPT-4.1 mini`
-- `Claude` reste disponible via `forcedProvider` en eval/debug
+- primaire : `Claude Haiku 4.5`
+- fallback : `Gemini 2.5 Flash`, puis `GPT-4.1 mini`
 - `Mistral` a ete retire du runtime (commit aa2964c, 2026-04-23)
 
 Temperature : 0.5 pour tous les providers.
 
 Chaque provider reconstruit l'historique dans son format natif (messages alternes user/assistant avec images base64).
+Claude peut appeler au plus un round d'outils internes :
+- `query_cellar` : stock actuel user-scope
+- `query_tastings` : degustations passees user-scope
+- `query_memory` : faits de memoire conversationnelle user-scope
+
+Ces outils ne sont pas du SQL libre et sont des fonctions serveur bornees. Si l'utilisateur n'est pas authentifie, les outils sont desactives et Claude repond avec le contexte injecte.
 
 ## Types de reponse
 
@@ -428,13 +431,15 @@ Couche 2 -- Profil compile (Supabase)
   check leger fin de session (no_change ou patch), reecriture complete
   periodique (~20 patchs ou ~1/mois)
 
-Couche 3a -- Retrieval factuel SQL (runtime, via classifier LLM)
-  classify-celestin-intent (edge function, Gemini Flash Lite) :
-    retourne { isFactual, intent, filters, scope, rankingDirection, rankingLimit }
-  routeFactualQueryFromClassification :
-    5 builders deterministes (temporal/geographic/quantitative/ranking/inventory)
-    produisent un bloc texte exact injecte dans le prompt
-  Pre-filter : court-circuit sur messages triviaux ("merci", "ok"...)
+Couche 3a -- Outils factuels internes Claude (runtime, a la demande)
+  Claude decide s'il doit verifier la base.
+  Outils disponibles dans celestin/ :
+    - query_cellar
+    - query_tastings
+    - query_memory
+  Les outils sont user-scopes, bornes, sans SQL libre, et limites a un round.
+  L'ancien classifier LLM reste disponible pour debug/legacy mais n'est plus
+  appele par le chemin principal.
 
 Couche 3b -- Souvenirs de degustation (runtime, semantique)
   buildMemoryEvidenceBundle :

@@ -3,8 +3,6 @@ import {
   buildMemoryEvidenceBundle,
   type MemorySelectionProfile,
 } from '@/lib/tastingMemories'
-import { routeFactualQueryFromClassification } from '@/lib/sqlRetrievalRouter'
-import { classifyFactualIntent } from '@/lib/celestinIntentClassifier'
 import {
   buildCelestinRequestBody,
   type CelestinChatMessage,
@@ -65,8 +63,6 @@ async function loadCompiledProfileMarkdown(): Promise<string | undefined> {
 export interface PrepTimings {
   memoryMs: number
   classifierMs: number
-  classifierServerMs?: number
-  classifierGeminiMs?: number
   compiledProfileMs: number
 }
 
@@ -74,6 +70,82 @@ async function timed<T>(fn: () => Promise<T>): Promise<{ result: T; ms: number }
   const t0 = performance.now()
   const result = await fn()
   return { result, ms: Math.round(performance.now() - t0) }
+}
+
+export function shouldSkipLegacyMemoryRetrieval(message: string): boolean {
+  const normalized = message
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[’']/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const asksBroadTastingInventory =
+    /\b(combien|nombre|liste|inventaire|quels?|quelles?)\b.*\b(degustations?|deguste|goute|bu)\b/.test(normalized)
+    || /\b(degustations?|deguste|goute|bu)\b.*\b(combien|nombre|liste|inventaire|quels?|quelles?)\b/.test(normalized)
+    || /\bpas de\b.*\b(degustations?|deguste|goute|bu)\b/.test(normalized)
+    || /\b(ai[- ]?je|j ai|est[- ]?ce que j ai)\b.*\b(deja|déjà)?\s*(bu|goute|deguste|ouvert)\b/.test(normalized)
+
+  const asksSpecificNote =
+    /\b(note|verbatim|commentaire|souvenir|etoiles?|millesime|c'etait comment|c etait comment)\b/.test(normalized)
+
+  return asksBroadTastingInventory && !asksSpecificNote
+}
+
+export function isObviousSocialMessage(message: string): boolean {
+  const normalized = message
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[’']/g, ' ')
+    .replace(/[?!.,]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const withoutCaVa = normalized.replace(/\s+ca va$/, '')
+  const greetings = ['salut', 'bonjour', 'bonsoir', 'hello', 'coucou']
+  const isGreeting = greetings.some((greeting) => editDistanceAtMostOne(withoutCaVa, greeting))
+
+  return isGreeting
+    || /^(merci|ok|d accord|parfait|super|top|cool|bonne soiree)$/.test(normalized)
+}
+
+function editDistanceAtMostOne(a: string, b: string): boolean {
+  if (a === b) return true
+  if (Math.abs(a.length - b.length) > 1) return false
+
+  if (a.length === b.length) {
+    const diffs: number[] = []
+    for (let index = 0; index < a.length; index += 1) {
+      if (a[index] !== b[index]) diffs.push(index)
+    }
+    if (diffs.length === 2) {
+      const [first, second] = diffs
+      return second === first + 1 && a[first] === b[second] && a[second] === b[first]
+    }
+  }
+
+  let i = 0
+  let j = 0
+  let edits = 0
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      i += 1
+      j += 1
+      continue
+    }
+    edits += 1
+    if (edits > 1) return false
+    if (a.length > b.length) i += 1
+    else if (b.length > a.length) j += 1
+    else {
+      i += 1
+      j += 1
+    }
+  }
+
+  return edits + (a.length - i) + (b.length - j) <= 1
 }
 
 export async function prepareCelestinRequest(input: PrepareCelestinRequestInput): Promise<{
@@ -87,26 +159,24 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
         ? 'recommendation'
         : 'default'
 
-  const [memoryEvidenceT, classifiedT, compiledProfileT] = await Promise.all([
-    timed(() => buildMemoryEvidenceBundle({
-      query: input.message,
-      recentMessages: toMemoryMessages(input.messages),
-      drunkBottles: input.drunk,
-      selectionProfile: memorySelectionProfile,
-    })),
-    timed(() => classifyFactualIntent({
-      query: input.message,
-      cave: input.cave,
-      drunk: input.drunk,
-    })),
+  const shouldSkipMemoryRetrieval =
+    shouldSkipLegacyMemoryRetrieval(input.message)
+    || isObviousSocialMessage(input.message)
+
+  const [memoryEvidenceT, compiledProfileT] = await Promise.all([
+    timed(() => shouldSkipMemoryRetrieval
+      ? Promise.resolve(null)
+      : buildMemoryEvidenceBundle({
+          query: input.message,
+          recentMessages: toMemoryMessages(input.messages),
+          drunkBottles: input.drunk,
+          selectionProfile: memorySelectionProfile,
+        })),
     timed(() => loadCompiledProfileMarkdown()),
   ])
 
   const memoryEvidence = memoryEvidenceT.result
-  const classified = classifiedT.result
   const compiledProfileMarkdown = compiledProfileT.result
-
-  const sqlRetrieval = routeFactualQueryFromClassification(classified, input.drunk, input.cave)
 
   const body = buildCelestinRequestBody({
     message: input.message,
@@ -121,9 +191,6 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
     memoryTrace: input.debugTrace ? memoryEvidence?.trace : undefined,
     conversationState: input.conversationState,
     compiledProfileMarkdown,
-    sqlRetrievalBlock: sqlRetrieval?.serialized,
-    sqlRetrievalTrace: input.debugTrace ? sqlRetrieval?.trace : undefined,
-    conversationalIntent: classified?.conversationalIntent ?? null,
     debugTrace: input.debugTrace,
   })
 
@@ -131,9 +198,7 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
     body,
     prepTimings: {
       memoryMs: memoryEvidenceT.ms,
-      classifierMs: classifiedT.ms,
-      classifierServerMs: classified?._meta?.latencyMs,
-      classifierGeminiMs: classified?._meta?.geminiMs,
+      classifierMs: 0,
       compiledProfileMs: compiledProfileT.ms,
     },
   }

@@ -64,8 +64,8 @@ const ENCAVAGE = [
 ]
 
 const TASTING = [
-  /\b(deguste|goute)(?:\s|$|[.,!?])/i,
-  /\b(bu |ouvert |hier soir|on a bu|note ca|degustation)\b/i,
+  /\b(deguste|degustations?|goute)(?:\s|$|[.,!?])/i,
+  /\b(bu |ouvert |hier soir|on a bu|note ca|degustations?)\b/i,
 ]
 
 const MEMORY = [
@@ -93,7 +93,7 @@ const WINE_CULTURE = [
 ]
 
 const QUESTION = [
-  /^(pourquoi|comment|quoi|c'est quoi|c'est vrai que|qu'est-ce qu|est-ce que|tu (aimes?|connais|preferes|penses|sais|crois))/i,
+  /^(pourquoi|comment|quoi|c'est quoi|c'est vrai que|qu'est-ce qu|est-ce que|tu peux|peux[- ]tu|tu (aimes?|connais|preferes|penses|sais|crois))/i,
 ]
 
 function matchesAny(text: string, patterns: RegExp[]): boolean {

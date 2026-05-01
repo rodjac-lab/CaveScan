@@ -160,6 +160,40 @@ export function RealTracesPanel({
                   {' '}History provider={trace.response.prompt.providerHistoryTurns ?? trace.response.prompt.historyTurns ?? '—'}/{trace.response.prompt.historyTurns ?? '—'}
                 </p>
               )}
+              {trace.response?.providerTrace && (
+                <div className="mt-2 rounded-lg border border-[var(--border-color)] px-2 py-2">
+                  <p className="font-medium text-[var(--text-primary)]">Provider runtime</p>
+                  <p>
+                    Path: {trace.response.providerTrace.providerPath ?? '—'} · cache Claude create={trace.response.providerTrace.claudeCache?.creationInputTokens ?? 0} · read={trace.response.providerTrace.claudeCache?.readInputTokens ?? 0}
+                  </p>
+                  {trace.response.providerTrace.attempts.length > 0 && (
+                    <div className="mt-1 space-y-1">
+                      {trace.response.providerTrace.attempts.map((attempt, index) => (
+                        <p key={`${trace.id}-provider-${index}`}>
+                          {attempt.provider ?? 'provider'} · {attempt.status ?? '—'} · {attempt.durationMs ?? '—'}ms
+                          {attempt.error ? ` · erreur: ${attempt.error}` : ''}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {trace.response.providerTrace.toolCalls.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      <p className="font-medium text-[var(--text-primary)]">Tools</p>
+                      {trace.response.providerTrace.toolCalls.map((tool, index) => (
+                        <p key={`${trace.id}-tool-${index}`} className="whitespace-pre-wrap">
+                          {tool.name ?? 'tool'} · {tool.durationMs ?? '—'}ms · rows={tool.totalRows ?? '—'} · listed={tool.listedRows ?? '—'}
+                          {tool.totalQuantity != null ? ` · qty=${tool.totalQuantity}` : ''}
+                          {tool.input ? ` · input=${JSON.stringify(tool.input)}` : ''}
+                          {tool.error ? ` · erreur: ${tool.error}` : ''}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {trace.response?.providerErrors && trace.response.providerErrors.length > 0 && (
+                <p className="mt-2 text-[#a15c00]">Provider errors: {trace.response.providerErrors.join(' | ')}</p>
+              )}
               {trace.response?.policy && trace.response.policy.strippedUiAction && (
                 <p className="text-[#a15c00]">
                   Policy: ui_action retiree ({trace.response.policy.rawUiActionKind} {'->'} {trace.response.policy.finalUiActionKind})

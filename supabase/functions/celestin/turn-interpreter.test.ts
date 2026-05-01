@@ -55,6 +55,22 @@ describe('interpretTurn', () => {
     })
   })
 
+  it('routes broad tasting count questions to tasting memory', () => {
+    const result = interpretTurnWithRouting(
+      "Tu peux me dire combien de dégustations de champagne j'ai déjà fait ?",
+      false,
+      state(),
+    )
+
+    expect(result.routing.winner).toBe('tasting_log')
+    expect(result.interpretation).toEqual({
+      turnType: 'task_request',
+      cognitiveMode: 'tasting_memory',
+      shouldAllowUiAction: true,
+      inferredTaskType: 'tasting',
+    })
+  })
+
   it('routes accented encavage phrasing to cellar_assistant', () => {
     const result = interpretTurn("J'ai acheté du vin aujourd'hui", false, state())
 

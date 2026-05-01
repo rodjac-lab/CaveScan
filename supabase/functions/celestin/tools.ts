@@ -1,0 +1,313 @@
+import type { SupabaseServiceClient } from "./auth.ts"
+
+export type CelestinToolName = 'query_cellar' | 'query_tastings' | 'query_memory'
+
+export interface ToolContext {
+  userId: string
+  supabase: SupabaseServiceClient
+}
+
+type ToolInput = Record<string, unknown>
+
+const MAX_LIMIT = 12
+const MAX_SCAN_ROWS = 500
+
+function text(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim().slice(0, 120) : undefined
+}
+
+function integer(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.trunc(value) : undefined
+}
+
+function numberValue(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function limit(value: unknown): number {
+  const n = integer(value)
+  if (!n) return 8
+  return Math.min(MAX_LIMIT, Math.max(1, n))
+}
+
+function compactBottle(row: Record<string, unknown>) {
+  return {
+    id: typeof row.id === 'string' ? row.id.slice(0, 8) : null,
+    domaine: row.domaine ?? null,
+    cuvee: row.cuvee ?? null,
+    appellation: row.appellation ?? null,
+    millesime: row.millesime ?? null,
+    couleur: row.couleur ?? null,
+    country: row.country ?? null,
+    region: row.region ?? null,
+    quantity: row.quantity ?? null,
+    status: row.status ?? null,
+    shelf: row.shelf ?? null,
+    rating: row.rating ?? null,
+    drunk_at: row.drunk_at ?? null,
+    tasting_note: typeof row.tasting_note === 'string' ? row.tasting_note.slice(0, 500) : null,
+  }
+}
+
+function buildToolResult(input: {
+  source: 'cellar' | 'tastings'
+  aggregate: 'list' | 'count'
+  totalRows: number
+  rows: Array<ReturnType<typeof compactBottle>>
+  totalQuantity?: number
+  rowLimit: number
+}) {
+  if (input.aggregate === 'count') {
+    return {
+      source: input.source,
+      aggregate: 'count',
+      totalRows: input.totalRows,
+      totalQuantity: input.totalQuantity,
+      countIsAuthoritative: true,
+      examples: input.rows.slice(0, 3),
+      instruction: 'Pour repondre a une question de nombre, utilise totalRows comme chiffre exact. Les exemples ne sont pas une liste complete. Reponds avec le chiffre exact d abord, puis une phrase courte et naturelle si les exemples aident.',
+    }
+  }
+
+  return {
+    source: input.source,
+    aggregate: 'list',
+    totalRows: input.totalRows,
+    listedRows: input.rows.length,
+    totalQuantity: input.totalQuantity,
+    rows: input.rows,
+    note: input.totalRows > input.rowLimit ? `Resultat tronque a ${input.rowLimit} lignes.` : undefined,
+  }
+}
+
+function normalize(value: unknown): string {
+  return typeof value === 'string'
+    ? value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+    : ''
+}
+
+function includesText(value: unknown, needle: string | undefined): boolean {
+  if (!needle) return true
+  return normalize(value).includes(normalize(needle))
+}
+
+function identityText(row: Record<string, unknown>): string {
+  return [
+    row.domaine,
+    row.cuvee,
+    row.appellation,
+    row.millesime,
+    row.couleur,
+    row.country,
+    row.region,
+  ].filter(Boolean).join(' ')
+}
+
+function tagsText(row: Record<string, unknown>): string {
+  const tags = row.tasting_tags
+  if (!tags || typeof tags !== 'object') return ''
+  return JSON.stringify(tags)
+}
+
+function matchesWineFilters(row: Record<string, unknown>, input: ToolInput): boolean {
+  const identity = identityText(row)
+
+  const domaine = text(input.domaine)
+  const cuvee = text(input.cuvee)
+  const appellation = text(input.appellation)
+  const country = text(input.country)
+  const region = text(input.region)
+  const color = text(input.color)
+  const vintage = integer(input.vintage)
+  const freeQuery = text(input.query)
+
+  if (domaine && !includesText(row.domaine, domaine)) return false
+  if (cuvee && !includesText(row.cuvee, cuvee)) return false
+  // For broad regions/appellations such as "Champagne", accept identity-level
+  // matches. Some imported rows carry producer/cuvee text richer than the
+  // appellation column.
+  if (appellation && !includesText(identity, appellation)) return false
+  if (country && !includesText(identity, country)) return false
+  if (region && !includesText(identity, region)) return false
+  if (color && normalize(row.couleur) !== normalize(color)) return false
+  if (vintage && row.millesime !== vintage) return false
+  if (freeQuery && !includesText([identity, row.tasting_note, tagsText(row)].join(' '), freeQuery)) return false
+  return true
+}
+
+export const CELESTIN_TOOLS = [
+  {
+    name: 'query_cellar',
+    description: [
+      'Recherche exacte dans la cave actuelle de l utilisateur.',
+      'Utilise cet outil pour les questions factuelles sur le stock, les quantites, les millesimes, regions, appellations, producteurs ou bouteilles encore en cave.',
+      'Ne l utilise pas pour une recommandation subjective si le contexte cave deja fourni suffit.',
+    ].join(' '),
+    input_schema: {
+      type: 'object',
+      properties: {
+        domaine: { type: 'string', description: 'Producteur ou domaine mentionne.' },
+        cuvee: { type: 'string' },
+        appellation: { type: 'string' },
+        country: { type: 'string' },
+        region: { type: 'string' },
+        color: { type: 'string', enum: ['rouge', 'blanc', 'rose', 'bulles'] },
+        vintage: { type: 'number', description: 'Millesime.' },
+        query: { type: 'string', description: 'Terme libre a chercher dans l identite du vin.' },
+        aggregate: { type: 'string', enum: ['list', 'count'], description: 'count pour une question de nombre, list sinon.' },
+        limit: { type: 'number' },
+      },
+    },
+  },
+  {
+    name: 'query_tastings',
+    description: [
+      'Recherche exacte dans les degustations passees de l utilisateur.',
+      'Utilise cet outil pour retrouver une note, une bouteille bue, une date de degustation, une note chiffree, un souvenir lie a un vin ou un millesime deja bu.',
+      'Utilise aussi cet outil pour toute question de nombre, liste ou verification sur les degustations passees : combien de degustations de Champagne, quels autres vins bus, ai-je deja deguste X, je n ai pas de degustation de X.',
+    ].join(' '),
+    input_schema: {
+      type: 'object',
+      properties: {
+        domaine: { type: 'string' },
+        cuvee: { type: 'string' },
+        appellation: { type: 'string' },
+        country: { type: 'string' },
+        region: { type: 'string' },
+        color: { type: 'string', enum: ['rouge', 'blanc', 'rose', 'bulles'] },
+        vintage: { type: 'number' },
+        minRating: { type: 'number' },
+        maxRating: { type: 'number' },
+        dateFrom: { type: 'string', description: 'Date ISO YYYY-MM-DD.' },
+        dateTo: { type: 'string', description: 'Date ISO YYYY-MM-DD.' },
+        query: { type: 'string', description: 'Terme libre a chercher dans l identite du vin, les notes et les tags.' },
+        aggregate: { type: 'string', enum: ['list', 'count'] },
+        limit: { type: 'number' },
+      },
+    },
+  },
+  {
+    name: 'query_memory',
+    description: [
+      'Recherche dans les faits de memoire conversationnelle compiles/extraits.',
+      'Utilise cet outil quand l utilisateur demande ce que Celestin sait de lui, d une preference, d une envie, d un contexte personnel ou d une conversation passee.',
+      'Le profil compile est deja dans le contexte : n appelle cet outil que si tu dois verifier un fait precis ou retrouver une source.',
+    ].join(' '),
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string' },
+        category: { type: 'string', enum: ['preference', 'aversion', 'context', 'life_event', 'wine_knowledge', 'social', 'cellar_intent'] },
+        limit: { type: 'number' },
+      },
+      required: ['query'],
+    },
+  },
+]
+
+export async function executeCelestinTool(name: string, input: ToolInput, ctx: ToolContext): Promise<string> {
+  if (name === 'query_cellar') return queryCellar(input, ctx)
+  if (name === 'query_tastings') return queryTastings(input, ctx)
+  if (name === 'query_memory') return queryMemory(input, ctx)
+  return JSON.stringify({ error: `Unknown tool: ${name}` })
+}
+
+async function queryCellar(input: ToolInput, ctx: ToolContext): Promise<string> {
+  const rowLimit = limit(input.limit)
+  const aggregate = text(input.aggregate) === 'count' ? 'count' : 'list'
+  const query = ctx.supabase
+    .from('bottles')
+    .select('id,domaine,cuvee,appellation,millesime,couleur,country,region,quantity,status,shelf', { count: 'exact' })
+    .eq('user_id', ctx.userId)
+    .eq('status', 'in_stock')
+    .order('millesime', { ascending: true, nullsFirst: false })
+    .limit(MAX_SCAN_ROWS)
+
+  const { data, error } = await query
+  if (error) return JSON.stringify({ error: error.message })
+
+  const filtered = (data ?? []).filter((row: Record<string, unknown>) => matchesWineFilters(row, input))
+  const rows = filtered.slice(0, rowLimit).map((row: Record<string, unknown>) => compactBottle(row))
+  const totalQuantity = filtered.reduce((sum, row) => {
+    const qty = typeof row.quantity === 'number' ? row.quantity : 1
+    return sum + qty
+  }, 0)
+  return JSON.stringify(buildToolResult({
+    source: 'cellar',
+    aggregate,
+    totalRows: filtered.length,
+    totalQuantity,
+    rows,
+    rowLimit,
+  }))
+}
+
+async function queryTastings(input: ToolInput, ctx: ToolContext): Promise<string> {
+  const rowLimit = limit(input.limit)
+  const aggregate = text(input.aggregate) === 'count' ? 'count' : 'list'
+  let query = ctx.supabase
+    .from('bottles')
+    .select('id,domaine,cuvee,appellation,millesime,couleur,country,region,rating,drunk_at,tasting_note,tasting_tags,status', { count: 'exact' })
+    .eq('user_id', ctx.userId)
+    .eq('status', 'drunk')
+    .order('drunk_at', { ascending: false, nullsFirst: false })
+    .limit(MAX_SCAN_ROWS)
+
+  const minRating = numberValue(input.minRating)
+  const maxRating = numberValue(input.maxRating)
+  const dateFrom = text(input.dateFrom)
+  const dateTo = text(input.dateTo)
+  if (minRating) query = query.gte('rating', minRating)
+  if (maxRating) query = query.lte('rating', maxRating)
+  if (dateFrom) query = query.gte('drunk_at', dateFrom)
+  if (dateTo) query = query.lte('drunk_at', `${dateTo}T23:59:59.999Z`)
+
+  const { data, error } = await query
+  if (error) return JSON.stringify({ error: error.message })
+
+  const filtered = (data ?? []).filter((row: Record<string, unknown>) => matchesWineFilters(row, input))
+  const rows = filtered.slice(0, rowLimit).map((row: Record<string, unknown>) => compactBottle(row))
+  return JSON.stringify(buildToolResult({
+    source: 'tastings',
+    aggregate,
+    totalRows: filtered.length,
+    rows: aggregate === 'count' ? rows.slice(0, 3) : rows,
+    rowLimit,
+  }))
+}
+
+async function queryMemory(input: ToolInput, ctx: ToolContext): Promise<string> {
+  const rowLimit = limit(input.limit)
+  const rawQuery = text(input.query)
+  if (!rawQuery) return JSON.stringify({ source: 'memory', rows: [] })
+  const likeQuery = rawQuery.replace(/[%_,()]/g, ' ').replace(/\s+/g, ' ').trim()
+  const category = text(input.category)
+
+  let query = ctx.supabase
+    .from('user_memory_facts')
+    .select('category,fact,confidence,source_quote,is_temporary,expires_at,created_at')
+    .eq('user_id', ctx.userId)
+    .is('superseded_by', null)
+    .or(`fact.ilike.%${likeQuery}%,source_quote.ilike.%${likeQuery}%`)
+    .order('created_at', { ascending: false })
+    .limit(rowLimit)
+
+  if (category) query = query.eq('category', category)
+
+  const { data, error } = await query
+  if (error) return JSON.stringify({ error: error.message })
+
+  return JSON.stringify({
+    source: 'memory',
+    query: rawQuery,
+    rows: (data ?? []).map((row: Record<string, unknown>) => ({
+      category: row.category,
+      fact: row.fact,
+      confidence: row.confidence,
+      source_quote: typeof row.source_quote === 'string' ? row.source_quote.slice(0, 300) : null,
+      is_temporary: row.is_temporary,
+      expires_at: row.expires_at,
+      created_at: row.created_at,
+    })),
+  })
+}

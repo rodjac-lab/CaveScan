@@ -1,11 +1,12 @@
 import { buildContextBlock } from "./context-builder.ts"
 import { computeNextState, INITIAL_STATE, type ConversationState } from "./conversation-state.ts"
-import { celestinWithFallback } from "./llm-providers.ts"
+import { celestinWithFallback, type CelestinProviderTrace } from "./llm-providers.ts"
 import { resolveActiveMemoryFocus } from "./memory-focus.ts"
 import { buildCelestinSystemPrompt } from "./prompt-builder.ts"
 import { applyResponsePolicy } from "./response-policy.ts"
 import { interpretTurnWithRouting } from "./turn-interpreter.ts"
 import { buildUserPrompt } from "./user-prompt.ts"
+import type { AuthContext } from "./auth.ts"
 import type { CelestinResponse, ConversationTurn, RequestBody } from "./types.ts"
 
 export interface CelestinTurnRuntimeResult {
@@ -39,6 +40,8 @@ function buildDebugTrace(input: {
   rawResponse: CelestinResponse
   response: CelestinResponse
   routingResult: ReturnType<typeof interpretTurnWithRouting>
+  providerErrors: string[]
+  providerTrace: CelestinProviderTrace
 }) {
   const { body, conversationState, nextState, rawResponse, response, routingResult } = input
 
@@ -46,6 +49,8 @@ function buildDebugTrace(input: {
     turnType: routingResult.interpretation.turnType,
     cognitiveMode: routingResult.interpretation.cognitiveMode,
     provider: input.provider,
+    providerErrors: input.providerErrors,
+    providerTrace: input.providerTrace,
     compiledProfile: !!body.compiledProfileMarkdown?.trim(),
     memoryEvidenceMode: body.memoryEvidenceMode ?? null,
     memoryFocus: input.activeMemoryFocus,
@@ -77,7 +82,7 @@ function buildDebugTrace(input: {
   }
 }
 
-export async function runCelestinTurn(body: RequestBody): Promise<CelestinTurnRuntimeResult> {
+export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Promise<CelestinTurnRuntimeResult> {
   const conversationState: ConversationState = body.conversationState ?? { ...INITIAL_STATE }
   const lastAssistantTurn = [...body.history].reverse().find((turn) => turn.role === 'assistant')
   const lastAssistantText = lastAssistantTurn?.text
@@ -102,12 +107,13 @@ export async function runCelestinTurn(body: RequestBody): Promise<CelestinTurnRu
   )
   const providerHistory = buildProviderHistory(body, routing.winner)
 
-  const { provider, response: rawResponse } = await celestinWithFallback(
+  const { provider, response: rawResponse, providerErrors, trace: providerTrace } = await celestinWithFallback(
     systemPrompt,
     userPrompt,
     providerHistory,
     body.provider,
     body.image,
+    { auth },
   )
 
   const response = applyResponsePolicy(rawResponse, interpretation)
@@ -133,6 +139,8 @@ export async function runCelestinTurn(body: RequestBody): Promise<CelestinTurnRu
     rawResponse,
     response,
     routingResult,
+    providerErrors,
+    providerTrace,
   })
 
   if (body.debugTrace) {
@@ -143,6 +151,8 @@ export async function runCelestinTurn(body: RequestBody): Promise<CelestinTurnRu
       memoryDecision: (body.memoryTrace as { decision?: unknown } | undefined)?.decision ?? null,
       uiAction: uiActionKind(response),
       provider,
+      providerPath: providerTrace.providerPath,
+      toolCalls: providerTrace.toolCalls.map((tool) => ({ name: tool.name, totalRows: tool.totalRows, durationMs: tool.durationMs })),
     }))
   }
 

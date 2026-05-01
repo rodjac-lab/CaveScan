@@ -8,8 +8,22 @@ function stripMarkdownCodeBlock(text: string): string {
   return result
 }
 
+function extractJsonObject(text: string): string {
+  const stripped = stripMarkdownCodeBlock(text)
+  if (stripped.trim().startsWith('{')) return stripped
+
+  const fenced = stripped.match(/```(?:json)?\s*([\s\S]*?\{[\s\S]*?\})\s*```/i)
+  if (fenced?.[1]) return fenced[1].trim()
+
+  const start = stripped.indexOf('{')
+  const end = stripped.lastIndexOf('}')
+  if (start >= 0 && end > start) return stripped.slice(start, end + 1)
+
+  return stripped
+}
+
 export function parseAndValidate(raw: string): CelestinResponse {
-  const jsonText = stripMarkdownCodeBlock(raw).replace(/[\r\n]/g, ' ')
+  const jsonText = extractJsonObject(raw).replace(/[\r\n]/g, ' ')
   const data = JSON.parse(jsonText) as CelestinResponse
   if (!data.message) {
     throw new Error('Invalid response: missing "message" field')
@@ -37,4 +51,3 @@ export function parseAndValidate(raw: string): CelestinResponse {
 
   return data
 }
-

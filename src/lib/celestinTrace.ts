@@ -92,6 +92,30 @@ export type CelestinRealTraceEntry = {
       finalUiActionKind: string
       strippedUiAction: boolean
     } | null
+    providerErrors: string[]
+    providerTrace: {
+      providerPath: string | null
+      attempts: Array<{
+        provider: string | null
+        status: string | null
+        durationMs: number | null
+        error: string | null
+      }>
+      toolCalls: Array<{
+        name: string | null
+        input: Record<string, unknown> | null
+        durationMs: number | null
+        source: string | null
+        totalRows: number | null
+        listedRows: number | null
+        totalQuantity: number | null
+        error: string | null
+      }>
+      claudeCache: {
+        creationInputTokens: number | null
+        readInputTokens: number | null
+      } | null
+    } | null
   }
   error?: string
 }
@@ -126,6 +150,8 @@ type CelestinTraceResponse = {
     state?: unknown
     prompt?: unknown
     policy?: unknown
+    providerErrors?: unknown
+    providerTrace?: unknown
   } | null
 }
 
@@ -270,6 +296,50 @@ function normalizePolicyTrace(value: unknown): CelestinStoredResponseTrace['poli
   }
 }
 
+function normalizeProviderTrace(value: unknown): CelestinStoredResponseTrace['providerTrace'] {
+  if (!value || typeof value !== 'object') return null
+  const trace = value as Record<string, unknown>
+  const attempts = Array.isArray(trace.attempts)
+    ? trace.attempts
+        .filter((attempt): attempt is Record<string, unknown> => !!attempt && typeof attempt === 'object')
+        .map((attempt) => ({
+          provider: asString(attempt.provider),
+          status: asString(attempt.status),
+          durationMs: asNumber(attempt.durationMs),
+          error: asString(attempt.error),
+        }))
+    : []
+  const toolCalls = Array.isArray(trace.toolCalls)
+    ? trace.toolCalls
+        .filter((tool): tool is Record<string, unknown> => !!tool && typeof tool === 'object')
+        .map((tool) => ({
+          name: asString(tool.name),
+          input: tool.input && typeof tool.input === 'object' && !Array.isArray(tool.input)
+            ? tool.input as Record<string, unknown>
+            : null,
+          durationMs: asNumber(tool.durationMs),
+          source: asString(tool.source),
+          totalRows: asNumber(tool.totalRows),
+          listedRows: asNumber(tool.listedRows),
+          totalQuantity: asNumber(tool.totalQuantity),
+          error: asString(tool.error),
+        }))
+    : []
+  const cache = trace.claudeCache && typeof trace.claudeCache === 'object'
+    ? trace.claudeCache as Record<string, unknown>
+    : null
+
+  return {
+    providerPath: asString(trace.providerPath),
+    attempts,
+    toolCalls,
+    claudeCache: cache ? {
+      creationInputTokens: asNumber(cache.creationInputTokens),
+      readInputTokens: asNumber(cache.readInputTokens),
+    } : null,
+  }
+}
+
 function createTraceId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID()
@@ -371,6 +441,8 @@ export function buildCelestinRealTraceEntry(input: {
         state: normalizeStateTrace(debug?.state),
         prompt: normalizePromptTrace(debug?.prompt),
         policy: normalizePolicyTrace(debug?.policy),
+        providerErrors: asStringArray(debug?.providerErrors) ?? [],
+        providerTrace: normalizeProviderTrace(debug?.providerTrace),
       },
     } : {}),
     ...(input.error ? {

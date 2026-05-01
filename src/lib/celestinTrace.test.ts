@@ -71,6 +71,25 @@ describe('celestinTrace', () => {
             finalUiActionKind: 'none',
             strippedUiAction: false,
           },
+          providerErrors: ['Claude timeout'],
+          providerTrace: {
+            providerPath: 'fallback_response',
+            attempts: [
+              { provider: 'Claude Haiku 4.5', status: 'error', durationMs: 15001, error: 'timeout' },
+              { provider: 'Gemini', status: 'success', durationMs: 1200 },
+            ],
+            toolCalls: [
+              {
+                name: 'query_tastings',
+                input: { appellation: 'Champagne', aggregate: 'count' },
+                durationMs: 42,
+                source: 'tastings',
+                totalRows: 4,
+                listedRows: 3,
+              },
+            ],
+            claudeCache: { creationInputTokens: 1000, readInputTokens: 2000 },
+          },
         },
       },
     })
@@ -86,6 +105,19 @@ describe('celestinTrace', () => {
     expect(trace.response?.cognitiveMode).toBe('tasting_memory')
     expect(trace.response?.prompt?.contextChars).toBe(800)
     expect(trace.response?.state?.afterMemoryFocus).toBe('Vincent Latour Meursault 2018')
+    expect(trace.response?.providerErrors).toEqual(['Claude timeout'])
+    expect(trace.response?.providerTrace?.providerPath).toBe('fallback_response')
+    expect(trace.response?.providerTrace?.attempts[0]).toMatchObject({
+      provider: 'Claude Haiku 4.5',
+      status: 'error',
+      durationMs: 15001,
+    })
+    expect(trace.response?.providerTrace?.toolCalls[0]).toMatchObject({
+      name: 'query_tastings',
+      totalRows: 4,
+      durationMs: 42,
+    })
+    expect(trace.response?.providerTrace?.claudeCache?.readInputTokens).toBe(2000)
 
     vi.useRealTimers()
   })

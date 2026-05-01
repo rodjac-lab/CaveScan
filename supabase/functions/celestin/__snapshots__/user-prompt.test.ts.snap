@@ -7,6 +7,8 @@ combien de magnums ?"
 
 exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: context_switch tasting_memory with focus 1`] = `
 "[SOUVENIR — L'utilisateur fait reference a une degustation passee. Utilise uniquement les souvenirs explicitement fournis. Si un vin n'apparait pas dans ces souvenirs, dis-le franchement.]
+[OUTIL EXACT — Si la question demande un nombre, une liste, une verification "ai-je / je n'ai pas", ou porte sur une region/appellation/domaine de degustations passees, appelle query_tastings. Ne reponds pas depuis le profil ou un souvenir vague.]
+[STYLE FACTUEL — Donne le fait exact en premiere phrase, puis ajoute au maximum une phrase naturelle d'ami sommelier. Ne sois ni telegraphique ni bavard.]
 [FOCUS MEMOIRE — La relance courte porte probablement sur : 2018. Si l'utilisateur demande "combien d'etoiles", "quelle note" ou "quel millesime", reste focalise sur ce vin precis.]
 et le 2018 ?"
 `;
@@ -40,6 +42,8 @@ ce soir c'est pizza"
 
 exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: fallback tasting_memory with focus 1`] = `
 "[FOCUS MEMOIRE — La relance courte porte probablement sur : 2018. Reste focalise sur ce vin precis.]
+[OUTIL EXACT — Si la question demande un nombre, une liste, une verification "ai-je / je n'ai pas", ou porte sur une region/appellation/domaine de degustations passees, appelle query_tastings. Ne reponds pas depuis le profil ou un souvenir vague.]
+[STYLE FACTUEL — Donne le fait exact en premiere phrase, puis ajoute au maximum une phrase naturelle d'ami sommelier. Ne sois ni telegraphique ni bavard.]
 et le 2018 ?"
 `;
 
@@ -77,12 +81,12 @@ c'est quoi un Saint-Emilion ?"
 `;
 
 exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: social_ack idle 1`] = `
-"[CONVERSATION — Reponds BRIEVEMENT (1-2 phrases max) + action_chips.]
+"[CONVERSATION — Reponds BRIEVEMENT (1-2 phrases max) + action_chips. Reste sur le sujet actif; ne pivote pas vers un autre vin ou une autre region sans demande explicite.]
 ok"
 `;
 
 exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: social_ack post_task_ack 1`] = `
-"[ACQUITTEMENT — L'utilisateur acquiesce apres ta derniere action. 1 phrase COURTE. Cloture chaleureuse + action_chips pour changer de sujet.]
+"[ACQUITTEMENT — L'utilisateur acquiesce apres ta derniere action. 1 phrase COURTE. Cloture chaleureuse + action_chips pour changer de sujet. Ne lance PAS un nouveau vin, domaine, region ou souvenir non demande.]
 merci !"
 `;
 
@@ -111,9 +115,7 @@ L'utilisateur a joint une photo. Analyse-la et reponds en fonction de ce que tu 
 exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: unknown with image and recentDrunk 1`] = `
 "[CONVERSATION — Reponds naturellement. action_chips : questions pour approfondir le sujet, PAS de suggestions de reco cave.]
 regarde
-L'utilisateur a joint une photo. Analyse-la et reponds en fonction de ce que tu vois.
-
-Vins bus recemment (a eviter) : Mas de Daumas 2018"
+L'utilisateur a joint une photo. Analyse-la et reponds en fonction de ce que tu vois."
 `;
 
 exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: unknown without image 1`] = `

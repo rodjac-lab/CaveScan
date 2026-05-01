@@ -8,7 +8,9 @@ export type GeminiContent = { role: 'user' | 'model'; parts: GeminiPart[] }
 
 type ClaudeTextContent = { type: 'text'; text: string }
 type ClaudeImageContent = { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
-type ClaudeContent = string | Array<ClaudeTextContent | ClaudeImageContent>
+export type ClaudeToolUseContent = { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
+export type ClaudeToolResultContent = { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean }
+type ClaudeContent = string | Array<ClaudeTextContent | ClaudeImageContent | ClaudeToolUseContent | ClaudeToolResultContent>
 export type ClaudeMessage = { role: 'user' | 'assistant'; content: ClaudeContent }
 
 type OpenAITextContent = { type: 'text'; text: string }

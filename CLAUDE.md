@@ -5,13 +5,13 @@
 - Frontend : React PWA (Vite, TypeScript, Tailwind, shadcn/ui)
 - Backend : Supabase (Postgres + pgvector, Edge Functions Deno, Auth, Storage)
 - Hosting : Vercel
-- LLM Celestin : Gemini 2.5 Flash (primaire) → GPT-4.1 mini (fallback)
+- LLM Celestin : Claude Haiku 4.5 (primaire qualité, tool-use interne) → Gemini 2.5 Flash → GPT-4.1 mini (fallbacks)
 - LLM OCR scan : Gemini 2.5 Flash (primaire en prod) → Claude Haiku 4.5 (fallback)
 - LLM enrichissement : Gemini 2.5 Flash
 
 ## Architecture Celestin (résumé)
 
-Message utilisateur → `buildCelestinRequestBody()` (cave + profil + tasting memories + conversation state + profil compilé) → Edge function `celestin/` → **Turn Interpreter** (routing déterministe state-aware, pas de LLM) → **Prompt Builder** (system prompt adapté au cognitive mode) → **LLM** (Gemini primaire, GPT fallback, temp 0.5) → **Response Policy** (garde-fous déterministes post-LLM) → **computeNextState()** (state machine 6 états) → JSON response avec message + ui_action + action_chips + _nextState.
+Message utilisateur → `buildCelestinRequestBody()` (cave résumée + profil + tasting memories + conversation state + profil compilé) → Edge function `celestin/` → **Turn Interpreter** (routing déterministe state-aware, pas de LLM) → **Prompt Builder** (system prompt adapté au cognitive mode) → **Claude Haiku 4.5** (primaire qualité, prompt caching, outils internes `query_cellar` / `query_tastings` / `query_memory` si besoin) → **Response Policy** (garde-fous déterministes post-LLM) → **computeNextState()** (state machine 6 états) → JSON response avec message + ui_action + action_chips + _nextState.
 
 ## Structure Supabase
 
@@ -34,7 +34,7 @@ Message utilisateur → `buildCelestinRequestBody()` (cave + profil + tasting me
 
 ## Décisions techniques actées
 
-- Celestin : Gemini 2.5 Flash en primaire, GPT-4.1 mini en fallback
+- Celestin : Claude Haiku 4.5 en primaire qualité, Gemini 2.5 Flash puis GPT-4.1 mini en fallback
 - OCR scan : Gemini Flash en primaire prod (10× moins cher, suffisant en single-bottle), Claude Haiku en fallback (benchmark fév 2026 : 19/20, légèrement plus fiable). Switch via secret `PRIMARY_PROVIDER`
 - `extract-wine`, `celestin`, `extract-chat-insights` et `generate-embedding` déployés avec `--no-verify-jwt` (obligatoire, sinon 401)
 - Multi-bouteilles : feature-flagged OFF (`ENABLE_MULTI_BOTTLE_SCAN = false`) — qualité OCR insuffisante

@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+import { resolveAuthContext } from "./auth.ts"
 import { runCelestinTurn } from "./runtime.ts"
 import type { RequestBody } from "./types.ts"
 
@@ -17,8 +18,9 @@ Deno.serve(async (req) => {
   try {
     const body: RequestBody = await req.json()
     forcedProvider = body.provider
+    const auth = await resolveAuthContext(req)
 
-    const { response, nextState, debugTrace } = await runCelestinTurn(body)
+    const { response, nextState, debugTrace } = await runCelestinTurn(body, auth)
 
     return new Response(JSON.stringify({
       ...response,
