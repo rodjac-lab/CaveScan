@@ -220,7 +220,8 @@ async function postClaudeMessages(input: {
       max_tokens: 4096,
       system: buildClaudeSystem(input.systemPrompt),
       messages: input.messages,
-      ...(input.toolsEnabled ? { tools: CELESTIN_TOOLS, tool_choice: { type: 'auto' } } : {}),
+      tools: CELESTIN_TOOLS,
+      tool_choice: input.toolsEnabled ? { type: 'auto' } : { type: 'none' },
     }),
   })
 
