@@ -23,6 +23,7 @@ const OPENAI_MODEL = 'gpt-4.1-mini'
 
 export interface CelestinProviderOptions {
   auth?: AuthContext
+  requestSource?: string
 }
 
 export interface CelestinProviderAttemptTrace {
@@ -204,6 +205,7 @@ async function postClaudeMessages(input: {
   toolsEnabled: boolean
   caller: string
   messagePreview: string
+  requestSource?: string
   trace?: CelestinProviderTrace
 }) {
   const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
@@ -230,6 +232,7 @@ async function postClaudeMessages(input: {
   logAnthropicUsage(input.caller, result, {
     messagePreview: input.messagePreview,
     toolsEnabled: input.toolsEnabled,
+    requestSource: input.requestSource,
   })
   const usage = result.usage as {
     cache_creation_input_tokens?: number
@@ -287,6 +290,7 @@ async function callClaude(
     trace,
     caller: 'celestin.claude.first',
     messagePreview,
+    requestSource: options?.requestSource,
   })
   const toolUses = toolsEnabled ? toolUseBlocks(first) : []
 
@@ -347,6 +351,7 @@ async function callClaude(
     trace,
     caller: 'celestin.claude.tool_followup',
     messagePreview,
+    requestSource: options?.requestSource,
   })
 
   if (final.stop_reason === 'tool_use') {

@@ -74,6 +74,7 @@ export function buildRequestBody(fixture, message, history, conversationState, p
     memories: fixture.memories,
     context: fixture.context,
     debugTrace: true,
+    requestSource: 'cli_eval',
     ...(conversationState ? { conversationState } : {}),
     ...(provider ? { provider } : {}),
     ...(fixture.compiledProfileMarkdown ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown } : {}),
@@ -97,6 +98,7 @@ export function buildSingleTurnBody(fixture, scenario, provider) {
     memories: fixture.memories,
     context: fixture.context,
     debugTrace: true,
+    requestSource: 'cli_eval',
     ...(provider ? { provider } : {}),
     ...(fixture.compiledProfileMarkdown ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown } : {}),
   }

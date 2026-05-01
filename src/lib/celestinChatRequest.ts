@@ -192,6 +192,7 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
     conversationState: input.conversationState,
     compiledProfileMarkdown,
     debugTrace: input.debugTrace,
+    requestSource: 'chat',
   })
 
   return {

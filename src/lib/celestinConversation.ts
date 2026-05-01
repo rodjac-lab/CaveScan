@@ -169,6 +169,7 @@ export function buildCelestinRequestBody(input: {
   sqlRetrievalTrace?: SqlRetrievalTrace
   conversationalIntent?: string | null
   debugTrace?: boolean
+  requestSource?: string
 }) {
   const ranked = rankCaveBottles('generic', input.message, input.cave, input.drunk, input.profile, input.cave.length)
   const caveSummary = ranked.map(({ bottle, score }) => ({
@@ -208,6 +209,7 @@ export function buildCelestinRequestBody(input: {
     ...(input.sqlRetrievalTrace ? { sqlRetrievalTrace: input.sqlRetrievalTrace } : {}),
     ...(input.conversationalIntent ? { conversationalIntent: input.conversationalIntent } : {}),
     ...(input.debugTrace ? { debugTrace: true } : {}),
+    ...(input.requestSource ? { requestSource: input.requestSource } : {}),
   }
 }
 

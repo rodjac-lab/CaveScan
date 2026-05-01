@@ -87,6 +87,7 @@ export async function prefetchDefaultRecommendations(): Promise<void> {
           season: getSeason(),
           recentDrunk: recentDrunk.length > 0 ? recentDrunk : undefined,
         },
+        requestSource: 'prefetch',
       },
     })
 

@@ -39,6 +39,7 @@ export interface RequestBody {
   sqlRetrievalTrace?: Record<string, unknown>
   provider?: string
   debugTrace?: boolean
+  requestSource?: string
   image?: string
   conversationState?: ConversationState
   compiledProfileMarkdown?: string

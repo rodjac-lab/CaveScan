@@ -16,6 +16,17 @@ export interface CelestinTurnRuntimeResult {
   provider: string
 }
 
+function resolveRequestSource(body: RequestBody): string {
+  if (typeof body.requestSource === 'string' && body.requestSource.trim()) {
+    return body.requestSource.trim()
+  }
+
+  if (body.message === '__prefetch__') return 'prefetch'
+  if (body.provider && body.debugTrace) return 'debug_or_eval'
+  if (body.debugTrace) return 'debug_trace'
+  return 'chat'
+}
+
 function uiActionKind(response: CelestinResponse): string {
   return response.ui_action?.kind ?? 'none'
 }
@@ -90,7 +101,8 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
   const routingResult = interpretTurnWithRouting(body.message, !!body.image, conversationState, lastAssistantText, conversationalIntent)
   const { interpretation, routing } = routingResult
 
-  console.log(`[celestin] message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} route=${routing.winner} state=${conversationState.phase} convIntent=${conversationalIntent ?? 'null'} history=${body.history.length} cave=${body.cave.length} image=${body.image ? 'yes' : 'no'}`)
+  const requestSource = resolveRequestSource(body)
+  console.log(`[celestin] source=${requestSource} message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} route=${routing.winner} state=${conversationState.phase} convIntent=${conversationalIntent ?? 'null'} history=${body.history.length} cave=${body.cave.length} image=${body.image ? 'yes' : 'no'}`)
 
   const contextBlock = buildContextBlock(body, interpretation.cognitiveMode)
   const systemPrompt = buildCelestinSystemPrompt(interpretation.cognitiveMode)
@@ -113,7 +125,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
     providerHistory,
     body.provider,
     body.image,
-    { auth },
+    { auth, requestSource },
   )
 
   const response = applyResponsePolicy(rawResponse, interpretation)
@@ -146,6 +158,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
   if (body.debugTrace) {
     console.log('[celestin:trace]', JSON.stringify({
       route: routing.winner,
+      source: requestSource,
       turnType: interpretation.turnType,
       mode: interpretation.cognitiveMode,
       memoryDecision: (body.memoryTrace as { decision?: unknown } | undefined)?.decision ?? null,

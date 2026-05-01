@@ -294,6 +294,7 @@ export function useDebugCelestinTools() {
           currentStep++
           setEvalStatus(`[${currentStep}/${totalSteps}] ${scenario.id} — ${provider}...`)
           const body = await buildCelestinEvalRequest(fixture, scenario, provider)
+          body.requestSource = 'debug_eval'
           const startedAt = Date.now()
           const { data, error: fnErr, response } = await supabase.functions.invoke<Record<string, unknown>>('celestin', {
             body,
@@ -497,6 +498,7 @@ export function useDebugCelestinTools() {
         memoryTrace: memoryEvidence?.trace,
         compiledProfileMarkdown: userProfile?.compiled_markdown ?? undefined,
         debugTrace: true,
+        requestSource: 'routing_probe',
         ...(routingProbe.provider ? { provider: routingProbe.provider } : {}),
         ...(routingProbe.hasImage ? { image: 'data:image/png;base64,iVBORw0KGgo=' } : {}),
         conversationState: {
