@@ -1,6 +1,5 @@
-import { Suspense, useEffect } from 'react'
+import { Suspense } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
-import { prefetchDefaultRecommendations } from '@/hooks/useRecommendations'
 import { lazyWithRetry } from '@/lib/lazyWithRetry'
 import BottomNav from './components/BottomNav'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -33,9 +32,6 @@ function PageLoader() {
 
 function AppLayout() {
   const location = useLocation()
-
-  // Pre-fetch default recommendations on app start (fire-and-forget)
-  useEffect(() => { prefetchDefaultRecommendations() }, [])
 
   const isAuthPage = location.pathname === '/login' || location.pathname === '/signup'
   const isLanding = location.pathname === '/'

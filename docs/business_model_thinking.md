@@ -274,7 +274,10 @@ Celestin se positionne **au-dessus** des comparables niche car valeur
 différenciante (Celestin IA conversationnel + cellier structuré + mémoire
 compilée). Défendable si l'expérience tient ses promesses.
 
-## Coûts de référence (LLM only)
+## Coûts de référence (LLM only) — CIBLE
+
+**Ces chiffres restent l'objectif à atteindre par optimisation.** Ils ne
+décrivent pas la réalité actuelle (cf. section "Erreur identifiée" ci-dessous).
 
 Calculs détaillés dans `docs/llm-comparison-2026-04-29.md`. Synthèse pour ce
 modèle économique :
@@ -287,3 +290,89 @@ modèle économique :
 
 Coût LLM = ~3% du prix annuel ($1.56 sur $59). Reste 97% pour Supabase, Vercel,
 infra, dev, support, marketing. Sain économiquement.
+
+## Erreur identifiée — coûts réels mesurés (2026-05-01)
+
+La projection ci-dessus était **fausse de 3-5×** sur le volume de calls par
+question, et la facture Anthropic du 1er mai (1.45 USD pour une matinée de
+dogfood d'un seul user) l'a révélé. **Les coûts/call étaient corrects ; ce qui
+manquait dans la projection : les sources de calls multiples.**
+
+### Origine du gap (par ordre d'impact)
+
+1. **Tool-use double les calls Celestin** : les tours factuels (recommandation,
+   inventaire, mémoire) génèrent 2 calls Claude au lieu de 1 (round 1 = decide
+   tool, round 2 = formuler la réponse avec les résultats du tool). Représente
+   ~50% des tours user. Multiplie le volume chat par ~1.5-2.
+
+2. **Prefetch reco automatique au mount d'App** (supprimé 2026-05-01 par codex).
+   Avant suppression : 1 prefetch × 2 calls Claude par mount d'App. Sur un user
+   qui ouvre l'app 3-5 fois/jour, ça pouvait représenter 30-40% du coût.
+
+3. **Edges secondaires non comptabilisées** : `extract-chat-insights` (1 call
+   par session terminée), `patch-user-profile` (occasionnel), `scorecard-judge`
+   (eval, à filtrer du coût production). Soit ~10-15% du coût.
+
+4. **Cache miss `tool_followup`** : sur les tours factuels, le 2e call (avec
+   tool_results injectés et `tools` array absent) **rate systématiquement le
+   cache** créé par le 1er call (parce que `tools` fait partie du préfixe cache
+   Anthropic). Surcoût d'environ 25-30% sur les tours factuels.
+
+### Estimation actuelle (2026-05-01, post-suppression du prefetch)
+
+Pour un user actif normal en production (~11 questions/sem) :
+
+- ~17 calls chat/sem (avec tool-use ×1.5)
+- + 1-2 extract-chat-insights/sem
+- + ~0.5 patch-user-profile/sem
+- = ~19 calls/sem × 4 sem × $0.0055 = **~$0.42/user actif/mois**
+
+Soit **3× la cible**, mais bien moins que les ×10 observés en dogfood intense.
+
+### Validation par mesure réelle (2026-05-01 11:14 UTC)
+
+Test propre : 4 questions user (mix smalltalk + 2 factuelles avec tool-use),
+prefetch déjà supprimé.
+
+Mesures Anthropic Activity Log :
+
+- **6 calls Claude** (ratio 1.5 calls/question, conforme à l'estimation)
+- 42 071 tokens input total, 475 tokens output total
+- Coût estimé de cette conv : **~$0.030** (selon hit cache effectif)
+- Soit **~$0.0075/question** (vs $0.058/question hier en dogfood pré-suppression)
+- **Réduction d'un facteur 7-8** vs hier — confirme que le prefetch était LE
+  vrai coupable de l'explosion observée le 30 avril.
+
+Extrapolation user actif normal : confirme l'estimation **~$0.40/user/mois**.
+Marge brute LLM à $7/mois : **94%**, à $9/mois : **95%**. Sain.
+
+### Plan pour rapprocher la réalité de la cible
+
+Trois leviers identifiés, à coder dans l'ordre :
+
+| Priorité | Levier | Gain estimé | Effort |
+|---|---|---|---|
+| 1 | **Fix cache `tool_followup`** | -25-30% sur tours factuels (~-15% global) | 1-2h |
+| 2 | **Cap history conversation à 6 turns** (vs 12 actuellement) | -10-15% sur input non-cached | 30 min |
+| 3 | **Compacter tool results** (`tasting_note` slice 500→150 chars) | -15% sur round 2 factuel | 30 min |
+| 4 | **Persister `[anthropic-usage]` dans une table Postgres** | observabilité continue (pas un gain direct) | 1h |
+| 5 | **Mesurer en production réelle** (pas dogfood) | sortir du biais dev intensif | protocole utilisateur normal |
+
+Avec les 3 premiers leviers cumulés : estimation à **~$0.20-0.30/user actif/mois**,
+toujours au-dessus de la cible $0.13 mais en bonne voie.
+
+### Impact sur le compte d'exploitation
+
+Les compte d'exploitation plus haut dans ce doc utilisent toujours la **cible
+$0.13/user/mois**. Ils restent **valides comme objectifs** et permettent de
+piloter le développement. La marge brute LLM réelle 2026-05-01 est de
+**~88-92%** (vs 95% projeté), toujours saine pour le modèle freemium-trial à
+$7-9/mois. À surveiller : si la réalité décroche durablement au-delà de
+$1/user/mois, le compte d'expl mérite révision.
+
+### Ce que ça change sur la stratégie
+
+Rien de fondamental. La direction (trial 2 mois → paywall + sub annuelle, prix
+$7-9/mois, full Claude pour tous, pas de Gemini sur free) reste valide. Le
+prefetch supprimé enlève déjà une grosse partie du gap. Le fix cache
+`tool_followup` enlèvera le reste. Aucun pivot business model nécessaire.
