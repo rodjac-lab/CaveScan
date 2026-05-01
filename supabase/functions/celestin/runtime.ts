@@ -23,7 +23,6 @@ function resolveRequestSource(body: RequestBody): string {
 
   if (body.message === '__prefetch__') return 'prefetch'
   if (body.provider && body.debugTrace) return 'debug_or_eval'
-  if (body.debugTrace) return 'debug_trace'
   return 'chat'
 }
 
