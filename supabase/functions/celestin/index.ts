@@ -20,11 +20,12 @@ Deno.serve(async (req) => {
     forcedProvider = body.provider
     const auth = await resolveAuthContext(req)
 
-    const { response, nextState, debugTrace } = await runCelestinTurn(body, auth)
+    const { response, nextState, debugTrace, turnId } = await runCelestinTurn(body, auth)
 
     return new Response(JSON.stringify({
       ...response,
       _nextState: nextState,
+      _turnId: turnId,
       ...(body.debugTrace ? { _debug: debugTrace } : {}),
     }), {
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },

@@ -212,7 +212,7 @@ export async function invokeCelestin(body: ReturnType<typeof buildCelestinReques
 
   if (error) throw error
 
-  return data as CelestinResponse & { _nextState?: Record<string, unknown>; _debug?: Record<string, unknown> }
+  return data as CelestinResponse & { _nextState?: Record<string, unknown>; _turnId?: string; _debug?: Record<string, unknown> }
 }
 
 export async function extractCelestinErrorMessage(err: unknown) {

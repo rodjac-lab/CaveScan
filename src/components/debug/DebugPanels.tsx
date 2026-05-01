@@ -143,8 +143,9 @@ export function AdminCelestinObservabilityPanel() {
             <p>{formatNumber(today.failed_turns)} erreur(s)</p>
           </div>
           <div className="rounded-[8px] border border-[var(--border-color)] px-3 py-2">
-            <p className="text-[var(--text-muted)]">Latence edge</p>
-            <p className="text-[16px] font-semibold text-[var(--text-primary)]">p95 {formatNumber(today.edge_p95_ms)}ms</p>
+            <p className="text-[var(--text-muted)]">Latence ressentie</p>
+            <p className="text-[16px] font-semibold text-[var(--text-primary)]">p95 {formatNumber(today.frontend_total_p95_ms ?? today.edge_p95_ms)}ms</p>
+            <p>edge p95 {formatNumber(today.edge_p95_ms)}ms</p>
             <p>LLM p95 {formatNumber(today.llm_p95_ms)}ms</p>
           </div>
           <div className="rounded-[8px] border border-[var(--border-color)] px-3 py-2">
@@ -200,8 +201,10 @@ export function AdminCelestinObservabilityPanel() {
               <thead className="text-[var(--text-muted)]">
                 <tr>
                   <th className="text-left">Heure</th>
+                  <th className="text-right">total</th>
                   <th className="text-right">edge</th>
                   <th className="text-right">LLM</th>
+                  <th className="text-right">prep</th>
                   <th className="text-left pl-2">Route</th>
                   <th className="text-left pl-2">Message</th>
                 </tr>
@@ -210,8 +213,10 @@ export function AdminCelestinObservabilityPanel() {
                 {snapshot.slowTurns.map((row) => (
                   <tr key={row.turn_id} className="border-t border-[var(--border-color)]">
                     <td>{new Date(row.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td>
+                    <td className="text-right tabular-nums">{formatNumber(row.frontend_total_ms)}</td>
                     <td className="text-right tabular-nums">{formatNumber(row.edge_ms)}</td>
                     <td className="text-right tabular-nums">{formatNumber(row.llm_ms)}</td>
+                    <td className="text-right tabular-nums">{formatNumber(row.frontend_prep_ms)}</td>
                     <td className="pl-2">{row.route ?? '—'}</td>
                     <td className="pl-2 text-[var(--text-muted)]">{row.message_preview ?? '—'}</td>
                   </tr>

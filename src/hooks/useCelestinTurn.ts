@@ -15,6 +15,7 @@ import {
   type MemoryFact,
 } from '@/lib/chatPersistence'
 import { recordCelestinTiming } from '@/lib/debug/celestinTimings'
+import { recordCelestinClientTiming } from '@/lib/debug/celestinClientTiming'
 import {
   appendCelestinRealTrace,
   buildCelestinRealTraceEntry,
@@ -98,6 +99,18 @@ export function useCelestinTurn({
         hadImage: !!image,
         uiActionKind: fullResponse?.ui_action?.kind ?? null,
       })
+
+      if (fullResponse?._turnId) {
+        void recordCelestinClientTiming({
+          turnId: fullResponse._turnId,
+          prepMs: Math.round(t1 - t0),
+          celestinMs: Math.round(t2 - t1),
+          totalMs: Math.round(t2 - t0),
+          prepBreakdown: prepTimings,
+        }).catch((err) => {
+          console.warn('[CeSoirModule] client timing record failed:', err)
+        })
+      }
 
       if (traceEnabled) {
         appendCelestinRealTrace(buildCelestinRealTraceEntry({

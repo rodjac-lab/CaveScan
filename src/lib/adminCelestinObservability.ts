@@ -9,6 +9,10 @@ export type AdminCelestinDailyHealth = {
   edge_p95_ms: number | null
   llm_p50_ms: number | null
   llm_p95_ms: number | null
+  frontend_total_p50_ms: number | null
+  frontend_total_p95_ms: number | null
+  frontend_prep_p50_ms: number | null
+  frontend_prep_p95_ms: number | null
   input_tokens: number
   output_tokens: number
   cache_creation_input_tokens: number
@@ -45,6 +49,11 @@ export type AdminCelestinSlowTurn = {
   provider_path: string | null
   edge_ms: number | null
   llm_ms: number | null
+  frontend_total_ms: number | null
+  frontend_prep_ms: number | null
+  frontend_celestin_ms: number | null
+  frontend_memory_ms: number | null
+  frontend_compiled_profile_ms: number | null
   tool_calls_count: number
   tool_duration_ms: number
   input_tokens: number

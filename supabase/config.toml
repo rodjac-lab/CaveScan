@@ -15,3 +15,6 @@ verify_jwt = false
 
 [functions.import-vivino-label]
 verify_jwt = false
+
+[functions.record-celestin-client-timing]
+verify_jwt = false

@@ -15,6 +15,7 @@ export interface CelestinTurnRuntimeResult {
   nextState: ConversationState
   debugTrace: Record<string, unknown>
   provider: string
+  turnId: string
 }
 
 function resolveRequestSource(body: RequestBody): string {
@@ -214,6 +215,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       nextState,
       debugTrace,
       provider,
+      turnId,
     }
   } catch (error) {
     await persistCelestinTurnObservability({
