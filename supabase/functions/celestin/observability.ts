@@ -1,6 +1,8 @@
 import type { SupabaseServiceClient } from "./auth.ts"
+import type { ContextPlan } from "./context-plan.ts"
 import type { ConversationState } from "./conversation-state.ts"
 import type { CelestinProviderTrace } from "./llm-providers.ts"
+import { buildSourceRequirements } from "./source-resolver.ts"
 import type { CelestinResponse, RequestBody } from "./types.ts"
 
 type PromptMetrics = {
@@ -29,6 +31,7 @@ export type CelestinTurnObservabilityInput = {
   provider?: string | null
   providerErrors?: string[]
   providerTrace?: CelestinProviderTrace | null
+  contextPlan?: ContextPlan | null
 }
 
 export type CelestinEdgeFunctionTimingInput = {
@@ -130,6 +133,8 @@ export async function persistCelestinTurnObservability(input: CelestinTurnObserv
         metadata: {
           promptCacheCreateTokens: trace?.claudeCache.creationInputTokens ?? 0,
           promptCacheReadTokens: trace?.claudeCache.readInputTokens ?? 0,
+          contextPlan: input.contextPlan ?? null,
+          sourceRequirements: input.contextPlan ? buildSourceRequirements(input.contextPlan) : [],
         },
       }, { onConflict: 'turn_id' })
 

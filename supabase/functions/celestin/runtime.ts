@@ -1,4 +1,5 @@
 import { buildContextBlock } from "./context-builder.ts"
+import { buildContextPlan, type ContextPlan } from "./context-plan.ts"
 import { computeNextState, INITIAL_STATE, type ConversationState } from "./conversation-state.ts"
 import { celestinWithFallback, type CelestinProviderTrace } from "./llm-providers.ts"
 import { resolveActiveMemoryFocus } from "./memory-focus.ts"
@@ -32,8 +33,8 @@ function uiActionKind(response: CelestinResponse): string {
   return response.ui_action?.kind ?? 'none'
 }
 
-function buildProviderHistory(body: RequestBody, routingWinner: string): ConversationTurn[] {
-  if (routingWinner !== 'exploratory_reco_pivot') return body.history
+function buildProviderHistory(body: RequestBody, contextPlan?: ContextPlan): ConversationTurn[] {
+  if (contextPlan?.history !== 'pivot') return body.history
 
   // A pivot such as "Et si je veux plutôt un italien ?" must not let the model
   // continue the previous dish/cards. Routing already used the full history.
@@ -54,6 +55,7 @@ function buildDebugTrace(input: {
   routingResult: ReturnType<typeof interpretTurnWithRouting>
   providerErrors: string[]
   providerTrace: CelestinProviderTrace
+  contextPlan: ContextPlan
 }) {
   const { body, conversationState, nextState, rawResponse, response, routingResult } = input
 
@@ -68,6 +70,7 @@ function buildDebugTrace(input: {
     memoryFocus: input.activeMemoryFocus,
     conversationalIntent: (typeof body.conversationalIntent === 'string' ? body.conversationalIntent : null),
     routing: routingResult.routing,
+    contextPlan: input.contextPlan,
     state: {
       beforePhase: conversationState.phase,
       beforeTask: conversationState.taskType ?? null,
@@ -81,7 +84,7 @@ function buildDebugTrace(input: {
       userChars: input.userPrompt.length,
       contextChars: input.contextBlock.length,
       historyTurns: body.history.length,
-      providerHistoryTurns: buildProviderHistory(body, routingResult.routing.winner).length,
+      providerHistoryTurns: buildProviderHistory(body, input.contextPlan).length,
       caveCount: body.cave.length,
       hasImage: !!body.image,
     },
@@ -106,10 +109,11 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
     const conversationalIntent = typeof body.conversationalIntent === 'string' ? body.conversationalIntent : null
     const routingResult = interpretTurnWithRouting(body.message, !!body.image, conversationState, lastAssistantText, conversationalIntent)
     const { interpretation, routing } = routingResult
+    const contextPlan = buildContextPlan(routingResult)
 
-    console.log(`[celestin] source=${requestSource} message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} route=${routing.winner} state=${conversationState.phase} convIntent=${conversationalIntent ?? 'null'} history=${body.history.length} cave=${body.cave.length} image=${body.image ? 'yes' : 'no'}`)
+    console.log(`[celestin] source=${requestSource} message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} route=${routing.winner} profile=${contextPlan.profile} cavePlan=${contextPlan.cave} tools=${contextPlan.tools} truth=${contextPlan.truthPolicy} state=${conversationState.phase} convIntent=${conversationalIntent ?? 'null'} history=${body.history.length} cave=${body.cave.length} image=${body.image ? 'yes' : 'no'}`)
 
-    const contextBlock = buildContextBlock(body, interpretation.cognitiveMode)
+    const contextBlock = buildContextBlock(body, interpretation.cognitiveMode, contextPlan)
     const systemPrompt = buildCelestinSystemPrompt(interpretation.cognitiveMode)
       + '\n\n--- CONTEXTE UTILISATEUR ---\n\n'
       + contextBlock
@@ -122,7 +126,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       lastAssistantText,
       routing.winner,
     )
-    const providerHistory = buildProviderHistory(body, routing.winner)
+    const providerHistory = buildProviderHistory(body, contextPlan)
 
     const { provider, response: rawResponse, providerErrors, trace: providerTrace } = await celestinWithFallback(
       systemPrompt,
@@ -167,6 +171,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       routingResult,
       providerErrors,
       providerTrace,
+      contextPlan,
     })
 
     await persistCelestinTurnObservability({
@@ -192,6 +197,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       provider,
       providerErrors,
       providerTrace,
+      contextPlan,
     })
 
     if (body.debugTrace) {
@@ -204,6 +210,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
         uiAction: uiActionKind(response),
         provider,
         providerPath: providerTrace.providerPath,
+        contextPlan,
         toolCalls: providerTrace.toolCalls.map((tool) => ({ name: tool.name, totalRows: tool.totalRows, durationMs: tool.durationMs })),
       }))
     }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildContextBlock, buildMemoriesSection, summarizeCaveCounts } from './context-builder'
+import type { ContextPlan } from './context-plan'
 import type { RequestBody } from './types'
 
 const MODES = [
@@ -51,6 +52,20 @@ function fixture(overrides: Partial<RequestBody> = {}): RequestBody {
         local_score: 0.82,
       },
     ],
+    ...overrides,
+  }
+}
+
+function plan(overrides: Partial<ContextPlan>): ContextPlan {
+  return {
+    profile: 'minimal',
+    cave: 'none',
+    zones: 'none',
+    memories: 'none',
+    tools: 'none',
+    history: 'compact',
+    truthPolicy: 'standard',
+    reasons: ['test'],
     ...overrides,
   }
 }
@@ -110,5 +125,90 @@ describe('buildContextBlock', () => {
     const block = buildContextBlock(body, 'cellar_assistant')
     expect(block).toContain('Cave principale')
     expect(block).toContain('Cave secondaire')
+  })
+
+  it('applies wine_question ContextPlan by stripping personal and exact sources', () => {
+    const block = buildContextBlock(
+      fixture(),
+      'wine_conversation',
+      plan({
+        profile: 'none',
+        cave: 'none',
+        memories: 'none',
+        tools: 'none',
+        truthPolicy: 'prudent_factual',
+      }),
+    )
+
+    expect(block).toBe('')
+  })
+
+  it('applies cellar_lookup ContextPlan without serializing full cave details', () => {
+    const body = fixture()
+    ;(body as Record<string, unknown>).zones = ['Cave principale', 'Cave secondaire']
+
+    const block = buildContextBlock(
+      body,
+      'cellar_assistant',
+      plan({
+        profile: 'none',
+        cave: 'tool_only',
+        zones: 'names',
+        memories: 'none',
+        tools: 'force_cellar',
+        truthPolicy: 'exact_only',
+      }),
+    )
+
+    expect(block).toContain('Faits deterministes extraits de la base')
+    expect(block).toContain('Zones de stockage disponibles : Cave principale, Cave secondaire')
+    expect(block).toContain('Cave : detail non injecte')
+    expect(block).not.toContain('Profil utilisateur compile')
+    expect(block).not.toContain('Souvenir Domaine Gangloff 2018')
+    expect(block).not.toContain('- [b1]')
+  })
+
+  it('applies recommendation ContextPlan with profile, targeted memories, zones, and shortlist cave', () => {
+    const body = fixture()
+    ;(body as Record<string, unknown>).zones = ['Cave principale']
+
+    const block = buildContextBlock(
+      body,
+      'cellar_assistant',
+      plan({
+        profile: 'recommendation',
+        cave: 'shortlist',
+        zones: 'names',
+        memories: 'targeted',
+        tools: 'auto',
+        history: 'normal',
+      }),
+    )
+
+    expect(block).toContain('Profil utilisateur compile')
+    expect(block).toContain('Souvenirs de degustation')
+    expect(block).toContain('Zones de stockage disponibles : Cave principale')
+    expect(block).toContain('Bouteilles en cave : 3 bouteilles')
+    expect(block).toContain('- [b1]')
+  })
+
+  it('applies memory_lookup ContextPlan with exact memories and no cave details', () => {
+    const block = buildContextBlock(
+      fixture(),
+      'tasting_memory',
+      plan({
+        profile: 'minimal',
+        cave: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+    )
+
+    expect(block).toContain('Profil utilisateur compile')
+    expect(block).toContain('Souvenirs de degustation')
+    expect(block).toContain('Faits deterministes extraits de la base')
+    expect(block).not.toContain('Bouteilles en cave')
+    expect(block).not.toContain('Cave : 3 bouteilles')
   })
 })

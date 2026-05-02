@@ -109,7 +109,8 @@ export function buildSingleTurnBody(fixture, scenario, provider) {
  */
 export async function callCelestin(body, baseUrl, anonKey) {
   const start = Date.now()
-  const res = await fetch(`${baseUrl}/functions/v1/celestin`, {
+  const functionName = process.env.CELESTIN_FUNCTION_NAME?.trim() || 'celestin'
+  const res = await fetch(`${baseUrl}/functions/v1/${functionName}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

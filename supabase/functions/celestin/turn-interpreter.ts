@@ -137,6 +137,13 @@ function routePostTaskAck(state: ConversationState, signals: RoutingSignals, can
     return routed(wineContextSwitch(), state.phase, 'exploratory_reco_pivot', candidates)
   }
 
+  if (
+    (signals.isWineCulture || signals.isQuestion)
+    && /\b(au fait|sinon|et sinon)\b/i.test(signals.lower)
+  ) {
+    return routed(wineContextSwitch(), state.phase, 'wine_question', candidates)
+  }
+
   if (signals.isRefinement) {
     return routed({ turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }, state.phase, 'recommendation_refinement', candidates)
   }

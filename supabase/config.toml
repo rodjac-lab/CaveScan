@@ -1,6 +1,9 @@
 [functions.celestin]
 verify_jwt = false
 
+[functions.celestin-canary]
+verify_jwt = false
+
 [functions.extract-wine]
 verify_jwt = false
 

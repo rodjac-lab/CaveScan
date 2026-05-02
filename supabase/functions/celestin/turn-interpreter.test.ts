@@ -415,6 +415,13 @@ describe('routing audit matrix', () => {
       expectedUiAction: false,
     },
     {
+      id: 'inventory-count-appellation-without-bottle-word',
+      message: "J'ai combien de Chassagne ?",
+      expectedWinner: 'cellar_lookup',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: false,
+    },
+    {
       id: 'inventory-existence-appellation',
       message: "Est-ce que j'ai du Chassagne en cave ?",
       expectedWinner: 'cellar_lookup',
@@ -664,6 +671,18 @@ describe('routing audit matrix', () => {
       id: 'culture-thread-turn-2',
       message: 'Tu es sur ? Je crois que c est surtout blanc.',
       lastAssistantText: 'Chassagne est surtout connu pour les rouges.',
+      expectedWinner: 'wine_question',
+      expectedMode: 'wine_conversation',
+      expectedUiAction: false,
+    })
+  })
+
+  it('routes an explicit new wine-culture question after recommendation as a context switch', () => {
+    expectRoute({
+      id: 'post-reco-au-fait-culture',
+      message: "Merci ! Et sinon, c'est quoi un vin orange ?",
+      state: recentRecommendationState,
+      lastAssistantText: recentRecommendationText,
       expectedWinner: 'wine_question',
       expectedMode: 'wine_conversation',
       expectedUiAction: false,

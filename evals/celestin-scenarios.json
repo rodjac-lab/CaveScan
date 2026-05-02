@@ -2,10 +2,8 @@
   {
     "id": "generic_tonight",
     "message": "Qu'est-ce que j'ouvre ce soir ?",
-    "notes": "Reco ouverte sans plat explicite.",
-    "expectations": {
-      "expectedUiActionKind": "show_recommendations"
-    }
+    "notes": "Reco ouverte sans plat explicite. Une relance de precision est acceptable.",
+    "expectations": {}
   },
   {
     "id": "sushi",

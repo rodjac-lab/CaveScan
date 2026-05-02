@@ -1,0 +1,192 @@
+import type { ContextPlan } from './context-plan.ts'
+import type { CaveBottle, RequestBody } from './types.ts'
+
+export type SourceRequirementKind =
+  | 'profile'
+  | 'cave'
+  | 'zones'
+  | 'memories'
+  | 'tools'
+  | 'sql_retrieval'
+
+export interface SourceRequirement {
+  kind: SourceRequirementKind
+  level: string
+  reason: string
+}
+
+export interface ResolvedProfileSource {
+  level: ContextPlan['profile']
+  compiledMarkdown?: string
+  legacyProfile?: string
+}
+
+export interface ResolvedMemoriesSource {
+  level: ContextPlan['memories']
+  text: string
+  evidenceMode?: RequestBody['memoryEvidenceMode']
+}
+
+export interface ResolvedSqlSource {
+  text: string
+}
+
+export interface ResolvedCaveSource {
+  level: ContextPlan['cave']
+  totalBottles: number
+  referenceCount: number
+  bottles: CaveBottle[]
+}
+
+export interface ResolvedContextSources {
+  requirements: SourceRequirement[]
+  profile?: ResolvedProfileSource
+  memories?: ResolvedMemoriesSource
+  sqlRetrieval?: ResolvedSqlSource
+  cave: ResolvedCaveSource
+  zones: string[]
+}
+
+export function buildSourceRequirements(contextPlan: ContextPlan): SourceRequirement[] {
+  const requirements: SourceRequirement[] = []
+
+  if (contextPlan.profile !== 'none') {
+    requirements.push({
+      kind: 'profile',
+      level: contextPlan.profile,
+      reason: contextPlan.profile === 'recommendation'
+        ? 'recommendation needs taste profile signals'
+        : 'turn may benefit from lightweight user profile',
+    })
+  }
+
+  if (contextPlan.cave !== 'none') {
+    requirements.push({
+      kind: 'cave',
+      level: contextPlan.cave,
+      reason: contextPlan.cave === 'tool_only'
+        ? 'exact cellar facts must be fetched deterministically'
+        : 'route needs bounded cellar context',
+    })
+  }
+
+  if (contextPlan.zones !== 'none') {
+    requirements.push({
+      kind: 'zones',
+      level: contextPlan.zones,
+      reason: 'cellar actions and recommendations can mention available storage zones',
+    })
+  }
+
+  if (contextPlan.memories !== 'none') {
+    requirements.push({
+      kind: 'memories',
+      level: contextPlan.memories,
+      reason: contextPlan.memories === 'exact'
+        ? 'memory lookup must use exact tasting evidence'
+        : 'recommendation can use targeted tasting texture',
+    })
+  }
+
+  if (contextPlan.tools !== 'none') {
+    requirements.push({
+      kind: 'tools',
+      level: contextPlan.tools,
+      reason: 'route allows deterministic backend tool retrieval',
+    })
+  }
+
+  if (contextPlan.truthPolicy === 'exact_only' || contextPlan.truthPolicy === 'memory_only') {
+    requirements.push({
+      kind: 'sql_retrieval',
+      level: contextPlan.truthPolicy,
+      reason: 'answer must prefer exact retrieved facts over generated knowledge',
+    })
+  }
+
+  return requirements
+}
+
+function summarizeCave(cave: CaveBottle[]): Pick<ResolvedCaveSource, 'totalBottles' | 'referenceCount'> {
+  return {
+    referenceCount: cave.length,
+    totalBottles: cave.reduce((sum, bottle) => sum + Math.max(1, bottle.quantity ?? 1), 0),
+  }
+}
+
+function resolveProfile(body: RequestBody, contextPlan: ContextPlan): ResolvedProfileSource | undefined {
+  if (contextPlan.profile === 'none') return undefined
+
+  const compiledMarkdown = body.compiledProfileMarkdown?.trim()
+  if (compiledMarkdown) {
+    return {
+      level: contextPlan.profile,
+      compiledMarkdown,
+    }
+  }
+
+  const legacyProfile = body.profile?.trim()
+  if (!legacyProfile) return undefined
+
+  return {
+    level: contextPlan.profile,
+    legacyProfile,
+  }
+}
+
+function resolveMemories(body: RequestBody, contextPlan: ContextPlan): ResolvedMemoriesSource | undefined {
+  if (contextPlan.memories === 'none') return undefined
+
+  const text = body.memories?.trim()
+  if (!text) return undefined
+
+  return {
+    level: contextPlan.memories,
+    text,
+    evidenceMode: body.memoryEvidenceMode,
+  }
+}
+
+function resolveSqlRetrieval(body: RequestBody, contextPlan: ContextPlan): ResolvedSqlSource | undefined {
+  const text = body.sqlRetrieval?.trim()
+  if (!text) return undefined
+
+  const shouldUseSql =
+    contextPlan.tools !== 'none'
+    || contextPlan.truthPolicy === 'exact_only'
+    || contextPlan.truthPolicy === 'memory_only'
+
+  if (!shouldUseSql) return undefined
+  return { text }
+}
+
+function resolveZones(body: RequestBody, contextPlan: ContextPlan): string[] {
+  if (contextPlan.zones === 'none') return []
+
+  const zones = (body as Record<string, unknown>).zones
+  if (!Array.isArray(zones)) return []
+
+  return zones.filter((zone): zone is string => typeof zone === 'string' && zone.trim().length > 0)
+}
+
+function resolveCave(body: RequestBody, contextPlan: ContextPlan): ResolvedCaveSource {
+  const counts = summarizeCave(body.cave)
+  const shouldIncludeBottles = contextPlan.cave === 'shortlist' || contextPlan.cave === 'full_debug'
+
+  return {
+    level: contextPlan.cave,
+    ...counts,
+    bottles: shouldIncludeBottles ? body.cave : [],
+  }
+}
+
+export function resolveContextSources(body: RequestBody, contextPlan: ContextPlan): ResolvedContextSources {
+  return {
+    requirements: buildSourceRequirements(contextPlan),
+    profile: resolveProfile(body, contextPlan),
+    memories: resolveMemories(body, contextPlan),
+    sqlRetrieval: resolveSqlRetrieval(body, contextPlan),
+    cave: resolveCave(body, contextPlan),
+    zones: resolveZones(body, contextPlan),
+  }
+}

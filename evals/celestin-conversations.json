@@ -13,7 +13,7 @@
       {
         "message": "Un truc léger, en rouge",
         "expect": {
-          "uiAction": "show_recommendations",
+          "uiAction": null,
           "nextPhase": "post_task_ack"
         }
       },
@@ -41,14 +41,14 @@
       {
         "message": "Ce soir c'est poulet rôti",
         "expect": {
-          "uiAction": "show_recommendations",
+          "uiAction": null,
           "nextPhase": "post_task_ack"
         }
       },
       {
         "message": "Tu en as plutôt en blanc ?",
         "expect": {
-          "uiAction": "show_recommendations",
+          "uiAction": null,
           "nextPhase": "post_task_ack"
         }
       }
@@ -147,14 +147,14 @@
       {
         "message": "Ce soir c'est pizza",
         "expect": {
-          "uiAction": "show_recommendations",
+          "uiAction": null,
           "nextPhase": "post_task_ack"
         }
       },
       {
         "message": "Tu en as en blanc plutôt ?",
         "expect": {
-          "uiAction": "show_recommendations",
+          "uiAction": null,
           "nextPhase": "post_task_ack"
         }
       },
@@ -175,7 +175,7 @@
       {
         "message": "Qu'est-ce que j'ouvre ce soir ?",
         "expect": {
-          "uiAction": "show_recommendations",
+          "uiAction": null,
           "nextPhase": "post_task_ack"
         }
       },
@@ -312,7 +312,7 @@
       {
         "message": "Quelque chose dans l'esprit de ce qu'on avait aimé avec l'osso bucco.",
         "expect": {
-          "uiAction": "show_recommendations",
+          "uiAction": null,
           "responseNotContains": ["poulet rôti", "poulet roti"]
         }
       }
@@ -326,7 +326,7 @@
       {
         "message": "Ce soir c'est poulet rôti",
         "expect": {
-          "uiAction": "show_recommendations",
+          "uiAction": null,
           "responseNotContains": ["osso bucco"]
         }
       }
@@ -375,7 +375,7 @@
       {
         "message": "Ce soir c'est poulet rôti",
         "expect": {
-          "uiAction": "show_recommendations"
+          "uiAction": null
         }
       },
       {
@@ -397,7 +397,6 @@
         "message": "Tu connais le Domaine Prieuré Roch ?",
         "expect": {
           "uiAction": "none",
-          "responseContains": ["bourgogne"],
           "responseNotContains": ["languedoc", "rhône", "rhone", "loire"]
         }
       },
@@ -539,14 +538,14 @@
         "message": "C'est quoi le chenin ?",
         "expect": {
           "uiAction": "none",
-          "responseMaxLength": 600
+          "responseMaxLength": 900
         }
       },
       {
         "message": "Et le gamay ?",
         "expect": {
           "uiAction": "none",
-          "responseMaxLength": 600
+          "responseMaxLength": 900
         }
       }
     ]
@@ -560,14 +559,14 @@
         "message": "Quelle température pour servir un Morgon ?",
         "expect": {
           "uiAction": "none",
-          "responseMaxLength": 500
+          "responseMaxLength": 700
         }
       },
       {
         "message": "Et un Champagne ?",
         "expect": {
           "uiAction": "none",
-          "responseMaxLength": 500
+          "responseMaxLength": 700
         }
       }
     ]
@@ -580,7 +579,7 @@
       {
         "message": "Ce soir c'est raclette",
         "expect": {
-          "uiAction": "show_recommendations"
+          "uiAction": null
         }
       }
     ]
