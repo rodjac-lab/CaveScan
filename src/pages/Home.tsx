@@ -1,13 +1,26 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Wine, Loader2, X } from 'lucide-react'
+import { ChevronUp, Loader2, SlidersHorizontal, Wine, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useBottles } from '@/hooks/useBottles'
 import { useZones } from '@/hooks/useZones'
-import { type WineColor, type BottleWithZone, volumeLabel } from '@/lib/types'
+import { type WineColor, type BottleWithZone, type Zone, volumeLabel } from '@/lib/types'
 
 type FilterType = WineColor | null
+
+interface AdvancedFilters {
+  location: string
+}
+
+interface FilterOption {
+  value: string
+  label: string
+}
+
+const EMPTY_ADVANCED_FILTERS: AdvancedFilters = {
+  location: '',
+}
 
 const COLOR_STYLES: Record<WineColor, string> = {
   rouge: 'bg-[var(--red-wine)]',
@@ -41,6 +54,52 @@ function SearchIcon({ className }: { className?: string }) {
       <path d="M21 21l-4.35-4.35"/>
     </svg>
   )
+}
+
+function normalizeFilterValue(value: string | number | null | undefined): string {
+  return value == null ? '' : String(value).trim()
+}
+
+function getBottleLocationLabel(bottle: BottleWithZone): string {
+  return normalizeFilterValue(bottle.zone?.name)
+}
+
+function uniqueTextOptions(values: Array<string | number | null | undefined>, sortDescending = false): FilterOption[] {
+  const unique = Array.from(new Set(values.map(normalizeFilterValue).filter(Boolean)))
+  unique.sort((a, b) => {
+    if (sortDescending) return b.localeCompare(a, 'fr', { numeric: true, sensitivity: 'base' })
+    return a.localeCompare(b, 'fr', { numeric: true, sensitivity: 'base' })
+  })
+  return unique.map((value) => ({ value, label: value }))
+}
+
+function buildLocationFilterOptions(zones: Zone[]): FilterOption[] {
+  return uniqueTextOptions(zones.map((zone) => zone.name))
+}
+
+function hasActiveAdvancedFilters(filters: AdvancedFilters): boolean {
+  return !!filters.location
+}
+
+function countActiveAdvancedFilters(filters: AdvancedFilters): number {
+  return filters.location ? 1 : 0
+}
+
+function bottleMatchesAdvancedFilters(bottle: BottleWithZone, filters: AdvancedFilters): boolean {
+  if (filters.location && getBottleLocationLabel(bottle) !== filters.location) return false
+  return true
+}
+
+function getAdvancedFilterEntries(filters: AdvancedFilters): Array<{ key: keyof AdvancedFilters; label: string; value: string }> {
+  return filters.location
+    ? [{ key: 'location', label: 'Emplacement', value: filters.location }]
+    : []
+}
+
+function buildAdvancedFilterOptions(zones: Zone[]): { location: FilterOption[] } {
+  return {
+    location: buildLocationFilterOptions(zones),
+  }
 }
 
 interface StatCellProps {
@@ -128,7 +187,8 @@ function groupBottles(bottles: BottleWithZone[]): BottleGroup[] {
 function searchBottles(
   bottles: BottleWithZone[],
   query: string,
-  colorFilter: WineColor | null
+  colorFilter: WineColor | null,
+  advancedFilters: AdvancedFilters
 ): BottleWithZone[] {
   let results = bottles
 
@@ -150,7 +210,47 @@ function searchBottles(
     )
   }
 
+  if (hasActiveAdvancedFilters(advancedFilters)) {
+    results = results.filter((bottle) => bottleMatchesAdvancedFilters(bottle, advancedFilters))
+  }
+
   return results
+}
+
+interface FilterChipGroupProps {
+  label: string
+  value: string
+  options: FilterOption[]
+  onChange: (value: string) => void
+}
+
+function FilterChipGroup({ label, value, options, onChange }: FilterChipGroupProps) {
+  return (
+    <div>
+      <span className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+        {label}
+      </span>
+      <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto pr-1">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(value === option.value ? '' : option.value)}
+            className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+              value === option.value
+                ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                : 'border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-secondary)]'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+        {options.length === 0 && (
+          <span className="text-[12px] text-[var(--text-muted)]">Aucune valeur disponible</span>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export default function Home() {
@@ -158,15 +258,22 @@ export default function Home() {
   const { zones } = useZones()
   const [colorFilter, setColorFilter] = useState<FilterType>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>(EMPTY_ADVANCED_FILTERS)
 
   const filteredBottles = useMemo(
-    () => searchBottles(bottles, searchQuery, colorFilter),
-    [bottles, searchQuery, colorFilter]
+    () => searchBottles(bottles, searchQuery, colorFilter, advancedFilters),
+    [bottles, searchQuery, colorFilter, advancedFilters]
   )
 
   const groupedBottles = useMemo(
     () => groupBottles(filteredBottles),
     [filteredBottles]
+  )
+
+  const filterOptions = useMemo(
+    () => buildAdvancedFilterOptions(zones),
+    [zones]
   )
 
   const stats = {
@@ -181,10 +288,19 @@ export default function Home() {
     setColorFilter(current => current === color ? null : color)
   }
 
-  const handleClearSearch = () => {
+  const handleLocationFilterChange = (value: string) => {
+    setAdvancedFilters({ location: value })
+    if (value) setFiltersOpen(false)
+  }
+
+  const handleClearFilters = () => {
     setSearchQuery('')
     setColorFilter(null)
+    setAdvancedFilters(EMPTY_ADVANCED_FILTERS)
   }
+
+  const activeAdvancedFilterCount = countActiveAdvancedFilters(advancedFilters)
+  const hasFilters = searchQuery.length > 0 || !!colorFilter || activeAdvancedFilterCount > 0
 
   if (loading) {
     return (
@@ -248,29 +364,103 @@ export default function Home() {
         />
       </div>
 
-      {/* Search Bar */}
-      <div className="relative mx-6 mb-4">
+      {/* Search and filters */}
+      <div className="relative mx-6 mb-2">
         <SearchIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
         <Input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Rechercher un vin, domaine, appellation..."
-          className="h-10 rounded-[var(--radius-sm)] border-[var(--border-color)] bg-[var(--bg-card)] pl-10 pr-10 text-[13px] placeholder:text-[var(--text-muted)]"
+          className="h-10 rounded-[var(--radius-sm)] border-[var(--border-color)] bg-[var(--bg-card)] pl-10 pr-20 text-[13px] placeholder:text-[var(--text-muted)]"
         />
-        {(searchQuery || colorFilter) && (
+        {searchQuery && (
           <button
-            onClick={handleClearSearch}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+            onClick={() => setSearchQuery('')}
+            className="absolute right-11 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+            aria-label="Effacer la recherche"
           >
             <X className="h-4 w-4" />
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => setFiltersOpen((current) => !current)}
+          className="absolute right-3 top-1/2 inline-flex -translate-y-1/2 items-center text-[var(--accent)]"
+          aria-expanded={filtersOpen}
+          aria-label="Afficher les filtres"
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          {activeAdvancedFilterCount > 0 && (
+            <span className="absolute -right-1.5 -top-1.5 rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-[9px] leading-none text-white">
+              {activeAdvancedFilterCount}
+            </span>
+          )}
+        </button>
       </div>
+
+      {filtersOpen && (
+        <div className="mx-6 mb-3 rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--accent-bg)] p-3">
+          <div className="space-y-3">
+            <FilterChipGroup
+              label="Emplacement"
+              value={advancedFilters.location}
+              options={filterOptions.location}
+              onChange={handleLocationFilterChange}
+            />
+          </div>
+          {activeAdvancedFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setAdvancedFilters(EMPTY_ADVANCED_FILTERS)}
+              className="mt-2 text-[11px] font-medium text-[var(--accent)]"
+            >
+              Effacer l'emplacement
+            </button>
+          )}
+        </div>
+      )}
+
+      {hasFilters && (
+        <div className="mx-6 mb-3 flex flex-wrap gap-1.5">
+          {colorFilter && (
+            <button
+              type="button"
+              onClick={() => setColorFilter(null)}
+              className="rounded-full border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)]"
+            >
+              {colorFilter} ×
+            </button>
+          )}
+          {getAdvancedFilterEntries(advancedFilters).map(({ key, label, value }) => {
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setAdvancedFilters((current) => ({ ...current, [key]: '' }))}
+                className="rounded-full border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)]"
+              >
+                {label}: {value} ×
+              </button>
+            )
+          })}
+          <button
+            type="button"
+            onClick={handleClearFilters}
+            className="px-1.5 py-1 text-[11px] font-medium text-[var(--accent)]"
+          >
+            Tout effacer
+          </button>
+        </div>
+      )}
 
       {/* Section Header */}
       <div className="mx-6 mb-2 flex items-center justify-between">
-        <h2 className="font-serif text-base font-semibold text-[var(--text-primary)]">Entrées récentes</h2>
-        <button className="text-xs font-medium text-[var(--accent)]">Filtrer →</button>
+        <h2 className="font-serif text-base font-semibold text-[var(--text-primary)]">
+          {hasFilters ? 'Résultats' : 'Entrées récentes'}
+        </h2>
+        {filtersOpen && (
+          <ChevronUp className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+        )}
       </div>
 
       {/* Bottle List */}
@@ -291,7 +481,8 @@ export default function Home() {
           <div className="mt-4 flex flex-col items-center gap-4 rounded-[var(--radius)] bg-[var(--bg-card)] py-8 card-shadow">
             <SearchIcon className="h-12 w-12 text-[var(--text-muted)]" />
             <p className="text-center text-[var(--text-secondary)]">
-              Aucun résultat pour "{searchQuery}"
+              Aucun résultat
+              {searchQuery && ` pour "${searchQuery}"`}
               {colorFilter && ` (${colorFilter})`}
             </p>
           </div>

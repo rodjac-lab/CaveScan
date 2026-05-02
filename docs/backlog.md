@@ -37,6 +37,7 @@ Source unique de verite pour les travaux produit/tech.
 
 ### Cave & Gestion
 
+- [x] **Activer le filtre emplacement de la Cave**. Demande user beta : filtrer par emplacement pour distinguer plusieurs caves/maisons. V1 mobile-first : icone filtre integree a la recherche sur `/cave`, filtre rapide par emplacement uniquement, fermeture automatique du panneau apres selection, recherche texte pour domaine/appellation/cuvee/millesime, chip visible pour l'emplacement actif. Client-side, sans logique admin.
 - [ ] Historique d'achat par lots : enregistrements distincts par lot (date/prix/quantite/volume), prix moyen pondere en fiche, panneau "Historique des achats"
 - [ ] Suppression/restauration controlee d'entrees/sorties (historique robuste)
 - [x] Fenetres de maturite : remplir drink_from/drink_until via enrichissement (fait), alertes quand une bouteille arrive a maturite (reste a faire)
@@ -63,6 +64,7 @@ Source unique de verite pour les travaux produit/tech.
 
 - [x] **Supprimer le classifier systematique du tour Celestin** (2026-05-01). `prep` revient a ~10ms, `classifierMs=0`, et les questions factuelles sont traitees dans l'appel principal par Claude + tools. Principe acte : pas de pre-tri LLM quand le LLM principal peut comprendre et agir.
 - [x] **Prompt caching Anthropic V1 + observabilite debug** (2026-05-01). Les traces `/debug` exposent `cache_creation_input_tokens` et `cache_read_input_tokens`. A stabiliser avant scale : le cache depend d'un prefixe prompt stable, donc toute variation inutile du system/context casse le hit rate.
+- [ ] **Revoir la strategie de contexte Celestin**. Le contexte n'a pas ete revise depuis l'arrivee des tools SQL factuels. Objectif : envoyer moins de cave brute quand `query_cellar`/`query_tastings` peuvent aller chercher les faits, reduire le cout des tours a outils et eviter les contraintes de prompt qui degradent la culture vin (ex : hallucination Chassagne rouge/blanc). Sortie attendue : politique par route/mode, budget tokens, tests eval qualite et cout avant/apres.
 - [ ] **Stabiliser le hit rate du cache Anthropic**. Objectif : verifier sur 24h que les sessions multi-tour lisent le cache apres le premier tour. Ajouter un indicateur agrege si besoin (`events` ou debug export) et reduire les variations du prefixe cacheable.
 - [ ] **Bloquer ou encadrer les fallbacks non-tooles sur questions exactes**. Gemini/OpenAI n'ont pas les tools internes ; ils peuvent depanner une conversation, mais ne doivent pas inventer un count cave/degustation si Claude/tool-use echoue.
 - [ ] **Streaming des reponses Claude**. Objectif perception : afficher les premiers tokens pendant que le modele genere, sans changer l'architecture factuelle.
