@@ -292,6 +292,13 @@ Cas prioritaires :
 - recuperation d'une note de degustation ;
 - "combien de degustations".
 
+Dette a traiter plus tard, hors chemin critique :
+
+- tolerance aux fautes de frappe sur les mots structurels de routing (`bouteille(s)`,
+  `cave`, `degustation(s)`). Exemple : `Combien de brouteilles...` ne doit pas etre
+  ajoute comme cas lexical specifique ; il faut une couche de normalisation/fuzzy
+  limitee avant routing, avec tests.
+
 Strategie :
 
 - pour `exact_only`, pre-resoudre via backend ou tool force ;
@@ -362,4 +369,3 @@ Critere de fin :
 - Chaque reduction de contexte est mesuree en tokens.
 - Les scenarios Marc/Rome/cave multi-maison restent dans les evals.
 - Les facts exacts cave/memoire ne viennent jamais de la generation libre.
-

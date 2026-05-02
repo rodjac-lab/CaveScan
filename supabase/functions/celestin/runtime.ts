@@ -1,5 +1,6 @@
 import { buildContextPlan, type ContextPlan } from "./context-plan.ts"
 import { computeNextState, INITIAL_STATE, type ConversationState } from "./conversation-state.ts"
+import { buildDeterministicResponse } from "./deterministic-response.ts"
 import { celestinWithFallback, type CelestinProviderTrace } from "./llm-providers.ts"
 import { resolveActiveMemoryFocus } from "./memory-focus.ts"
 import { assembleCelestinPrompt, buildProviderHistory } from "./prompt-assembler.ts"
@@ -38,6 +39,16 @@ function forcedToolName(contextPlan: ContextPlan): CelestinToolName | undefined 
   if (contextPlan.tools === 'force_memory') return 'query_memory'
   if (contextPlan.tools === 'force_tastings') return 'query_tastings'
   return undefined
+}
+
+function emptyProviderTrace(): CelestinProviderTrace {
+  return {
+    attempts: [],
+    toolCalls: [],
+    claudeCache: { creationInputTokens: 0, readInputTokens: 0 },
+    usage: { inputTokens: 0, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 },
+    providerPath: 'direct_response',
+  }
 }
 
 function buildDebugTrace(input: {
@@ -136,6 +147,81 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       lastAssistantText,
       routingIntent: routing.winner,
     })
+
+    const deterministicResponse = buildDeterministicResponse({
+      body,
+      routingIntent: routing.winner,
+      contextPlan,
+      resolvedSources,
+    })
+
+    if (deterministicResponse) {
+      const response = applyResponsePolicy(deterministicResponse, interpretation)
+      const providerTrace = emptyProviderTrace()
+      const provider = 'deterministic'
+      const nextState = computeNextState(
+        conversationState,
+        interpretation.turnType,
+        !!response.ui_action,
+        response.ui_action?.kind,
+        interpretation.inferredTaskType,
+        activeMemoryFocus,
+      )
+
+      const debugTrace = buildDebugTrace({
+        body,
+        conversationState,
+        nextState,
+        contextBlock,
+        systemPrompt,
+        userPrompt,
+        provider,
+        activeMemoryFocus,
+        rawResponse: deterministicResponse,
+        response,
+        routingResult,
+        providerErrors: [],
+        providerTrace,
+        contextPlan,
+        resolvedSources,
+      })
+
+      await persistCelestinTurnObservability({
+        supabase: auth?.supabase ?? null,
+        turnId,
+        userId: auth?.userId ?? null,
+        body,
+        startedAt,
+        success: true,
+        route: routing.winner,
+        turnType: interpretation.turnType,
+        mode: interpretation.cognitiveMode,
+        stateBefore: conversationState,
+        stateAfter: nextState,
+        activeMemoryFocus,
+        prompt: {
+          systemChars: systemPrompt.length,
+          userChars: userPrompt.length,
+          contextChars: contextBlock.length,
+          providerHistoryTurns: providerHistory.length,
+        },
+        response,
+        provider,
+        providerErrors: [],
+        providerTrace,
+        contextPlan,
+      })
+
+      console.log(`[celestin] Deterministic response: route=${routing.winner} msg="${response.message.slice(0, 120)}"`)
+
+      return {
+        response,
+        nextState,
+        debugTrace,
+        provider,
+        turnId,
+      }
+    }
 
     const { provider, response: rawResponse, providerErrors, trace: providerTrace } = await celestinWithFallback(
       systemPrompt,
