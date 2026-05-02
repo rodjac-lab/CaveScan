@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSourceRequirements, resolveContextSources, resolveContextSourcesForRequest } from './source-resolver'
+import { buildSourceRequirements, resolveContextSourcesForRequest } from './source-resolver'
 import type { ContextPlan } from './context-plan'
 import type { RequestBody } from './types'
 
@@ -42,7 +42,7 @@ function plan(overrides: Partial<ContextPlan>): ContextPlan {
   }
 }
 
-describe('resolveContextSources', () => {
+describe('resolveContextSourcesForRequest', () => {
   it('derives an empty source contract for pure wine questions', () => {
     const requirements = buildSourceRequirements(plan({
       profile: 'none',
@@ -91,8 +91,8 @@ describe('resolveContextSources', () => {
     ])
   })
 
-  it('resolves no personal sources for wine questions', () => {
-    const sources = resolveContextSources(body(), plan({
+  it('resolves no personal sources for wine questions', async () => {
+    const sources = await resolveContextSourcesForRequest(body(), plan({
       profile: 'none',
       cave: 'none',
       memories: 'none',
@@ -107,11 +107,11 @@ describe('resolveContextSources', () => {
     expect(sources.cave).toMatchObject({ level: 'none', totalBottles: 2, referenceCount: 1, bottles: [] })
   })
 
-  it('keeps cellar lookup exact and tool-oriented', () => {
+  it('keeps cellar lookup exact and tool-oriented', async () => {
     const request = body()
     ;(request as Record<string, unknown>).zones = ['Paris', 'Bourgogne']
 
-    const sources = resolveContextSources(request, plan({
+    const sources = await resolveContextSourcesForRequest(request, plan({
       profile: 'none',
       cave: 'tool_only',
       zones: 'names',
@@ -126,8 +126,8 @@ describe('resolveContextSources', () => {
     expect(sources.cave).toMatchObject({ level: 'tool_only', totalBottles: 2, referenceCount: 1, bottles: [] })
   })
 
-  it('keeps shortlist bottles only for recommendation sources', () => {
-    const sources = resolveContextSources(body(), plan({
+  it('keeps shortlist bottles only for recommendation sources', async () => {
+    const sources = await resolveContextSourcesForRequest(body(), plan({
       profile: 'recommendation',
       cave: 'shortlist',
       memories: 'targeted',
@@ -140,8 +140,8 @@ describe('resolveContextSources', () => {
     expect(sources.cave.bottles).toHaveLength(1)
   })
 
-  it('falls back to legacy profile only when compiled profile is absent', () => {
-    const sources = resolveContextSources(
+  it('falls back to legacy profile only when compiled profile is absent', async () => {
+    const sources = await resolveContextSourcesForRequest(
       body({ compiledProfileMarkdown: undefined }),
       plan({ profile: 'minimal' }),
     )

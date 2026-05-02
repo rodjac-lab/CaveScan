@@ -329,18 +329,6 @@ async function resolveTastingsFromBackend(
   }
 }
 
-export function resolveContextSources(body: RequestBody, contextPlan: ContextPlan): ResolvedContextSources {
-  return {
-    requirements: buildSourceRequirements(contextPlan),
-    profile: resolveProfile(body, contextPlan),
-    memories: resolveMemories(body, contextPlan),
-    sqlRetrieval: resolveSqlRetrieval(body, contextPlan),
-    tastings: undefined,
-    cave: resolveCave(body, contextPlan),
-    zones: resolveZones(body, contextPlan),
-  }
-}
-
 export async function resolveContextSourcesForRequest(
   body: RequestBody,
   contextPlan: ContextPlan,
