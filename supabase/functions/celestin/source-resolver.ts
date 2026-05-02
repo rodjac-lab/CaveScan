@@ -1,4 +1,5 @@
 import type { ContextPlan } from './context-plan.ts'
+import type { AuthContext } from './auth.ts'
 import type { CaveBottle, RequestBody } from './types.ts'
 
 export type SourceRequirementKind =
@@ -46,6 +47,8 @@ export interface ResolvedContextSources {
   cave: ResolvedCaveSource
   zones: string[]
 }
+
+type SourceResolverAuth = Pick<AuthContext, 'userId' | 'supabase'> | undefined
 
 export function buildSourceRequirements(contextPlan: ContextPlan): SourceRequirement[] {
   const requirements: SourceRequirement[] = []
@@ -134,6 +137,34 @@ function resolveProfile(body: RequestBody, contextPlan: ContextPlan): ResolvedPr
   }
 }
 
+async function resolveProfileFromBackend(
+  body: RequestBody,
+  contextPlan: ContextPlan,
+  auth: SourceResolverAuth,
+): Promise<ResolvedProfileSource | undefined> {
+  const local = resolveProfile(body, contextPlan)
+  if (local || contextPlan.profile === 'none' || !auth?.userId || !auth.supabase) return local
+
+  const { data, error } = await auth.supabase
+    .from('user_profiles')
+    .select('compiled_markdown')
+    .eq('user_id', auth.userId)
+    .maybeSingle()
+
+  if (error) {
+    console.warn('[celestin:source-resolver] profile lookup failed:', error.message)
+    return undefined
+  }
+
+  const compiledMarkdown = typeof data?.compiled_markdown === 'string' ? data.compiled_markdown.trim() : ''
+  if (!compiledMarkdown) return undefined
+
+  return {
+    level: contextPlan.profile,
+    compiledMarkdown,
+  }
+}
+
 function resolveMemories(body: RequestBody, contextPlan: ContextPlan): ResolvedMemoriesSource | undefined {
   if (contextPlan.memories === 'none') return undefined
 
@@ -169,6 +200,30 @@ function resolveZones(body: RequestBody, contextPlan: ContextPlan): string[] {
   return zones.filter((zone): zone is string => typeof zone === 'string' && zone.trim().length > 0)
 }
 
+async function resolveZonesFromBackend(
+  body: RequestBody,
+  contextPlan: ContextPlan,
+  auth: SourceResolverAuth,
+): Promise<string[]> {
+  const local = resolveZones(body, contextPlan)
+  if (local.length > 0 || contextPlan.zones === 'none' || !auth?.userId || !auth.supabase) return local
+
+  const { data, error } = await auth.supabase
+    .from('zones')
+    .select('name')
+    .eq('user_id', auth.userId)
+    .order('position', { ascending: true })
+
+  if (error) {
+    console.warn('[celestin:source-resolver] zones lookup failed:', error.message)
+    return []
+  }
+
+  return (data ?? [])
+    .map((row: Record<string, unknown>) => row.name)
+    .filter((zone): zone is string => typeof zone === 'string' && zone.trim().length > 0)
+}
+
 function resolveCave(body: RequestBody, contextPlan: ContextPlan): ResolvedCaveSource {
   const counts = summarizeCave(body.cave)
   const shouldIncludeBottles = contextPlan.cave === 'shortlist' || contextPlan.cave === 'full_debug'
@@ -180,6 +235,37 @@ function resolveCave(body: RequestBody, contextPlan: ContextPlan): ResolvedCaveS
   }
 }
 
+async function resolveCaveFromBackend(
+  body: RequestBody,
+  contextPlan: ContextPlan,
+  auth: SourceResolverAuth,
+): Promise<ResolvedCaveSource> {
+  const local = resolveCave(body, contextPlan)
+  if (body.cave.length > 0 || contextPlan.cave === 'none' || !auth?.userId || !auth.supabase) return local
+
+  const { data, error } = await auth.supabase
+    .from('bottles')
+    .select('quantity')
+    .eq('user_id', auth.userId)
+    .eq('status', 'in_stock')
+
+  if (error) {
+    console.warn('[celestin:source-resolver] cellar count lookup failed:', error.message)
+    return local
+  }
+
+  const rows = data ?? []
+  return {
+    level: contextPlan.cave,
+    referenceCount: rows.length,
+    totalBottles: rows.reduce((sum: number, row: Record<string, unknown>) => {
+      const quantity = typeof row.quantity === 'number' ? row.quantity : 1
+      return sum + Math.max(1, quantity)
+    }, 0),
+    bottles: [],
+  }
+}
+
 export function resolveContextSources(body: RequestBody, contextPlan: ContextPlan): ResolvedContextSources {
   return {
     requirements: buildSourceRequirements(contextPlan),
@@ -188,5 +274,26 @@ export function resolveContextSources(body: RequestBody, contextPlan: ContextPla
     sqlRetrieval: resolveSqlRetrieval(body, contextPlan),
     cave: resolveCave(body, contextPlan),
     zones: resolveZones(body, contextPlan),
+  }
+}
+
+export async function resolveContextSourcesForRequest(
+  body: RequestBody,
+  contextPlan: ContextPlan,
+  auth?: SourceResolverAuth,
+): Promise<ResolvedContextSources> {
+  const [profile, cave, zones] = await Promise.all([
+    resolveProfileFromBackend(body, contextPlan, auth),
+    resolveCaveFromBackend(body, contextPlan, auth),
+    resolveZonesFromBackend(body, contextPlan, auth),
+  ])
+
+  return {
+    requirements: buildSourceRequirements(contextPlan),
+    profile,
+    memories: resolveMemories(body, contextPlan),
+    sqlRetrieval: resolveSqlRetrieval(body, contextPlan),
+    cave,
+    zones,
   }
 }

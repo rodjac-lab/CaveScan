@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSourceRequirements, resolveContextSources } from './source-resolver'
+import { buildSourceRequirements, resolveContextSources, resolveContextSourcesForRequest } from './source-resolver'
 import type { ContextPlan } from './context-plan'
 import type { RequestBody } from './types'
 
@@ -148,5 +148,95 @@ describe('resolveContextSources', () => {
 
     expect(sources.profile?.legacyProfile).toBe('Profil legacy')
     expect(sources.profile?.compiledMarkdown).toBeUndefined()
+  })
+
+  it('resolves profile, zones, and cellar counts from backend when legacy body is minimal', async () => {
+    const calls: string[] = []
+    const supabase = {
+      from(table: string) {
+        calls.push(table)
+        if (table === 'user_profiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: { compiled_markdown: '## Profil backend\n- aime les blancs tendus' },
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        if (table === 'bottles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: async () => ({
+                  data: [{ quantity: 2 }, { quantity: 1 }],
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              order: async () => ({
+                data: [{ name: 'Paris' }, { name: 'Bourgogne' }],
+                error: null,
+              }),
+            }),
+          }),
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        cave: [],
+        memories: undefined,
+      }),
+      plan({
+        profile: 'recommendation',
+        cave: 'tool_only',
+        zones: 'names',
+        tools: 'force_cellar',
+        truthPolicy: 'exact_only',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(calls).toEqual(['user_profiles', 'bottles', 'zones'])
+    expect(sources.profile?.compiledMarkdown).toContain('Profil backend')
+    expect(sources.cave).toMatchObject({ level: 'tool_only', totalBottles: 3, referenceCount: 2, bottles: [] })
+    expect(sources.zones).toEqual(['Paris', 'Bourgogne'])
+  })
+
+  it('does not query backend for pure wine questions', async () => {
+    const supabase = {
+      from() {
+        throw new Error('backend should not be queried')
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({ cave: [] }),
+      plan({
+        profile: 'none',
+        cave: 'none',
+        zones: 'none',
+        memories: 'none',
+        tools: 'none',
+        truthPolicy: 'prudent_factual',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.profile).toBeUndefined()
+    expect(sources.cave).toMatchObject({ level: 'none', totalBottles: 0, referenceCount: 0, bottles: [] })
+    expect(sources.zones).toEqual([])
   })
 })

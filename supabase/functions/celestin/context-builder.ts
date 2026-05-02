@@ -87,7 +87,7 @@ function caveDetailLevel(cognitiveMode: ContextMode, contextPlan?: ContextPlan):
   return 'legacy_detail'
 }
 
-function buildContextBlockFromSources(sources: ResolvedContextSources): string {
+export function buildContextBlockFromResolvedSources(sources: ResolvedContextSources): string {
   const parts: string[] = []
 
   if (sources.profile?.compiledMarkdown) {
@@ -146,7 +146,7 @@ function buildContextBlockFromSources(sources: ResolvedContextSources): string {
 
 export function buildContextBlock(body: RequestBody, cognitiveMode: ContextMode, contextPlan?: ContextPlan): string {
   if (contextPlan) {
-    return buildContextBlockFromSources(resolveContextSources(body, contextPlan))
+    return buildContextBlockFromResolvedSources(resolveContextSources(body, contextPlan))
   }
 
   const parts: string[] = []

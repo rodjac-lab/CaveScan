@@ -11,7 +11,7 @@ import { GEMINI_RESPONSE_SCHEMA, OPENAI_RESPONSE_SCHEMA } from "./provider-schem
 import { extractErrorMessage, fetchWithTimeout } from "./provider-utils.ts"
 import { parseAndValidate } from "./response-validation.ts"
 import type { AuthContext } from "./auth.ts"
-import { CELESTIN_TOOLS, executeCelestinTool } from "./tools.ts"
+import { CELESTIN_TOOLS, executeCelestinTool, type CelestinToolName } from "./tools.ts"
 import { shouldEnableCelestinTools } from "./tool-policy.ts"
 import { logAnthropicUsage } from "../_shared/anthropic-usage.ts"
 import type { CelestinResponse, ConversationTurn } from "./types.ts"
@@ -22,11 +22,16 @@ const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001'
 const OPENAI_MODEL = 'gpt-4.1-mini'
 type ClaudeToolChoice = 'auto' | 'none'
+type ClaudeToolChoicePayload =
+  | { type: 'auto' }
+  | { type: 'none' }
+  | { type: 'tool'; name: CelestinToolName }
 
 export interface CelestinProviderOptions {
   auth?: AuthContext
   requestSource?: string
   usageContext?: CelestinUsageContext
+  forcedToolName?: CelestinToolName
 }
 
 export interface CelestinUsageContext {
@@ -211,6 +216,12 @@ function buildClaudeTools(cacheTools: boolean) {
   })
 }
 
+function buildClaudeToolChoice(toolChoice: ClaudeToolChoice, forcedToolName?: CelestinToolName): ClaudeToolChoicePayload {
+  if (toolChoice === 'none') return { type: 'none' }
+  if (forcedToolName) return { type: 'tool', name: forcedToolName }
+  return { type: 'auto' }
+}
+
 function extractClaudeText(result: { content?: Array<{ type: string; text?: string }> }): string {
   const textContent = result.content?.find((c) => c.type === 'text' && c.text)
   if (!textContent?.text) throw new Error('No text response from Claude')
@@ -239,6 +250,7 @@ async function postClaudeMessages(input: {
   requestSource?: string
   auth?: AuthContext
   usageContext?: CelestinUsageContext
+  forcedToolName?: CelestinToolName
   trace?: CelestinProviderTrace
 }) {
   const toolsIncluded = true
@@ -255,7 +267,7 @@ async function postClaudeMessages(input: {
       system: buildClaudeSystem(input.systemPrompt, input.cacheSystem),
       messages: input.messages,
       tools: buildClaudeTools(input.cacheTools),
-      tool_choice: { type: input.toolChoice },
+      tool_choice: buildClaudeToolChoice(input.toolChoice, input.forcedToolName),
     }),
   })
 
@@ -270,6 +282,7 @@ async function postClaudeMessages(input: {
     toolsEnabled,
     toolsIncluded,
     toolChoice: input.toolChoice,
+    forcedToolName: input.forcedToolName,
     requestSource: input.requestSource,
   }
   logAnthropicUsage(input.caller, result, usageExtra)
@@ -397,10 +410,12 @@ async function callClaude(
     usageContext: options?.usageContext,
   })
   const messagePreview = userPrompt.replace(/\s+/g, ' ').slice(0, 120)
+  const forcedToolName = toolsEnabled ? options?.forcedToolName : undefined
   const first = await postClaudeMessages({
     systemPrompt,
     messages,
     toolChoice: toolsEnabled ? 'auto' : 'none',
+    forcedToolName,
     trace,
     caller: 'celestin.claude.first',
     messagePreview,

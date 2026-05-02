@@ -41,6 +41,7 @@ export interface RequestBody {
   debugTrace?: boolean
   requestSource?: string
   sessionId?: string | null
+  contextStrategy?: 'legacy' | 'backend_managed'
   image?: string
   conversationState?: ConversationState
   compiledProfileMarkdown?: string

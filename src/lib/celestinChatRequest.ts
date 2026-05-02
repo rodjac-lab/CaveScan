@@ -11,8 +11,6 @@ import {
 import { getCompiledUserProfileCached } from '@/lib/userProfiles'
 import type { Bottle, TasteProfile } from '@/lib/types'
 
-const RECOMMENDATION_PATTERN = /(?:qu['’]est-ce que j['’]ouvre|que boire|j['’]ai envie d['’]un|je cherche un vin|ce soir c['’]est|avec quoi|pour ce soir|plut[oô]t un rouge|plut[oô]t un blanc|vin italien|italien|poulet r[oô]ti|osso bucco|raclette|pizza|sushi)/i
-
 interface PrepareCelestinRequestInput {
   message: string
   image?: string
@@ -149,19 +147,38 @@ function editDistanceAtMostOne(a: string, b: string): boolean {
   return edits + (a.length - i) + (b.length - j) <= 1
 }
 
+export function resolveLegacyMemorySelectionProfile(
+  conversationState?: Record<string, unknown> | null,
+): MemorySelectionProfile {
+  return conversationState && (conversationState as { taskType?: string | null }).taskType === 'recommendation'
+    ? 'recommendation'
+    : 'default'
+}
+
+export function shouldUseBackendManagedContext(input: {
+  message: string
+  image?: string
+  conversationState?: Record<string, unknown> | null
+}): boolean {
+  if (input.image) return false
+
+  const taskType = (input.conversationState as { taskType?: string | null } | null | undefined)?.taskType
+  if (taskType === 'recommendation' || taskType === 'encavage' || taskType === 'tasting') return false
+
+  return isObviousSocialMessage(input.message)
+    || shouldSkipLegacyMemoryRetrieval(input.message)
+}
+
 export async function prepareCelestinRequest(input: PrepareCelestinRequestInput): Promise<{
   body: ReturnType<typeof buildCelestinRequestBody>
   prepTimings: PrepTimings
 }> {
-  const memorySelectionProfile: MemorySelectionProfile =
-    input.conversationState && (input.conversationState as { taskType?: string | null }).taskType === 'recommendation'
-      ? 'recommendation'
-      : RECOMMENDATION_PATTERN.test(input.message)
-        ? 'recommendation'
-        : 'default'
+  const memorySelectionProfile = resolveLegacyMemorySelectionProfile(input.conversationState)
+  const backendManagedContext = shouldUseBackendManagedContext(input)
 
   const shouldSkipMemoryRetrieval =
-    shouldSkipLegacyMemoryRetrieval(input.message)
+    backendManagedContext
+    || shouldSkipLegacyMemoryRetrieval(input.message)
     || isObviousSocialMessage(input.message)
 
   const [memoryEvidenceT, compiledProfileT] = await Promise.all([
@@ -173,7 +190,7 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
           drunkBottles: input.drunk,
           selectionProfile: memorySelectionProfile,
         })),
-    timed(() => loadCompiledProfileMarkdown()),
+    timed(() => backendManagedContext ? Promise.resolve(undefined) : loadCompiledProfileMarkdown()),
   ])
 
   const memoryEvidence = memoryEvidenceT.result
@@ -195,6 +212,7 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
     debugTrace: input.debugTrace,
     requestSource: 'chat',
     sessionId: input.sessionId,
+    backendManagedContext,
   })
 
   return {

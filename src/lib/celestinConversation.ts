@@ -171,8 +171,11 @@ export function buildCelestinRequestBody(input: {
   debugTrace?: boolean
   requestSource?: string
   sessionId?: string | null
+  backendManagedContext?: boolean
 }) {
-  const ranked = rankCaveBottles('generic', input.message, input.cave, input.drunk, input.profile, input.cave.length)
+  const ranked = input.backendManagedContext
+    ? []
+    : rankCaveBottles('generic', input.message, input.cave, input.drunk, input.profile, input.cave.length)
   const caveSummary = ranked.map(({ bottle, score }) => ({
     id: bottle.id.substring(0, 8),
     domaine: bottle.domaine,
@@ -185,9 +188,9 @@ export function buildCelestinRequestBody(input: {
     local_score: Math.round(score * 100) / 100,
   }))
 
-  const profileStr = input.profile ? serializeProfileForPrompt(input.profile) : undefined
-  const memoriesStr = input.memoriesOverride || undefined
-  const recentDrunk = input.drunk.slice(0, 5).map(formatDrunkSummary)
+  const profileStr = !input.backendManagedContext && input.profile ? serializeProfileForPrompt(input.profile) : undefined
+  const memoriesStr = input.backendManagedContext ? undefined : input.memoriesOverride || undefined
+  const recentDrunk = input.backendManagedContext ? [] : input.drunk.slice(0, 5).map(formatDrunkSummary)
 
   return {
     message: input.message,
@@ -200,12 +203,13 @@ export function buildCelestinRequestBody(input: {
       season: getSeason(),
       recentDrunk: recentDrunk.length > 0 ? recentDrunk : undefined,
     },
-    zones: input.zones.length > 0 ? input.zones : undefined,
-    ...(input.memoryEvidenceMode ? { memoryEvidenceMode: input.memoryEvidenceMode } : {}),
-    ...(input.memoryTrace ? { memoryTrace: input.memoryTrace } : {}),
+    zones: !input.backendManagedContext && input.zones.length > 0 ? input.zones : undefined,
+    ...(input.backendManagedContext ? { contextStrategy: 'backend_managed' } : {}),
+    ...(!input.backendManagedContext && input.memoryEvidenceMode ? { memoryEvidenceMode: input.memoryEvidenceMode } : {}),
+    ...(!input.backendManagedContext && input.memoryTrace ? { memoryTrace: input.memoryTrace } : {}),
     ...(input.conversationState ? { conversationState: input.conversationState } : {}),
     ...(input.image ? { image: input.image } : {}),
-    ...(input.compiledProfileMarkdown ? { compiledProfileMarkdown: input.compiledProfileMarkdown } : {}),
+    ...(!input.backendManagedContext && input.compiledProfileMarkdown ? { compiledProfileMarkdown: input.compiledProfileMarkdown } : {}),
     ...(input.sqlRetrievalBlock ? { sqlRetrieval: input.sqlRetrievalBlock } : {}),
     ...(input.sqlRetrievalTrace ? { sqlRetrievalTrace: input.sqlRetrievalTrace } : {}),
     ...(input.conversationalIntent ? { conversationalIntent: input.conversationalIntent } : {}),
