@@ -558,6 +558,126 @@ describe('resolveContextSourcesForRequest', () => {
     expect((sources.cave.bottles[0].local_score ?? 0)).toBeGreaterThan(sources.cave.bottles[1].local_score ?? 0)
   })
 
+  it('layers contextual profile preferences over generic food pairing rules', async () => {
+    const supabase = {
+      from(table: string) {
+        if (table === 'user_profiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: { compiled_markdown: '## Profil gustatif\n- Sur le fromage, prefere blanc et bulles.' },
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        if (table === 'zones') {
+          return {
+            select: () => ({
+              eq: () => ({
+                order: async () => ({
+                  data: [],
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        expect(table).toBe('bottles')
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                order: () => ({
+                  limit: async () => ({
+                    data: [
+                      {
+                        id: 'red-cheese',
+                        domaine: 'Domaine Rouge',
+                        cuvee: null,
+                        appellation: 'Bourgogne',
+                        millesime: 2020,
+                        couleur: 'rouge',
+                        country: 'France',
+                        region: 'Bourgogne',
+                        grape_varieties: ['Pinot Noir'],
+                        food_pairings: ['fromage'],
+                        character: 'souple',
+                        quantity: 1,
+                        volume_l: 0.75,
+                      },
+                      {
+                        id: 'white-cheese',
+                        domaine: 'Domaine Blanc',
+                        cuvee: null,
+                        appellation: 'Jura',
+                        millesime: 2021,
+                        couleur: 'blanc',
+                        country: 'France',
+                        region: 'Jura',
+                        grape_varieties: ['Chardonnay'],
+                        food_pairings: ['fromage'],
+                        character: 'salin',
+                        quantity: 1,
+                        volume_l: 0.75,
+                      },
+                      {
+                        id: 'bubble-cheese',
+                        domaine: 'Domaine Bulles',
+                        cuvee: null,
+                        appellation: 'Champagne',
+                        millesime: 2019,
+                        couleur: 'bulles',
+                        country: 'France',
+                        region: 'Champagne',
+                        grape_varieties: ['Chardonnay'],
+                        food_pairings: ['fromage'],
+                        character: 'vif',
+                        quantity: 1,
+                        volume_l: 0.75,
+                      },
+                    ],
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: 'Que boire avec un plateau de fromages ?',
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'recommendation',
+        cave: 'shortlist',
+        zones: 'names',
+        memories: 'targeted',
+        tools: 'auto',
+        history: 'normal',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.profile?.compiledMarkdown).toContain('prefere blanc et bulles')
+    expect(sources.cave.bottles.map((bottle) => bottle.couleur)).toEqual([
+      'blanc',
+      'bulles',
+      'rouge',
+    ])
+    expect((sources.cave.bottles[0].local_score ?? 0)).toBeGreaterThan(sources.cave.bottles[2].local_score ?? 0)
+    expect((sources.cave.bottles[1].local_score ?? 0)).toBeGreaterThan(sources.cave.bottles[2].local_score ?? 0)
+  })
+
   it('resolves targeted tasting memories from backend without frontend memory text', async () => {
     const supabase = {
       from(table: string) {

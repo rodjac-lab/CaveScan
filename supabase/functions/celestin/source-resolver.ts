@@ -559,7 +559,37 @@ function normalizeArrayValues(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === 'string').map(normalizeExactQueryText)
 }
 
-function scoreCaveBottleForShortlist(row: Record<string, unknown>, selectionText: string): number {
+function profilePairingPreferredColors(
+  profile: ResolvedProfileSource | undefined,
+  foodRules: ReturnType<typeof activeFoodPairingRules>,
+): string[] {
+  const markdown = profile?.compiledMarkdown ?? profile?.legacyProfile
+  if (!markdown || foodRules.length === 0) return []
+
+  const lines = markdown
+    .split(/\n+/)
+    .map(normalizeExactQueryText)
+    .filter(Boolean)
+
+  const colors = new Set<string>()
+  for (const line of lines) {
+    const matchingRule = foodRules.find((rule) => rule.terms.some((term) => line.includes(term)))
+    if (!matchingRule) continue
+
+    if (/\bblancs?\b/.test(line)) colors.add('blanc')
+    if (/\brouges?\b/.test(line)) colors.add('rouge')
+    if (/\broses?\b/.test(line)) colors.add('rose')
+    if (/\b(bulles?|champagnes?|petillants?)\b/.test(line)) colors.add('bulles')
+  }
+
+  return [...colors]
+}
+
+function scoreCaveBottleForShortlist(
+  row: Record<string, unknown>,
+  selectionText: string,
+  profile: ResolvedProfileSource | undefined,
+): number {
   const identity = normalizeExactQueryText([
     row.domaine,
     row.cuvee,
@@ -574,6 +604,7 @@ function scoreCaveBottleForShortlist(row: Record<string, unknown>, selectionText
   const tokens = caveSelectionTokens(selectionText)
   const requestedColors = requestedCaveColors(selectionText)
   const foodRules = activeFoodPairingRules(selectionText)
+  const profilePreferredColors = profilePairingPreferredColors(profile, foodRules)
   const pairingsText = normalizeArrayValues(row.food_pairings).join(' ')
   const color = typeof row.couleur === 'string' ? normalizeExactQueryText(row.couleur) : ''
   let score = 0
@@ -594,6 +625,8 @@ function scoreCaveBottleForShortlist(row: Record<string, unknown>, selectionText
     if (rule.terms.some((term) => pairingsText.includes(term))) score += 5
     if (rule.identitySignals?.some((term) => identity.includes(term))) score += 1.5
   }
+
+  if (profilePreferredColors.includes(color)) score += 4
 
   const quantity = typeof row.quantity === 'number' ? row.quantity : 1
   score += Math.min(Math.max(quantity, 1), 3) * 0.1
@@ -623,6 +656,7 @@ async function resolveCaveFromBackend(
   body: RequestBody,
   contextPlan: ContextPlan,
   auth: SourceResolverAuth,
+  profile?: ResolvedProfileSource,
 ): Promise<ResolvedCaveSource> {
   const local = resolveCave(body, contextPlan)
   if ((body.cave?.length ?? 0) > 0 || contextPlan.cave === 'none' || !auth?.userId || !auth.supabase) return local
@@ -647,7 +681,7 @@ async function resolveCaveFromBackend(
     const ranked = (data ?? [])
       .map((row: Record<string, unknown>) => ({
         bottle: compactCaveBottle(row),
-        score: scoreCaveBottleForShortlist(row, selectionText),
+        score: scoreCaveBottleForShortlist(row, selectionText, profile),
       }))
       .sort((a, b) => b.score - a.score)
 
@@ -763,9 +797,9 @@ export async function resolveContextSourcesForRequest(
   contextPlan: ContextPlan,
   auth?: SourceResolverAuth,
 ): Promise<ResolvedContextSources> {
-  const [profile, cave, zones, memories, tastings] = await Promise.all([
-    resolveProfileFromBackend(body, contextPlan, auth),
-    resolveCaveFromBackend(body, contextPlan, auth),
+  const profile = await resolveProfileFromBackend(body, contextPlan, auth)
+  const [cave, zones, memories, tastings] = await Promise.all([
+    resolveCaveFromBackend(body, contextPlan, auth, profile),
     resolveZonesFromBackend(body, contextPlan, auth),
     resolveMemoriesFromBackend(body, contextPlan, auth),
     resolveTastingsFromBackend(body, contextPlan, auth),
