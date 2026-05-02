@@ -92,7 +92,7 @@ describe('buildCelestinRequestBody', () => {
     })
 
     expect(body.contextStrategy).toBe('backend_managed')
-    expect(body.cave).toEqual([])
+    expect(body.cave).toBeUndefined()
     expect(body.profile).toBeUndefined()
     expect(body.memories).toBeUndefined()
     expect(body.memoryEvidenceMode).toBeUndefined()

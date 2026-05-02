@@ -417,13 +417,14 @@ async function resolveZonesFromBackend(
 }
 
 function resolveCave(body: RequestBody, contextPlan: ContextPlan): ResolvedCaveSource {
-  const counts = summarizeCave(body.cave)
+  const cave = body.cave ?? []
+  const counts = summarizeCave(cave)
   const shouldIncludeBottles = contextPlan.cave === 'shortlist' || contextPlan.cave === 'full_debug'
 
   return {
     level: contextPlan.cave,
     ...counts,
-    bottles: shouldIncludeBottles ? body.cave : [],
+    bottles: shouldIncludeBottles ? cave : [],
   }
 }
 
@@ -448,7 +449,7 @@ async function resolveCaveFromBackend(
   auth: SourceResolverAuth,
 ): Promise<ResolvedCaveSource> {
   const local = resolveCave(body, contextPlan)
-  if (body.cave.length > 0 || contextPlan.cave === 'none' || !auth?.userId || !auth.supabase) return local
+  if ((body.cave?.length ?? 0) > 0 || contextPlan.cave === 'none' || !auth?.userId || !auth.supabase) return local
 
   if (contextPlan.cave === 'shortlist' || contextPlan.cave === 'full_debug') {
     const maxRows = contextPlan.cave === 'full_debug' ? 80 : 40

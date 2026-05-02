@@ -167,7 +167,7 @@ export async function persistCelestinTurnObservability(input: CelestinTurnObserv
         prompt_context_chars: input.prompt?.contextChars ?? null,
         history_turns: input.body.history.length,
         provider_history_turns: input.prompt?.providerHistoryTurns ?? null,
-        cave_count: input.body.cave.length,
+        cave_count: input.body.cave?.length ?? 0,
         memory_evidence_mode: input.body.memoryEvidenceMode ?? null,
         memory_focus: input.activeMemoryFocus ?? null,
         compiled_profile: !!input.body.compiledProfileMarkdown?.trim(),

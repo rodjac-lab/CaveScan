@@ -30,7 +30,7 @@ export interface CaveBottle {
 export interface RequestBody {
   message: string
   history: ConversationTurn[]
-  cave: CaveBottle[]
+  cave?: CaveBottle[]
   profile?: string
   memories?: string
   memoryEvidenceMode?: 'exact' | 'synthesis'

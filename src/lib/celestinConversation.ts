@@ -195,7 +195,7 @@ export function buildCelestinRequestBody(input: {
   return {
     message: input.message,
     history: buildHistory(input.messages),
-    cave: caveSummary,
+    ...(!input.backendManagedContext ? { cave: caveSummary } : {}),
     profile: profileStr,
     memories: memoriesStr,
     context: {

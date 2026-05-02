@@ -96,7 +96,7 @@ function buildDebugTrace(input: {
       contextChars: input.contextBlock.length,
       historyTurns: body.history.length,
       providerHistoryTurns: buildProviderHistory(body, input.contextPlan).length,
-      caveCount: body.cave.length,
+      caveCount: body.cave?.length ?? 0,
       hasImage: !!body.image,
       resolvedSourceRequirements: input.resolvedSources.requirements,
       resolvedCave: {
@@ -129,7 +129,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
     const { interpretation, routing } = routingResult
     const contextPlan = buildContextPlan(routingResult)
 
-    console.log(`[celestin] source=${requestSource} message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} route=${routing.winner} profile=${contextPlan.profile} cavePlan=${contextPlan.cave} tools=${contextPlan.tools} truth=${contextPlan.truthPolicy} state=${conversationState.phase} convIntent=${conversationalIntent ?? 'null'} history=${body.history.length} cave=${body.cave.length} image=${body.image ? 'yes' : 'no'}`)
+    console.log(`[celestin] source=${requestSource} message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} route=${routing.winner} profile=${contextPlan.profile} cavePlan=${contextPlan.cave} tools=${contextPlan.tools} truth=${contextPlan.truthPolicy} state=${conversationState.phase} convIntent=${conversationalIntent ?? 'null'} history=${body.history.length} cave=${body.cave?.length ?? 0} image=${body.image ? 'yes' : 'no'}`)
 
     const activeMemoryFocus = resolveActiveMemoryFocus(body, interpretation, conversationState, lastAssistantText)
     const resolvedSources = await resolveContextSourcesForRequest(body, contextPlan, auth)
