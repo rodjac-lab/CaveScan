@@ -82,6 +82,8 @@ describe('PromptAssembler', () => {
 
     expect(assembled.contextBlock).toContain('Zones de stockage disponibles : Paris')
     expect(assembled.contextBlock).toContain('Cave : detail non injecte')
+    expect(assembled.systemPrompt).toContain('--- POLITIQUE DU TOUR ---')
+    expect(assembled.systemPrompt).toContain('query_cellar')
     expect(assembled.systemPrompt).toContain('--- CONTEXTE UTILISATEUR ---')
     expect(assembled.userPrompt).toContain('Combien ai-je de bouteilles ?')
   })

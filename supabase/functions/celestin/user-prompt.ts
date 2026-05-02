@@ -4,9 +4,6 @@ import { resolveActiveMemoryFocus } from "./memory-focus.ts"
 import type { RoutingIntent, TurnInterpretation } from "./turn-interpreter.ts"
 import type { RequestBody } from "./types.ts"
 
-const TASTING_MEMORY_TOOL_INSTRUCTION = `[OUTIL EXACT — Si la question demande un nombre, une liste, une verification "ai-je / je n'ai pas", ou porte sur une region/appellation/domaine de degustations passees, appelle query_tastings. Ne reponds pas depuis le profil ou un souvenir vague.]`
-const FACTUAL_STYLE_INSTRUCTION = `[STYLE FACTUEL — Donne le fait exact en premiere phrase, puis ajoute au maximum une phrase naturelle d'ami sommelier. Ne sois ni telegraphique ni bavard.]`
-
 export function buildUserPrompt(
   body: RequestBody,
   interpretation: TurnInterpretation,
@@ -67,8 +64,6 @@ export function buildUserPrompt(
 
   else if (turnType === 'context_switch' && cognitiveMode === 'tasting_memory') {
     parts.push(`[SOUVENIR — L'utilisateur fait reference a une degustation passee. Utilise uniquement les souvenirs explicitement fournis. Si un vin n'apparait pas dans ces souvenirs, dis-le franchement.]`)
-    parts.push(TASTING_MEMORY_TOOL_INSTRUCTION)
-    parts.push(FACTUAL_STYLE_INSTRUCTION)
     if (memoryFocus) {
       parts.push(`[FOCUS MEMOIRE — La relance courte porte probablement sur : ${memoryFocus}. Si l'utilisateur demande "combien d'etoiles", "quelle note" ou "quel millesime", reste focalise sur ce vin precis.]`)
     }
@@ -128,10 +123,6 @@ export function buildUserPrompt(
     }
     if (cognitiveMode === 'tasting_memory' && memoryFocus) {
       parts.push(`[FOCUS MEMOIRE — La relance courte porte probablement sur : ${memoryFocus}. Reste focalise sur ce vin precis.]`)
-    }
-    if (cognitiveMode === 'tasting_memory') {
-      parts.push(TASTING_MEMORY_TOOL_INSTRUCTION)
-      parts.push(FACTUAL_STYLE_INSTRUCTION)
     }
     parts.push(body.message)
     if (body.image) {

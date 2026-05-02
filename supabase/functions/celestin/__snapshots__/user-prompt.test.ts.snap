@@ -7,8 +7,6 @@ combien de magnums ?"
 
 exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: context_switch tasting_memory with focus 1`] = `
 "[SOUVENIR — L'utilisateur fait reference a une degustation passee. Utilise uniquement les souvenirs explicitement fournis. Si un vin n'apparait pas dans ces souvenirs, dis-le franchement.]
-[OUTIL EXACT — Si la question demande un nombre, une liste, une verification "ai-je / je n'ai pas", ou porte sur une region/appellation/domaine de degustations passees, appelle query_tastings. Ne reponds pas depuis le profil ou un souvenir vague.]
-[STYLE FACTUEL — Donne le fait exact en premiere phrase, puis ajoute au maximum une phrase naturelle d'ami sommelier. Ne sois ni telegraphique ni bavard.]
 [FOCUS MEMOIRE — La relance courte porte probablement sur : 2018. Si l'utilisateur demande "combien d'etoiles", "quelle note" ou "quel millesime", reste focalise sur ce vin precis.]
 et le 2018 ?"
 `;
@@ -42,8 +40,6 @@ ce soir c'est pizza"
 
 exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: fallback tasting_memory with focus 1`] = `
 "[FOCUS MEMOIRE — La relance courte porte probablement sur : 2018. Reste focalise sur ce vin precis.]
-[OUTIL EXACT — Si la question demande un nombre, une liste, une verification "ai-je / je n'ai pas", ou porte sur une region/appellation/domaine de degustations passees, appelle query_tastings. Ne reponds pas depuis le profil ou un souvenir vague.]
-[STYLE FACTUEL — Donne le fait exact en premiere phrase, puis ajoute au maximum une phrase naturelle d'ami sommelier. Ne sois ni telegraphique ni bavard.]
 et le 2018 ?"
 `;
 
