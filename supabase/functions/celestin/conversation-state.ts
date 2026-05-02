@@ -110,6 +110,9 @@ export function computeNextState(
     }
 
     case 'collecting_info': {
+      if (turnType === 'social_ack') {
+        return { ...INITIAL_STATE }
+      }
       if (responseHasUiAction) {
         return postTaskAck()
       }

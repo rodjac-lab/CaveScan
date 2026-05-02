@@ -32,6 +32,7 @@ export interface RoutingSignals {
 
 const SOCIAL_ACK = [
   /^(merci|super|ok|d'accord|parfait|genial|cool|top|nice|bien|bonne idee|ah ok|je vois|compris|entendu|c'est bon|haha|mdr|lol)[.! ]*$/i,
+  /^(super\s+merci|merci\s+(beaucoup|bien|parfait|top)|merci\s*!*)[.! ]*$/i,
 ]
 
 const CANCEL = [

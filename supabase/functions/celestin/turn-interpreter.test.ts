@@ -191,6 +191,7 @@ describe('interpretTurn', () => {
       turnType: 'task_continue',
       cognitiveMode: 'cellar_assistant',
       shouldAllowUiAction: true,
+      inferredTaskType: 'recommendation',
     })
   })
 
@@ -207,6 +208,7 @@ describe('interpretTurn', () => {
       turnType: 'task_continue',
       cognitiveMode: 'cellar_assistant',
       shouldAllowUiAction: true,
+      inferredTaskType: 'recommendation',
     })
   })
 
@@ -576,6 +578,13 @@ describe('routing audit matrix', () => {
       expectedUiAction: false,
     },
     {
+      id: 'social-super-thanks',
+      message: 'Super merci',
+      expectedWinner: 'social_ack',
+      expectedMode: 'social',
+      expectedUiAction: false,
+    },
+    {
       id: 'social-cancel',
       message: 'Laisse tomber',
       expectedWinner: 'task_cancel',
@@ -720,6 +729,35 @@ describe('routing audit matrix', () => {
       expectedMode: 'cellar_assistant',
       expectedUiAction: true,
     })
+  })
+
+  it('routes a collecting-info thank-you as social_ack instead of task continuation', () => {
+    expectRoute({
+      id: 'collecting-info-thanks',
+      message: 'Merci !',
+      state: {
+        phase: 'collecting_info',
+        taskType: 'recommendation',
+      },
+      lastAssistantText: 'Tu preferes plutot rouge ou blanc ?',
+      expectedWinner: 'social_ack',
+      expectedMode: 'social',
+      expectedUiAction: false,
+    })
+  })
+
+  it('resets collecting-info state after a social acknowledgement', () => {
+    const currentState = state({
+      phase: 'collecting_info',
+      taskType: 'recommendation',
+      lastUiActionKind: null,
+      turnsSinceLastAction: 1,
+      memoryFocus: 'Rayas',
+    })
+
+    const nextState = computeNextState(currentState, 'social_ack', false)
+
+    expect(nextState).toEqual(INITIAL_STATE)
   })
 
   it('keeps recommendation refinements actionable across a realistic multi-turn exchange', () => {

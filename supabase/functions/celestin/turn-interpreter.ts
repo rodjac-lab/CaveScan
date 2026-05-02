@@ -76,6 +76,10 @@ function encavageRequest(): TurnInterpretation {
   return { turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'encavage' }
 }
 
+function recommendationContinuation(): TurnInterpretation {
+  return { turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'recommendation' }
+}
+
 function tastingRequest(): TurnInterpretation {
   return { turnType: 'task_request', cognitiveMode: 'tasting_memory', shouldAllowUiAction: true, inferredTaskType: 'tasting' }
 }
@@ -191,6 +195,10 @@ function routeCollectingInfo(state: ConversationState, signals: RoutingSignals, 
     return routed(cancelTask(), state.phase, 'task_cancel', candidates)
   }
 
+  if (signals.isSocialAck) {
+    return routed(socialAck(), state.phase, 'social_ack', candidates)
+  }
+
   const memoryIntent = routeMemoryIntent(signals, false)
   if (memoryIntent) return routed(memoryIntent.interpretation, state.phase, memoryIntent.winner, candidates)
 
@@ -235,11 +243,11 @@ function routeIdle(signals: RoutingSignals, candidates: RoutingCandidate[]): Tur
   }
 
   if (signals.hadRecentReco && signals.isRefinement) {
-    return routed({ turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }, 'idle_smalltalk', 'recommendation_refinement', candidates)
+    return routed(recommendationContinuation(), 'idle_smalltalk', 'recommendation_refinement', candidates)
   }
 
   if (signals.hadRecentReco && signals.isMemoryGuidedRecommendation) {
-    return routed({ turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }, 'idle_smalltalk', 'memory_guided_recommendation', candidates)
+    return routed(recommendationContinuation(), 'idle_smalltalk', 'memory_guided_recommendation', candidates)
   }
 
   const cellarRequest = routeCellarRequest(signals)
