@@ -201,9 +201,9 @@ function buildClaudeSystem(systemPrompt: string) {
   }]
 }
 
-function buildClaudeTools() {
+function buildClaudeTools(cacheTools: boolean) {
   return CELESTIN_TOOLS.map((tool, index) => {
-    if (index !== CELESTIN_TOOLS.length - 1) return tool
+    if (!cacheTools || index !== CELESTIN_TOOLS.length - 1) return tool
     return {
       ...tool,
       cache_control: { type: 'ephemeral' },
@@ -234,6 +234,7 @@ async function postClaudeMessages(input: {
   toolChoice: ClaudeToolChoice
   caller: string
   messagePreview: string
+  cacheTools: boolean
   requestSource?: string
   auth?: AuthContext
   usageContext?: CelestinUsageContext
@@ -252,7 +253,7 @@ async function postClaudeMessages(input: {
       max_tokens: 4096,
       system: buildClaudeSystem(input.systemPrompt),
       messages: input.messages,
-      tools: buildClaudeTools(),
+      tools: buildClaudeTools(input.cacheTools),
       tool_choice: { type: input.toolChoice },
     }),
   })
@@ -402,6 +403,7 @@ async function callClaude(
     trace,
     caller: 'celestin.claude.first',
     messagePreview,
+    cacheTools: toolsEnabled,
     requestSource: options?.requestSource,
     auth,
     usageContext: options?.usageContext,
@@ -465,6 +467,7 @@ async function callClaude(
     trace,
     caller: 'celestin.claude.tool_followup',
     messagePreview,
+    cacheTools: false,
     requestSource: options?.requestSource,
     auth,
     usageContext: options?.usageContext,
