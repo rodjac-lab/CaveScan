@@ -1,5 +1,6 @@
 import type { ContextPlan } from './context-plan.ts'
 import type { AuthContext } from './auth.ts'
+import { normalizeExactQueryText, parseTastingCountQuery } from './exact-query.ts'
 import type { CaveBottle, RequestBody } from './types.ts'
 
 export type SourceRequirementKind =
@@ -7,6 +8,7 @@ export type SourceRequirementKind =
   | 'cave'
   | 'zones'
   | 'memories'
+  | 'tastings'
   | 'tools'
   | 'sql_retrieval'
 
@@ -39,11 +41,18 @@ export interface ResolvedCaveSource {
   bottles: CaveBottle[]
 }
 
+export interface ResolvedTastingsSource {
+  totalRows: number
+  query?: string
+  queryLabel?: string
+}
+
 export interface ResolvedContextSources {
   requirements: SourceRequirement[]
   profile?: ResolvedProfileSource
   memories?: ResolvedMemoriesSource
   sqlRetrieval?: ResolvedSqlSource
+  tastings?: ResolvedTastingsSource
   cave: ResolvedCaveSource
   zones: string[]
 }
@@ -96,6 +105,14 @@ export function buildSourceRequirements(contextPlan: ContextPlan): SourceRequire
       kind: 'tools',
       level: contextPlan.tools,
       reason: 'route allows deterministic backend tool retrieval',
+    })
+  }
+
+  if (contextPlan.tools === 'force_tastings') {
+    requirements.push({
+      kind: 'tastings',
+      level: 'exact',
+      reason: 'route needs exact tasting facts from backend source',
     })
   }
 
@@ -266,12 +283,59 @@ async function resolveCaveFromBackend(
   }
 }
 
+function tastingIdentityText(row: Record<string, unknown>): string {
+  return [
+    row.domaine,
+    row.cuvee,
+    row.appellation,
+    row.millesime,
+    row.couleur,
+    row.country,
+    row.region,
+  ].filter(Boolean).join(' ')
+}
+
+function matchesTastingQuery(row: Record<string, unknown>, query: string | undefined): boolean {
+  if (!query) return true
+  return normalizeExactQueryText(tastingIdentityText(row)).includes(normalizeExactQueryText(query))
+}
+
+async function resolveTastingsFromBackend(
+  body: RequestBody,
+  contextPlan: ContextPlan,
+  auth: SourceResolverAuth,
+): Promise<ResolvedTastingsSource | undefined> {
+  if (contextPlan.tools !== 'force_tastings' || !auth?.userId || !auth.supabase) return undefined
+
+  const exactQuery = parseTastingCountQuery(body.message)
+  if (!exactQuery) return undefined
+
+  const { data, error } = await auth.supabase
+    .from('bottles')
+    .select('domaine,cuvee,appellation,millesime,couleur,country,region')
+    .eq('user_id', auth.userId)
+    .eq('status', 'drunk')
+
+  if (error) {
+    console.warn('[celestin:source-resolver] tasting count lookup failed:', error.message)
+    return undefined
+  }
+
+  const rows = (data ?? []).filter((row: Record<string, unknown>) => matchesTastingQuery(row, exactQuery.query))
+  return {
+    totalRows: rows.length,
+    query: exactQuery.query,
+    queryLabel: exactQuery.query,
+  }
+}
+
 export function resolveContextSources(body: RequestBody, contextPlan: ContextPlan): ResolvedContextSources {
   return {
     requirements: buildSourceRequirements(contextPlan),
     profile: resolveProfile(body, contextPlan),
     memories: resolveMemories(body, contextPlan),
     sqlRetrieval: resolveSqlRetrieval(body, contextPlan),
+    tastings: undefined,
     cave: resolveCave(body, contextPlan),
     zones: resolveZones(body, contextPlan),
   }
@@ -282,10 +346,11 @@ export async function resolveContextSourcesForRequest(
   contextPlan: ContextPlan,
   auth?: SourceResolverAuth,
 ): Promise<ResolvedContextSources> {
-  const [profile, cave, zones] = await Promise.all([
+  const [profile, cave, zones, tastings] = await Promise.all([
     resolveProfileFromBackend(body, contextPlan, auth),
     resolveCaveFromBackend(body, contextPlan, auth),
     resolveZonesFromBackend(body, contextPlan, auth),
+    resolveTastingsFromBackend(body, contextPlan, auth),
   ])
 
   return {
@@ -293,6 +358,7 @@ export async function resolveContextSourcesForRequest(
     profile,
     memories: resolveMemories(body, contextPlan),
     sqlRetrieval: resolveSqlRetrieval(body, contextPlan),
+    tastings,
     cave,
     zones,
   }

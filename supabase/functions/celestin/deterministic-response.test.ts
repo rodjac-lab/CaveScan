@@ -73,4 +73,38 @@ describe('buildDeterministicResponse', () => {
       resolvedSources: sources(),
     })).toBeNull()
   })
+
+  it('answers simple tasting counts from resolved tasting source', () => {
+    const response = buildDeterministicResponse({
+      body: body("Combien de dégustations de Champagne j'ai faites ?"),
+      routingIntent: 'tasting_log',
+      contextPlan: plan({
+        cave: 'none',
+        zones: 'none',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      resolvedSources: sources({
+        tastings: { totalRows: 4, query: 'champagne', queryLabel: 'champagne' },
+      }),
+    })
+
+    expect(response?.message).toBe('Tu as 4 degustations de champagne.')
+  })
+
+  it('does not answer tasting counts without resolved tasting source', () => {
+    const response = buildDeterministicResponse({
+      body: body("Combien de dégustations de Champagne j'ai faites ?"),
+      routingIntent: 'tasting_log',
+      contextPlan: plan({
+        cave: 'none',
+        zones: 'none',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      resolvedSources: sources(),
+    })
+
+    expect(response).toBeNull()
+  })
 })

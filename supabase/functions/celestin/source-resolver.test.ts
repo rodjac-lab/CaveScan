@@ -215,6 +215,74 @@ describe('resolveContextSources', () => {
     expect(sources.zones).toEqual(['Paris', 'Bourgogne'])
   })
 
+  it('resolves simple tasting count source from backend for force_tastings plans', async () => {
+    const supabase = {
+      from(table: string) {
+        if (table === 'user_profiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: null,
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        expect(table).toBe('bottles')
+        return {
+          select: () => {
+            const filters: Record<string, unknown> = {}
+            return {
+              eq(column: string, value: unknown) {
+                filters[column] = value
+                return {
+                  eq(nextColumn: string, nextValue: unknown) {
+                    filters[nextColumn] = nextValue
+                    expect(filters).toEqual({ user_id: 'user-1', status: 'drunk' })
+                    return Promise.resolve({
+                      data: [
+                        { domaine: 'Laherte', cuvee: null, appellation: 'Champagne', millesime: 2018, couleur: 'bulles' },
+                        { domaine: 'Caillez Lemaire', cuvee: null, appellation: 'Champagne', millesime: 2014, couleur: 'bulles' },
+                        { domaine: 'Domaine A', cuvee: null, appellation: 'Chablis', millesime: 2020, couleur: 'blanc' },
+                      ],
+                      error: null,
+                    })
+                  },
+                }
+              },
+            }
+          },
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: "Combien de dégustations de Champagne j'ai faites ?",
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'minimal',
+        cave: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.tastings).toEqual({
+      totalRows: 2,
+      query: 'champagne',
+      queryLabel: 'champagne',
+    })
+  })
+
   it('does not query backend for pure wine questions', async () => {
     const supabase = {
       from() {
