@@ -404,6 +404,14 @@ describe('resolveContextSourcesForRequest', () => {
     expect(sources.memories?.text).toContain('Felsina')
     expect(sources.memories?.text).toContain('Petit restaurant a Rome avec ma femme')
     expect(sources.memories?.text).not.toContain('Chablis')
+    expect(sources.memories?.selectedTastingMemories).toEqual([
+      expect.objectContaining({
+        label: 'Felsina Rancia Chianti Classico 2019',
+        rating: 5,
+        drunkAt: '2025-09-12',
+        matchedTokens: expect.arrayContaining(['rome', 'femme']),
+      }),
+    ])
   })
 
   it('resolves simple tasting count source from backend for force_tastings plans', async () => {

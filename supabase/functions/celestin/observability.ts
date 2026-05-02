@@ -101,6 +101,7 @@ export function summarizeResolvedSources(sources: ResolvedContextSources | null 
           evidenceMode: sources.memories.evidenceMode ?? null,
           source: sources.memories.source ?? null,
           selectedCount: sources.memories.selectedCount ?? null,
+          selectedTastingMemories: sources.memories.selectedTastingMemories ?? [],
           chars: sources.memories.text.length,
         }
       : null,

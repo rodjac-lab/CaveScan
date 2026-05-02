@@ -15,6 +15,16 @@ function sources(overrides: Partial<ResolvedContextSources> = {}): ResolvedConte
       evidenceMode: 'synthesis',
       source: 'backend_tastings',
       selectedCount: 1,
+      selectedTastingMemories: [
+        {
+          label: 'Chateau Rayas 1998',
+          rating: 4,
+          drunkAt: '2026-01-10',
+          score: 5.5,
+          matchedTokens: ['rayas'],
+          notePreview: 'Grand souvenir.',
+        },
+      ],
     },
     cave: {
       level: 'shortlist',
@@ -67,6 +77,16 @@ describe('summarizeResolvedSources', () => {
         evidenceMode: 'synthesis',
         source: 'backend_tastings',
         selectedCount: 1,
+        selectedTastingMemories: [
+          {
+            label: 'Chateau Rayas 1998',
+            rating: 4,
+            drunkAt: '2026-01-10',
+            score: 5.5,
+            matchedTokens: ['rayas'],
+            notePreview: 'Grand souvenir.',
+          },
+        ],
         chars: 14,
       },
       sqlRetrieval: null,

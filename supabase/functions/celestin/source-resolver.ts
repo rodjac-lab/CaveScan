@@ -30,6 +30,14 @@ export interface ResolvedMemoriesSource {
   evidenceMode?: RequestBody['memoryEvidenceMode']
   selectedCount?: number
   source?: 'request' | 'backend_tastings'
+  selectedTastingMemories?: Array<{
+    label: string
+    rating: number | null
+    drunkAt: string | null
+    score: number
+    matchedTokens: string[]
+    notePreview: string | null
+  }>
 }
 
 export interface ResolvedSqlSource {
@@ -262,6 +270,14 @@ function rowText(row: Record<string, unknown>): string {
   ].filter(Boolean).join(' ')
 }
 
+function matchedMemoryTokens(row: Record<string, unknown>, tokens: string[]): string[] {
+  if (tokens.length === 0) return []
+
+  const identity = normalizeExactQueryText(tastingIdentityText(row))
+  const fullText = normalizeExactQueryText(rowText(row))
+  return tokens.filter((token) => identity.includes(token) || fullText.includes(token))
+}
+
 function scoreMemoryRow(row: Record<string, unknown>, tokens: string[]): number {
   if (tokens.length === 0) return 0
 
@@ -281,6 +297,22 @@ function scoreMemoryRow(row: Record<string, unknown>, tokens: string[]): number 
   if (typeof row.tasting_note === 'string' && row.tasting_note.trim().length > 0) score += 0.5
 
   return score
+}
+
+function compactSelectedTastingMemory(input: {
+  row: Record<string, unknown>
+  score: number
+  matchedTokens: string[]
+}): NonNullable<ResolvedMemoriesSource['selectedTastingMemories']>[number] {
+  const note = typeof input.row.tasting_note === 'string' ? input.row.tasting_note.trim() : ''
+  return {
+    label: tastingLabel(input.row) || 'Degustation',
+    rating: typeof input.row.rating === 'number' ? input.row.rating : null,
+    drunkAt: typeof input.row.drunk_at === 'string' ? input.row.drunk_at.slice(0, 10) : null,
+    score: Math.round(input.score * 10) / 10,
+    matchedTokens: input.matchedTokens.slice(0, 8),
+    notePreview: note ? note.replace(/\s+/g, ' ').slice(0, 180) : null,
+  }
 }
 
 function tastingLabel(row: Record<string, unknown>): string {
@@ -349,24 +381,29 @@ async function resolveMemoriesFromBackend(
   }
 
   const ranked = (data ?? [])
-    .map((row: Record<string, unknown>) => ({ row, score: scoreMemoryRow(row, tokens) }))
+    .map((row: Record<string, unknown>) => ({
+      row,
+      score: scoreMemoryRow(row, tokens),
+      matchedTokens: matchedMemoryTokens(row, tokens),
+    }))
     .filter((candidate) => candidate.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, contextPlan.memories === 'exact' ? 8 : 5)
-    .map((candidate) => candidate.row)
 
   if (ranked.length === 0) return undefined
+  const rows = ranked.map((candidate) => candidate.row)
 
   return {
     level: contextPlan.memories,
     text: serializeTargetedMemories({
       message: body.message,
       level: contextPlan.memories,
-      rows: ranked,
+      rows,
     }),
     evidenceMode: contextPlan.memories === 'exact' ? 'exact' : 'synthesis',
     selectedCount: ranked.length,
     source: 'backend_tastings',
+    selectedTastingMemories: ranked.map(compactSelectedTastingMemory),
   }
 }
 

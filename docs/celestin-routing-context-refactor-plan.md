@@ -298,6 +298,10 @@ Dette a traiter plus tard, hors chemin critique :
   `cave`, `degustation(s)`). Exemple : `Combien de brouteilles...` ne doit pas etre
   ajoute comme cas lexical specifique ; il faut une couche de normalisation/fuzzy
   limitee avant routing, avec tests.
+- comptages filtres de cave (`combien de rouges/blancs/champagnes en cave`) :
+  a traiter comme source exacte deterministe, pas comme reponse generee librement.
+  Cas observe le 2026-05-02 : `combien j'ai de rouge en cave` peut produire un
+  resultat faux tant que ce chemin n'est pas implemente.
 
 Strategie :
 

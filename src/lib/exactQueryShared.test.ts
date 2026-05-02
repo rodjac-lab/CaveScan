@@ -10,6 +10,7 @@ describe('exact query parsing', () => {
 
   it('does not treat filtered cellar bottle counts as generic', () => {
     expect(parseGenericCellarBottleCount('Combien de bouteilles de Champagne ai-je ?')).toBeNull()
+    expect(parseGenericCellarBottleCount("J'ai combien de rouges en cave ?")).toBeNull()
   })
 
   it('extracts simple tasting count filters', () => {
