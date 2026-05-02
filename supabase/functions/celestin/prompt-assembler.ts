@@ -44,6 +44,7 @@ export function assembleCelestinPrompt(input: PromptAssemblyInput): AssembledCel
     input.state,
     input.lastAssistantText,
     input.routingIntent,
+    input.contextPlan,
   )
 
   return {

@@ -1,4 +1,5 @@
 import type { ConversationState } from "./conversation-state.ts"
+import type { ContextPlan } from "./context-plan.ts"
 import { resolveActiveMemoryFocus } from "./memory-focus.ts"
 import type { RoutingIntent, TurnInterpretation } from "./turn-interpreter.ts"
 import type { RequestBody } from "./types.ts"
@@ -12,6 +13,7 @@ export function buildUserPrompt(
   state: ConversationState,
   lastAssistantText?: string,
   routingIntent?: RoutingIntent,
+  contextPlan?: ContextPlan,
 ): string {
   const parts: string[] = []
   const { turnType, cognitiveMode } = interpretation
@@ -74,7 +76,11 @@ export function buildUserPrompt(
   }
 
   else if (turnType === 'context_switch' && cognitiveMode === 'cellar_assistant') {
-    parts.push(`[QUESTION CAVE - Reponds uniquement a partir de la cave transmise. Pour les questions de quantite, compte les bouteilles a partir des quantites, pas seulement les references.]`)
+    if (contextPlan?.cave === 'tool_only') {
+      parts.push(`[QUESTION CAVE - Reponds uniquement a partir des faits exacts fournis ou de l'outil cave. Pour les questions de quantite, compte les bouteilles a partir des quantites, pas seulement les references.]`)
+    } else {
+      parts.push(`[QUESTION CAVE - Reponds uniquement a partir de la cave transmise. Pour les questions de quantite, compte les bouteilles a partir des quantites, pas seulement les references.]`)
+    }
     parts.push(body.message)
   }
 

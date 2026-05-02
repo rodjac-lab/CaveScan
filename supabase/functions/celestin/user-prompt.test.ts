@@ -212,6 +212,36 @@ describe('buildUserPrompt', () => {
     expect(prompt).toContain('Utilise show_recommendations maintenant')
     expect(prompt).toContain('Ne reponds pas seulement par des styles generiques')
   })
+
+  it('does not mention transmitted cave details for tool-only cellar lookups', () => {
+    const interpretation: TurnInterpretation = {
+      turnType: 'context_switch',
+      cognitiveMode: 'cellar_assistant',
+      shouldAllowUiAction: false,
+    }
+
+    const prompt = buildUserPrompt(
+      body('Combien de bouteilles ai-je en cave ?'),
+      interpretation,
+      INITIAL_STATE,
+      undefined,
+      'cellar_lookup',
+      {
+        profile: 'none',
+        cave: 'tool_only',
+        zones: 'names',
+        memories: 'none',
+        tools: 'force_cellar',
+        history: 'compact',
+        truthPolicy: 'exact_only',
+        reasons: ['test'],
+      },
+    )
+
+    expect(prompt).toContain('faits exacts')
+    expect(prompt).toContain('outil cave')
+    expect(prompt).not.toContain('cave transmise')
+  })
 })
 
 describe('buildUserPrompt — branch coverage snapshots', () => {
