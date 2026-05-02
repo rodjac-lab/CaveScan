@@ -97,4 +97,16 @@ describe('buildContextPlan', () => {
       truthPolicy: 'standard',
     })
   })
+
+  it('keeps exploratory pivots source-light to avoid stale recommendation contamination', () => {
+    expectPlan('exploratory_reco_pivot', {
+      profile: 'none',
+      cave: 'none',
+      zones: 'none',
+      memories: 'none',
+      tools: 'none',
+      history: 'pivot',
+      truthPolicy: 'standard',
+    })
+  })
 })

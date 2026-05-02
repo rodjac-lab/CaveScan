@@ -443,6 +443,13 @@ describe('routing audit matrix', () => {
       expectedUiAction: false,
     },
     {
+      id: 'memory-rating-note',
+      message: "Quelle note j'avais mis au Thillardon Les Carrières ?",
+      expectedWinner: 'memory_lookup',
+      expectedMode: 'tasting_memory',
+      expectedUiAction: false,
+    },
+    {
       id: 'inventory-zone-short',
       message: 'Dans ma cave de Paris',
       expectedWinner: 'cellar_lookup',
@@ -686,6 +693,32 @@ describe('routing audit matrix', () => {
       expectedWinner: 'wine_question',
       expectedMode: 'wine_conversation',
       expectedUiAction: false,
+    })
+  })
+
+  it('keeps wine-culture follow-ups out of memory mode even if the previous answer mentions notes', () => {
+    expectRoute({
+      id: 'culture-follow-up-after-notes-word',
+      message: "Et le vin jaune, c'est quoi exactement ?",
+      lastAssistantText: 'Le Jura donne des blancs salins, du vin jaune, et parfois des notes oxydatives tres marquees.',
+      expectedWinner: 'wine_question',
+      expectedMode: 'wine_conversation',
+      expectedUiAction: false,
+    })
+  })
+
+  it('keeps encavage continuation on the encavage route while collecting details', () => {
+    expectRoute({
+      id: 'encavage-collecting-detail',
+      message: 'Un Sancerre 2023 du Domaine Vacheron',
+      state: {
+        phase: 'collecting_info',
+        taskType: 'encavage',
+      },
+      lastAssistantText: 'Dis-moi le domaine, la cuvee ou l appellation et je te prepare l encavage.',
+      expectedWinner: 'encavage_request',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: true,
     })
   })
 

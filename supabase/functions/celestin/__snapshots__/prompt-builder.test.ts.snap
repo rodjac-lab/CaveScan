@@ -190,7 +190,7 @@ Reponds UNIQUEMENT avec un JSON valide, sans texte avant ou apres.
 { "message": "Le Riesling est un cepage...", "action_chips": ["Et en rouge ?", "Parle-moi d'un autre"] }
 
 ## Recommandations (show_recommendations)
-{ "message": "Pour ton osso bucco :", "action_chips": ["Et en blanc ?", "Autre plat"],
+{ "message": "Je partirais sur ces pistes :", "action_chips": ["Et en blanc ?", "Autre plat"],
   "ui_action": { "kind": "show_recommendations", "payload": { "cards": [
     { "bottle_id": "abc12345", "name": "Domaine X", "appellation": "App", "millesime": 2020, "badge": "De ta cave", "reason": "Pitch 1-2 phrases", "color": "rouge" }
   ] } } }
@@ -273,7 +273,7 @@ Reponds UNIQUEMENT avec un JSON valide, sans texte avant ou apres.
 { "message": "Le Riesling est un cepage...", "action_chips": ["Et en rouge ?", "Parle-moi d'un autre"] }
 
 ## Recommandations (show_recommendations)
-{ "message": "Pour ton osso bucco :", "action_chips": ["Et en blanc ?", "Autre plat"],
+{ "message": "Je partirais sur ces pistes :", "action_chips": ["Et en blanc ?", "Autre plat"],
   "ui_action": { "kind": "show_recommendations", "payload": { "cards": [
     { "bottle_id": "abc12345", "name": "Domaine X", "appellation": "App", "millesime": 2020, "badge": "De ta cave", "reason": "Pitch 1-2 phrases", "color": "rouge" }
   ] } } }
@@ -483,7 +483,7 @@ Reponds UNIQUEMENT avec un JSON valide, sans texte avant ou apres.
 { "message": "Le Riesling est un cepage...", "action_chips": ["Et en rouge ?", "Parle-moi d'un autre"] }
 
 ## Recommandations (show_recommendations)
-{ "message": "Pour ton osso bucco :", "action_chips": ["Et en blanc ?", "Autre plat"],
+{ "message": "Je partirais sur ces pistes :", "action_chips": ["Et en blanc ?", "Autre plat"],
   "ui_action": { "kind": "show_recommendations", "payload": { "cards": [
     { "bottle_id": "abc12345", "name": "Domaine X", "appellation": "App", "millesime": 2020, "badge": "De ta cave", "reason": "Pitch 1-2 phrases", "color": "rouge" }
   ] } } }
@@ -566,7 +566,7 @@ Reponds UNIQUEMENT avec un JSON valide, sans texte avant ou apres.
 { "message": "Le Riesling est un cepage...", "action_chips": ["Et en rouge ?", "Parle-moi d'un autre"] }
 
 ## Recommandations (show_recommendations)
-{ "message": "Pour ton osso bucco :", "action_chips": ["Et en blanc ?", "Autre plat"],
+{ "message": "Je partirais sur ces pistes :", "action_chips": ["Et en blanc ?", "Autre plat"],
   "ui_action": { "kind": "show_recommendations", "payload": { "cards": [
     { "bottle_id": "abc12345", "name": "Domaine X", "appellation": "App", "millesime": 2020, "badge": "De ta cave", "reason": "Pitch 1-2 phrases", "color": "rouge" }
   ] } } }
@@ -659,7 +659,7 @@ Reponds UNIQUEMENT avec un JSON valide, sans texte avant ou apres.
 { "message": "Le Riesling est un cepage...", "action_chips": ["Et en rouge ?", "Parle-moi d'un autre"] }
 
 ## Recommandations (show_recommendations)
-{ "message": "Pour ton osso bucco :", "action_chips": ["Et en blanc ?", "Autre plat"],
+{ "message": "Je partirais sur ces pistes :", "action_chips": ["Et en blanc ?", "Autre plat"],
   "ui_action": { "kind": "show_recommendations", "payload": { "cards": [
     { "bottle_id": "abc12345", "name": "Domaine X", "appellation": "App", "millesime": 2020, "badge": "De ta cave", "reason": "Pitch 1-2 phrases", "color": "rouge" }
   ] } } }
@@ -807,7 +807,7 @@ Reponds UNIQUEMENT avec un JSON valide, sans texte avant ou apres.
 { "message": "Le Riesling est un cepage...", "action_chips": ["Et en rouge ?", "Parle-moi d'un autre"] }
 
 ## Recommandations (show_recommendations)
-{ "message": "Pour ton osso bucco :", "action_chips": ["Et en blanc ?", "Autre plat"],
+{ "message": "Je partirais sur ces pistes :", "action_chips": ["Et en blanc ?", "Autre plat"],
   "ui_action": { "kind": "show_recommendations", "payload": { "cards": [
     { "bottle_id": "abc12345", "name": "Domaine X", "appellation": "App", "millesime": 2020, "badge": "De ta cave", "reason": "Pitch 1-2 phrases", "color": "rouge" }
   ] } } }

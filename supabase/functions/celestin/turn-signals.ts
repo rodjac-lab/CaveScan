@@ -73,6 +73,8 @@ const MEMORY = [
   /\b(tu te souviens|la derniere fois|chez \w+|on avait bu|rappelle|souvenir)\b/i,
   /\b(ai[- ]je deja bu|deja bu|deja goute|deja ouvert)\b/i,
   /\bj[' ]?avais mis combien d[' ]etoiles\b/i,
+  /\bquelle\s+note\s+j[' ]?avais\s+mis\b/i,
+  /\bj[' ]?avais\s+mis\s+quelle\s+note\b/i,
   /\bdeja\b.*\b(note|noté|notee|notée|degustation|dégustation)\b/i,
   /\b(retrouve|retrouver|retrouverais|retrouvera?is|retrouveras)\b.*\b(note|degustation|dégustation|souvenir)\b/i,
   /\bje l[' ]?ai\b.*\b(note|noté|notee|notée|deguste|dégusté|goute|goûté|bu)\b/i,
@@ -138,6 +140,10 @@ function isMemoryFollowUp(text: string, lastAssistantText?: string): boolean {
 
   const normalizedText = normalizeForRouting(text)
   const normalizedAssistantText = normalizeForRouting(lastAssistantText)
+
+  if (matchesAny(normalizedText, WINE_CULTURE) || matchesAny(normalizedText, QUESTION)) {
+    return false
+  }
 
   const assistantWasTalkingAboutMemory =
     /\b(souvenir|on avait|tu avais|tu l'avais|l'avais|avait eu|la derniere fois|ce soir-la|degust|bue?s?\b|ouvert|millesime|etoiles?|notes?)\b/i.test(normalizedAssistantText)

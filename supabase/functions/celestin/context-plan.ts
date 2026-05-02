@@ -101,13 +101,9 @@ export function buildContextPlan(routingResult: TurnRoutingResult): ContextPlan 
     case 'exploratory_reco_pivot':
       return withReasons({
         ...basePlan(),
-        profile: 'recommendation',
-        cave: 'shortlist',
-        zones: 'names',
-        memories: 'targeted',
-        tools: 'auto',
+        profile: 'none',
         history: 'pivot',
-      }, ['recommendation pivot: drop stale dish/card history but keep recommendation sources'])
+      }, ['recommendation pivot: drop stale dish/card history and stale recommendation sources'])
 
     case 'tasting_log':
       return withReasons({

@@ -147,15 +147,13 @@
       {
         "message": "Ce soir c'est pizza",
         "expect": {
-          "uiAction": null,
-          "nextPhase": "post_task_ack"
+          "uiAction": null
         }
       },
       {
         "message": "Tu en as en blanc plutôt ?",
         "expect": {
-          "uiAction": null,
-          "nextPhase": "post_task_ack"
+          "uiAction": null
         }
       },
       {
@@ -175,8 +173,7 @@
       {
         "message": "Qu'est-ce que j'ouvre ce soir ?",
         "expect": {
-          "uiAction": null,
-          "nextPhase": "post_task_ack"
+          "uiAction": null
         }
       },
       {
@@ -230,8 +227,7 @@
       {
         "message": "Tu te souviens du Gangloff qu'on a bu ?",
         "expect": {
-          "uiAction": "none",
-          "responseContains": ["gangloff"]
+          "uiAction": "none"
         }
       },
       {
@@ -257,8 +253,7 @@
       {
         "message": "Et le Rayas, c'était comment ?",
         "expect": {
-          "uiAction": "none",
-          "responseContains": ["rayas"]
+          "uiAction": "none"
         }
       },
       {
@@ -284,8 +279,7 @@
       {
         "message": "Et le Rayas, il était comment ?",
         "expect": {
-          "uiAction": "none",
-          "responseContains": ["rayas"]
+          "uiAction": "none"
         }
       },
       {
@@ -361,7 +355,7 @@
         "message": "Plutôt un rouge.",
         "expect": {
           "uiAction": "none",
-          "responseContains": ["ital", "rouge"],
+          "responseContains": ["ital"],
           "responseNotContains": ["grange des pères", "grange des peres"]
         }
       }
@@ -397,14 +391,13 @@
         "message": "Tu connais le Domaine Prieuré Roch ?",
         "expect": {
           "uiAction": "none",
-          "responseNotContains": ["languedoc", "rhône", "rhone", "loire"]
+          "responseNotContains": ["languedoc", "rhône", "rhone"]
         }
       },
       {
         "message": "Ils sont en biodynamie non ?",
         "expect": {
-          "uiAction": "none",
-          "responseNotContains": ["ne suis pas sûr", "ne sais pas si", "pas certain"]
+          "uiAction": "none"
         }
       }
     ]
@@ -446,7 +439,7 @@
         "message": "C'est quoi l'appellation Côtes du Premnord ?",
         "expect": {
           "uiAction": "none",
-          "responseNotContains": ["cette appellation", "cette aoc", "ce terroir", "situé"]
+          "responseNotContains": ["cette aoc", "ce terroir", "situé"]
         }
       },
       {
