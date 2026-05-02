@@ -198,11 +198,13 @@ export function buildCelestinRequestBody(input: {
     ...(!input.backendManagedContext ? { cave: caveSummary } : {}),
     profile: profileStr,
     memories: memoriesStr,
-    context: {
-      dayOfWeek: getDayOfWeek(),
-      season: getSeason(),
-      recentDrunk: recentDrunk.length > 0 ? recentDrunk : undefined,
-    },
+    ...(!input.backendManagedContext ? {
+      context: {
+        dayOfWeek: getDayOfWeek(),
+        season: getSeason(),
+        recentDrunk: recentDrunk.length > 0 ? recentDrunk : undefined,
+      },
+    } : {}),
     zones: !input.backendManagedContext && input.zones.length > 0 ? input.zones : undefined,
     ...(input.backendManagedContext ? { contextStrategy: 'backend_managed' } : {}),
     ...(!input.backendManagedContext && input.memoryEvidenceMode ? { memoryEvidenceMode: input.memoryEvidenceMode } : {}),

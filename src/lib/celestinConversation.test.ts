@@ -99,7 +99,7 @@ describe('buildCelestinRequestBody', () => {
     expect(body.memoryTrace).toBeUndefined()
     expect(body.compiledProfileMarkdown).toBeUndefined()
     expect(body.zones).toBeUndefined()
-    expect(body.context.recentDrunk).toBeUndefined()
+    expect(body.context).toBeUndefined()
   })
 
   it('keeps legacy context available for active-task fallback bodies', () => {
@@ -123,6 +123,6 @@ describe('buildCelestinRequestBody', () => {
     expect(body.memoryEvidenceMode).toBe('exact')
     expect(body.compiledProfileMarkdown).toBe('## Profil compile')
     expect(body.zones).toEqual(['Paris'])
-    expect(body.context.recentDrunk).toHaveLength(1)
+    expect(body.context?.recentDrunk).toHaveLength(1)
   })
 })
