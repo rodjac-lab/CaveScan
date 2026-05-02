@@ -31,6 +31,19 @@ export type CelestinTurnObservabilityInput = {
   providerTrace?: CelestinProviderTrace | null
 }
 
+export type CelestinEdgeFunctionTimingInput = {
+  supabase: SupabaseServiceClient | null
+  turnId: string
+  functionStartedAt: number
+  parseMs: number
+  authMs: number
+  runtimeMs: number
+  isolateAgeMs: number
+  invocationIndex: number
+  coldStart: boolean
+  region?: string | null
+}
+
 function truncate(value: string | null | undefined, max: number): string | null {
   if (!value) return null
   return value.trim().replace(/\s+/g, ' ').slice(0, max)
@@ -123,5 +136,29 @@ export async function persistCelestinTurnObservability(input: CelestinTurnObserv
     if (error) console.warn('[celestin:observability-db] upsert failed:', error.message)
   } catch (err) {
     console.warn('[celestin:observability-db] upsert failed:', err instanceof Error ? err.message : String(err))
+  }
+}
+
+export async function updateCelestinEdgeFunctionTimings(input: CelestinEdgeFunctionTimingInput): Promise<void> {
+  if (!input.supabase) return
+
+  try {
+    const { error } = await input.supabase
+      .from('celestin_turn_observability')
+      .update({
+        edge_function_ms: Math.round(performance.now() - input.functionStartedAt),
+        edge_request_parse_ms: input.parseMs,
+        edge_auth_ms: input.authMs,
+        edge_runtime_ms: input.runtimeMs,
+        edge_isolate_age_ms: input.isolateAgeMs,
+        edge_invocation_index: input.invocationIndex,
+        edge_cold_start: input.coldStart,
+        edge_function_region: input.region ?? null,
+      })
+      .eq('turn_id', input.turnId)
+
+    if (error) console.warn('[celestin:edge-timing-db] update failed:', error.message)
+  } catch (err) {
+    console.warn('[celestin:edge-timing-db] update failed:', err instanceof Error ? err.message : String(err))
   }
 }

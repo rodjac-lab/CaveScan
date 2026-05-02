@@ -145,7 +145,7 @@ export function AdminCelestinObservabilityPanel() {
           <div className="rounded-[8px] border border-[var(--border-color)] px-3 py-2">
             <p className="text-[var(--text-muted)]">Latence ressentie</p>
             <p className="text-[16px] font-semibold text-[var(--text-primary)]">p95 {formatNumber(today.frontend_total_p95_ms ?? today.edge_p95_ms)}ms</p>
-            <p>edge p95 {formatNumber(today.edge_p95_ms)}ms</p>
+            <p>function p95 {formatNumber(today.edge_function_p95_ms ?? today.edge_p95_ms)}ms</p>
             <p>LLM p95 {formatNumber(today.llm_p95_ms)}ms</p>
           </div>
           <div className="rounded-[8px] border border-[var(--border-color)] px-3 py-2">
@@ -154,9 +154,9 @@ export function AdminCelestinObservabilityPanel() {
             <p>cache read {formatNumber(today.cache_read_input_tokens)}</p>
           </div>
           <div className="rounded-[8px] border border-[var(--border-color)] px-3 py-2">
-            <p className="text-[var(--text-muted)]">Cache/fallback</p>
-            <p className="text-[16px] font-semibold text-[var(--text-primary)]">{formatNumber(today.cache_read_turns)} hit(s)</p>
-            <p>{formatNumber(today.fallback_turns)} fallback(s)</p>
+            <p className="text-[var(--text-muted)]">Cold/overhead</p>
+            <p className="text-[16px] font-semibold text-[var(--text-primary)]">{formatNumber(today.cold_start_turns)} cold</p>
+            <p>overhead p95 {formatNumber(today.browser_overhead_p95_ms)}ms</p>
           </div>
         </div>
       )}
@@ -202,8 +202,10 @@ export function AdminCelestinObservabilityPanel() {
                 <tr>
                   <th className="text-left">Heure</th>
                   <th className="text-right">total</th>
-                  <th className="text-right">edge</th>
+                  <th className="text-right">fn</th>
                   <th className="text-right">LLM</th>
+                  <th className="text-right">ovh</th>
+                  <th className="text-right">cold</th>
                   <th className="text-right">prep</th>
                   <th className="text-left pl-2">Route</th>
                   <th className="text-left pl-2">Message</th>
@@ -214,8 +216,10 @@ export function AdminCelestinObservabilityPanel() {
                   <tr key={row.turn_id} className="border-t border-[var(--border-color)]">
                     <td>{new Date(row.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td>
                     <td className="text-right tabular-nums">{formatNumber(row.frontend_total_ms)}</td>
-                    <td className="text-right tabular-nums">{formatNumber(row.edge_ms)}</td>
+                    <td className="text-right tabular-nums">{formatNumber(row.edge_function_ms ?? row.edge_ms)}</td>
                     <td className="text-right tabular-nums">{formatNumber(row.llm_ms)}</td>
+                    <td className="text-right tabular-nums">{formatNumber(row.browser_overhead_ms)}</td>
+                    <td className="text-right tabular-nums">{row.edge_cold_start ? 'oui' : '—'}</td>
                     <td className="text-right tabular-nums">{formatNumber(row.frontend_prep_ms)}</td>
                     <td className="pl-2">{row.route ?? '—'}</td>
                     <td className="pl-2 text-[var(--text-muted)]">{row.message_preview ?? '—'}</td>
