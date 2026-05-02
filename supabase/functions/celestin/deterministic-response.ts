@@ -1,5 +1,5 @@
 import type { ContextPlan } from "./context-plan.ts"
-import { parseGenericCellarBottleCount, parseTastingCountQuery } from "./exact-query.ts"
+import { parseGenericCellarBottleCount, parseTastingCountQuery } from "../../../shared/celestin/exact-query.ts"
 import type { ResolvedContextSources } from "./source-resolver.ts"
 import type { RoutingIntent } from "./turn-interpreter.ts"
 import type { CelestinResponse, RequestBody } from "./types.ts"

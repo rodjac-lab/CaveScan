@@ -1,6 +1,6 @@
 import type { ContextPlan } from './context-plan.ts'
 import type { AuthContext } from './auth.ts'
-import { normalizeExactQueryText, parseTastingCountQuery } from './exact-query.ts'
+import { normalizeExactQueryText, parseTastingCountQuery } from '../../../shared/celestin/exact-query.ts'
 import type { CaveBottle, RequestBody } from './types.ts'
 
 export type SourceRequirementKind =

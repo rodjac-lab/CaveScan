@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseGenericCellarBottleCount, parseTastingCountQuery } from './exact-query'
+import { parseGenericCellarBottleCount, parseTastingCountQuery } from '../../shared/celestin/exact-query'
 
 describe('exact query parsing', () => {
   it('recognizes generic cellar bottle counts', () => {

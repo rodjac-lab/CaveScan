@@ -40,11 +40,13 @@ describe('celestinChatRequest routing guards', () => {
 
   it('uses backend-managed context only for low-risk legacy-source skips', () => {
     expect(shouldUseBackendManagedContext({ message: 'Salut' })).toBe(true)
+    expect(shouldUseBackendManagedContext({ message: 'J ai combien de bouteilles en cave ?' })).toBe(true)
     expect(shouldUseBackendManagedContext({ message: 'J ai combien de degustations de Champagne ?' })).toBe(true)
     expect(shouldUseBackendManagedContext({
       message: 'J ai combien de degustations de Champagne ?',
       conversationState: { taskType: 'recommendation' },
     })).toBe(false)
     expect(shouldUseBackendManagedContext({ message: 'Que boire avec une pizza ?' })).toBe(false)
+    expect(shouldUseBackendManagedContext({ message: 'Combien de bouteilles de Champagne ai-je ?' })).toBe(false)
   })
 })

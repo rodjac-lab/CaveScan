@@ -10,6 +10,7 @@ import {
 } from '@/lib/celestinConversation'
 import { getCompiledUserProfileCached } from '@/lib/userProfiles'
 import type { Bottle, TasteProfile } from '@/lib/types'
+import { parseGenericCellarBottleCount } from '../../shared/celestin/exact-query'
 
 interface PrepareCelestinRequestInput {
   message: string
@@ -166,6 +167,7 @@ export function shouldUseBackendManagedContext(input: {
   if (taskType === 'recommendation' || taskType === 'encavage' || taskType === 'tasting') return false
 
   return isObviousSocialMessage(input.message)
+    || !!parseGenericCellarBottleCount(input.message)
     || shouldSkipLegacyMemoryRetrieval(input.message)
 }
 
