@@ -465,6 +465,80 @@ function resolveCave(body: RequestBody, contextPlan: ContextPlan): ResolvedCaveS
   }
 }
 
+const CAVE_SELECTION_STOP_WORDS = new Set([
+  'avec',
+  'boire',
+  'bouteille',
+  'bouteilles',
+  'cave',
+  'choisis',
+  'conseille',
+  'donne',
+  'envie',
+  'pour',
+  'prendre',
+  'propose',
+  'recommande',
+  'recommandation',
+  'soir',
+  'vin',
+  'vins',
+])
+
+function caveSelectionText(body: RequestBody): string {
+  const recentUserTurns = body.history
+    .filter((turn) => turn.role === 'user')
+    .slice(-4)
+    .map((turn) => turn.text)
+
+  return normalizeExactQueryText([...recentUserTurns, body.message].join(' '))
+}
+
+function caveSelectionTokens(selectionText: string): string[] {
+  return [...new Set(
+    selectionText
+      .split(/\s+/)
+      .filter((token) => token.length >= 4 && !CAVE_SELECTION_STOP_WORDS.has(token)),
+  )]
+}
+
+function requestedCaveColors(selectionText: string): string[] {
+  const colors: string[] = []
+  if (/\brouges?\b/.test(selectionText)) colors.push('rouge')
+  if (/\bblancs?\b/.test(selectionText)) colors.push('blanc')
+  if (/\broses?\b/.test(selectionText)) colors.push('rose')
+  if (/\b(bulles?|champagnes?|petillants?)\b/.test(selectionText)) colors.push('bulles')
+  return colors
+}
+
+function scoreCaveBottleForShortlist(row: Record<string, unknown>, selectionText: string): number {
+  const identity = normalizeExactQueryText([
+    row.domaine,
+    row.cuvee,
+    row.appellation,
+    row.millesime,
+    row.couleur,
+    row.character,
+  ].filter(Boolean).join(' '))
+  const tokens = caveSelectionTokens(selectionText)
+  const requestedColors = requestedCaveColors(selectionText)
+  const color = typeof row.couleur === 'string' ? normalizeExactQueryText(row.couleur) : ''
+  let score = 0
+
+  if (requestedColors.length > 0) {
+    score += requestedColors.includes(color) ? 8 : -3
+  }
+
+  for (const token of tokens) {
+    if (identity.includes(token)) score += 3
+  }
+
+  const quantity = typeof row.quantity === 'number' ? row.quantity : 1
+  score += Math.min(Math.max(quantity, 1), 3) * 0.1
+
+  return score
+}
+
 function compactCaveBottle(row: Record<string, unknown>): CaveBottle {
   const rawVolume = row.volume_l ?? row.volume
   return {
@@ -489,7 +563,8 @@ async function resolveCaveFromBackend(
   if ((body.cave?.length ?? 0) > 0 || contextPlan.cave === 'none' || !auth?.userId || !auth.supabase) return local
 
   if (contextPlan.cave === 'shortlist' || contextPlan.cave === 'full_debug') {
-    const maxRows = contextPlan.cave === 'full_debug' ? 80 : 40
+    const maxRows = contextPlan.cave === 'full_debug' ? 80 : 120
+    const outputRows = contextPlan.cave === 'full_debug' ? 80 : 40
     const { data, error } = await auth.supabase
       .from('bottles')
       .select('id,domaine,cuvee,appellation,millesime,couleur,character,quantity,volume_l')
@@ -503,11 +578,22 @@ async function resolveCaveFromBackend(
       return local
     }
 
-    const bottles = (data ?? []).map((row: Record<string, unknown>) => compactCaveBottle(row))
+    const selectionText = caveSelectionText(body)
+    const ranked = (data ?? [])
+      .map((row: Record<string, unknown>) => ({
+        bottle: compactCaveBottle(row),
+        score: scoreCaveBottleForShortlist(row, selectionText),
+      }))
+      .sort((a, b) => b.score - a.score)
+
+    const bottles = ranked
+      .slice(0, outputRows)
+      .map(({ bottle, score }) => ({ ...bottle, local_score: Math.round(score * 10) / 10 }))
+
     return {
       level: contextPlan.cave,
-      referenceCount: bottles.length,
-      totalBottles: bottles.reduce((sum, bottle) => sum + Math.max(1, bottle.quantity ?? 1), 0),
+      referenceCount: ranked.length,
+      totalBottles: ranked.reduce((sum, candidate) => sum + Math.max(1, candidate.bottle.quantity ?? 1), 0),
       bottles,
     }
   }

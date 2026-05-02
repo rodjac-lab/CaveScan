@@ -328,6 +328,117 @@ describe('resolveContextSourcesForRequest', () => {
     })
   })
 
+  it('ranks backend cellar shortlist with current turn and recent user context', async () => {
+    const supabase = {
+      from(table: string) {
+        if (table === 'user_profiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: null,
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        if (table === 'zones') {
+          return {
+            select: () => ({
+              eq: () => ({
+                order: async () => ({
+                  data: [],
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        expect(table).toBe('bottles')
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                order: () => ({
+                  limit: async () => ({
+                    data: [
+                      {
+                        id: 'red-pizza',
+                        domaine: 'Felsina',
+                        cuvee: 'Rancia',
+                        appellation: 'Chianti Classico',
+                        millesime: 2019,
+                        couleur: 'rouge',
+                        character: 'italien acidule pour pizza',
+                        quantity: 1,
+                        volume_l: 0.75,
+                      },
+                      {
+                        id: 'white-pizza',
+                        domaine: 'Domaine A',
+                        cuvee: null,
+                        appellation: 'Chablis',
+                        millesime: 2020,
+                        couleur: 'blanc',
+                        character: 'tendu',
+                        quantity: 1,
+                        volume_l: 0.75,
+                      },
+                      {
+                        id: 'red-heavy',
+                        domaine: 'Domaine B',
+                        cuvee: null,
+                        appellation: 'Cahors',
+                        millesime: 2018,
+                        couleur: 'rouge',
+                        character: 'tannique',
+                        quantity: 1,
+                        volume_l: 0.75,
+                      },
+                    ],
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: 'Et en blanc ?',
+        history: [{ role: 'user', text: 'Un italien pour une pizza maison' }],
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'recommendation',
+        cave: 'shortlist',
+        zones: 'names',
+        memories: 'targeted',
+        tools: 'auto',
+        history: 'normal',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.cave.bottles.map((bottle) => bottle.id)).toEqual([
+      'white-pi',
+      'red-pizz',
+      'red-heav',
+    ])
+    expect(sources.cave.bottles[0]).toMatchObject({
+      couleur: 'blanc',
+      local_score: expect.any(Number),
+    })
+    expect((sources.cave.bottles[0].local_score ?? 0)).toBeGreaterThan(sources.cave.bottles[1].local_score ?? 0)
+  })
+
   it('resolves targeted tasting memories from backend without frontend memory text', async () => {
     const supabase = {
       from(table: string) {

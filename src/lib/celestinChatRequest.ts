@@ -162,7 +162,7 @@ export function shouldUseBackendManagedContext(input: {
   if (input.image) return false
 
   const taskType = (input.conversationState as { taskType?: string | null } | null | undefined)?.taskType
-  if (taskType === 'recommendation' || taskType === 'encavage' || taskType === 'tasting') return false
+  if (taskType === 'encavage' || taskType === 'tasting') return false
 
   return true
 }

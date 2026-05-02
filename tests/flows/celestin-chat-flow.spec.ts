@@ -63,7 +63,7 @@ test('Celestin recommendation continues on a short follow-up without real LLM', 
 
     await page.getByRole('button', { name: 'Et en blanc ?' }).click()
 
-    await expect(page.getByText('En blanc')).toBeVisible()
+    await expect(page.getByText('Oui. En blanc, je partirais').first()).toBeVisible()
     await expect(page.getByText(`${E2E_PREFIX} Blanc reco`)).toBeVisible()
   } finally {
     await cleanupE2EData(client)
