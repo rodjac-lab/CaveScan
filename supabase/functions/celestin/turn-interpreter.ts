@@ -206,6 +206,9 @@ function routeCollectingInfo(state: ConversationState, signals: RoutingSignals, 
     return routed(cellarContextSwitch(), state.phase, 'cellar_lookup', candidates)
   }
 
+  const cellarRequest = routeCellarRequest(signals)
+  if (cellarRequest) return routed(cellarRequest.interpretation, state.phase, cellarRequest.winner, candidates)
+
   if (state.taskType === 'encavage') {
     return routed({ turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }, state.phase, 'encavage_request', candidates)
   }

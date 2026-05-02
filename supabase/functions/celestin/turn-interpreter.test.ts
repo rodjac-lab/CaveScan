@@ -760,6 +760,23 @@ describe('routing audit matrix', () => {
     expect(nextState).toEqual(INITIAL_STATE)
   })
 
+  it('routes an explicit recommendation request while collecting info as a new recommendation', () => {
+    const result = expectRoute({
+      id: 'collecting-info-new-reco',
+      message: 'Je cherche un vin pour accompagner un poulet roti.',
+      state: {
+        phase: 'collecting_info',
+        taskType: 'recommendation',
+      },
+      lastAssistantText: 'Tu preferes plutot rouge ou blanc ?',
+      expectedWinner: 'recommendation_request',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: true,
+    })
+
+    expect(result.interpretation.inferredTaskType).toBe('recommendation')
+  })
+
   it('keeps recommendation refinements actionable across a realistic multi-turn exchange', () => {
     let currentState = state()
 
