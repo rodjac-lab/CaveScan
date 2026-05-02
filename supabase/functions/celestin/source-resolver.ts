@@ -485,6 +485,45 @@ const CAVE_SELECTION_STOP_WORDS = new Set([
   'vins',
 ])
 
+const FOOD_PAIRING_RULES: Array<{
+  terms: string[]
+  prefer: string[]
+  avoid?: string[]
+  identitySignals?: string[]
+}> = [
+  {
+    terms: ['poulet', 'volaille', 'dinde'],
+    prefer: ['blanc', 'bulles', 'rouge'],
+    identitySignals: ['chardonnay', 'chenin', 'pinot', 'bourgogne', 'beaujolais', 'champagne'],
+  },
+  {
+    terms: ['poisson', 'sushi', 'huitre', 'huitres', 'crustace', 'crustaces'],
+    prefer: ['blanc', 'bulles', 'rose'],
+    avoid: ['rouge'],
+    identitySignals: ['chablis', 'muscadet', 'riesling', 'champagne'],
+  },
+  {
+    terms: ['boeuf', 'agneau', 'gibier', 'viande rouge'],
+    prefer: ['rouge'],
+    identitySignals: ['bordeaux', 'syrah', 'cahors', 'madiran', 'rhone'],
+  },
+  {
+    terms: ['pizza', 'pates', 'tomate', 'charcuterie'],
+    prefer: ['rouge', 'rose'],
+    identitySignals: ['chianti', 'barbera', 'italie', 'toscane', 'beaujolais'],
+  },
+  {
+    terms: ['fromage', 'fromages'],
+    prefer: ['blanc', 'rouge', 'bulles'],
+    identitySignals: ['jura', 'bourgogne', 'chenin', 'riesling'],
+  },
+  {
+    terms: ['dessert', 'chocolat'],
+    prefer: ['bulles', 'rose'],
+    avoid: ['rouge'],
+  },
+]
+
 function caveSelectionText(body: RequestBody): string {
   const recentUserTurns = body.history
     .filter((turn) => turn.role === 'user')
@@ -492,6 +531,10 @@ function caveSelectionText(body: RequestBody): string {
     .map((turn) => turn.text)
 
   return normalizeExactQueryText([...recentUserTurns, body.message].join(' '))
+}
+
+function activeFoodPairingRules(selectionText: string) {
+  return FOOD_PAIRING_RULES.filter((rule) => rule.terms.some((term) => selectionText.includes(term)))
 }
 
 function caveSelectionTokens(selectionText: string): string[] {
@@ -511,6 +554,11 @@ function requestedCaveColors(selectionText: string): string[] {
   return colors
 }
 
+function normalizeArrayValues(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string').map(normalizeExactQueryText)
+}
+
 function scoreCaveBottleForShortlist(row: Record<string, unknown>, selectionText: string): number {
   const identity = normalizeExactQueryText([
     row.domaine,
@@ -519,9 +567,14 @@ function scoreCaveBottleForShortlist(row: Record<string, unknown>, selectionText
     row.millesime,
     row.couleur,
     row.character,
+    row.country,
+    row.region,
+    ...(Array.isArray(row.grape_varieties) ? row.grape_varieties : []),
   ].filter(Boolean).join(' '))
   const tokens = caveSelectionTokens(selectionText)
   const requestedColors = requestedCaveColors(selectionText)
+  const foodRules = activeFoodPairingRules(selectionText)
+  const pairingsText = normalizeArrayValues(row.food_pairings).join(' ')
   const color = typeof row.couleur === 'string' ? normalizeExactQueryText(row.couleur) : ''
   let score = 0
 
@@ -531,6 +584,15 @@ function scoreCaveBottleForShortlist(row: Record<string, unknown>, selectionText
 
   for (const token of tokens) {
     if (identity.includes(token)) score += 3
+    if (pairingsText.includes(token)) score += 4
+  }
+
+  for (const rule of foodRules) {
+    if (rule.prefer.includes(color)) score += 3
+    if (rule.avoid?.includes(color)) score -= 4
+
+    if (rule.terms.some((term) => pairingsText.includes(term))) score += 5
+    if (rule.identitySignals?.some((term) => identity.includes(term))) score += 1.5
   }
 
   const quantity = typeof row.quantity === 'number' ? row.quantity : 1
@@ -551,6 +613,9 @@ function compactCaveBottle(row: Record<string, unknown>): CaveBottle {
     character: typeof row.character === 'string' ? row.character : null,
     quantity: typeof row.quantity === 'number' ? row.quantity : 1,
     volume: typeof rawVolume === 'number' ? String(rawVolume) : typeof rawVolume === 'string' ? rawVolume : undefined,
+    food_pairings: Array.isArray(row.food_pairings)
+      ? row.food_pairings.filter((item): item is string => typeof item === 'string').slice(0, 5)
+      : null,
   }
 }
 
@@ -567,7 +632,7 @@ async function resolveCaveFromBackend(
     const outputRows = contextPlan.cave === 'full_debug' ? 80 : 40
     const { data, error } = await auth.supabase
       .from('bottles')
-      .select('id,domaine,cuvee,appellation,millesime,couleur,character,quantity,volume_l')
+      .select('id,domaine,cuvee,appellation,millesime,couleur,country,region,grape_varieties,food_pairings,character,quantity,volume_l')
       .eq('user_id', auth.userId)
       .eq('status', 'in_stock')
       .order('updated_at', { ascending: false, nullsFirst: false })

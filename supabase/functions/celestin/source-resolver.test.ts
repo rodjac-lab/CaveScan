@@ -439,6 +439,125 @@ describe('resolveContextSourcesForRequest', () => {
     expect((sources.cave.bottles[0].local_score ?? 0)).toBeGreaterThan(sources.cave.bottles[1].local_score ?? 0)
   })
 
+  it('uses structured food pairing signals when ranking backend cellar shortlist', async () => {
+    const supabase = {
+      from(table: string) {
+        if (table === 'user_profiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: null,
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        if (table === 'zones') {
+          return {
+            select: () => ({
+              eq: () => ({
+                order: async () => ({
+                  data: [],
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        expect(table).toBe('bottles')
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                order: () => ({
+                  limit: async () => ({
+                    data: [
+                      {
+                        id: 'cahors-heavy',
+                        domaine: 'Domaine B',
+                        cuvee: null,
+                        appellation: 'Cahors',
+                        millesime: 2018,
+                        couleur: 'rouge',
+                        country: 'France',
+                        region: 'Sud-Ouest',
+                        grape_varieties: ['Malbec'],
+                        food_pairings: ['boeuf', 'gibier'],
+                        character: 'tannique',
+                        quantity: 1,
+                        volume_l: 0.75,
+                      },
+                      {
+                        id: 'chardonnay-chicken',
+                        domaine: 'Domaine A',
+                        cuvee: null,
+                        appellation: 'Bourgogne',
+                        millesime: 2021,
+                        couleur: 'blanc',
+                        country: 'France',
+                        region: 'Bourgogne',
+                        grape_varieties: ['Chardonnay'],
+                        food_pairings: ['poulet roti', 'volaille'],
+                        character: 'ample et frais',
+                        quantity: 1,
+                        volume_l: 0.75,
+                      },
+                      {
+                        id: 'chablis-fish',
+                        domaine: 'Domaine C',
+                        cuvee: null,
+                        appellation: 'Chablis',
+                        millesime: 2022,
+                        couleur: 'blanc',
+                        country: 'France',
+                        region: 'Bourgogne',
+                        grape_varieties: ['Chardonnay'],
+                        food_pairings: ['huitres', 'poisson'],
+                        character: 'tendu',
+                        quantity: 1,
+                        volume_l: 0.75,
+                      },
+                    ],
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: 'Fais moi une recommandation sur un poulet roti',
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'recommendation',
+        cave: 'shortlist',
+        zones: 'names',
+        memories: 'targeted',
+        tools: 'auto',
+        history: 'normal',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.cave.bottles[0]).toMatchObject({
+      id: 'chardonn',
+      appellation: 'Bourgogne',
+      couleur: 'blanc',
+      food_pairings: ['poulet roti', 'volaille'],
+    })
+    expect((sources.cave.bottles[0].local_score ?? 0)).toBeGreaterThan(sources.cave.bottles[1].local_score ?? 0)
+  })
+
   it('resolves targeted tasting memories from backend without frontend memory text', async () => {
     const supabase = {
       from(table: string) {

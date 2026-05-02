@@ -74,8 +74,9 @@ export function buildContextBlockFromResolvedSources(sources: ResolvedContextSou
       const vol = b.volume === '0.375' ? 'demi' : b.volume === '1.5' ? 'magnum' : 'btl'
       const qtyStr = `${qty}× ${vol}`
       const extra = b.character ? ` — ${b.character}` : ''
+      const pairings = b.food_pairings?.length ? ` | accords=${b.food_pairings.join(', ')}` : ''
       const localScore = typeof b.local_score === 'number' ? ` | score_local=${b.local_score}` : ''
-      parts.push(`- [${b.id}] ${label} | ${qtyStr}${extra}${localScore}`)
+      parts.push(`- [${b.id}] ${label} | ${qtyStr}${extra}${pairings}${localScore}`)
     }
   } else {
     parts.push('Cave vide — propose uniquement des decouvertes.')

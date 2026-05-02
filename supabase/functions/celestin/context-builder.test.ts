@@ -89,6 +89,7 @@ describe('buildContextBlockFromResolvedSources', () => {
             character: null,
             quantity: 2,
             volume: '0.75',
+            food_pairings: ['agneau', 'volaille rotie'],
             local_score: 0.91,
           },
         ],
@@ -97,6 +98,7 @@ describe('buildContextBlockFromResolvedSources', () => {
 
     expect(block).toContain('Bouteilles en cave : 3 bouteilles (2 references).')
     expect(block).toContain('- [b1] Domaine Gangloff')
+    expect(block).toContain('accords=agneau, volaille rotie')
     expect(block).toContain('score_local=0.91')
   })
 })

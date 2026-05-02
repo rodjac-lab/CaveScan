@@ -25,6 +25,7 @@ export interface CaveBottle {
   quantity?: number
   volume?: string
   local_score?: number
+  food_pairings?: string[] | null
 }
 
 export interface MinimalRequestBody {
