@@ -172,7 +172,7 @@ const CASES: Case[] = [
 ]
 
 describe('buildUserPrompt', () => {
-  it('makes exploratory recommendation pivots standalone and forbids previous dish reuse', () => {
+  it('keeps exploratory pivots as the user message; policy is assembled elsewhere', () => {
     const interpretation: TurnInterpretation = {
       turnType: 'context_switch',
       cognitiveMode: 'wine_conversation',
@@ -187,12 +187,10 @@ describe('buildUserPrompt', () => {
       'exploratory_reco_pivot',
     )
 
-    expect(prompt).toContain('PIVOT EXPLORATOIRE')
-    expect(prompt).toContain('question autonome')
-    expect(prompt).toContain('Ne mentionne PAS le plat precedent')
+    expect(prompt).toBe('Et si je veux plutôt un italien ?')
   })
 
-  it('asks for immediate cards on direct recommendation requests', () => {
+  it('keeps direct recommendation requests as the user message', () => {
     const interpretation: TurnInterpretation = {
       turnType: 'task_request',
       cognitiveMode: 'cellar_assistant',
@@ -208,12 +206,10 @@ describe('buildUserPrompt', () => {
       'recommendation_request',
     )
 
-    expect(prompt).toContain('RECOMMANDATION IMMEDIATE')
-    expect(prompt).toContain('Utilise show_recommendations maintenant')
-    expect(prompt).toContain('Ne reponds pas seulement par des styles generiques')
+    expect(prompt).toBe("Ce soir c'est pizza")
   })
 
-  it('does not mention transmitted cave details for tool-only cellar lookups', () => {
+  it('keeps cellar lookup prompts free of source policy text', () => {
     const interpretation: TurnInterpretation = {
       turnType: 'context_switch',
       cognitiveMode: 'cellar_assistant',
@@ -226,20 +222,9 @@ describe('buildUserPrompt', () => {
       INITIAL_STATE,
       undefined,
       'cellar_lookup',
-      {
-        profile: 'none',
-        cave: 'tool_only',
-        zones: 'names',
-        memories: 'none',
-        tools: 'force_cellar',
-        history: 'compact',
-        truthPolicy: 'exact_only',
-        reasons: ['test'],
-      },
     )
 
-    expect(prompt).toContain('faits exacts')
-    expect(prompt).toContain('outil cave')
+    expect(prompt).toBe('Combien de bouteilles ai-je en cave ?')
     expect(prompt).not.toContain('cave transmise')
   })
 })

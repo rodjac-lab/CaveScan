@@ -35,7 +35,11 @@ export function buildProviderHistory(body: RequestBody, contextPlan?: ContextPla
 
 export function assembleCelestinPrompt(input: PromptAssemblyInput): AssembledCelestinPrompt {
   const contextBlock = buildContextBlockFromResolvedSources(input.resolvedSources)
-  const contextPolicy = buildContextPlanInstructions(input.contextPlan)
+  const contextPolicy = buildContextPlanInstructions(input.contextPlan, {
+    interpretation: input.interpretation,
+    state: input.state,
+    routingIntent: input.routingIntent,
+  })
   const systemParts = [
     buildCelestinSystemPrompt(input.interpretation.cognitiveMode),
     contextPolicy ? `--- POLITIQUE DU TOUR ---\n\n${contextPolicy}` : '',
@@ -49,7 +53,6 @@ export function assembleCelestinPrompt(input: PromptAssemblyInput): AssembledCel
     input.state,
     input.lastAssistantText,
     input.routingIntent,
-    input.contextPlan,
   )
 
   return {

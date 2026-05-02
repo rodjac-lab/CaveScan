@@ -46,4 +46,74 @@ describe('buildContextPlanInstructions', () => {
     expect(policy).toContain('query_tastings')
     expect(policy).toContain('fait exact en premiere phrase')
   })
+
+  it('centralizes exploratory pivot policy from routing state', () => {
+    const policy = buildContextPlanInstructions(plan(), {
+      interpretation: {
+        turnType: 'context_switch',
+        cognitiveMode: 'wine_conversation',
+        shouldAllowUiAction: false,
+      },
+      state: {
+        phase: 'post_task_ack',
+        taskType: 'recommendation',
+        lastUiActionKind: 'show_recommendations',
+        turnsSinceLastAction: 0,
+        memoryFocus: null,
+      },
+      routingIntent: 'exploratory_reco_pivot',
+    })
+
+    expect(policy).toContain('PIVOT EXPLORATOIRE')
+    expect(policy).toContain('question autonome')
+    expect(policy).toContain('plat precedent')
+  })
+
+  it('centralizes recommendation action policy from interpretation', () => {
+    const policy = buildContextPlanInstructions(plan({
+      cave: 'shortlist',
+      tools: 'auto',
+    }), {
+      interpretation: {
+        turnType: 'task_request',
+        cognitiveMode: 'cellar_assistant',
+        shouldAllowUiAction: true,
+        inferredTaskType: 'recommendation',
+      },
+      state: {
+        phase: 'idle_smalltalk',
+        taskType: undefined,
+        lastUiActionKind: undefined,
+        turnsSinceLastAction: 0,
+        memoryFocus: null,
+      },
+      routingIntent: 'recommendation_request',
+    })
+
+    expect(policy).toContain('RECOMMANDATION IMMEDIATE')
+    expect(policy).toContain('show_recommendations')
+    expect(policy).toContain('2-3 cartes')
+  })
+
+  it('centralizes encavage continuation action policy', () => {
+    const policy = buildContextPlanInstructions(plan(), {
+      interpretation: {
+        turnType: 'task_continue',
+        cognitiveMode: 'cellar_assistant',
+        shouldAllowUiAction: true,
+      },
+      state: {
+        phase: 'collecting_info',
+        taskType: 'encavage',
+        lastUiActionKind: undefined,
+        turnsSinceLastAction: 0,
+        memoryFocus: null,
+      },
+      routingIntent: 'encavage_request',
+    })
+
+    expect(policy).toContain('ENCAVAGE')
+    expect(policy).toContain('prepare_add_wine')
+    expect(policy).toContain('Reponse tres courte')
+  })
 })

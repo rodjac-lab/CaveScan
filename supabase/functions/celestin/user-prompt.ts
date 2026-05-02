@@ -1,5 +1,4 @@
 import type { ConversationState } from "./conversation-state.ts"
-import type { ContextPlan } from "./context-plan.ts"
 import { resolveActiveMemoryFocus } from "./memory-focus.ts"
 import type { RoutingIntent, TurnInterpretation } from "./turn-interpreter.ts"
 import type { RequestBody } from "./types.ts"
@@ -10,8 +9,8 @@ export function buildUserPrompt(
   state: ConversationState,
   lastAssistantText?: string,
   routingIntent?: RoutingIntent,
-  contextPlan?: ContextPlan,
 ): string {
+  void routingIntent
   const parts: string[] = []
   const { turnType, cognitiveMode } = interpretation
   const memoryFocus = resolveActiveMemoryFocus(body, interpretation, state, lastAssistantText)
@@ -53,17 +52,10 @@ export function buildUserPrompt(
   }
 
   else if (turnType === 'smalltalk' || (turnType === 'context_switch' && cognitiveMode === 'wine_conversation')) {
-    parts.push(`[QUESTION VIN — Reponds avec tes connaissances. Sois concis et direct. N'utilise cave, memoire ou preferences que si la question le demande explicitement. Si un nom est inconnu, dis-le sans valider sa categorie implicite.]`)
-    if (routingIntent === 'exploratory_reco_pivot') {
-      parts.push(`[PIVOT EXPLORATOIRE — L'utilisateur change d'angle apres une recommandation. Reponds a la nouvelle piste comme une question autonome. Ne mentionne PAS le plat precedent, ne reprends PAS les cartes precedentes et ne donne PAS de shortlist.]`)
-    } else if (turnType === 'context_switch' && state.taskType === 'recommendation') {
-      parts.push(`[PIVOT DE RECOMMANDATION — L'utilisateur explore une autre direction. Reponds sobrement a cette nouvelle piste sans recycler automatiquement le plat precedent, les cartes precedentes ou un souvenir marquant.]`)
-    }
     parts.push(body.message)
   }
 
   else if (turnType === 'context_switch' && cognitiveMode === 'tasting_memory') {
-    parts.push(`[SOUVENIR — L'utilisateur fait reference a une degustation passee. Utilise uniquement les souvenirs explicitement fournis. Si un vin n'apparait pas dans ces souvenirs, dis-le franchement.]`)
     if (memoryFocus) {
       parts.push(`[FOCUS MEMOIRE — La relance courte porte probablement sur : ${memoryFocus}. Si l'utilisateur demande "combien d'etoiles", "quelle note" ou "quel millesime", reste focalise sur ce vin precis.]`)
     }
@@ -71,11 +63,6 @@ export function buildUserPrompt(
   }
 
   else if (turnType === 'context_switch' && cognitiveMode === 'cellar_assistant') {
-    if (contextPlan?.cave === 'tool_only') {
-      parts.push(`[QUESTION CAVE - Reponds uniquement a partir des faits exacts fournis ou de l'outil cave. Pour les questions de quantite, compte les bouteilles a partir des quantites, pas seulement les references.]`)
-    } else {
-      parts.push(`[QUESTION CAVE - Reponds uniquement a partir de la cave transmise. Pour les questions de quantite, compte les bouteilles a partir des quantites, pas seulement les references.]`)
-    }
     parts.push(body.message)
   }
 
@@ -85,7 +72,6 @@ export function buildUserPrompt(
     && state.phase === 'collecting_info'
     && state.taskType === 'recommendation'
   ) {
-    parts.push(`[RECOMMANDATION IMMEDIATE — L'utilisateur vient d'apporter la precision manquante. Si le contexte suffit, utilise MAINTENANT show_recommendations. Base-toi sur la demande courante; n'introduis pas un autre plat, pays ou souvenir non mentionne.]`)
     parts.push(body.message)
   }
 
@@ -95,8 +81,6 @@ export function buildUserPrompt(
     && state.phase === 'collecting_info'
     && state.taskType === 'encavage'
   ) {
-    parts.push(`[ENCAVAGE — L'utilisateur complete la fiche d'un vin a encaver. Si le vin est maintenant suffisamment identifie (domaine/appellation/millesime ou equivalent), envoie prepare_add_wine IMMEDIATEMENT. Ne demande PAS "tu veux que je l'ajoute ?" et ne cherche PAS une confirmation supplementaire.]`)
-    parts.push(`[STYLE — Reponse tres courte. Pas de commentaire de degustation, pas d'avis sur le domaine. Juste l'accuse de reception et l'action.]`)
     parts.push(body.message)
   }
 
@@ -109,18 +93,6 @@ export function buildUserPrompt(
   }
 
   else {
-    if (
-      cognitiveMode === 'cellar_assistant'
-      && (interpretation.inferredTaskType === 'recommendation' || state.taskType === 'recommendation')
-    ) {
-      if (turnType === 'task_request') {
-        parts.push(`[RECOMMANDATION IMMEDIATE — La demande actuelle suffit pour proposer des bouteilles. Utilise show_recommendations maintenant avec 2-3 cartes de la cave. Ne reponds pas seulement par des styles generiques.]`)
-      } else if (routingIntent === 'recommendation_refinement') {
-        parts.push(`[NOUVELLE SELECTION — L'utilisateur demande d'autres bouteilles ou une variante. Utilise show_recommendations maintenant, en respectant la nouvelle contrainte.]`)
-      } else {
-        parts.push(`[RECOMMANDATION — Reponds d'abord a la demande actuelle. N'invente pas un autre contexte. Ne cite un souvenir que s'il aide directement le choix, jamais pour decorer.]`)
-      }
-    }
     if (cognitiveMode === 'tasting_memory' && memoryFocus) {
       parts.push(`[FOCUS MEMOIRE — La relance courte porte probablement sur : ${memoryFocus}. Reste focalise sur ce vin precis.]`)
     }

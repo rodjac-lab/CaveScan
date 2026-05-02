@@ -1,7 +1,19 @@
 import type { ContextPlan } from "./context-plan.ts"
+import type { ConversationState } from "./conversation-state.ts"
+import type { RoutingIntent, TurnInterpretation } from "./turn-interpreter.ts"
 
-export function buildContextPlanInstructions(contextPlan: ContextPlan): string {
+export function buildContextPlanInstructions(
+  contextPlan: ContextPlan,
+  options: {
+    interpretation?: TurnInterpretation
+    state?: ConversationState
+    routingIntent?: RoutingIntent
+  } = {},
+): string {
   const parts: string[] = []
+  const { interpretation, state, routingIntent } = options
+  const turnType = interpretation?.turnType
+  const cognitiveMode = interpretation?.cognitiveMode
 
   if (contextPlan.truthPolicy === 'exact_only') {
     parts.push('[VERITE EXACTE — Reponds uniquement depuis les faits deterministes fournis ou les outils autorises. Si le fait exact manque, dis-le clairement.]')
@@ -22,6 +34,42 @@ export function buildContextPlanInstructions(contextPlan: ContextPlan): string {
 
   if (contextPlan.memories === 'targeted') {
     parts.push('[SOUVENIRS CIBLES — Cite un souvenir seulement s il aide directement le choix ou la conversation. Ne l utilise jamais comme decoration.]')
+  }
+
+  if (cognitiveMode === 'wine_conversation') {
+    parts.push('[QUESTION VIN — Reponds avec tes connaissances. Sois concis et direct. N utilise cave, memoire ou preferences que si la question le demande explicitement. Si un nom est inconnu, dis-le sans valider sa categorie implicite.]')
+  }
+
+  if (cognitiveMode === 'tasting_memory') {
+    parts.push('[SOUVENIR — L utilisateur fait reference a une degustation passee. Utilise uniquement les souvenirs explicitement fournis ou les degustations recuperees. Si un vin n apparait pas dans ces sources, dis-le franchement.]')
+  }
+
+  if (routingIntent === 'exploratory_reco_pivot') {
+    parts.push('[PIVOT EXPLORATOIRE — L utilisateur change d angle apres une recommandation. Reponds a la nouvelle piste comme une question autonome. Ne mentionne pas le plat precedent, ne reprends pas les cartes precedentes et ne donne pas de shortlist.]')
+  } else if (turnType === 'context_switch' && state?.taskType === 'recommendation' && cognitiveMode === 'wine_conversation') {
+    parts.push('[PIVOT DE RECOMMANDATION — L utilisateur explore une autre direction. Reponds sobrement a cette nouvelle piste sans recycler automatiquement le plat precedent, les cartes precedentes ou un souvenir marquant.]')
+  }
+
+  if (
+    cognitiveMode === 'cellar_assistant'
+    && (interpretation?.inferredTaskType === 'recommendation' || state?.taskType === 'recommendation')
+  ) {
+    if (turnType === 'task_request' || (turnType === 'task_continue' && state?.phase === 'collecting_info')) {
+      parts.push('[RECOMMANDATION IMMEDIATE — Si la demande actuelle suffit, utilise show_recommendations maintenant avec 2-3 cartes de la cave. Base-toi sur la demande courante ; n introduis pas un autre plat, pays ou souvenir non mentionne.]')
+    } else if (routingIntent === 'recommendation_refinement') {
+      parts.push('[NOUVELLE SELECTION — L utilisateur demande d autres bouteilles ou une variante. Utilise show_recommendations maintenant, en respectant la nouvelle contrainte.]')
+    } else {
+      parts.push('[RECOMMANDATION — Reponds d abord a la demande actuelle. N invente pas un autre contexte. Ne cite un souvenir que s il aide directement le choix.]')
+    }
+  }
+
+  if (
+    turnType === 'task_continue'
+    && cognitiveMode === 'cellar_assistant'
+    && state?.phase === 'collecting_info'
+    && state.taskType === 'encavage'
+  ) {
+    parts.push('[ENCAVAGE — Si le vin est maintenant suffisamment identifie, envoie prepare_add_wine immediatement. Ne demande pas une confirmation supplementaire. Reponse tres courte, sans commentaire de degustation ni avis sur le domaine.]')
   }
 
   return parts.join('\n')
