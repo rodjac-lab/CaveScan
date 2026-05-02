@@ -28,6 +28,8 @@ export interface ResolvedMemoriesSource {
   level: ContextPlan['memories']
   text: string
   evidenceMode?: RequestBody['memoryEvidenceMode']
+  selectedCount?: number
+  source?: 'request' | 'backend_tastings'
 }
 
 export interface ResolvedSqlSource {
@@ -203,6 +205,168 @@ function resolveMemories(body: RequestBody, contextPlan: ContextPlan): ResolvedM
     level: contextPlan.memories,
     text,
     evidenceMode: body.memoryEvidenceMode,
+    source: 'request',
+  }
+}
+
+const MEMORY_STOP_WORDS = new Set([
+  'avec',
+  'avoir',
+  'avais',
+  'boire',
+  'bouteille',
+  'bouteilles',
+  'cave',
+  'cela',
+  'cette',
+  'dans',
+  'degustation',
+  'degustations',
+  'donne',
+  'envie',
+  'faire',
+  'fait',
+  'faut',
+  'j avais',
+  'mais',
+  'manger',
+  'pour',
+  'quel',
+  'quelle',
+  'quoi',
+  'rappelle',
+  'recommande',
+  'recommandation',
+  'souvenir',
+  'souviens',
+  'super',
+  'trouve',
+  'veux',
+  'vin',
+  'vins',
+])
+
+function memoryTokens(message: string): string[] {
+  return [...new Set(
+    normalizeExactQueryText(message)
+      .split(/\s+/)
+      .filter((token) => token.length >= 4 && !MEMORY_STOP_WORDS.has(token)),
+  )]
+}
+
+function rowText(row: Record<string, unknown>): string {
+  return [
+    tastingIdentityText(row),
+    row.tasting_note,
+    row.tasting_tags && typeof row.tasting_tags === 'object' ? JSON.stringify(row.tasting_tags) : '',
+  ].filter(Boolean).join(' ')
+}
+
+function scoreMemoryRow(row: Record<string, unknown>, tokens: string[]): number {
+  if (tokens.length === 0) return 0
+
+  const identity = normalizeExactQueryText(tastingIdentityText(row))
+  const fullText = normalizeExactQueryText(rowText(row))
+  let score = 0
+
+  for (const token of tokens) {
+    if (identity.includes(token)) score += 3
+    else if (fullText.includes(token)) score += 2
+  }
+
+  if (score === 0) return 0
+
+  const rating = typeof row.rating === 'number' ? row.rating : null
+  if (rating && rating >= 4) score += 0.5
+  if (typeof row.tasting_note === 'string' && row.tasting_note.trim().length > 0) score += 0.5
+
+  return score
+}
+
+function tastingLabel(row: Record<string, unknown>): string {
+  return [
+    row.domaine,
+    row.cuvee,
+    row.appellation,
+    row.millesime,
+  ].filter(Boolean).join(' ')
+}
+
+function serializeTargetedMemories(input: {
+  message: string
+  level: ContextPlan['memories']
+  rows: Record<string, unknown>[]
+}): string {
+  const lines: string[] = []
+  const exact = input.level === 'exact'
+
+  lines.push(exact ? 'Souvenirs exacts de degustation retrouves en base.' : 'Souvenirs de degustation cibles retrouves en base.')
+  lines.push(`Question actuelle : ${input.message.trim()}`)
+  lines.push(exact
+    ? 'N affirme rien hors de ces degustations. Si le souvenir demande n apparait pas ici, dis-le franchement.'
+    : 'Utilise ces souvenirs pour la texture personnelle seulement s ils aident directement la reponse.')
+  lines.push(`Degustations fournies : ${input.rows.length}.`)
+
+  for (const row of input.rows) {
+    const label = tastingLabel(row) || 'Degustation'
+    const rating = typeof row.rating === 'number' ? ` | note=${row.rating}/5` : ''
+    const date = typeof row.drunk_at === 'string' ? ` | bu le ${row.drunk_at.slice(0, 10)}` : ''
+    const note = typeof row.tasting_note === 'string' && row.tasting_note.trim()
+      ? `\n  Note : ${row.tasting_note.trim().slice(0, 500)}`
+      : ''
+    lines.push(`- ${label}${rating}${date}${note}`)
+  }
+
+  return lines.join('\n')
+}
+
+async function resolveMemoriesFromBackend(
+  body: RequestBody,
+  contextPlan: ContextPlan,
+  auth: SourceResolverAuth,
+): Promise<ResolvedMemoriesSource | undefined> {
+  const local = resolveMemories(body, contextPlan)
+  if (local || contextPlan.memories === 'none' || !auth?.userId || !auth.supabase) return local
+  if (
+    contextPlan.tools === 'force_tastings'
+    && (parseTastingCountQuery(body.message) || parseTastingRatingQuery(body.message))
+  ) return undefined
+
+  const tokens = memoryTokens(body.message)
+  if (tokens.length === 0) return undefined
+
+  const { data, error } = await auth.supabase
+    .from('bottles')
+    .select('domaine,cuvee,appellation,millesime,couleur,country,region,rating,drunk_at,tasting_note,tasting_tags')
+    .eq('user_id', auth.userId)
+    .eq('status', 'drunk')
+    .order('drunk_at', { ascending: false, nullsFirst: false })
+    .limit(120)
+
+  if (error) {
+    console.warn('[celestin:source-resolver] tasting memory lookup failed:', error.message)
+    return undefined
+  }
+
+  const ranked = (data ?? [])
+    .map((row: Record<string, unknown>) => ({ row, score: scoreMemoryRow(row, tokens) }))
+    .filter((candidate) => candidate.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, contextPlan.memories === 'exact' ? 8 : 5)
+    .map((candidate) => candidate.row)
+
+  if (ranked.length === 0) return undefined
+
+  return {
+    level: contextPlan.memories,
+    text: serializeTargetedMemories({
+      message: body.message,
+      level: contextPlan.memories,
+      rows: ranked,
+    }),
+    evidenceMode: contextPlan.memories === 'exact' ? 'exact' : 'synthesis',
+    selectedCount: ranked.length,
+    source: 'backend_tastings',
   }
 }
 
@@ -410,17 +574,18 @@ export async function resolveContextSourcesForRequest(
   contextPlan: ContextPlan,
   auth?: SourceResolverAuth,
 ): Promise<ResolvedContextSources> {
-  const [profile, cave, zones, tastings] = await Promise.all([
+  const [profile, cave, zones, memories, tastings] = await Promise.all([
     resolveProfileFromBackend(body, contextPlan, auth),
     resolveCaveFromBackend(body, contextPlan, auth),
     resolveZonesFromBackend(body, contextPlan, auth),
+    resolveMemoriesFromBackend(body, contextPlan, auth),
     resolveTastingsFromBackend(body, contextPlan, auth),
   ])
 
   return {
     requirements: buildSourceRequirements(contextPlan),
     profile,
-    memories: resolveMemories(body, contextPlan),
+    memories,
     sqlRetrieval: resolveSqlRetrieval(body, contextPlan),
     tastings,
     cave,

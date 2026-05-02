@@ -244,41 +244,46 @@ describe('resolveContextSourcesForRequest', () => {
         }
         expect(table).toBe('bottles')
         return {
-          select: () => ({
-            eq: () => ({
+          select: (columns: string) => {
+            const rows = columns.includes('tasting_note')
+              ? []
+              : [
+                  {
+                    id: '12345678-aaaa-bbbb-cccc-123456789abc',
+                    domaine: 'Domaine A',
+                    cuvee: 'Vieilles Vignes',
+                    appellation: 'Chablis',
+                    millesime: 2020,
+                    couleur: 'blanc',
+                    character: 'tendu',
+                    quantity: 2,
+                    volume_l: 0.75,
+                  },
+                  {
+                    id: 'abcdef12-aaaa-bbbb-cccc-123456789abc',
+                    domaine: 'Domaine B',
+                    cuvee: null,
+                    appellation: 'Saumur',
+                    millesime: 2019,
+                    couleur: 'rouge',
+                    character: null,
+                    quantity: 1,
+                    volume_l: 1.5,
+                  },
+                ]
+            return {
               eq: () => ({
-                order: () => ({
-                  limit: async () => ({
-                    data: [
-                      {
-                        id: '12345678-aaaa-bbbb-cccc-123456789abc',
-                        domaine: 'Domaine A',
-                        cuvee: 'Vieilles Vignes',
-                        appellation: 'Chablis',
-                        millesime: 2020,
-                        couleur: 'blanc',
-                        character: 'tendu',
-                        quantity: 2,
-                        volume_l: 0.75,
-                      },
-                      {
-                        id: 'abcdef12-aaaa-bbbb-cccc-123456789abc',
-                        domaine: 'Domaine B',
-                        cuvee: null,
-                        appellation: 'Saumur',
-                        millesime: 2019,
-                        couleur: 'rouge',
-                        character: null,
-                        quantity: 1,
-                        volume_l: 1.5,
-                      },
-                    ],
-                    error: null,
+                eq: () => ({
+                  order: () => ({
+                    limit: async () => ({
+                      data: rows,
+                      error: null,
+                    }),
                   }),
                 }),
               }),
-            }),
-          }),
+            }
+          },
         }
       },
     }
@@ -321,6 +326,84 @@ describe('resolveContextSourcesForRequest', () => {
       quantity: 2,
       volume: '0.75',
     })
+  })
+
+  it('resolves targeted tasting memories from backend without frontend memory text', async () => {
+    const supabase = {
+      from(table: string) {
+        expect(table).toBe('bottles')
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                order: () => ({
+                  limit: async () => ({
+                    data: [
+                      {
+                        domaine: 'Felsina',
+                        cuvee: 'Rancia',
+                        appellation: 'Chianti Classico',
+                        millesime: 2019,
+                        couleur: 'rouge',
+                        country: 'Italie',
+                        region: 'Toscane',
+                        rating: 5,
+                        drunk_at: '2025-09-12',
+                        tasting_note: 'Petit restaurant a Rome avec ma femme, superbe souvenir autour des pates.',
+                        tasting_tags: null,
+                      },
+                      {
+                        domaine: 'Domaine A',
+                        cuvee: null,
+                        appellation: 'Chablis',
+                        millesime: 2020,
+                        couleur: 'blanc',
+                        country: 'France',
+                        region: 'Bourgogne',
+                        rating: 4,
+                        drunk_at: '2025-09-13',
+                        tasting_note: 'Tres citronne.',
+                        tasting_tags: null,
+                      },
+                    ],
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: 'Un italien qui me rappelle Rome avec ma femme',
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'none',
+        cave: 'none',
+        zones: 'none',
+        memories: 'targeted',
+        tools: 'auto',
+        history: 'normal',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.memories).toMatchObject({
+      level: 'targeted',
+      evidenceMode: 'synthesis',
+      source: 'backend_tastings',
+      selectedCount: 1,
+    })
+    expect(sources.memories?.text).toContain('Felsina')
+    expect(sources.memories?.text).toContain('Petit restaurant a Rome avec ma femme')
+    expect(sources.memories?.text).not.toContain('Chablis')
   })
 
   it('resolves simple tasting count source from backend for force_tastings plans', async () => {

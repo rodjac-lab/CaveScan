@@ -38,16 +38,16 @@ describe('celestinChatRequest routing guards', () => {
     expect(resolveLegacyMemorySelectionProfile({ taskType: 'recommendation' })).toBe('recommendation')
   })
 
-  it('uses backend-managed context only for low-risk legacy-source skips', () => {
+  it('uses backend-managed context for new text turns without an active task', () => {
     expect(shouldUseBackendManagedContext({ message: 'Salut' })).toBe(true)
     expect(shouldUseBackendManagedContext({ message: 'J ai combien de bouteilles en cave ?' })).toBe(true)
     expect(shouldUseBackendManagedContext({ message: 'J ai combien de degustations de Champagne ?' })).toBe(true)
     expect(shouldUseBackendManagedContext({ message: "J'avais mis combien d'etoiles au Rayas ?" })).toBe(true)
+    expect(shouldUseBackendManagedContext({ message: 'Que boire avec une pizza ?' })).toBe(true)
     expect(shouldUseBackendManagedContext({
       message: 'J ai combien de degustations de Champagne ?',
       conversationState: { taskType: 'recommendation' },
     })).toBe(false)
-    expect(shouldUseBackendManagedContext({ message: 'Que boire avec une pizza ?' })).toBe(false)
-    expect(shouldUseBackendManagedContext({ message: 'Combien de bouteilles de Champagne ai-je ?' })).toBe(false)
+    expect(shouldUseBackendManagedContext({ message: 'Combien de bouteilles de Champagne ai-je ?' })).toBe(true)
   })
 })

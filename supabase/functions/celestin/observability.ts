@@ -99,6 +99,8 @@ export function summarizeResolvedSources(sources: ResolvedContextSources | null 
       ? {
           level: sources.memories.level,
           evidenceMode: sources.memories.evidenceMode ?? null,
+          source: sources.memories.source ?? null,
+          selectedCount: sources.memories.selectedCount ?? null,
           chars: sources.memories.text.length,
         }
       : null,

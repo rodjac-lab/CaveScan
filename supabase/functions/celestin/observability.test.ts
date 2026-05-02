@@ -13,6 +13,8 @@ function sources(overrides: Partial<ResolvedContextSources> = {}): ResolvedConte
       level: 'targeted',
       text: 'Souvenir exact',
       evidenceMode: 'synthesis',
+      source: 'backend_tastings',
+      selectedCount: 1,
     },
     cave: {
       level: 'shortlist',
@@ -63,6 +65,8 @@ describe('summarizeResolvedSources', () => {
       memories: {
         level: 'targeted',
         evidenceMode: 'synthesis',
+        source: 'backend_tastings',
+        selectedCount: 1,
         chars: 14,
       },
       sqlRetrieval: null,
