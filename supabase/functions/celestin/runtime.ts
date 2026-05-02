@@ -4,6 +4,7 @@ import { buildDeterministicResponse } from "./deterministic-response.ts"
 import { celestinWithFallback, type CelestinProviderTrace } from "./llm-providers.ts"
 import { resolveActiveMemoryFocus } from "./memory-focus.ts"
 import { assembleCelestinPrompt, buildProviderHistory } from "./prompt-assembler.ts"
+import { ensureRecommendationUiAction } from "./recommendation-action.ts"
 import { applyResponsePolicy } from "./response-policy.ts"
 import { interpretTurnWithRouting } from "./turn-interpreter.ts"
 import { persistCelestinTurnObservability } from "./observability.ts"
@@ -243,7 +244,12 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       },
     )
 
-    const response = applyResponsePolicy(rawResponse, interpretation)
+    const response = ensureRecommendationUiAction({
+      response: applyResponsePolicy(rawResponse, interpretation),
+      interpretation,
+      routingIntent: routing.winner,
+      resolvedSources,
+    })
 
     const nextState = computeNextState(
       conversationState,
