@@ -27,16 +27,9 @@ export interface CaveBottle {
   local_score?: number
 }
 
-export interface RequestBody {
+export interface MinimalRequestBody {
   message: string
   history: ConversationTurn[]
-  cave?: CaveBottle[]
-  profile?: string
-  memories?: string
-  memoryEvidenceMode?: 'exact' | 'synthesis'
-  memoryTrace?: Record<string, unknown>
-  sqlRetrieval?: string
-  sqlRetrievalTrace?: Record<string, unknown>
   provider?: string
   debugTrace?: boolean
   requestSource?: string
@@ -44,14 +37,26 @@ export interface RequestBody {
   contextStrategy?: 'legacy' | 'backend_managed'
   image?: string
   conversationState?: ConversationState
-  compiledProfileMarkdown?: string
   conversationalIntent?: ConversationalIntent | string | null
+}
+
+export interface LegacyRequestContextFields {
+  cave?: CaveBottle[]
+  profile?: string
+  memories?: string
+  memoryEvidenceMode?: 'exact' | 'synthesis'
+  memoryTrace?: Record<string, unknown>
+  sqlRetrieval?: string
+  sqlRetrievalTrace?: Record<string, unknown>
+  compiledProfileMarkdown?: string
   context?: {
     dayOfWeek: string
     season: string
     recentDrunk?: string[]
   }
 }
+
+export type RequestBody = MinimalRequestBody & LegacyRequestContextFields
 
 export type UiActionKind = 'show_recommendations' | 'prepare_add_wine' | 'prepare_add_wines' | 'prepare_log_tasting'
 
