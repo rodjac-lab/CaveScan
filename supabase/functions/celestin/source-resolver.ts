@@ -263,6 +263,21 @@ function resolveCave(body: RequestBody, contextPlan: ContextPlan): ResolvedCaveS
   }
 }
 
+function compactCaveBottle(row: Record<string, unknown>): CaveBottle {
+  const rawVolume = row.volume_l ?? row.volume
+  return {
+    id: typeof row.id === 'string' ? row.id.slice(0, 8) : '',
+    domaine: typeof row.domaine === 'string' ? row.domaine : null,
+    cuvee: typeof row.cuvee === 'string' ? row.cuvee : null,
+    appellation: typeof row.appellation === 'string' ? row.appellation : null,
+    millesime: typeof row.millesime === 'number' ? row.millesime : null,
+    couleur: typeof row.couleur === 'string' ? row.couleur : null,
+    character: typeof row.character === 'string' ? row.character : null,
+    quantity: typeof row.quantity === 'number' ? row.quantity : 1,
+    volume: typeof rawVolume === 'number' ? String(rawVolume) : typeof rawVolume === 'string' ? rawVolume : undefined,
+  }
+}
+
 async function resolveCaveFromBackend(
   body: RequestBody,
   contextPlan: ContextPlan,
@@ -270,6 +285,30 @@ async function resolveCaveFromBackend(
 ): Promise<ResolvedCaveSource> {
   const local = resolveCave(body, contextPlan)
   if (body.cave.length > 0 || contextPlan.cave === 'none' || !auth?.userId || !auth.supabase) return local
+
+  if (contextPlan.cave === 'shortlist' || contextPlan.cave === 'full_debug') {
+    const maxRows = contextPlan.cave === 'full_debug' ? 80 : 40
+    const { data, error } = await auth.supabase
+      .from('bottles')
+      .select('id,domaine,cuvee,appellation,millesime,couleur,character,quantity,volume_l')
+      .eq('user_id', auth.userId)
+      .eq('status', 'in_stock')
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .limit(maxRows)
+
+    if (error) {
+      console.warn('[celestin:source-resolver] cellar shortlist lookup failed:', error.message)
+      return local
+    }
+
+    const bottles = (data ?? []).map((row: Record<string, unknown>) => compactCaveBottle(row))
+    return {
+      level: contextPlan.cave,
+      referenceCount: bottles.length,
+      totalBottles: bottles.reduce((sum, bottle) => sum + Math.max(1, bottle.quantity ?? 1), 0),
+      bottles,
+    }
+  }
 
   const { data, error } = await auth.supabase
     .from('bottles')

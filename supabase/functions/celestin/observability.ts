@@ -3,6 +3,7 @@ import type { ContextPlan } from "./context-plan.ts"
 import type { ConversationState } from "./conversation-state.ts"
 import type { CelestinProviderTrace } from "./llm-providers.ts"
 import { buildSourceRequirements } from "./source-resolver.ts"
+import type { ResolvedContextSources } from "./source-resolver.ts"
 import type { CelestinResponse, RequestBody } from "./types.ts"
 
 type PromptMetrics = {
@@ -32,6 +33,7 @@ export type CelestinTurnObservabilityInput = {
   providerErrors?: string[]
   providerTrace?: CelestinProviderTrace | null
   contextPlan?: ContextPlan | null
+  resolvedSources?: ResolvedContextSources | null
 }
 
 export type CelestinEdgeFunctionTimingInput = {
@@ -80,6 +82,47 @@ function toolNames(providerTrace: CelestinProviderTrace | null | undefined): str
 function toolDurationMs(providerTrace: CelestinProviderTrace | null | undefined): number {
   if (!providerTrace) return 0
   return providerTrace.toolCalls.reduce((sum, tool) => sum + Math.max(0, tool.durationMs), 0)
+}
+
+export function summarizeResolvedSources(sources: ResolvedContextSources | null | undefined) {
+  if (!sources) return null
+
+  return {
+    profile: sources.profile
+      ? {
+          level: sources.profile.level,
+          compiled: !!sources.profile.compiledMarkdown,
+          legacy: !!sources.profile.legacyProfile,
+        }
+      : null,
+    memories: sources.memories
+      ? {
+          level: sources.memories.level,
+          evidenceMode: sources.memories.evidenceMode ?? null,
+          chars: sources.memories.text.length,
+        }
+      : null,
+    sqlRetrieval: sources.sqlRetrieval
+      ? { chars: sources.sqlRetrieval.text.length }
+      : null,
+    cave: {
+      level: sources.cave.level,
+      totalBottles: sources.cave.totalBottles,
+      referenceCount: sources.cave.referenceCount,
+      injectedBottles: sources.cave.bottles.length,
+    },
+    zones: {
+      count: sources.zones.length,
+    },
+    tastings: sources.tastings
+      ? {
+          kind: sources.tastings.kind,
+          totalRows: sources.tastings.totalRows,
+          rowCount: sources.tastings.rows?.length ?? 0,
+          query: sources.tastings.query ?? null,
+        }
+      : null,
+  }
 }
 
 export async function persistCelestinTurnObservability(input: CelestinTurnObservabilityInput): Promise<void> {
@@ -135,6 +178,7 @@ export async function persistCelestinTurnObservability(input: CelestinTurnObserv
           promptCacheReadTokens: trace?.claudeCache.readInputTokens ?? 0,
           contextPlan: input.contextPlan ?? null,
           sourceRequirements: input.contextPlan ? buildSourceRequirements(input.contextPlan) : [],
+          resolvedSources: summarizeResolvedSources(input.resolvedSources),
         },
       }, { onConflict: 'turn_id' })
 

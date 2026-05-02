@@ -215,6 +215,114 @@ describe('resolveContextSourcesForRequest', () => {
     expect(sources.zones).toEqual(['Paris', 'Bourgogne'])
   })
 
+  it('resolves cellar shortlist from backend when recommendation body is minimal', async () => {
+    const supabase = {
+      from(table: string) {
+        if (table === 'user_profiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: { compiled_markdown: '## Profil backend' },
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        if (table === 'zones') {
+          return {
+            select: () => ({
+              eq: () => ({
+                order: async () => ({
+                  data: [{ name: 'Paris' }],
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        expect(table).toBe('bottles')
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                order: () => ({
+                  limit: async () => ({
+                    data: [
+                      {
+                        id: '12345678-aaaa-bbbb-cccc-123456789abc',
+                        domaine: 'Domaine A',
+                        cuvee: 'Vieilles Vignes',
+                        appellation: 'Chablis',
+                        millesime: 2020,
+                        couleur: 'blanc',
+                        character: 'tendu',
+                        quantity: 2,
+                        volume_l: 0.75,
+                      },
+                      {
+                        id: 'abcdef12-aaaa-bbbb-cccc-123456789abc',
+                        domaine: 'Domaine B',
+                        cuvee: null,
+                        appellation: 'Saumur',
+                        millesime: 2019,
+                        couleur: 'rouge',
+                        character: null,
+                        quantity: 1,
+                        volume_l: 1.5,
+                      },
+                    ],
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: 'Que boire ce soir ?',
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'recommendation',
+        cave: 'shortlist',
+        zones: 'names',
+        memories: 'targeted',
+        tools: 'auto',
+        history: 'normal',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.profile?.compiledMarkdown).toBe('## Profil backend')
+    expect(sources.zones).toEqual(['Paris'])
+    expect(sources.cave).toMatchObject({
+      level: 'shortlist',
+      totalBottles: 3,
+      referenceCount: 2,
+    })
+    expect(sources.cave.bottles).toHaveLength(2)
+    expect(sources.cave.bottles[0]).toMatchObject({
+      id: '12345678',
+      domaine: 'Domaine A',
+      cuvee: 'Vieilles Vignes',
+      appellation: 'Chablis',
+      millesime: 2020,
+      couleur: 'blanc',
+      character: 'tendu',
+      quantity: 2,
+      volume: '0.75',
+    })
+  })
+
   it('resolves simple tasting count source from backend for force_tastings plans', async () => {
     const supabase = {
       from(table: string) {

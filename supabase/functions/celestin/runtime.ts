@@ -210,6 +210,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
         providerErrors: [],
         providerTrace,
         contextPlan,
+        resolvedSources,
       })
 
       console.log(`[celestin] Deterministic response: route=${routing.winner} msg="${response.message.slice(0, 120)}"`)
@@ -295,6 +296,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       providerErrors,
       providerTrace,
       contextPlan,
+      resolvedSources,
     })
 
     if (body.debugTrace) {
