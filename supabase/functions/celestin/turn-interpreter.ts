@@ -141,6 +141,14 @@ function routePostTaskAck(state: ConversationState, signals: RoutingSignals, can
     return routed({ turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }, state.phase, 'recommendation_refinement', candidates)
   }
 
+  if (
+    state.taskType === 'recommendation'
+    && signals.isInventoryQuestion
+    && /\b(plutot|plutôt|dans ma cave|autre maison|autre cave|cave de)\b/i.test(signals.lower)
+  ) {
+    return routed({ turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }, state.phase, 'recommendation_refinement', candidates)
+  }
+
   if (state.taskType === 'recommendation' && signals.isMemoryGuidedRecommendation) {
     return routed({ turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }, state.phase, 'memory_guided_recommendation', candidates)
   }
@@ -207,6 +215,10 @@ function routeActiveTask(state: ConversationState, signals: RoutingSignals, cand
 }
 
 function routeIdle(signals: RoutingSignals, candidates: RoutingCandidate[]): TurnRoutingResult {
+  if (signals.isCancel) {
+    return routed(cancelTask(), 'idle_smalltalk', 'task_cancel', candidates)
+  }
+
   if (signals.isSocialAck) {
     return routed(socialAck(), 'idle_smalltalk', 'social_ack', candidates)
   }
@@ -221,6 +233,10 @@ function routeIdle(signals: RoutingSignals, candidates: RoutingCandidate[]): Tur
 
   const cellarRequest = routeCellarRequest(signals)
   if (cellarRequest) return routed(cellarRequest.interpretation, 'idle_smalltalk', cellarRequest.winner, candidates)
+
+  if (signals.isMemoryGuidedRecommendation) {
+    return routed(recommendationRequest(), 'idle_smalltalk', 'memory_guided_recommendation', candidates)
+  }
 
   const memoryIntent = routeMemoryIntent(signals, true)
   if (memoryIntent) return routed(memoryIntent.interpretation, 'idle_smalltalk', memoryIntent.winner, candidates)

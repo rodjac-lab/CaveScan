@@ -1,12 +1,39 @@
 import { describe, expect, it } from 'vitest'
-import { INITIAL_STATE, type ConversationState } from './conversation-state'
+import { computeNextState, INITIAL_STATE, type ConversationState } from './conversation-state'
 import { interpretTurn, interpretTurnWithRouting } from './turn-interpreter'
+import type { RoutingIntent, TurnRoutingResult } from './turn-types'
 
 function state(overrides: Partial<ConversationState> = {}): ConversationState {
   return {
     ...INITIAL_STATE,
     ...overrides,
   }
+}
+
+interface RoutingExpectation {
+  id: string
+  message: string
+  expectedWinner: RoutingIntent
+  expectedMode: TurnRoutingResult['interpretation']['cognitiveMode']
+  expectedUiAction: boolean
+  conversationalIntent?: string | null
+  lastAssistantText?: string
+  state?: Partial<ConversationState>
+}
+
+function expectRoute(testCase: RoutingExpectation): TurnRoutingResult {
+  const result = interpretTurnWithRouting(
+    testCase.message,
+    false,
+    state(testCase.state),
+    testCase.lastAssistantText,
+    testCase.conversationalIntent,
+  )
+
+  expect(result.routing.winner, testCase.id).toBe(testCase.expectedWinner)
+  expect(result.interpretation.cognitiveMode, testCase.id).toBe(testCase.expectedMode)
+  expect(result.interpretation.shouldAllowUiAction, testCase.id).toBe(testCase.expectedUiAction)
+  return result
 }
 
 describe('interpretTurn', () => {
@@ -245,7 +272,7 @@ describe('conversationalIntent arbitrage', () => {
     })
   })
 
-  it('falls back to regex (cellar_lookup) for "Choisis dans ma cave" when classifier is null', () => {
+  it('falls back to regex recommendation for "Choisis dans ma cave" when classifier is null', () => {
     const result = interpretTurnWithRouting(
       'Choisis dans ma cave',
       false,
@@ -254,8 +281,9 @@ describe('conversationalIntent arbitrage', () => {
       null,
     )
 
-    expect(result.routing.winner).toBe('cellar_lookup')
-    expect(result.interpretation.shouldAllowUiAction).toBe(false)
+    expect(result.routing.winner).toBe('recommendation_request')
+    expect(result.interpretation.shouldAllowUiAction).toBe(true)
+    expect(result.interpretation.inferredTaskType).toBe('recommendation')
   })
 
   it('keeps factual inventory query on cellar_lookup when classifier says inventory_lookup', () => {
@@ -335,7 +363,7 @@ describe('conversationalIntent arbitrage', () => {
     expect(result.interpretation.shouldAllowUiAction).toBe(false)
   })
 
-  it('ignores unknown classifier values and falls back to regex', () => {
+  it('ignores unknown classifier values and falls back to regex recommendation', () => {
     const result = interpretTurnWithRouting(
       'Choisis dans ma cave',
       false,
@@ -344,7 +372,8 @@ describe('conversationalIntent arbitrage', () => {
       'garbage_value',
     )
 
-    expect(result.routing.winner).toBe('cellar_lookup')
+    expect(result.routing.winner).toBe('recommendation_request')
+    expect(result.interpretation.shouldAllowUiAction).toBe(true)
   })
 
   it('still honours contextual signals (refinement) over the classifier intent', () => {
@@ -359,5 +388,325 @@ describe('conversationalIntent arbitrage', () => {
 
     expect(result.routing.winner).toBe('recommendation_refinement')
     expect(result.interpretation.shouldAllowUiAction).toBe(true)
+  })
+})
+
+describe('routing audit matrix', () => {
+  const recentRecommendationState: Partial<ConversationState> = {
+    phase: 'post_task_ack',
+    taskType: 'recommendation',
+    lastUiActionKind: 'show_recommendations',
+  }
+  const recentRecommendationText = 'Je te propose trois pistes pour la pizza. [Vins proposés : ...]'
+
+  const singleTurnCases: RoutingExpectation[] = [
+    {
+      id: 'inventory-count-all',
+      message: "Combien de bouteilles j'ai en cave ?",
+      expectedWinner: 'cellar_lookup',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: false,
+    },
+    {
+      id: 'inventory-count-inverted-word-order',
+      message: "J'ai combien de bouteilles de Chassagne ?",
+      expectedWinner: 'cellar_lookup',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: false,
+    },
+    {
+      id: 'inventory-existence-appellation',
+      message: "Est-ce que j'ai du Chassagne en cave ?",
+      expectedWinner: 'cellar_lookup',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: false,
+    },
+    {
+      id: 'inventory-domain-list',
+      message: "Quels vins de Dujac j'ai ?",
+      expectedWinner: 'cellar_lookup',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: false,
+    },
+    {
+      id: 'inventory-location',
+      message: "Qu'est-ce que j'ai dans la cave de Bourgogne ?",
+      expectedWinner: 'cellar_lookup',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: false,
+    },
+    {
+      id: 'inventory-zone-short',
+      message: 'Dans ma cave de Paris',
+      expectedWinner: 'cellar_lookup',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: false,
+    },
+    {
+      id: 'wine-culture-chassagne-color',
+      message: "Chassagne, c'est plutôt blanc ou rouge ?",
+      expectedWinner: 'wine_question',
+      expectedMode: 'wine_conversation',
+      expectedUiAction: false,
+    },
+    {
+      id: 'wine-culture-chassagne-fame',
+      message: 'Chassagne est plus connu pour les rouges ou les blancs ?',
+      expectedWinner: 'wine_question',
+      expectedMode: 'wine_conversation',
+      expectedUiAction: false,
+    },
+    {
+      id: 'wine-culture-barolo-barbaresco',
+      message: "C'est quoi la difference entre Barolo et Barbaresco ?",
+      expectedWinner: 'wine_question',
+      expectedMode: 'wine_conversation',
+      expectedUiAction: false,
+    },
+    {
+      id: 'wine-culture-volatile-acidity',
+      message: "Pourquoi certains vins sentent le vinaigre ?",
+      expectedWinner: 'wine_question',
+      expectedMode: 'wine_conversation',
+      expectedUiAction: false,
+    },
+    {
+      id: 'wine-culture-serving-temperature',
+      message: 'A quelle temperature je sers un pinot noir ?',
+      expectedWinner: 'wine_question',
+      expectedMode: 'wine_conversation',
+      expectedUiAction: false,
+    },
+    {
+      id: 'recommendation-food',
+      message: 'Un rouge leger pour une pizza maison',
+      expectedWinner: 'recommendation_request',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: true,
+    },
+    {
+      id: 'recommendation-personal-cellar',
+      message: 'Choisis un rouge leger dans ma cave pour Marc',
+      expectedWinner: 'recommendation_request',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: true,
+    },
+    {
+      id: 'recommendation-open-bottle',
+      message: "Qu'est-ce qu'on ouvre avec un poulet roti ?",
+      expectedWinner: 'recommendation_request',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: true,
+    },
+    {
+      id: 'recommendation-memory-guided',
+      message: "Quelque chose qui rappelle le restaurant a Rome",
+      expectedWinner: 'memory_guided_recommendation',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: true,
+    },
+    {
+      id: 'memory-rome',
+      message: 'Tu te souviens du restaurant a Rome ?',
+      expectedWinner: 'memory_lookup',
+      expectedMode: 'tasting_memory',
+      expectedUiAction: false,
+    },
+    {
+      id: 'memory-with-friend',
+      message: "Qu'est-ce qu'on avait bu avec Marc la derniere fois ?",
+      expectedWinner: 'memory_lookup',
+      expectedMode: 'tasting_memory',
+      expectedUiAction: false,
+    },
+    {
+      id: 'memory-rating',
+      message: "J'avais mis combien d'etoiles au Rayas ?",
+      expectedWinner: 'memory_lookup',
+      expectedMode: 'tasting_memory',
+      expectedUiAction: false,
+    },
+    {
+      id: 'tasting-count',
+      message: "Combien de degustations de champagne j'ai faites ?",
+      expectedWinner: 'tasting_log',
+      expectedMode: 'tasting_memory',
+      expectedUiAction: true,
+    },
+    {
+      id: 'tasting-create',
+      message: "J'ai bu un beau Volnay hier soir, note ca",
+      expectedWinner: 'tasting_log',
+      expectedMode: 'tasting_memory',
+      expectedUiAction: true,
+    },
+    {
+      id: 'encavage-buy',
+      message: "J'ai achete trois bouteilles de Chablis",
+      expectedWinner: 'encavage_request',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: true,
+    },
+    {
+      id: 'encavage-received',
+      message: "J'ai recu ma commande de vin",
+      expectedWinner: 'encavage_request',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: true,
+    },
+    {
+      id: 'social-thanks',
+      message: 'Merci',
+      expectedWinner: 'social_ack',
+      expectedMode: 'social',
+      expectedUiAction: false,
+    },
+    {
+      id: 'social-cancel',
+      message: 'Laisse tomber',
+      expectedWinner: 'task_cancel',
+      expectedMode: 'social',
+      expectedUiAction: false,
+    },
+    {
+      id: 'small-contextless-short',
+      message: 'Et sinon ?',
+      expectedWinner: 'wine_question',
+      expectedMode: 'wine_conversation',
+      expectedUiAction: false,
+    },
+    {
+      id: 'classifier-inventory-over-regex',
+      message: 'Mes chassagne ?',
+      conversationalIntent: 'inventory_lookup',
+      expectedWinner: 'cellar_lookup',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: false,
+    },
+    {
+      id: 'classifier-memory-over-regex',
+      message: 'Rome',
+      conversationalIntent: 'memory_lookup',
+      expectedWinner: 'memory_lookup',
+      expectedMode: 'tasting_memory',
+      expectedUiAction: false,
+    },
+    {
+      id: 'classifier-smalltalk-clears-cave-word',
+      message: 'Parle-moi du mot cave en geologie',
+      conversationalIntent: 'smalltalk',
+      expectedWinner: 'wine_question',
+      expectedMode: 'wine_conversation',
+      expectedUiAction: false,
+    },
+    {
+      id: 'recent-reco-refinement-white',
+      message: 'Et en blanc ?',
+      state: recentRecommendationState,
+      lastAssistantText: recentRecommendationText,
+      expectedWinner: 'recommendation_refinement',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: true,
+    },
+    {
+      id: 'recent-reco-memory-guided',
+      message: "Dans l'esprit de Rome",
+      state: recentRecommendationState,
+      lastAssistantText: recentRecommendationText,
+      expectedWinner: 'memory_guided_recommendation',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: true,
+    },
+  ]
+
+  it.each(singleTurnCases)('$id', (testCase) => {
+    expectRoute(testCase)
+  })
+
+  it('keeps a cellar lookup thread in cellar mode across short follow-ups', () => {
+    expectRoute({
+      id: 'cellar-thread-turn-1',
+      message: "J'ai combien de bouteilles de Chassagne ?",
+      expectedWinner: 'cellar_lookup',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: false,
+    })
+
+    expectRoute({
+      id: 'cellar-thread-turn-2',
+      message: 'Et en blanc ?',
+      lastAssistantText: "Tu as 3 bouteilles de Chassagne en cave, dont 2 blancs.",
+      expectedWinner: 'cellar_lookup',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: false,
+    })
+
+    expectRoute({
+      id: 'cellar-thread-turn-3',
+      message: "Dans l'autre maison ?",
+      lastAssistantText: "Tu as 3 bouteilles de Chassagne en cave, dont 2 blancs.",
+      expectedWinner: 'cellar_lookup',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: false,
+    })
+  })
+
+  it('keeps wine culture correction out of cellar mode', () => {
+    expectRoute({
+      id: 'culture-thread-turn-1',
+      message: "Chassagne, c'est plutôt blanc ou rouge ?",
+      expectedWinner: 'wine_question',
+      expectedMode: 'wine_conversation',
+      expectedUiAction: false,
+    })
+
+    expectRoute({
+      id: 'culture-thread-turn-2',
+      message: 'Tu es sur ? Je crois que c est surtout blanc.',
+      lastAssistantText: 'Chassagne est surtout connu pour les rouges.',
+      expectedWinner: 'wine_question',
+      expectedMode: 'wine_conversation',
+      expectedUiAction: false,
+    })
+  })
+
+  it('keeps recommendation refinements actionable across a realistic multi-turn exchange', () => {
+    let currentState = state()
+
+    const first = interpretTurnWithRouting('Un rouge leger pour Marc avec une pizza maison', false, currentState)
+    expect(first.routing.winner).toBe('recommendation_request')
+    currentState = computeNextState(
+      currentState,
+      first.interpretation.turnType,
+      true,
+      'show_recommendations',
+      first.interpretation.inferredTaskType,
+    )
+
+    const second = interpretTurnWithRouting('Plutot dans ma cave de Bourgogne', false, currentState, recentRecommendationText)
+    expect(second.routing.winner).toBe('recommendation_refinement')
+    expect(second.interpretation.cognitiveMode).toBe('cellar_assistant')
+
+    const third = interpretTurnWithRouting('Et en blanc ?', false, currentState, recentRecommendationText)
+    expect(third.routing.winner).toBe('recommendation_refinement')
+    expect(third.interpretation.shouldAllowUiAction).toBe(true)
+  })
+
+  it('separates emotional memory lookup from memory-guided recommendation', () => {
+    expectRoute({
+      id: 'emotional-memory-direct',
+      message: 'Tu te souviens du restaurant a Rome ?',
+      expectedWinner: 'memory_lookup',
+      expectedMode: 'tasting_memory',
+      expectedUiAction: false,
+    })
+
+    expectRoute({
+      id: 'emotional-memory-for-reco',
+      message: 'Trouve-moi un italien qui rappelle ce restaurant a Rome',
+      expectedWinner: 'recommendation_request',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: true,
+    })
   })
 })

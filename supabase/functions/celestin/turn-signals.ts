@@ -40,8 +40,9 @@ const CANCEL = [
 ]
 
 const RECOMMENDATION = [
-  /\b(que? boire|recommande|propose|ce soir|pour accompagner|ouvre[- ]moi|quel vin|avec (ce|le|du|des|mon|ma|mes|un|une)|accord|accords mets)\b/i,
+  /\b(que? boire|recommande|propose|choisis|choisir|trouve[- ]moi|ce soir|pour accompagner|ouvre[- ]moi|quel vin|avec (ce|le|du|des|mon|ma|mes|un|une)|accord|accords mets)\b/i,
   /\b(pour aller avec|pour manger|pour diner|pour le repas)\b/i,
+  /\bpour (un|une|du|de la|de l'|des|mon|ma|mes) (plat|repas|diner|dejeuner|pizza|poulet|boeuf|agneau|poisson|fromage|dessert|pates?|risotto|couscous|tajine)\b/i,
   /\b(qu.est-ce que j.ouvr|je pourrais ouvrir|quelque chose a ouvrir|qu.est-ce qu.on ouvre|on ouvre quoi|quoi ouvrir)\b/i,
 ]
 
@@ -51,7 +52,7 @@ const REFINEMENT = [
 ]
 
 const MEMORY_GUIDED_RECOMMENDATION = [
-  /\b(dans l[' ]esprit|dans la veine|comme ce qu[' ]on avait aime|comme ce qu[' ]on avait aime|comme ce qu[' ]on avait aimé|dans le style de|quelque chose qui rappelle)\b/i,
+  /\b(dans l[' ]esprit|dans la veine|comme ce qu[' ]on avait aime|comme ce qu[' ]on avait aime|comme ce qu[' ]on avait aimé|dans le style de|quelque chose qui rappelle|qui rappelle)\b/i,
   /\b(ce qu[' ]on avait aime avec|ce qu[' ]on avait aimé avec)\b/i,
 ]
 
@@ -71,6 +72,7 @@ const TASTING = [
 const MEMORY = [
   /\b(tu te souviens|la derniere fois|chez \w+|on avait bu|rappelle|souvenir)\b/i,
   /\b(ai[- ]je deja bu|deja bu|deja goute|deja ouvert)\b/i,
+  /\bj[' ]?avais mis combien d[' ]etoiles\b/i,
   /\bdeja\b.*\b(note|noté|notee|notée|degustation|dégustation)\b/i,
   /\b(retrouve|retrouver|retrouverais|retrouvera?is|retrouveras)\b.*\b(note|degustation|dégustation|souvenir)\b/i,
   /\bje l[' ]?ai\b.*\b(note|noté|notee|notée|deguste|dégusté|goute|goûté|bu)\b/i,
@@ -81,19 +83,25 @@ const CELLAR_LOOKUP = [
   /\ben cave\b/i,
   /\b(parle[- ]moi de ma cave|ma cave)\b/i,
   /\b(est-ce que j'ai|ai[- ]je|j'ai)\s+(du|de la|de l'|des|un|une)\b/i,
+  /\bj'ai\s+combien\s+de?\s*bouteilles?\b/i,
   /\b(combien\s+(j'ai|ai[- ]je)?\s*de?\s*bouteilles?)\b/i,
   /\b(quelles?\s+sont\s+les?\s+bouteilles?)\b/i,
   /\b(quels?\s+vins?\s+(j'ai|ai[- ]je|y a-t-il))\b/i,
+  /\bquels?\s+vins?\s+.+\s+(j'ai|ai[- ]je)\b/i,
   /\b(qu'est-ce que j'ai|j'ai quoi)\b/i,
 ]
 
 const WINE_CULTURE = [
   /\b(c'est quoi|qu'est-ce qu|difference entre|les terroirs|parle[- ]moi|explique|raconte|dis[- ]moi)\b/i,
+  /\b(blancs?\s+ou\s+rouges?|rouges?\s+ou\s+blancs?)\b/i,
+  /\b(plus connu|connue|connus|connues)\s+pour\b/i,
+  /\b(a quelle temperature|temperature.*(servir|sers|service)|servir.*temperature)\b/i,
+  /\b(tu es sur|tu es sûr|je crois que|c'est surtout)\b/i,
   /^(le |la |les |un |une |du )?(pinot|chardonnay|merlot|cabernet|syrah|grenache|gamay|chenin|riesling|sauvignon|malbec|nebbiolo|sangiovese|tempranillo)\b/i,
 ]
 
 const QUESTION = [
-  /^(pourquoi|comment|quoi|c'est quoi|c'est vrai que|qu'est-ce qu|est-ce que|tu peux|peux[- ]tu|tu (aimes?|connais|preferes|penses|sais|crois))/i,
+  /^(pourquoi|comment|quoi|a quelle|c'est quoi|c'est vrai que|qu'est-ce qu|est-ce que|tu peux|peux[- ]tu|tu (aimes?|connais|preferes|penses|sais|crois|es sur|es sûr))/i,
 ]
 
 function matchesAny(text: string, patterns: RegExp[]): boolean {
@@ -120,6 +128,7 @@ function isCellarFollowUp(text: string, lastAssistantText?: string): boolean {
   if (!assistantWasTalkingAboutCellar) return false
 
   return /\b(c'est pas du|c'en est pas|tu en as pas)\b/i.test(normalizedText)
+    || /\b(en blanc|en rouge|en rose|en bulles|dans l'autre maison|autre maison|autre cave|a paris|a bourgogne|de bourgogne)\b/i.test(normalizedText)
 }
 
 function isMemoryFollowUp(text: string, lastAssistantText?: string): boolean {
