@@ -24,6 +24,80 @@ RequestBody minimal
 -> ProviderAdapter
 ```
 
+## Etat au 2026-05-02 soir
+
+Le chantier a avance au-dela du plan initial, mais il reste dans une zone hybride.
+Ce document doit servir de reprise demain sans refaire le diagnostic.
+
+### Fait et commite
+
+- `TurnInterpreter` stabilise par tests : social acknowledgements, refinements de
+  recommandation reconstruits depuis l'historique, et nouvelles demandes de
+  recommandation pendant `collecting_info`.
+- `ContextPlan` existe et decide le niveau de profil, cave, zones, memoires,
+  tools, historique et truth policy par route.
+- `SourceResolver` existe et recupere cote backend :
+  - profil compile ;
+  - cave count / shortlist / tool-only ;
+  - zones ;
+  - souvenirs cibles ou exacts ;
+  - degustations exactes pour certains chemins.
+- `PromptAssembler` existe et assemble system prompt, politique du tour, contexte
+  resolu, user prompt et provider history.
+- Observabilite en base : route, mode, plan, sources resolues, tools, tokens,
+  phases state machine, latences edge/frontend.
+- La fonction Supabase `celestin` a ete redeployee apres les commits suivants :
+  - `4c0cf5e Fix Celestin social ack routing`
+  - `607e2ba Ensure Celestin recommendation cards are emitted`
+  - `2788156 Match Celestin cards to recommended wines`
+
+### Diagnostic important
+
+Sur les recommandations, le routage et les sources peuvent etre corrects tout en
+ayant `ui_action=none`.
+
+Cas observe :
+
+- `Je cherche un vin pour accompagner une paella`
+- route : `recommendation_request`
+- cave shortlist : presente
+- tool `query_cellar` : appele
+- reponse finale : texte avec vins cites, mais pas de `show_recommendations`
+
+Conclusion : le modele peut oublier l'action UI. Ce n'est pas forcement un bug de
+routing ni un strip par `response-policy`.
+
+Correction temporaire actuelle : `recommendation-action.ts` materialise des cartes
+uniquement quand Celestin cite explicitement les bouteilles dans son texte. Il ne
+fabrique plus de top 3 local, car ce fallback degradait fortement la qualite des
+recommandations.
+
+### Decision d'architecture
+
+Ne pas laisser le LLM decider directement l'UI finale.
+
+La cible recommandation doit separer trois responsabilites :
+
+- LLM : choisir les bouteilles et expliquer le choix.
+- Backend : resolver les bouteilles choisies en objets carte fiables.
+- Response contract : retourner une selection structuree obligatoire sur les routes
+  de recommandation actionnables.
+
+Un `ui_action` optionnel est trop fragile pour une route dont le produit attend
+des cartes. Le prochain pas ne doit pas etre une nouvelle consigne prompt, mais un
+contrat structure type `RecommendationSelection`.
+
+### Etat des risques
+
+- Les corrections prompt/policy non souhaitees ont ete retirees avant commit.
+- La fonction de recommandation est redeployee, mais le comportement reste a
+  valider en dogfood sur paella / poulet roti / refinement couleur.
+- Si Celestin dit "je vais chercher" sans nommer de bouteille, la version actuelle
+  ne fabrique pas de cartes. C'est volontaire : mieux vaut pas de carte qu'une
+  mauvaise carte.
+- La prochaine correction doit donc porter sur le contrat de sortie ou le runtime,
+  pas sur un ranking local de secours.
+
 ## Principe directeur
 
 Le frontend ne doit pas decider le contexte LLM.
