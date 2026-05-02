@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseGenericCellarBottleCount, parseTastingCountQuery } from '../../shared/celestin/exact-query'
+import { parseGenericCellarBottleCount, parseTastingCountQuery, parseTastingRatingQuery } from '../../shared/celestin/exact-query'
 
 describe('exact query parsing', () => {
   it('recognizes generic cellar bottle counts', () => {
@@ -27,5 +27,16 @@ describe('exact query parsing', () => {
 
   it('does not fuzzy-match typo routing vocabulary yet', () => {
     expect(parseGenericCellarBottleCount('Combien de brouteilles ai-je ?')).toBeNull()
+  })
+
+  it('extracts simple tasting rating lookups', () => {
+    expect(parseTastingRatingQuery("J'avais mis combien d'etoiles au Rayas ?")).toEqual({
+      kind: 'tasting_rating',
+      query: 'rayas',
+    })
+    expect(parseTastingRatingQuery('Quelle note j avais mis au Caillez Lemaire ?')).toEqual({
+      kind: 'tasting_rating',
+      query: 'caillez lemaire',
+    })
   })
 })

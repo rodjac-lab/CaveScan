@@ -1,6 +1,6 @@
 import type { ContextPlan } from './context-plan.ts'
 import type { AuthContext } from './auth.ts'
-import { normalizeExactQueryText, parseTastingCountQuery } from '../../../shared/celestin/exact-query.ts'
+import { normalizeExactQueryText, parseTastingCountQuery, parseTastingRatingQuery } from '../../../shared/celestin/exact-query.ts'
 import type { CaveBottle, RequestBody } from './types.ts'
 
 export type SourceRequirementKind =
@@ -42,9 +42,20 @@ export interface ResolvedCaveSource {
 }
 
 export interface ResolvedTastingsSource {
+  kind: 'count' | 'rating'
   totalRows: number
   query?: string
   queryLabel?: string
+  rows?: Array<{
+    domaine: string | null
+    cuvee: string | null
+    appellation: string | null
+    millesime: number | null
+    couleur: string | null
+    rating: number | null
+    drunk_at: string | null
+    tasting_note?: string | null
+  }>
 }
 
 export interface ResolvedContextSources {
@@ -295,6 +306,19 @@ function tastingIdentityText(row: Record<string, unknown>): string {
   ].filter(Boolean).join(' ')
 }
 
+function compactTasting(row: Record<string, unknown>): NonNullable<ResolvedTastingsSource['rows']>[number] {
+  return {
+    domaine: typeof row.domaine === 'string' ? row.domaine : null,
+    cuvee: typeof row.cuvee === 'string' ? row.cuvee : null,
+    appellation: typeof row.appellation === 'string' ? row.appellation : null,
+    millesime: typeof row.millesime === 'number' ? row.millesime : null,
+    couleur: typeof row.couleur === 'string' ? row.couleur : null,
+    rating: typeof row.rating === 'number' ? row.rating : null,
+    drunk_at: typeof row.drunk_at === 'string' ? row.drunk_at : null,
+    tasting_note: typeof row.tasting_note === 'string' ? row.tasting_note.slice(0, 500) : null,
+  }
+}
+
 function matchesTastingQuery(row: Record<string, unknown>, query: string | undefined): boolean {
   if (!query) return true
   return normalizeExactQueryText(tastingIdentityText(row)).includes(normalizeExactQueryText(query))
@@ -307,12 +331,13 @@ async function resolveTastingsFromBackend(
 ): Promise<ResolvedTastingsSource | undefined> {
   if (contextPlan.tools !== 'force_tastings' || !auth?.userId || !auth.supabase) return undefined
 
-  const exactQuery = parseTastingCountQuery(body.message)
-  if (!exactQuery) return undefined
+  const countQuery = parseTastingCountQuery(body.message)
+  const ratingQuery = parseTastingRatingQuery(body.message)
+  if (!countQuery && !ratingQuery) return undefined
 
   const { data, error } = await auth.supabase
     .from('bottles')
-    .select('domaine,cuvee,appellation,millesime,couleur,country,region')
+    .select('domaine,cuvee,appellation,millesime,couleur,country,region,rating,drunk_at,tasting_note')
     .eq('user_id', auth.userId)
     .eq('status', 'drunk')
 
@@ -321,11 +346,23 @@ async function resolveTastingsFromBackend(
     return undefined
   }
 
-  const rows = (data ?? []).filter((row: Record<string, unknown>) => matchesTastingQuery(row, exactQuery.query))
+  const query = countQuery?.query ?? ratingQuery?.query
+  const rows = (data ?? []).filter((row: Record<string, unknown>) => matchesTastingQuery(row, query))
+  if (ratingQuery) {
+    return {
+      kind: 'rating',
+      totalRows: rows.length,
+      query: ratingQuery.query,
+      queryLabel: ratingQuery.query,
+      rows: rows.map((row: Record<string, unknown>) => compactTasting(row)),
+    }
+  }
+
   return {
+    kind: 'count',
     totalRows: rows.length,
-    query: exactQuery.query,
-    queryLabel: exactQuery.query,
+    query: countQuery?.query,
+    queryLabel: countQuery?.query,
   }
 }
 

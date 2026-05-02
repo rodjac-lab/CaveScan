@@ -7,6 +7,11 @@ export interface TastingCountQuery {
   query?: string
 }
 
+export interface TastingRatingQuery {
+  kind: 'tasting_rating'
+  query: string
+}
+
 export function normalizeExactQueryText(text: string): string {
   return text
     .toLowerCase()
@@ -45,4 +50,19 @@ export function parseTastingCountQuery(message: string): TastingCountQuery | nul
   return query
     ? { kind: 'tasting_count', query }
     : { kind: 'tasting_count' }
+}
+
+export function parseTastingRatingQuery(message: string): TastingRatingQuery | null {
+  const text = normalizeExactQueryText(message)
+  const asksRating =
+    /\b(combien)\b.*\b(etoiles?|note)\b/.test(text)
+    || /\b(quelle|quelle etait|c etait quoi)\b.*\b(note)\b/.test(text)
+    || /\bj avais mis\b.*\b(note|etoiles?)\b/.test(text)
+  if (!asksRating) return null
+
+  const scoped = text.match(/\b(?:au|a la|a l|a|sur le|sur la|sur l|pour le|pour la|pour l)\s+(.+)$/)
+  const query = scoped?.[1]?.trim().replace(/\s+/g, ' ')
+  if (!query) return null
+
+  return { kind: 'tasting_rating', query }
 }

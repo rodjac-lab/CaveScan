@@ -134,6 +134,78 @@ function supabaseTastingMock() {
   }
 }
 
+function supabaseTastingRatingMock() {
+  const calls: string[] = []
+
+  return {
+    calls,
+    client: {
+      from(table: string) {
+        calls.push(table)
+
+        if (table === 'bottles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: async () => ({
+                  data: [
+                    {
+                      domaine: 'Chateau Rayas',
+                      cuvee: null,
+                      appellation: 'Chateauneuf-du-Pape',
+                      millesime: 1998,
+                      couleur: 'rouge',
+                      country: 'France',
+                      region: 'Rhone',
+                      rating: 4,
+                      drunk_at: '2026-01-10',
+                      tasting_note: 'Grand souvenir.',
+                    },
+                    {
+                      domaine: 'Domaine A',
+                      cuvee: null,
+                      appellation: 'Chablis',
+                      millesime: 2020,
+                      couleur: 'blanc',
+                      country: 'France',
+                      region: 'Bourgogne',
+                      rating: 5,
+                      drunk_at: '2026-01-11',
+                      tasting_note: 'Autre note.',
+                    },
+                  ],
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+
+        if (table === 'user_profiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: null,
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+
+        if (table === 'celestin_turn_observability') {
+          return {
+            upsert: async () => ({ error: null }),
+          }
+        }
+
+        throw new Error(`Unexpected table: ${table}`)
+      },
+    },
+  }
+}
+
 describe('runCelestinTurn deterministic exact answers', () => {
   it('answers generic cellar bottle counts without calling an LLM provider', async () => {
     const { runCelestinTurn } = await import('./runtime')
@@ -174,6 +246,27 @@ describe('runCelestinTurn deterministic exact answers', () => {
 
     expect(result.provider).toBe('deterministic')
     expect(result.response.message).toBe('Tu as 1 degustation de champagne.')
+    expect(result.debugTrace.providerTrace.attempts).toEqual([])
+    expect(mock.calls).toContain('bottles')
+  })
+
+  it('answers single-match tasting rating lookups without calling an LLM provider', async () => {
+    const { runCelestinTurn } = await import('./runtime')
+    const mock = supabaseTastingRatingMock()
+    const body: RequestBody = {
+      message: "J'avais mis combien d'etoiles au Rayas ?",
+      history: [],
+      cave: [],
+      contextStrategy: 'backend_managed',
+    }
+
+    const result = await runCelestinTurn(body, {
+      userId: 'user-1',
+      supabase: mock.client as never,
+    } as AuthContext)
+
+    expect(result.provider).toBe('deterministic')
+    expect(result.response.message).toBe('Tu avais mis 4/5 a Chateau Rayas Chateauneuf-du-Pape 1998.')
     expect(result.debugTrace.providerTrace.attempts).toEqual([])
     expect(mock.calls).toContain('bottles')
   })

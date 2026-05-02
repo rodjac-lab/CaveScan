@@ -85,7 +85,7 @@ describe('buildDeterministicResponse', () => {
         truthPolicy: 'memory_only',
       }),
       resolvedSources: sources({
-        tastings: { totalRows: 4, query: 'champagne', queryLabel: 'champagne' },
+        tastings: { kind: 'count', totalRows: 4, query: 'champagne', queryLabel: 'champagne' },
       }),
     })
 
@@ -106,5 +106,85 @@ describe('buildDeterministicResponse', () => {
     })
 
     expect(response).toBeNull()
+  })
+
+  it('answers single-match tasting rating lookups from resolved tasting rows', () => {
+    const response = buildDeterministicResponse({
+      body: body("J'avais mis combien d'etoiles au Rayas ?"),
+      routingIntent: 'memory_lookup',
+      contextPlan: plan({
+        cave: 'none',
+        zones: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      resolvedSources: sources({
+        tastings: {
+          kind: 'rating',
+          totalRows: 1,
+          query: 'rayas',
+          queryLabel: 'rayas',
+          rows: [
+            {
+              domaine: 'Chateau Rayas',
+              cuvee: null,
+              appellation: 'Chateauneuf-du-Pape',
+              millesime: 1998,
+              couleur: 'rouge',
+              rating: 4,
+              drunk_at: '2026-01-10',
+            },
+          ],
+        },
+      }),
+    })
+
+    expect(response?.message).toBe('Tu avais mis 4/5 a Chateau Rayas Chateauneuf-du-Pape 1998.')
+  })
+
+  it('does not answer ambiguous or unrated tasting rating lookups deterministically', () => {
+    const contextPlan = plan({
+      cave: 'none',
+      zones: 'none',
+      memories: 'exact',
+      tools: 'force_tastings',
+      truthPolicy: 'memory_only',
+    })
+
+    expect(buildDeterministicResponse({
+      body: body("J'avais mis combien d'etoiles au Rayas ?"),
+      routingIntent: 'memory_lookup',
+      contextPlan,
+      resolvedSources: sources({
+        tastings: {
+          kind: 'rating',
+          totalRows: 2,
+          query: 'rayas',
+          queryLabel: 'rayas',
+          rows: [
+            { domaine: 'Rayas', cuvee: null, appellation: null, millesime: 1998, couleur: 'rouge', rating: 4, drunk_at: null },
+            { domaine: 'Rayas', cuvee: null, appellation: null, millesime: 2001, couleur: 'rouge', rating: 5, drunk_at: null },
+          ],
+        },
+      }),
+    })).toBeNull()
+
+    expect(buildDeterministicResponse({
+      body: body("J'avais mis combien d'etoiles au Rayas ?"),
+      routingIntent: 'memory_lookup',
+      contextPlan,
+      resolvedSources: sources({
+        tastings: {
+          kind: 'rating',
+          totalRows: 1,
+          query: 'rayas',
+          queryLabel: 'rayas',
+          rows: [
+            { domaine: 'Rayas', cuvee: null, appellation: null, millesime: 1998, couleur: 'rouge', rating: null, drunk_at: null },
+          ],
+        },
+      }),
+    })).toBeNull()
   })
 })

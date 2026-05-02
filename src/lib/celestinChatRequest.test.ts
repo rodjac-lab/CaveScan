@@ -42,6 +42,7 @@ describe('celestinChatRequest routing guards', () => {
     expect(shouldUseBackendManagedContext({ message: 'Salut' })).toBe(true)
     expect(shouldUseBackendManagedContext({ message: 'J ai combien de bouteilles en cave ?' })).toBe(true)
     expect(shouldUseBackendManagedContext({ message: 'J ai combien de degustations de Champagne ?' })).toBe(true)
+    expect(shouldUseBackendManagedContext({ message: "J'avais mis combien d'etoiles au Rayas ?" })).toBe(true)
     expect(shouldUseBackendManagedContext({
       message: 'J ai combien de degustations de Champagne ?',
       conversationState: { taskType: 'recommendation' },

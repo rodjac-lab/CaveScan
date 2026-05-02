@@ -277,9 +277,98 @@ describe('resolveContextSourcesForRequest', () => {
     )
 
     expect(sources.tastings).toEqual({
+      kind: 'count',
       totalRows: 2,
       query: 'champagne',
       queryLabel: 'champagne',
+    })
+  })
+
+  it('resolves exact tasting rating rows from backend for force_tastings plans', async () => {
+    const supabase = {
+      from(table: string) {
+        if (table === 'user_profiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: null,
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        expect(table).toBe('bottles')
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({
+                data: [
+                  {
+                    domaine: 'Chateau Rayas',
+                    cuvee: null,
+                    appellation: 'Chateauneuf-du-Pape',
+                    millesime: 1998,
+                    couleur: 'rouge',
+                    country: 'France',
+                    region: 'Rhone',
+                    rating: 4,
+                    drunk_at: '2026-01-10',
+                    tasting_note: 'Grand souvenir.',
+                  },
+                  {
+                    domaine: 'Domaine A',
+                    cuvee: null,
+                    appellation: 'Chablis',
+                    millesime: 2020,
+                    couleur: 'blanc',
+                    country: 'France',
+                    region: 'Bourgogne',
+                    rating: 5,
+                    drunk_at: '2026-01-11',
+                    tasting_note: 'Autre note.',
+                  },
+                ],
+                error: null,
+              }),
+            }),
+          }),
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: "J'avais mis combien d'etoiles au Rayas ?",
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'minimal',
+        cave: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.tastings).toMatchObject({
+      kind: 'rating',
+      totalRows: 1,
+      query: 'rayas',
+      queryLabel: 'rayas',
+      rows: [
+        {
+          domaine: 'Chateau Rayas',
+          appellation: 'Chateauneuf-du-Pape',
+          millesime: 1998,
+          rating: 4,
+        },
+      ],
     })
   })
 
