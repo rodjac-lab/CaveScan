@@ -337,6 +337,22 @@ Ce qu'on mesure :
 - latence ;
 - qualite de reponse.
 
+Ameliorations a garder pour la selection des degustations :
+
+- pondérer plus fortement les signaux affectifs et contextuels (`Rome`, `ma femme`,
+  `restaurant`, `vacances`, `anniversaire`) quand ils apparaissent dans les notes
+  de degustation ;
+- distinguer deux usages :
+  - souvenir exact (`tu te souviens du restaurant a Rome ?`) : rappel strict, source
+    explicite, pas de generalisation ;
+  - inspiration pour recommandation (`un italien qui me rappelle Rome`) : le souvenir
+    sert de texture et de direction, mais la recommandation doit rester ancree dans
+    la cave et le tour courant ;
+- mieux exploiter les tags structures de degustation sans perdre les verbatims bruts ;
+- exposer dans l'observabilite les degustations candidates, leur score et la raison
+  de selection, pour auditer les cas ou Celestin cite un souvenir gratuit ;
+- ajouter des evals Marc/Rome/Chianti avec conjoint, restaurant et cave multi-maison.
+
 Critere de fin :
 
 - evals conversationnelles passent ;
