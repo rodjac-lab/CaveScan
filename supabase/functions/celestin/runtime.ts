@@ -76,7 +76,7 @@ function buildDebugTrace(input: {
     provider: input.provider,
     providerErrors: input.providerErrors,
     providerTrace: input.providerTrace,
-    compiledProfile: !!body.compiledProfileMarkdown?.trim(),
+    compiledProfile: !!input.resolvedSources.profile?.compiledMarkdown,
     memoryEvidenceMode: body.memoryEvidenceMode ?? null,
     memoryFocus: input.activeMemoryFocus,
     conversationalIntent: (typeof body.conversationalIntent === 'string' ? body.conversationalIntent : null),
@@ -96,7 +96,7 @@ function buildDebugTrace(input: {
       contextChars: input.contextBlock.length,
       historyTurns: body.history.length,
       providerHistoryTurns: buildProviderHistory(body, input.contextPlan).length,
-      caveCount: body.cave?.length ?? 0,
+      frontendCaveCount: body.cave?.length ?? 0,
       hasImage: !!body.image,
       resolvedSourceRequirements: input.resolvedSources.requirements,
       resolvedCave: {
@@ -314,7 +314,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       }))
     }
 
-    console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} nextState=${nextState.phase} focus=${nextState.memoryFocus ?? 'none'} msg="${response.message.slice(0, 120)}" compiled=${body.compiledProfileMarkdown?.trim() ? 'yes' : 'no'}`)
+    console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} nextState=${nextState.phase} focus=${nextState.memoryFocus ?? 'none'} msg="${response.message.slice(0, 120)}" compiled=${resolvedSources.profile?.compiledMarkdown ? 'yes' : 'no'}`)
 
     return {
       response,

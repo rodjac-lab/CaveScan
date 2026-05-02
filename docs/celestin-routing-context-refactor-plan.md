@@ -357,6 +357,14 @@ Ameliorations a garder pour la selection des degustations :
   de selection, pour auditer les cas ou Celestin cite un souvenir gratuit ;
 - ajouter des evals Marc/Rome/Chianti avec conjoint, restaurant et cave multi-maison.
 
+Optimisation memoire/profil a garder pour plus tard :
+
+- conserver le profil compile Markdown comme source vivante et lisible par le LLM ;
+- deriver au moment de la compilation un petit index structure optionnel
+  (`pairingPreferences`, etc.) pour les besoins deterministes du `SourceResolver` ;
+- ne pas maintenir manuellement deux sources de verite : le JSON structure doit etre un
+  artefact derive du meme profil/facts, pas un second profil edite a cote.
+
 Critere de fin :
 
 - evals conversationnelles passent ;
