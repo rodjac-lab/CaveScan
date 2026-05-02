@@ -12,6 +12,7 @@ import { extractErrorMessage, fetchWithTimeout } from "./provider-utils.ts"
 import { parseAndValidate } from "./response-validation.ts"
 import type { AuthContext } from "./auth.ts"
 import { CELESTIN_TOOLS, executeCelestinTool } from "./tools.ts"
+import { shouldEnableCelestinTools } from "./tool-policy.ts"
 import { logAnthropicUsage } from "../_shared/anthropic-usage.ts"
 import type { CelestinResponse, ConversationTurn } from "./types.ts"
 
@@ -388,7 +389,11 @@ async function callClaude(
       : [{ role: 'user', content: userPrompt }]
 
   const auth = options?.auth
-  const toolsEnabled = !!auth?.userId && !!auth.supabase && !image
+  const toolsEnabled = shouldEnableCelestinTools({
+    authReady: !!auth?.userId && !!auth.supabase,
+    hasImage: !!image,
+    usageContext: options?.usageContext,
+  })
   const messagePreview = userPrompt.replace(/\s+/g, ' ').slice(0, 120)
   const first = await postClaudeMessages({
     systemPrompt,
