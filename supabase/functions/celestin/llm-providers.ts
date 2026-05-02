@@ -177,7 +177,7 @@ async function callGemini3FlashLow(systemPrompt: string, userPrompt: string, his
   )
 }
 
-function buildClaudeSystem(systemPrompt: string) {
+function buildClaudeSystem(systemPrompt: string, cacheSystem: boolean) {
   const marker = '\n\n--- CONTEXTE UTILISATEUR ---\n\n'
   const markerIndex = systemPrompt.indexOf(marker)
   if (markerIndex >= 0) {
@@ -185,7 +185,7 @@ function buildClaudeSystem(systemPrompt: string) {
       {
         type: 'text',
         text: systemPrompt.slice(0, markerIndex),
-        cache_control: { type: 'ephemeral' },
+        ...(cacheSystem ? { cache_control: { type: 'ephemeral' } } : {}),
       },
       {
         type: 'text',
@@ -197,7 +197,7 @@ function buildClaudeSystem(systemPrompt: string) {
   return [{
     type: 'text',
     text: systemPrompt,
-    cache_control: { type: 'ephemeral' },
+    ...(cacheSystem ? { cache_control: { type: 'ephemeral' } } : {}),
   }]
 }
 
@@ -234,6 +234,7 @@ async function postClaudeMessages(input: {
   toolChoice: ClaudeToolChoice
   caller: string
   messagePreview: string
+  cacheSystem: boolean
   cacheTools: boolean
   requestSource?: string
   auth?: AuthContext
@@ -251,7 +252,7 @@ async function postClaudeMessages(input: {
     body: JSON.stringify({
       model: CLAUDE_MODEL,
       max_tokens: 4096,
-      system: buildClaudeSystem(input.systemPrompt),
+      system: buildClaudeSystem(input.systemPrompt, input.cacheSystem),
       messages: input.messages,
       tools: buildClaudeTools(input.cacheTools),
       tool_choice: { type: input.toolChoice },
@@ -403,6 +404,7 @@ async function callClaude(
     trace,
     caller: 'celestin.claude.first',
     messagePreview,
+    cacheSystem: true,
     cacheTools: toolsEnabled,
     requestSource: options?.requestSource,
     auth,
@@ -467,6 +469,7 @@ async function callClaude(
     trace,
     caller: 'celestin.claude.tool_followup',
     messagePreview,
+    cacheSystem: false,
     cacheTools: false,
     requestSource: options?.requestSource,
     auth,
