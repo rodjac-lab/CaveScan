@@ -64,10 +64,9 @@ export function buildContextPlan(routingResult: TurnRoutingResult): ContextPlan 
         profile: 'recommendation',
         cave: 'count',
         zones: 'names',
-        memories: 'targeted',
         tools: 'auto',
         history: 'normal',
-      }, ['recommendation: combine taste profile, targeted texture, and tool-resolved cellar candidates'])
+      }, ['recommendation: combine taste profile and tool-resolved cellar candidates'])
 
     case 'recommendation_refinement':
       return withReasons({
@@ -75,10 +74,9 @@ export function buildContextPlan(routingResult: TurnRoutingResult): ContextPlan 
         profile: 'recommendation',
         cave: 'count',
         zones: 'names',
-        memories: 'targeted',
         tools: 'auto',
         history: 'normal',
-      }, ['recommendation refinement: keep profile and memory context, resolve cellar candidates via tools'])
+      }, ['recommendation refinement: keep profile context, resolve cellar candidates via tools'])
 
     case 'memory_guided_recommendation':
       return withReasons({

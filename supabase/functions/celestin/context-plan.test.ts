@@ -50,12 +50,12 @@ describe('buildContextPlan', () => {
     })
   })
 
-  it('uses recommendation sources for first recommendation requests', () => {
+  it('uses lean recommendation sources for first recommendation requests', () => {
     expectPlan('recommendation_request', {
       profile: 'recommendation',
       cave: 'count',
       zones: 'names',
-      memories: 'targeted',
+      memories: 'none',
       tools: 'auto',
       history: 'normal',
       truthPolicy: 'standard',
@@ -67,7 +67,7 @@ describe('buildContextPlan', () => {
       profile: 'recommendation',
       cave: 'count',
       zones: 'names',
-      memories: 'targeted',
+      memories: 'none',
       tools: 'auto',
       history: 'normal',
       truthPolicy: 'standard',

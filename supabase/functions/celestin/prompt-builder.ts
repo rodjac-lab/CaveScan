@@ -31,9 +31,9 @@ function selectModules(mode?: PromptMode): string[] {
     case 'restaurant_assistant':
       return [WINE_CODEX, CELESTIN_PERSONA, CELESTIN_RULES, CELESTIN_RESPONSE_FORMAT]
 
-    // Cellar assistant: everything (primary mode for reco + encavage)
+    // Cellar assistant: cave/profile/tools carry the facts; keep the stable prompt lean.
     case 'cellar_assistant':
     default:
-      return [WINE_CODEX, CELESTIN_PERSONA, CELESTIN_CAPABILITIES, CELESTIN_RULES, CELESTIN_RESPONSE_FORMAT]
+      return [CELESTIN_PERSONA, CELESTIN_CAPABILITIES, CELESTIN_RULES, CELESTIN_RESPONSE_FORMAT]
   }
 }

@@ -280,7 +280,18 @@ async function postClaudeMessages(input: {
   maxTokens?: number
   trace?: CelestinProviderTrace
 }) {
-  const toolsIncluded = true
+  const toolsIncluded = input.toolChoice !== 'none'
+  const payload: Record<string, unknown> = {
+    model: CLAUDE_MODEL,
+    max_tokens: input.maxTokens ?? 4096,
+    system: buildClaudeSystem(input.systemPrompt, input.cacheSystem),
+    messages: input.messages,
+  }
+  if (toolsIncluded) {
+    payload.tools = buildClaudeTools(input.cacheTools)
+    payload.tool_choice = buildClaudeToolChoice(input.toolChoice, input.forcedToolName)
+  }
+
   const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -288,14 +299,7 @@ async function postClaudeMessages(input: {
       'x-api-key': ANTHROPIC_API_KEY!,
       'anthropic-version': '2023-06-01',
     },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: input.maxTokens ?? 4096,
-      system: buildClaudeSystem(input.systemPrompt, input.cacheSystem),
-      messages: input.messages,
-      tools: buildClaudeTools(input.cacheTools),
-      tool_choice: buildClaudeToolChoice(input.toolChoice, input.forcedToolName),
-    }),
+    body: JSON.stringify(payload),
   })
 
   if (!response.ok) {
