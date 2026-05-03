@@ -93,6 +93,7 @@ export function buildContextPlan(routingResult: TurnRoutingResult): ContextPlan 
     case 'memory_lookup':
       return withReasons({
         ...basePlan(),
+        profile: 'none',
         memories: 'exact',
         tools: 'force_tastings',
         truthPolicy: 'memory_only',
@@ -108,7 +109,7 @@ export function buildContextPlan(routingResult: TurnRoutingResult): ContextPlan 
     case 'tasting_log':
       return withReasons({
         ...basePlan(),
-        profile: 'minimal',
+        profile: 'none',
         memories: 'exact',
         tools: 'force_tastings',
         history: 'normal',

@@ -76,7 +76,7 @@ describe('buildContextPlan', () => {
 
   it('grounds direct memory lookup in exact memory or tasting evidence', () => {
     expectPlan('memory_lookup', {
-      profile: 'minimal',
+      profile: 'none',
       cave: 'none',
       zones: 'none',
       memories: 'exact',
@@ -107,6 +107,18 @@ describe('buildContextPlan', () => {
       tools: 'none',
       history: 'pivot',
       truthPolicy: 'standard',
+    })
+  })
+
+  it('grounds tasting routes in exact tasting evidence without profile context', () => {
+    expectPlan('tasting_log', {
+      profile: 'none',
+      cave: 'none',
+      zones: 'none',
+      memories: 'exact',
+      tools: 'force_tastings',
+      history: 'normal',
+      truthPolicy: 'memory_only',
     })
   })
 })

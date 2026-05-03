@@ -236,6 +236,23 @@ La prochaine suppression legacy possible sera de refuser `show_recommendations`
 dans `parseAndValidate` quand les logs provider confirment que la compatibilite
 n'est plus necessaire.
 
+## Etat au 2026-05-03 - ContextPlan exact sources
+
+Debut de la verification route par route :
+
+- `wine_question` reste sans profil, cave, souvenirs ni tools ;
+- `recommendation_request` et `recommendation_refinement` gardent profil
+  recommendation, shortlist cave, zones et souvenirs targeted ;
+- `cellar_lookup` force `query_cellar` / cave `tool_only` / verite exacte ;
+- `memory_lookup` ne charge plus de profil minimal : uniquement souvenirs exacts
+  et `query_tastings` ;
+- `tasting_log` ne charge plus de profil minimal : uniquement souvenirs exacts,
+  `query_tastings`, historique normal, verite memoire.
+
+Motif : les routes exactes doivent rester exactes. Le profil utilisateur peut
+influencer une recommandation, mais il ne doit pas contaminer une question de
+souvenir, de note ou de degustation passee.
+
 ## Principe directeur
 
 Le frontend ne doit pas decider le contexte LLM.

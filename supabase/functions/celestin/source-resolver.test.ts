@@ -816,7 +816,7 @@ describe('resolveContextSourcesForRequest', () => {
         memories: undefined,
       }),
       plan({
-        profile: 'minimal',
+        profile: 'none',
         cave: 'none',
         memories: 'exact',
         tools: 'force_tastings',
@@ -831,6 +831,7 @@ describe('resolveContextSourcesForRequest', () => {
       query: 'champagne',
       queryLabel: 'champagne',
     })
+    expect(sources.profile).toBeUndefined()
   })
 
   it('resolves exact tasting rating rows from backend for force_tastings plans', async () => {
@@ -896,7 +897,7 @@ describe('resolveContextSourcesForRequest', () => {
         memories: undefined,
       }),
       plan({
-        profile: 'minimal',
+        profile: 'none',
         cave: 'none',
         memories: 'exact',
         tools: 'force_tastings',
@@ -919,6 +920,7 @@ describe('resolveContextSourcesForRequest', () => {
         },
       ],
     })
+    expect(sources.profile).toBeUndefined()
   })
 
   it('does not query backend for pure wine questions', async () => {
