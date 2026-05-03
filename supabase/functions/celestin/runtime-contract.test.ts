@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import type { RoutingIntent } from './turn-interpreter'
 
 Object.defineProperty(globalThis, 'Deno', {
   value: {
@@ -9,10 +10,19 @@ Object.defineProperty(globalThis, 'Deno', {
   configurable: true,
 })
 
-describe('recommendation response contract', () => {
-  it('accepts clarification only for vague recommendation requests', async () => {
-    const { canAcceptRecommendationClarification } = await import('./runtime')
+let canAcceptRecommendationClarification: (input: {
+  userMessage: string
+  routingIntent: RoutingIntent
+  assistantMessage: string
+}) => boolean
 
+beforeAll(async () => {
+  const runtime = await import('./runtime')
+  canAcceptRecommendationClarification = runtime.canAcceptRecommendationClarification
+}, 10000)
+
+describe('recommendation response contract', () => {
+  it('accepts clarification only for vague recommendation requests', () => {
     expect(canAcceptRecommendationClarification({
       userMessage: 'Je cherche un vin pour ce soir.',
       routingIntent: 'recommendation_request',
@@ -20,9 +30,7 @@ describe('recommendation response contract', () => {
     })).toBe(true)
   })
 
-  it('accepts useful dish clarifications even when the user already gave a dish', async () => {
-    const { canAcceptRecommendationClarification } = await import('./runtime')
-
+  it('accepts useful dish clarifications even when the user already gave a dish', () => {
     expect(canAcceptRecommendationClarification({
       userMessage: 'Je cherche un vin pour accompagner une paella.',
       routingIntent: 'recommendation_request',
@@ -36,9 +44,7 @@ describe('recommendation response contract', () => {
     })).toBe(true)
   })
 
-  it('rejects clarifications that ask the user to inspect their cellar', async () => {
-    const { canAcceptRecommendationClarification } = await import('./runtime')
-
+  it('rejects clarifications that ask the user to inspect their cellar', () => {
     expect(canAcceptRecommendationClarification({
       userMessage: 'Je cherche un vin pour accompagner une paella.',
       routingIntent: 'recommendation_request',
@@ -52,9 +58,7 @@ describe('recommendation response contract', () => {
     })).toBe(false)
   })
 
-  it('rejects clarification when the user already gave a style constraint', async () => {
-    const { canAcceptRecommendationClarification } = await import('./runtime')
-
+  it('rejects clarification when the user already gave a style constraint', () => {
     expect(canAcceptRecommendationClarification({
       userMessage: 'Je cherche un rouge pour accompagner une paella.',
       routingIntent: 'recommendation_request',
@@ -62,9 +66,7 @@ describe('recommendation response contract', () => {
     })).toBe(false)
   })
 
-  it('rejects clarification on recommendation refinements', async () => {
-    const { canAcceptRecommendationClarification } = await import('./runtime')
-
+  it('rejects clarification on recommendation refinements', () => {
     expect(canAcceptRecommendationClarification({
       userMessage: 'Tu en as d autres, plutôt en rouge ?',
       routingIntent: 'recommendation_refinement',

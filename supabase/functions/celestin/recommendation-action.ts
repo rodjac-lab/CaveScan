@@ -215,22 +215,33 @@ function hasStructuredBottleIds(selection: RecommendationSelection[] | null | un
   return !!selection?.some((item) => !!item.bottle_id?.trim())
 }
 
+function hasResolvableBottleIds(selection: RecommendationSelection[] | null | undefined): boolean {
+  return !!selection?.some((item) => {
+    const normalized = item.bottle_id?.trim().replace(/-/g, '') ?? ''
+    return normalized.length >= 8 && /^[a-f0-9]+$/i.test(normalized)
+  })
+}
+
 export function canResolveRecommendationUiAction(input: {
   response: CelestinResponse
   resolvedSources: ResolvedContextSources
   userMessage?: string
+  canFetchSelectedBottleIds?: boolean
 }): boolean {
   const { response, resolvedSources } = input
   if (response.ui_action?.kind === 'show_recommendations') {
     return filterCardsForRequest(response.ui_action.payload.cards, input.userMessage).length > 0
   }
-  if (hasStructuredBottleIds(response.recommendation_selection)) return true
-  if (!canUseRecommendationSources(resolvedSources)) return false
 
-  const selectionCards = buildCardsFromSelection(
-    response.recommendation_selection,
-    resolvedSources.cave.bottles,
-  )
+  const canUseSources = canUseRecommendationSources(resolvedSources)
+  const selectionCards = canUseSources
+    ? buildCardsFromSelection(response.recommendation_selection, resolvedSources.cave.bottles)
+    : null
+  if (!selectionCards && hasStructuredBottleIds(response.recommendation_selection)) {
+    return !!input.canFetchSelectedBottleIds && hasResolvableBottleIds(response.recommendation_selection)
+  }
+  if (!canUseSources) return false
+
   const cards = selectionCards ?? buildRecommendationCards(response.message, resolvedSources.cave.bottles)
   return filterCardsForRequest(cards, input.userMessage).length > 0
 }

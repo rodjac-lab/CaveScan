@@ -193,7 +193,33 @@ describe('ensureRecommendationUiAction', () => {
           bottles: [],
         },
       }),
+      canFetchSelectedBottleIds: true,
     })).toBe(true)
+  })
+
+  it('rejects synthetic structured ids that cannot be materialized into cards', () => {
+    expect(canResolveRecommendationUiAction({
+      response: {
+        message: 'Voici deux choix.',
+        recommendation_selection: [{
+          bottle_id: 'PYCM2014',
+          name: 'Pierre-Yves Colin-Morey Chassagne-Montrachet Premier Cru 2014',
+          reason: 'Id invente par le modele.',
+          badge: 'Accord parfait',
+        }],
+        ui_action: null,
+        action_chips: null,
+      },
+      resolvedSources: sources({
+        cave: {
+          level: 'count',
+          totalBottles: 3,
+          referenceCount: 3,
+          bottles: [],
+        },
+      }),
+      canFetchSelectedBottleIds: true,
+    })).toBe(false)
   })
 
   it('does not add cards on non-recommendation routes', () => {

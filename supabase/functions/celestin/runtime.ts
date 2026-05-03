@@ -354,7 +354,12 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
           if (
             interpretation.shouldAllowUiAction
             && (routing.winner === 'recommendation_request' || routing.winner === 'recommendation_refinement' || routing.winner === 'memory_guided_recommendation')
-            && !canResolveRecommendationUiAction({ response: policyCandidate, resolvedSources, userMessage: body.message })
+            && !canResolveRecommendationUiAction({
+              response: policyCandidate,
+              resolvedSources,
+              userMessage: body.message,
+              canFetchSelectedBottleIds: !!auth?.userId && !!auth.supabase,
+            })
             && !canAcceptRecommendationClarification({
               userMessage: body.message,
               routingIntent: routing.winner,
