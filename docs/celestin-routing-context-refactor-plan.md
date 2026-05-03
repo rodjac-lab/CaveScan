@@ -24,6 +24,40 @@ RequestBody minimal
 -> ProviderAdapter
 ```
 
+## Etat au 2026-05-03 soir
+
+Le coeur du refacto routing/prompt est termine et commite :
+
+- le contrat recommandation cible passe par `recommendation_selection` ;
+- le backend materialise `ui_action.show_recommendations` depuis la selection du
+  modele, sans fallback top 3 local ;
+- `ProviderAdapter` trace la sortie brute/normalisee pour distinguer oubli modele,
+  perte parseur et strip policy ;
+- le response contract separe sortie provider, cartes backend et actions
+  operationnelles ;
+- `ContextPlan` / `SourceResolver` chargent moins de sources sur les routes
+  exactes, et gardent shortlist + profil riche sur recommandation ;
+- le frontend bascule les tours texte et suites d'encavage vers
+  `backend_managed` ;
+- `user-prompt.ts` est simplifie a comportement constant ;
+- les counts cave generiques et filtres (`rouges`, `blancs`, `roses`,
+  `champagnes/bulles`) ainsi que les counts/notes de degustation simples ont une
+  reponse deterministe ;
+- les patterns memoire sont centralises dans
+  `shared/celestin/memory-intent-patterns.ts` ;
+- les evals ajoutent des regressions pour `poulet roti`, paella -> rouge,
+  `Super Merci`, Rome, Marc/pizza et les non-contaminations memoire.
+
+Reste hors refacto strict :
+
+- supprimer la compatibilite parser `ui_action.show_recommendations` quand les
+  traces prod montrent que les providers n'en envoient plus ;
+- basculer les flows photo et degustation legacy vers un contrat aussi separe
+  que recommandation/encavage ;
+- scinder `tastingMemoryFilters.ts` et consolider les mots-bruits ;
+- lancer `verify:full` avant de considerer ce chantier pret pour deploiement
+  sensible ou mesure qualite LLM.
+
 ## Etat au 2026-05-02 soir
 
 Le chantier a avance au-dela du plan initial, mais il reste dans une zone hybride.

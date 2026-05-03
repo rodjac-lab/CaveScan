@@ -135,7 +135,18 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
   |  2. Reconstruit history[] en format natif    |
   |  3. Ajoute userPrompt comme dernier message  |
   |  4. Claude seulement : tool_use max 1 round  |
-  |  5. Parse JSON --> parseAndValidate()        |
+  |  5. Parse JSON --> CelestinProviderResponse  |
+  |  6. Normalise trace via ProviderAdapter      |
+  +--------------------+-------------------------+
+                       |
+                       v
+  +----------------------------------------------+
+  |       materializeRecommendationAction()       |
+  |                                              |
+  |  Le modele choisit les bouteilles dans        |
+  |  recommendation_selection. Le backend resout  |
+  |  les bottle_id, deduplique et construit       |
+  |  ui_action.show_recommendations.             |
   +--------------------+-------------------------+
                        |
                        v
@@ -174,8 +185,8 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
        |   --> persistedConversationState = _nextState
        |
        +-- show_recommendations
-       |   --> resolveBottleIds(cards, cave)
-       |   --> affiche cartes de vin + action_chips
+       |   --> affiche cartes backend + action_chips
+       |   --> resolveBottleIds reste un filet legacy frontend
        |
        +-- prepare_add_wine
        |   --> affiche fiche vin inline (Valider/Modifier)
@@ -395,18 +406,45 @@ Ces outils ne sont pas du SQL libre et sont des fonctions serveur bornees. Si l'
 
 Les fallbacks Gemini/OpenAI n'ont pas les tools internes. Ils peuvent servir de secours conversationnel, mais ne doivent pas devenir la source de verite pour une question exacte. Le debug expose `providerTrace`, les tool calls et les erreurs provider pour detecter ces cas.
 
-## Types de reponse
+## Contrat de reponse
+
+La sortie modele et la reponse HTTP finale sont volontairement separees.
+
+Le modele produit `CelestinProviderResponse` :
+
+```typescript
+interface CelestinProviderResponse {
+  message: string
+  recommendation_selection?: RecommendationSelection[] | null // choix de vins par le LLM
+  ui_action?: {
+    kind: 'prepare_add_wine' | 'prepare_add_wines' | 'prepare_log_tasting'
+    payload: {
+      extraction?: WineExtraction
+      extractions?: WineExtraction[]
+    }
+  } | null
+  action_chips?: string[] | null
+}
+```
+
+`show_recommendations` n'est plus une decision libre du provider. Le backend le
+construit depuis `recommendation_selection`, apres resolution des bouteilles et
+deduplication. Le parser accepte encore `ui_action.show_recommendations` comme
+compatibilite legacy, mais ce n'est plus la voie cible.
+
+La reponse HTTP finale reste `CelestinResponse` :
 
 ```typescript
 interface CelestinResponse {
   message: string                    // Toujours present
+  recommendation_selection?: RecommendationSelection[] | null // trace du choix modele
   ui_action?: {
-    kind: 'show_recommendations'     // Cartes de vin
+    kind: 'show_recommendations'     // Cartes de vin materialisees backend
         | 'prepare_add_wine'         // Encavage single
         | 'prepare_add_wines'        // Encavage batch
         | 'prepare_log_tasting'      // Degustation
     payload: {
-      cards?: RecommendationCard[]   // Pour show_recommendations
+      cards?: RecommendationCard[]   // Construites cote backend
       extraction?: WineExtraction    // Pour add_wine / log_tasting
       extractions?: WineExtraction[] // Pour add_wines
     }
