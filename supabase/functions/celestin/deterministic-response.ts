@@ -6,7 +6,7 @@ import {
 } from "../../../shared/celestin/exact-query.ts"
 import type { ResolvedContextSources } from "./source-resolver.ts"
 import type { RoutingIntent } from "./turn-interpreter.ts"
-import type { CelestinResponse, RequestBody } from "./types.ts"
+import type { CelestinResponse, RequestBody, WineExtraction } from "./types.ts"
 
 type ResolvedTastingRow = NonNullable<NonNullable<ResolvedContextSources['tastings']>['rows']>[number]
 
@@ -23,6 +23,63 @@ function formatRating(rating: number): string {
   return `${Number.isInteger(rating) ? rating.toString() : rating.toFixed(1)}/5`
 }
 
+function cleanWineField(value: string | null | undefined): string | null {
+  const cleaned = value
+    ?.replace(/^[\s,.;:!?'"-]+|[\s,.;:!?'"-]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return cleaned || null
+}
+
+function parseEncavageExtraction(message: string): WineExtraction | null {
+  const millesimeMatch = message.match(/\b(19|20)\d{2}\b/)
+  const millesime = millesimeMatch ? Number(millesimeMatch[0]) : null
+  let working = message
+    .replace(/\b(19|20)\d{2}\b/g, ' ')
+    .replace(/\b(une?|des|du|de la|de l'|d'|bouteilles?|magnums?|demi[- ]bouteilles?)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const domaineMatch = working.match(/\b(?:domaine|chateau|château|clos|maison)\s+([A-ZÀ-ÖØ-Þ][\p{L}'’-]*(?:\s+[A-ZÀ-ÖØ-Þ][\p{L}'’-]*){0,3})/iu)
+  const domaine = cleanWineField(domaineMatch ? domaineMatch[0] : null)
+
+  if (domaine) {
+    working = working.replace(domaineMatch![0], ' ').replace(/\s+/g, ' ').trim()
+  }
+
+  const appellation = cleanWineField(working)
+
+  if (!domaine && !appellation) return null
+
+  return {
+    domaine,
+    cuvee: null,
+    appellation,
+    millesime,
+    couleur: null,
+    country: null,
+    region: null,
+    quantity: 1,
+    volume: '0.75',
+  }
+}
+
+function normalizeText(value: string | null | undefined): string {
+  return (value ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
+function previousUserText(body: RequestBody): string {
+  return [...body.history].reverse().find((turn) => turn.role === 'user')?.text ?? ''
+}
+
+function isRedColorFollowUp(message: string): boolean {
+  return /\b(plutot|plutôt|en|un)\s+rouge\b/i.test(message)
+}
+
 export function buildDeterministicResponse(input: {
   body: RequestBody
   routingIntent: RoutingIntent
@@ -30,6 +87,37 @@ export function buildDeterministicResponse(input: {
   resolvedSources: ResolvedContextSources
 }): CelestinResponse | null {
   if (input.body.image) return null
+
+  const state = input.body.conversationState
+  if (
+    input.routingIntent === 'wine_question'
+    && isRedColorFollowUp(input.body.message)
+    && /\b(vin italien|italien|italie)\b/.test(normalizeText(previousUserText(input.body)))
+  ) {
+    return {
+      message: 'Pour un rouge italien, vise un style frais et digeste : Chianti, Barbera, Etna Rosso ou Valpolicella plutôt qu’un rouge trop boisé. Tu gardes l’Italie, mais avec de l’acidité et pas trop de tanins.',
+      ui_action: null,
+      action_chips: ['Et en blanc italien ?', 'Pour quel plat ?', 'Voir ma cave'],
+    }
+  }
+
+  if (
+    input.routingIntent === 'encavage_request'
+    && state?.phase === 'collecting_info'
+    && state.taskType === 'encavage'
+  ) {
+    const extraction = parseEncavageExtraction(input.body.message)
+    if (extraction) {
+      return {
+        message: 'Je te prépare la fiche.',
+        ui_action: {
+          kind: 'prepare_add_wine',
+          payload: { extraction },
+        },
+        action_chips: null,
+      }
+    }
+  }
 
   if (
     input.routingIntent === 'cellar_lookup'

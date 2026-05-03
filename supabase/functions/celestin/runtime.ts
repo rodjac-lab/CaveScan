@@ -4,7 +4,7 @@ import { buildDeterministicResponse } from "./deterministic-response.ts"
 import { celestinWithFallback, type CelestinProviderTrace } from "./llm-providers.ts"
 import { resolveActiveMemoryFocus } from "./memory-focus.ts"
 import { assembleCelestinPrompt, buildProviderHistory } from "./prompt-assembler.ts"
-import { ensureRecommendationUiAction } from "./recommendation-action.ts"
+import { canResolveRecommendationUiAction, ensureRecommendationUiAction } from "./recommendation-action.ts"
 import { applyResponsePolicy } from "./response-policy.ts"
 import { interpretTurnWithRouting } from "./turn-interpreter.ts"
 import { persistCelestinTurnObservability } from "./observability.ts"
@@ -40,6 +40,10 @@ function forcedToolName(contextPlan: ContextPlan): CelestinToolName | undefined 
   if (contextPlan.tools === 'force_memory') return 'query_memory'
   if (contextPlan.tools === 'force_tastings') return 'query_tastings'
   return undefined
+}
+
+function isClarificationMessage(message: string): boolean {
+  return /\?/.test(message) || /\b(dis[- ]moi|precise|précise|quel plat|quelle occasion|tu manges quoi|c'est pour quoi)\b/i.test(message)
 }
 
 function emptyProviderTrace(): CelestinProviderTrace {
@@ -236,6 +240,19 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
         auth,
         requestSource,
         forcedToolName: forcedToolName(contextPlan),
+        validateResponse: (candidate) => {
+          const policyCandidate = applyResponsePolicy(candidate, interpretation)
+          if (
+            interpretation.shouldAllowUiAction
+            && (routing.winner === 'recommendation_request' || routing.winner === 'recommendation_refinement' || routing.winner === 'memory_guided_recommendation')
+            && !canResolveRecommendationUiAction({ response: policyCandidate, resolvedSources, userMessage: body.message })
+            && !isClarificationMessage(policyCandidate.message)
+          ) {
+            return 'Recommendation response contract violation: no resolvable ui_action or recommendation_selection'
+          }
+
+          return null
+        },
         usageContext: {
           turnId,
           route: routing.winner,
@@ -250,6 +267,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       interpretation,
       routingIntent: routing.winner,
       resolvedSources,
+      userMessage: body.message,
     })
 
     const nextState = computeNextState(

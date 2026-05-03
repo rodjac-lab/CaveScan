@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ensureRecommendationUiAction } from './recommendation-action'
+import { canResolveRecommendationUiAction, ensureRecommendationUiAction } from './recommendation-action'
 import type { ResolvedContextSources } from './source-resolver'
 
 function sources(overrides: Partial<ResolvedContextSources> = {}): ResolvedContextSources {
@@ -161,6 +161,17 @@ describe('ensureRecommendationUiAction', () => {
     expect(response.ui_action).toBeNull()
   })
 
+  it('reports whether a recommendation action can be resolved before provider acceptance', () => {
+    expect(canResolveRecommendationUiAction({
+      response: {
+        message: 'Le Sancerre 2020 Domaine Test Les Blancs est le bon choix ici.',
+        ui_action: null,
+        action_chips: null,
+      },
+      resolvedSources: sources(),
+    })).toBe(true)
+  })
+
   it('does not add cards on non-recommendation routes', () => {
     const response = ensureRecommendationUiAction({
       response: {
@@ -211,5 +222,49 @@ describe('ensureRecommendationUiAction', () => {
 
     expect(response.ui_action?.payload.cards).toHaveLength(1)
     expect(response.ui_action?.payload.cards[0].bottle_id).toBe('existing')
+  })
+
+  it('filters hard pairing color mismatches from model cards', () => {
+    const response = ensureRecommendationUiAction({
+      response: {
+        message: 'Voici deux options.',
+        ui_action: {
+          kind: 'show_recommendations',
+          payload: {
+            cards: [
+              {
+                bottle_id: 'red',
+                name: 'Morgon',
+                appellation: 'Morgon',
+                badge: 'De ta cave',
+                reason: 'Rouge leger.',
+                color: 'rouge',
+              },
+              {
+                bottle_id: 'white',
+                name: 'Sancerre',
+                appellation: 'Sancerre',
+                badge: 'Accord parfait',
+                reason: 'Blanc tendu.',
+                color: 'blanc',
+              },
+            ],
+          },
+        },
+        action_chips: null,
+      },
+      interpretation: {
+        turnType: 'task_request',
+        cognitiveMode: 'cellar_assistant',
+        shouldAllowUiAction: true,
+        inferredTaskType: 'recommendation',
+      },
+      routingIntent: 'recommendation_request',
+      resolvedSources: sources(),
+      userMessage: 'Ce soir sushi',
+    })
+
+    expect(response.ui_action?.payload.cards).toHaveLength(1)
+    expect(response.ui_action?.payload.cards[0].color).toBe('blanc')
   })
 })

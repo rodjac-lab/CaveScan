@@ -73,6 +73,18 @@ function cardColor(value: string | null): RecommendationCard['color'] {
   return 'rouge'
 }
 
+function disallowedColorsForRequest(message: string | undefined): Set<RecommendationCard['color']> {
+  const normalized = normalize(message)
+  if (/\b(sushi|sashimi|poisson cru)\b/.test(normalized)) return new Set(['rouge'])
+  return new Set()
+}
+
+function filterCardsForRequest(cards: RecommendationCard[], userMessage?: string): RecommendationCard[] {
+  const disallowed = disallowedColorsForRequest(userMessage)
+  if (disallowed.size === 0) return cards
+  return cards.filter((card) => !disallowed.has(card.color))
+}
+
 function cardBadge(value: string | null | undefined, fallbackIndex: number): string {
   const normalized = normalize(value)
   if (normalized === 'accord parfait') return 'Accord parfait'
@@ -194,13 +206,43 @@ function buildCardsFromSelection(
   return cards.slice(0, 3)
 }
 
+export function canResolveRecommendationUiAction(input: {
+  response: CelestinResponse
+  resolvedSources: ResolvedContextSources
+  userMessage?: string
+}): boolean {
+  const { response, resolvedSources } = input
+  if (response.ui_action?.kind === 'show_recommendations') {
+    return filterCardsForRequest(response.ui_action.payload.cards, input.userMessage).length > 0
+  }
+  if (resolvedSources.cave.level !== 'shortlist' && resolvedSources.cave.level !== 'full_debug') return false
+
+  const selectionCards = buildCardsFromSelection(
+    response.recommendation_selection,
+    response.message,
+    resolvedSources.cave.bottles,
+  )
+  const cards = selectionCards ?? buildRecommendationCards(response.message, resolvedSources.cave.bottles)
+  return filterCardsForRequest(cards, input.userMessage).length > 0
+}
+
 export function ensureRecommendationUiAction(input: {
   response: CelestinResponse
   interpretation: TurnInterpretation
   routingIntent: RoutingIntent
   resolvedSources: ResolvedContextSources
+  userMessage?: string
 }): CelestinResponse {
   const { response, interpretation, routingIntent, resolvedSources } = input
+  if (response.ui_action?.kind === 'show_recommendations') {
+    const cards = filterCardsForRequest(response.ui_action.payload.cards, input.userMessage)
+    return {
+      ...response,
+      ui_action: cards.length > 0
+        ? { ...response.ui_action, payload: { cards } }
+        : null,
+    }
+  }
   if (response.ui_action) return response
   if (!interpretation.shouldAllowUiAction) return response
   if (!RECOMMENDATION_ROUTES.has(routingIntent)) return response
@@ -212,13 +254,14 @@ export function ensureRecommendationUiAction(input: {
     resolvedSources.cave.bottles,
   )
   const cards = selectionCards ?? buildRecommendationCards(response.message, resolvedSources.cave.bottles)
-  if (cards.length === 0) return response
+  const filteredCards = filterCardsForRequest(cards, input.userMessage)
+  if (filteredCards.length === 0) return response
 
   return {
     ...response,
     ui_action: {
       kind: 'show_recommendations',
-      payload: { cards },
+      payload: { cards: filteredCards },
     },
   }
 }

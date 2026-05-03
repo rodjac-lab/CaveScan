@@ -206,11 +206,22 @@ function routeCollectingInfo(state: ConversationState, signals: RoutingSignals, 
     return routed(cellarContextSwitch(), state.phase, 'cellar_lookup', candidates)
   }
 
+  if (
+    (signals.isWineCulture || signals.isQuestion)
+    && /\b(au fait|sinon|et sinon|interessant|intéressant)\b/i.test(signals.lower)
+  ) {
+    return routed(wineContextSwitch(), state.phase, 'wine_question', candidates)
+  }
+
   const cellarRequest = routeCellarRequest(signals)
   if (cellarRequest) return routed(cellarRequest.interpretation, state.phase, cellarRequest.winner, candidates)
 
   if (state.taskType === 'encavage') {
     return routed({ turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }, state.phase, 'encavage_request', candidates)
+  }
+
+  if (state.taskType === 'recommendation') {
+    return routed({ turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'recommendation' }, state.phase, 'recommendation_refinement', candidates)
   }
 
   return routed({ turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }, state.phase, 'unknown', candidates)

@@ -121,6 +121,47 @@ Decision :
   librement par le modele.
 - Le backend est responsable de la materialisation UI.
 
+## Etat au 2026-05-03 - contrat runtime stabilise
+
+Le diagnostic live Supabase a confirme un bug de fond :
+
+- le routeur pouvait etre correct (`recommendation_request`) ;
+- la shortlist cave pouvait etre presente ;
+- mais le provider pouvait rendre une reponse JSON valide sans `ui_action` et
+  sans `recommendation_selection`.
+
+La correction n'est pas un prompt supplementaire. Elle est dans le contrat runtime :
+
+- une route de recommandation actionnable ne peut plus accepter une reponse finale
+  sans action resoluble, sauf vraie clarification ;
+- `ProviderAdapter` peut rejeter cette reponse comme violation de contrat et
+  laisser le fallback provider tenter une reponse structuree ;
+- `RecommendationAction` reste responsable de materialiser les cartes depuis
+  `recommendation_selection` ou depuis des bouteilles explicitement citees ;
+- les cartes finales passent par une petite policy deterministe quand l'accord a
+  une contrainte dure evidente, par exemple sushi / poisson cru sans carte rouge ;
+- l'encavage conversationnel suffisamment identifie produit une fiche
+  deterministe plutot que de redemander une information secondaire ;
+- les follow-ups courts de conversation vin peuvent etre recontextualises depuis
+  l'historique quand le focus est prouvable.
+
+Validation observee :
+
+- tests cibles contrat : `recommendation-action`, `deterministic-response`,
+  `turn-interpreter` ;
+- `npm run verify` vert ;
+- fonction Supabase `celestin` redeployee ;
+- eval live finale : 40/40.
+
+Regle de validation pour la suite :
+
+- pendant le developpement, ne pas relancer toute l'eval LLM apres chaque micro
+  correction ;
+- ajouter ou renforcer d'abord le test deterministe du contrat touche ;
+- utiliser les logs Supabase pour prouver la cause et l'effet sur les cas live ;
+- lancer l'eval LLM complete seulement comme gate finale ou avant deploiement
+  sensible.
+
 ## Principe directeur
 
 Le frontend ne doit pas decider le contexte LLM.

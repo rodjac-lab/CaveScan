@@ -731,6 +731,36 @@ describe('routing audit matrix', () => {
     })
   })
 
+  it('routes recommendation collection answers back to the recommendation source plan', () => {
+    expectRoute({
+      id: 'recommendation-collecting-detail',
+      message: 'Un truc léger, en rouge',
+      state: {
+        phase: 'collecting_info',
+        taskType: 'recommendation',
+      },
+      lastAssistantText: "Avant de te proposer, dis-moi : c'est pour manger quelque chose de précis ?",
+      expectedWinner: 'recommendation_refinement',
+      expectedMode: 'cellar_assistant',
+      expectedUiAction: true,
+    })
+  })
+
+  it('lets explicit wine-culture pivots escape recommendation collection state', () => {
+    expectRoute({
+      id: 'collecting-info-culture-pivot',
+      message: "Merci ! Et sinon, c'est quoi un vin orange ?",
+      state: {
+        phase: 'collecting_info',
+        taskType: 'recommendation',
+      },
+      lastAssistantText: 'Tu cherches juste un bon verre ou un accord pour un plat ?',
+      expectedWinner: 'wine_question',
+      expectedMode: 'wine_conversation',
+      expectedUiAction: false,
+    })
+  })
+
   it('routes a collecting-info thank-you as social_ack instead of task continuation', () => {
     expectRoute({
       id: 'collecting-info-thanks',

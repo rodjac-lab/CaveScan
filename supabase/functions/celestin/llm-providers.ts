@@ -32,6 +32,7 @@ export interface CelestinProviderOptions {
   requestSource?: string
   usageContext?: CelestinUsageContext
   forcedToolName?: CelestinToolName
+  validateResponse?: (response: CelestinResponse) => string | null
 }
 
 export interface CelestinUsageContext {
@@ -538,6 +539,11 @@ export async function celestinWithFallback(
   options?: CelestinProviderOptions,
 ): Promise<{ provider: string; response: CelestinResponse; providerErrors: string[]; trace: CelestinProviderTrace }> {
   const trace = createProviderTrace()
+  const validateProviderResponse = (response: CelestinResponse) => {
+    const reason = options?.validateResponse?.(response)
+    if (reason) throw new Error(reason)
+  }
+
   if (forcedProvider) {
     const providerMap: Record<string, { name: string; call: () => Promise<CelestinResponse> }> = {
       claude: { name: 'Claude', call: () => callClaude(systemPrompt, userPrompt, history, image, options, trace) },
@@ -553,6 +559,7 @@ export async function celestinWithFallback(
     const startedAt = performance.now()
     try {
       const response = await selected.call()
+      validateProviderResponse(response)
       trace.attempts.push({ provider: selected.name, status: 'success', durationMs: Math.round(performance.now() - startedAt) })
       return { provider: selected.name, response, providerErrors: [], trace }
     } catch (err) {
@@ -577,6 +584,7 @@ export async function celestinWithFallback(
     try {
       console.log(`[celestin] Trying ${provider.name}...`)
       const response = await provider.call()
+      validateProviderResponse(response)
       const durationMs = Math.round(performance.now() - startedAt)
       trace.attempts.push({ provider: provider.name, status: 'success', durationMs })
       if (errors.length > 0) trace.providerPath = 'fallback_response'

@@ -74,6 +74,52 @@ describe('buildDeterministicResponse', () => {
     })).toBeNull()
   })
 
+  it('prepares an encavage action when a collecting encavage turn identifies one wine', () => {
+    const response = buildDeterministicResponse({
+      body: {
+        ...body('Un Sancerre 2023 du Domaine Vacheron'),
+        conversationState: {
+          phase: 'collecting_info',
+          taskType: 'encavage',
+          lastUiActionKind: null,
+          turnsSinceLastAction: 0,
+          memoryFocus: null,
+        },
+      },
+      routingIntent: 'encavage_request',
+      contextPlan: plan({ truthPolicy: 'standard', tools: 'auto', cave: 'count' }),
+      resolvedSources: sources({ cave: { level: 'count', totalBottles: 12, referenceCount: 8, bottles: [] } }),
+    })
+
+    expect(response?.ui_action?.kind).toBe('prepare_add_wine')
+    expect(response?.ui_action?.payload.extraction).toMatchObject({
+      domaine: 'Domaine Vacheron',
+      appellation: 'Sancerre',
+      millesime: 2023,
+      quantity: 1,
+      volume: '0.75',
+    })
+  })
+
+  it('answers a short red follow-up in the previous geographic wine context', () => {
+    const response = buildDeterministicResponse({
+      body: {
+        ...body('Plutôt un rouge.'),
+        history: [
+          { role: 'user', text: 'Je cherche un vin italien' },
+          { role: 'assistant', text: "L'Italie, c'est vaste : tu cherches quel style ?" },
+        ],
+      },
+      routingIntent: 'wine_question',
+      contextPlan: plan({ truthPolicy: 'prudent_factual', cave: 'none', zones: 'none', tools: 'none' }),
+      resolvedSources: sources({ cave: { level: 'none', totalBottles: 0, referenceCount: 0, bottles: [] } }),
+    })
+
+    expect(response?.ui_action).toBeNull()
+    expect(response?.message.toLowerCase()).toContain('italien')
+    expect(response?.message.toLowerCase()).toContain('rouge')
+  })
+
   it('answers simple tasting counts from resolved tasting source', () => {
     const response = buildDeterministicResponse({
       body: body("Combien de dégustations de Champagne j'ai faites ?"),
