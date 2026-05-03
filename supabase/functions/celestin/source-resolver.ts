@@ -12,7 +12,7 @@ import {
   type CellarOriginPolarity,
   type CellarVolumeFilter,
 } from '../../../shared/celestin/exact-query.ts'
-import { searchCellarCandidates, type ToolInput } from './tools.ts'
+import { requestedColor, searchCellarCandidates, type ToolInput } from './tools.ts'
 import type { CaveBottle, RequestBody } from './types.ts'
 
 export type SourceRequirementKind =
@@ -491,33 +491,62 @@ async function resolveZonesFromBackend(
     .filter((zone): zone is string => typeof zone === 'string' && zone.trim().length > 0)
 }
 
-function resolveCave(body: RequestBody, contextPlan: ContextPlan): ResolvedCaveSource {
-  const colorFilter = parseFilteredCellarBottleCount(body.message)
-  const volumeFilter = colorFilter ? null : parseVolumeCellarBottleCount(body.message)
-  const originFilter = colorFilter || volumeFilter ? null : parseCellarOriginLookup(body.message)
+interface CaveCountFilter {
+  descriptor: CellarCountFilterDescriptor
+  apply<T extends Record<string, unknown>>(rows: T[]): T[]
+}
 
-  let cave = body.cave ?? []
-  let descriptor: CellarCountFilterDescriptor | undefined
-
+function resolveCaveCountFilter(message: string): CaveCountFilter | null {
+  const colorFilter = parseFilteredCellarBottleCount(message)
   if (colorFilter) {
-    cave = filteredCaveRows(cave, colorFilter.filter)
-    descriptor = { kind: 'color', filter: colorFilter.filter, label: colorFilter.label }
-  } else if (volumeFilter) {
-    cave = volumeFilteredCaveRows(cave, volumeFilter.filter)
-    descriptor = { kind: 'volume', filter: volumeFilter.filter, label: volumeFilter.label }
-  } else if (originFilter) {
-    const needles = originAliasNeedles(originFilter.needle)
-    const matched = originFilteredCaveRows(cave, needles)
-    cave = matched
-    descriptor = {
-      kind: 'origin',
-      needle: originFilter.needle,
-      label: originFilter.label,
-      polarity: originFilter.polarity,
-      matches: matched.length,
+    return {
+      descriptor: { kind: 'color', filter: colorFilter.filter, label: colorFilter.label },
+      apply: (rows) => filteredCaveRows(rows, colorFilter.filter),
     }
   }
 
+  const volumeFilter = parseVolumeCellarBottleCount(message)
+  if (volumeFilter) {
+    return {
+      descriptor: { kind: 'volume', filter: volumeFilter.filter, label: volumeFilter.label },
+      apply: (rows) => volumeFilteredCaveRows(rows, volumeFilter.filter),
+    }
+  }
+
+  const originFilter = parseCellarOriginLookup(message)
+  if (originFilter) {
+    const needles = originAliasNeedles(originFilter.needle)
+    return {
+      descriptor: {
+        kind: 'origin',
+        needle: originFilter.needle,
+        label: originFilter.label,
+        polarity: originFilter.polarity,
+        matches: 0,
+      },
+      apply: (rows) => originFilteredCaveRows(rows, needles),
+    }
+  }
+
+  return null
+}
+
+function applyCaveCountFilter(filter: CaveCountFilter | null, rows: Array<Record<string, unknown>>): {
+  rows: Array<Record<string, unknown>>
+  descriptor: CellarCountFilterDescriptor | undefined
+} {
+  if (!filter) return { rows, descriptor: undefined }
+  const matched = filter.apply(rows)
+  const descriptor = filter.descriptor.kind === 'origin'
+    ? { ...filter.descriptor, matches: matched.length }
+    : filter.descriptor
+  return { rows: matched, descriptor }
+}
+
+function resolveCave(body: RequestBody, contextPlan: ContextPlan): ResolvedCaveSource {
+  const filter = resolveCaveCountFilter(body.message)
+  const { rows, descriptor } = applyCaveCountFilter(filter, (body.cave ?? []) as unknown as Array<Record<string, unknown>>)
+  const cave = rows as unknown as CaveBottle[]
   const counts = summarizeCave(cave)
   const shouldIncludeBottles = contextPlan.cave === 'shortlist' || contextPlan.cave === 'full_debug'
 
@@ -761,15 +790,10 @@ async function resolveCaveFromBackend(
     }
   }
 
-  const colorFilter = parseFilteredCellarBottleCount(body.message)
-  const volumeFilter = colorFilter ? null : parseVolumeCellarBottleCount(body.message)
-  const originFilter = colorFilter || volumeFilter ? null : parseCellarOriginLookup(body.message)
-
-  const needsOriginColumns = !!originFilter
-  const needsVolumeColumn = !!volumeFilter
+  const filter = resolveCaveCountFilter(body.message)
   const baseColumns = ['quantity', 'couleur']
-  if (needsVolumeColumn) baseColumns.push('volume_l')
-  if (needsOriginColumns) baseColumns.push('country', 'region', 'appellation', 'cuvee', 'domaine')
+  if (filter?.descriptor.kind === 'volume') baseColumns.push('volume_l')
+  if (filter?.descriptor.kind === 'origin') baseColumns.push('country', 'region', 'appellation', 'cuvee', 'domaine')
 
   const { data, error } = await auth.supabase
     .from('bottles')
@@ -782,27 +806,7 @@ async function resolveCaveFromBackend(
     return local
   }
 
-  let rows: Array<Record<string, unknown>> = (data ?? []) as Array<Record<string, unknown>>
-  let descriptor: CellarCountFilterDescriptor | undefined
-
-  if (colorFilter) {
-    rows = filteredCaveRows(rows, colorFilter.filter)
-    descriptor = { kind: 'color', filter: colorFilter.filter, label: colorFilter.label }
-  } else if (volumeFilter) {
-    rows = volumeFilteredCaveRows(rows, volumeFilter.filter)
-    descriptor = { kind: 'volume', filter: volumeFilter.filter, label: volumeFilter.label }
-  } else if (originFilter) {
-    const needles = originAliasNeedles(originFilter.needle)
-    const matched = originFilteredCaveRows(rows, needles)
-    rows = matched
-    descriptor = {
-      kind: 'origin',
-      needle: originFilter.needle,
-      label: originFilter.label,
-      polarity: originFilter.polarity,
-      matches: matched.length,
-    }
-  }
+  const { rows, descriptor } = applyCaveCountFilter(filter, (data ?? []) as Array<Record<string, unknown>>)
 
   return {
     level: contextPlan.cave,
@@ -888,17 +892,8 @@ async function resolveTastingsFromBackend(
   }
 }
 
-function detectColorHint(message: string): ToolInput['color'] | undefined {
-  const normalized = normalizeExactQueryText(message)
-  if (/\brouges?\b/.test(normalized)) return 'rouge'
-  if (/\bblancs?\b/.test(normalized)) return 'blanc'
-  if (/\broses?\b/.test(normalized)) return 'rose'
-  if (/\b(bulles?|champagnes?|petillants?|effervescents?)\b/.test(normalized)) return 'bulles'
-  return undefined
-}
-
 function compactCandidateAsCaveBottle(row: Record<string, unknown>): CaveBottle | null {
-  const id = typeof row.id === 'string' ? row.id : null
+  const id = typeof row.id === 'string' ? row.id.slice(0, 8) : null
   if (!id) return null
   const character = typeof row.character === 'string'
     ? row.character
@@ -923,22 +918,20 @@ function compactCandidateAsCaveBottle(row: Record<string, unknown>): CaveBottle 
 async function resolveCellarCandidatesFromBackend(
   body: RequestBody,
   contextPlan: ContextPlan,
-  cave: ResolvedCaveSource,
   auth: SourceResolverAuth,
-): Promise<ResolvedCaveSource> {
-  if (contextPlan.cellarCandidates !== 'preempted') return cave
-  if (!auth?.userId || !auth.supabase) return cave
-  if (cave.bottles.length > 0 && cave.level === 'shortlist') return cave
+): Promise<CaveBottle[] | null> {
+  if (contextPlan.cellarCandidates !== 'preempted') return null
+  if (!auth?.userId || !auth.supabase) return null
 
   const message = typeof body.message === 'string' ? body.message.trim() : ''
-  if (!message) return cave
+  if (!message) return null
 
   const isSentinelMessage = message === '__prefetch__' || message === '__greeting__'
   const toolInput: ToolInput = {}
   if (!isSentinelMessage) {
     toolInput.query = message
-    const color = detectColorHint(message)
-    if (color) toolInput.color = color
+    const color = requestedColor({ query: message })
+    if (color) toolInput.color = color as ToolInput['color']
   }
 
   let payload: Record<string, unknown>
@@ -947,12 +940,12 @@ async function resolveCellarCandidatesFromBackend(
     payload = JSON.parse(raw) as Record<string, unknown>
   } catch (err) {
     console.warn('[celestin:source-resolver] cellar candidate preempt failed:', err instanceof Error ? err.message : String(err))
-    return cave
+    return null
   }
 
   if (typeof payload.error === 'string') {
     console.warn('[celestin:source-resolver] cellar candidate preempt error:', payload.error)
-    return cave
+    return null
   }
 
   const rows = Array.isArray(payload.rows) ? payload.rows : []
@@ -960,16 +953,19 @@ async function resolveCellarCandidatesFromBackend(
     .map((row) => (row && typeof row === 'object') ? compactCandidateAsCaveBottle(row as Record<string, unknown>) : null)
     .filter((bottle): bottle is CaveBottle => bottle !== null)
 
-  if (bottles.length === 0) return cave
+  return bottles.length > 0 ? bottles : null
+}
 
-  const totalQuantity = bottles.reduce((sum, bottle) => sum + Math.max(1, bottle.quantity ?? 1), 0)
+function mergeCandidatesIntoCave(cave: ResolvedCaveSource, candidates: CaveBottle[]): ResolvedCaveSource {
+  if (cave.bottles.length > 0 && cave.level === 'shortlist') return cave
 
+  const totalQuantity = candidates.reduce((sum, bottle) => sum + Math.max(1, bottle.quantity ?? 1), 0)
   return {
     ...cave,
     level: 'shortlist',
-    referenceCount: bottles.length,
+    referenceCount: candidates.length,
     totalBottles: cave.totalBottles > 0 ? cave.totalBottles : totalQuantity,
-    bottles,
+    bottles: candidates,
     origin: 'preempted_candidates',
   }
 }
@@ -980,14 +976,17 @@ export async function resolveContextSourcesForRequest(
   auth?: SourceResolverAuth,
 ): Promise<ResolvedContextSources> {
   const profile = await resolveProfileFromBackend(body, contextPlan, auth)
-  const [initialCave, zones, memories, tastings] = await Promise.all([
+  const [initialCave, zones, memories, tastings, candidateUpgrade] = await Promise.all([
     resolveCaveFromBackend(body, contextPlan, auth, profile),
     resolveZonesFromBackend(body, contextPlan, auth),
     resolveMemoriesFromBackend(body, contextPlan, auth),
     resolveTastingsFromBackend(body, contextPlan, auth),
+    resolveCellarCandidatesFromBackend(body, contextPlan, auth),
   ])
 
-  const cave = await resolveCellarCandidatesFromBackend(body, contextPlan, initialCave, auth)
+  const cave = candidateUpgrade
+    ? mergeCandidatesIntoCave(initialCave, candidateUpgrade)
+    : initialCave
 
   return {
     requirements: buildSourceRequirements(contextPlan),

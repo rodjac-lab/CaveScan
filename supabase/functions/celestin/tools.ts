@@ -240,7 +240,7 @@ function rankByFreeQuery<T extends Record<string, unknown>>(rows: T[], input: To
   })
 }
 
-function requestedColor(input: ToolInput): string | undefined {
+export function requestedColor(input: ToolInput): string | undefined {
   const explicit = text(input.color)
   if (explicit) return normalize(explicit)
   const query = normalize(text(input.query))

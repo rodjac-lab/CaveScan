@@ -83,6 +83,44 @@ function isRedColorFollowUp(message: string): boolean {
   return /\b(plutot|plutôt|en|un)\s+rouge\b/i.test(message)
 }
 
+function pluralBottles(n: number): string {
+  return n === 1 ? '1 bouteille' : `${n} bouteilles`
+}
+
+function pluralReferences(n: number): string {
+  return n === 1 ? '1 reference' : `${n} references`
+}
+
+interface CellarCountReplyInput {
+  total: number
+  references: number
+  label: string
+  emptyMessage: string
+  filledMessage: string
+  emptyChips?: string[]
+  filledChips?: string[]
+}
+
+function buildCellarCountReply({
+  total,
+  references,
+  emptyMessage,
+  filledMessage,
+  emptyChips = ['Voir la cave', 'Que boire ce soir ?'],
+  filledChips = ['Voir la cave', 'Quels rouges ?', 'Que boire ce soir ?'],
+}: CellarCountReplyInput): CelestinResponse {
+  if (total === 0) {
+    return { message: emptyMessage, ui_action: null, action_chips: emptyChips }
+  }
+  return {
+    message: filledMessage
+      .replace('{bottles}', pluralBottles(total))
+      .replace('{references}', pluralReferences(references)),
+    ui_action: null,
+    action_chips: filledChips,
+  }
+}
+
 export function buildDeterministicResponse(input: {
   body: RequestBody
   routingIntent: RoutingIntent
@@ -122,95 +160,58 @@ export function buildDeterministicResponse(input: {
     }
   }
 
-  if (
-    input.routingIntent === 'cellar_lookup'
+  const isCellarLookupExact = input.routingIntent === 'cellar_lookup'
     && input.contextPlan.truthPolicy === 'exact_only'
-    && parseGenericCellarBottleCount(input.body.message)
-  ) {
-    const total = input.resolvedSources.cave.totalBottles
-    const references = input.resolvedSources.cave.referenceCount
 
-    if (total === 0) {
-      return {
-        message: 'Ta cave est vide pour l instant.',
-        ui_action: null,
-        action_chips: ['Ajouter une bouteille', 'Voir la cave'],
-      }
-    }
-
-    const referencePart = references === 1 ? '1 reference' : `${references} references`
-    const bottlePart = total === 1 ? '1 bouteille' : `${total} bouteilles`
-
-    return {
-      message: `Tu as ${bottlePart} en cave, sur ${referencePart}.`,
-      ui_action: null,
-      action_chips: ['Voir la cave', 'Quels rouges ?', 'Que boire ce soir ?'],
-    }
+  if (isCellarLookupExact && parseGenericCellarBottleCount(input.body.message)) {
+    return buildCellarCountReply({
+      total: input.resolvedSources.cave.totalBottles,
+      references: input.resolvedSources.cave.referenceCount,
+      label: '',
+      emptyMessage: 'Ta cave est vide pour l instant.',
+      filledMessage: 'Tu as {bottles} en cave, sur {references}.',
+      emptyChips: ['Ajouter une bouteille', 'Voir la cave'],
+    })
   }
 
   const filteredCellarCount = parseFilteredCellarBottleCount(input.body.message)
   if (
-    filteredCellarCount
-    && input.routingIntent === 'cellar_lookup'
-    && input.contextPlan.truthPolicy === 'exact_only'
+    isCellarLookupExact
+    && filteredCellarCount
     && input.resolvedSources.cave.countFilter?.kind === 'color'
     && input.resolvedSources.cave.countFilter.filter === filteredCellarCount.filter
   ) {
-    const total = input.resolvedSources.cave.totalBottles
-    const references = input.resolvedSources.cave.referenceCount
     const label = input.resolvedSources.cave.countFilter.label
-
-    if (total === 0) {
-      return {
-        message: `Je ne trouve aucun ${label} en cave.`,
-        ui_action: null,
-        action_chips: ['Voir la cave', 'Que boire ce soir ?'],
-      }
-    }
-
-    const referencePart = references === 1 ? '1 reference' : `${references} references`
-    const bottlePart = total === 1 ? '1 bouteille' : `${total} bouteilles`
-    return {
-      message: `Tu as ${bottlePart} de ${label} en cave, sur ${referencePart}.`,
-      ui_action: null,
-      action_chips: ['Voir la cave', 'Quels rouges ?', 'Que boire ce soir ?'],
-    }
+    return buildCellarCountReply({
+      total: input.resolvedSources.cave.totalBottles,
+      references: input.resolvedSources.cave.referenceCount,
+      label,
+      emptyMessage: `Je ne trouve aucun ${label} en cave.`,
+      filledMessage: `Tu as {bottles} de ${label} en cave, sur {references}.`,
+    })
   }
 
   const volumeCount = parseVolumeCellarBottleCount(input.body.message)
   if (
-    volumeCount
-    && input.routingIntent === 'cellar_lookup'
-    && input.contextPlan.truthPolicy === 'exact_only'
+    isCellarLookupExact
+    && volumeCount
     && input.resolvedSources.cave.countFilter?.kind === 'volume'
     && input.resolvedSources.cave.countFilter.filter === volumeCount.filter
   ) {
-    const total = input.resolvedSources.cave.totalBottles
-    const references = input.resolvedSources.cave.referenceCount
     const label = input.resolvedSources.cave.countFilter.label
-
-    if (total === 0) {
-      return {
-        message: `Je ne trouve aucun ${label} en cave.`,
-        ui_action: null,
-        action_chips: ['Voir la cave', 'Que boire ce soir ?'],
-      }
-    }
-
-    const bottlePart = total === 1 ? '1 bouteille' : `${total} bouteilles`
-    const referencePart = references === 1 ? '1 reference' : `${references} references`
-    return {
-      message: `Tu as ${bottlePart} en ${label} (${referencePart}).`,
-      ui_action: null,
-      action_chips: ['Voir la cave', 'Que boire ce soir ?'],
-    }
+    return buildCellarCountReply({
+      total: input.resolvedSources.cave.totalBottles,
+      references: input.resolvedSources.cave.referenceCount,
+      label,
+      emptyMessage: `Je ne trouve aucun ${label} en cave.`,
+      filledMessage: `Tu as {bottles} en ${label} ({references}).`,
+    })
   }
 
   const originLookup = parseCellarOriginLookup(input.body.message)
   if (
-    originLookup
-    && input.routingIntent === 'cellar_lookup'
-    && input.contextPlan.truthPolicy === 'exact_only'
+    isCellarLookupExact
+    && originLookup
     && input.resolvedSources.cave.countFilter?.kind === 'origin'
     && input.resolvedSources.cave.countFilter.needle === originLookup.needle
   ) {
