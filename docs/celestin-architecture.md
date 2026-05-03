@@ -116,6 +116,18 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
                        |
                        v
   +----------------------------------------------+
+  |       buildDeterministicResponse() ?         |
+  |                                              |
+  |  Si la route+message correspond a un pattern |
+  |  exact (count cave, color/volume/origine,    |
+  |  rating tasting), reponse rendue directement |
+  |  cote backend, AUCUN appel LLM. Provider     |
+  |  marque 'deterministic', latence ~80-140ms.  |
+  |  Sinon, on continue vers le LLM.             |
+  +--------------------+-------------------------+
+                       |
+                       v
+  +----------------------------------------------+
   |       celestinWithFallback()                 |
   |                                              |
   |  Provider 1: Claude Haiku 4.5 (Anthropic)   |
@@ -124,15 +136,22 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
   |       | fail?                                |
   |  Provider 3: GPT-4.1 mini (OpenAI)          |
   |                                              |
-  |  Claude peut appeler des outils internes     |
-  |  user-scopes (query_cellar, query_tastings,  |
-  |  query_memory) avant sa reponse finale.      |
+  |  Routes recommandation/prefetch : single-    |
+  |  shot. Le backend a deja pre-empted la       |
+  |  shortlist cave en amont via                 |
+  |  resolveCellarCandidatesFromBackend.         |
+  |                                              |
+  |  Routes memoire/tasting : Claude peut        |
+  |  appeler query_tastings / query_memory /     |
+  |  query_cellar avant sa reponse finale       |
+  |  (max 1 round, suivi d'un tool_followup).   |
   |                                              |
   |  Chaque provider :                           |
   |  1. Envoie system prompt + contexte          |
   |  2. Reconstruit history[] en format natif    |
   |  3. Ajoute userPrompt comme dernier message  |
   |  4. Claude seulement : tool_use max 1 round  |
+  |     (ne fire que sur routes non preempted)   |
   |  5. Parse JSON --> CelestinProviderResponse  |
   |  6. Normalise trace via ProviderAdapter      |
   +--------------------+-------------------------+
@@ -201,7 +220,7 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
 ```
 
 Note :
-- l'ordre reel est : `Turn Interpreter` -> `buildContextBlock()` / `buildUserPrompt()` -> appel LLM
+- l'ordre reel est : `Turn Interpreter` -> `ContextPlan` -> `resolveContextSourcesForRequest` (Promise.all : profile, cave count, zones, memories, tastings, **cellar candidates pre-empted si plan.cellarCandidates === 'preempted'**) -> `buildContextBlockFromResolvedSources` / `buildUserPrompt` -> `buildDeterministicResponse` (court-circuit eventuel) -> appel LLM
 - le runtime memoire actif n'utilise plus de `User Model Resolver`
 
 ## Turn Interpreter : le cerveau du routing
@@ -304,11 +323,14 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 |----------------|-----------------|----------------|
 | `greeting` / `social` | Profil compile minimal + cave count, sans retrieval memoire si message social evident | ~250 |
 | `wine_conversation` | Profil compile + cave count + souvenirs ciblés si signal vin/memoire pertinent | ~500-1500 |
-| `cellar_assistant` | Cave resumee/triee + profil compile + zones + tools factuels disponibles | ~3000+ |
+| `cellar_assistant` (route reco preempted) | Profil compile + 6 candidats cave pre-empted (`section Candidats cave pre-selectionnes`) + zones + count cave totale | ~2000-3000 |
+| `cellar_assistant` (route lookup deterministe) | Reponse rendue par `buildDeterministicResponse`, **aucun appel LLM** | 0 |
 | `restaurant_assistant` | Profil compile + contexte image/carte, sans cave complete | ~400-1200 |
 | `tasting_memory` | Profil compile + tools `query_tastings`/`query_memory` + souvenirs ciblés si utiles | ~700-2000 |
 
 **Note 2026-05-01** : les `user_memory_facts` ne doivent pas redevenir un vrac injecte partout. Ils alimentent surtout le profil compile ; au runtime, Claude peut interroger `query_memory` si une question exige une verification. Les questions exactes sur cave/degustations passent par les tools, pas par le profil ni par un classifier en amont.
+
+**Note 2026-05-03** : refacto router-first single-shot livre. Sur les routes `recommendation_*` et `prefetch`, le backend pre-empt `searchCellarCandidates` AVANT l'appel Claude (pas de tool round 2). Les questions cave de type count/volume/origine ont un response path `provider: deterministic` (~80-140ms, zero LLM). Les routes `memory_lookup`, `tasting_log`, `memory_guided_recommendation` conservent un round tool-use car elles necessitent une vraie recherche en base.
 
 ### Prompt hint par turnType
 
@@ -395,17 +417,33 @@ Ordre reel de production aujourd'hui :
 Temperature : 0.5 pour tous les providers.
 
 Chaque provider reconstruit l'historique dans son format natif (messages alternes user/assistant avec images base64).
-Claude peut appeler au plus un round d'outils internes :
+
+### Strategie retrieval : pre-empt backend par defaut, tools en filet
+
+Le `ContextPlan` decide pour chaque route comment les sources sont resolues. Pour les routes a comportement deterministe, le backend pre-empt la requete cote serveur AVANT l'appel LLM, ce qui garde Celestin en single-shot (1 seul call Claude par tour) :
+
+| Route | `tools` | `cellarCandidates` | Comportement |
+|---|---|---|---|
+| `recommendation_request` | `none` | `preempted` | Backend execute `searchCellarCandidates` et injecte 6 bouteilles dans le contexte. Claude choisit 1-3 `bottle_id` dans `recommendation_selection`. |
+| `recommendation_refinement` | `none` | `preempted` | Idem, avec contrainte raffinee detectee dans le message. |
+| `memory_guided_recommendation` | `force_tastings` | `preempted` | Cellar candidats pre-empted ; tastings restent en tool-use force pour ancrer la reco dans l'experience passee. |
+| `prefetch` | `none` | `preempted` | Idem reco, query sentinel mappee a un sample diversifie. |
+| `cellar_lookup` (count generique, color, volume, origine) | `force_cellar` | `none` | `buildDeterministicResponse` repond sans appeler le LLM (`provider: deterministic`, ~80-140ms). |
+| `memory_lookup`, `tasting_log` | `force_tastings` | `none` | Tools forces sur `query_tastings`/`query_memory` car necessite une vraie recherche en base ; 2 calls Claude (first + tool_followup). |
+| `wine_question` | `auto` | `none` | Pas de tools en pratique sauf demande personnelle elliptique ; Claude repond depuis ses connaissances generales en 1 call. |
+| `unknown` | `auto` | `none` | Filet de securite : Claude peut decider d'appeler un tool si necessaire. |
+
+Outils Claude internes encore disponibles quand `tools !== 'none'` :
 - `query_cellar` : stock actuel user-scope
 - `query_tastings` : degustations passees user-scope
 - `query_memory` : faits de memoire conversationnelle user-scope
-- `search_cellar_candidates` : candidats de cave pour une recommandation subjective
+- `search_cellar_candidates` : candidats de cave pour une recommandation subjective (devenu un fallback rare puisque les routes reco sont pre-empted)
 
-Ces outils ne sont pas du SQL libre et sont des fonctions serveur bornees. Si l'utilisateur n'est pas authentifie, les outils sont desactives et Claude repond avec le contexte injecte.
+Ces outils ne sont pas du SQL libre, ce sont des fonctions serveur bornees. Si l'utilisateur n'est pas authentifie, les outils sont desactives et le pre-empt cellar candidates ne fire pas non plus (cave reste a `level: 'count'` sans bouteilles). Le path anonyme est actuellement la cible de l'eval LLM, ce qui rend l'eval inadaptee a mesurer le path prod authentifie.
 
 Le choix d'usage des sources est explicite dans `SourceMode` :
-- `normal` : les tools sont disponibles quand la route/mode les autorise, avec choix modele `auto`.
-- `source_required` : le profil/contexte restent injectes, mais Claude doit appeler au moins un outil (`tool_choice:any`) et choisir lequel.
+- `normal` : les tools sont disponibles quand la route/mode les autorise, avec choix modele `auto` (ou `none` quand le ContextPlan les desactive completement).
+- `source_required` : le profil/contexte restent injectes, mais Claude doit appeler au moins un outil (`tool_choice:any`) — utilise principalement pour les follow-ups elliptiques sur memoire personnelle.
 - `forced_tool` : le backend force un outil exact pour les questions factuelles strictes (`query_cellar`, `query_tastings` ou `query_memory`).
 
 `ContextPackage` est le paquet transmis au provider : `ContextPlan` + sources resolues + prompt assemble + history provider. Il ne decide pas quoi charger ; il rend explicite ce qui est envoye a Claude pour le tour courant.
@@ -446,20 +484,24 @@ couleur). Si Claude a utilise `search_cellar_candidates`, il met uniquement les
 
 Pour les recommandations texte, le contexte cave injecte ne contient plus la
 shortlist legacy de 40 bouteilles. Le prompt garde le profil, les souvenirs
-utiles et un resume/count de cave ; les candidats de cave passent par
-`search_cellar_candidates`, puis les `bottle_id` selectionnes sont resolus cote
-backend pour construire les cartes.
+utiles, un resume/count de cave, et (sur les routes `recommendation_*` et
+`prefetch` authentifiees) les 6 candidats pre-empted resolus par
+`searchCellarCandidates` cote backend AVANT l'appel Claude. Les `bottle_id`
+choisis dans `recommendation_selection` sont ensuite resolus cote backend pour
+construire les cartes.
 
-Dans la voie tools native, un appel a `search_cellar_candidates` rend le chemin
-cartes strict : si la reponse finale ne contient pas de `recommendation_selection`
-resoluble, le backend ne reconstruit pas de cartes en devinant les bouteilles
-depuis le texte. Le texte conversationnel peut rester affiche, mais les cartes
-exigent une selection structuree.
+Dans le path pre-empted, `cave.origin: 'preempted_candidates'` signale a
+`context-builder` de rendre une section dediee `Candidats cave pre-selectionnes`
+avec instruction explicite de choisir 1 a 3 ids parmi cette liste. Le contrat
+cartes est strict : si la reponse finale ne contient pas de
+`recommendation_selection` resoluble, le backend ne reconstruit pas de cartes en
+devinant les bouteilles depuis le texte (il accepte cependant un fallback
+text-mention pour rester tolerant). Le texte conversationnel peut rester
+affiche meme sans selection.
 
-Pour contenir les couts de cette voie transitoire, `search_cellar_candidates`
-retourne un payload compact (6 candidats par defaut, champs courts,
-`why_candidate`) et le follow-up Claude apres tool a un plafond de sortie adapte
-au type d outil.
+Le payload candidats est compact (6 bouteilles, champs courts, `why_candidate`).
+Si Claude est appele en tool-use sur une autre route (memoire), le follow-up
+apres tool a un plafond de sortie adapte au type d'outil.
 
 La reponse HTTP finale reste `CelestinResponse` :
 
