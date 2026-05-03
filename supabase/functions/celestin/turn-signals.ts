@@ -46,6 +46,7 @@ const CANCEL = [
 const RECOMMENDATION = [
   /\b(que? boire|recommande|propose|choisis|choisir|trouve[- ]moi|ce soir|pour accompagner|ouvre[- ]moi|quel vin|avec (ce|le|du|des|mon|ma|mes|un|une)|accord|accords mets)\b/i,
   /\b(pour aller avec|pour manger|pour diner|pour le repas)\b/i,
+  /\b(vins?|bouteilles?)\b.{0,50}\bpour (un|une|du|de la|de l'|des|mon|ma|mes)\b/i,
   /\bpour (un|une|du|de la|de l'|des|mon|ma|mes) (plat|repas|diner|dejeuner|pizza|poulet|boeuf|agneau|poisson|fromage|dessert|pates?|risotto|couscous|tajine)\b/i,
   /\b(qu.est-ce que j.ouvr|je pourrais ouvrir|quelque chose a ouvrir|qu.est-ce qu.on ouvre|on ouvre quoi|quoi ouvrir)\b/i,
 ]

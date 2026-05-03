@@ -3,7 +3,7 @@
 Document de travail. Pas une décision figée — synthèse des arbitrages discutés
 pour reprendre la conversation sans rederouler le raisonnement de zéro.
 
-Dernière mise à jour : 2026-04-29.
+Dernière mise à jour : 2026-05-03.
 
 ## Direction privilégiée
 
@@ -376,3 +376,113 @@ Rien de fondamental. La direction (trial 2 mois → paywall + sub annuelle, prix
 $7-9/mois, full Claude pour tous, pas de Gemini sur free) reste valide. Le
 prefetch supprimé enlève déjà une grosse partie du gap. Le fix cache
 `tool_followup` enlèvera le reste. Aucun pivot business model nécessaire.
+
+## Nouvelle mesure réelle — architecture tools stabilisée (2026-05-03)
+
+Mesure sur une vraie conversation manuelle qualitative avec Celestin, après la
+suppression du prefetch et la stabilisation de la voie `tools` :
+
+- recommandations avec `search_cellar_candidates`
+- questions cave avec `query_cellar`
+- souvenirs/dégustations avec `query_tastings`
+- petits tours sociaux sans tool
+
+Tarif appliqué : **Claude Haiku 4.5** selon la grille Anthropic officielle
+(`$1/MTok` input, `$5/MTok` output, `$1.25/MTok` cache write 5 min,
+`$0.10/MTok` cache read).
+Source : https://docs.claude.com/en/docs/about-claude/pricing
+
+Formule utilisée :
+
+`cost_usd = input_tokens * 1e-6 + output_tokens * 5e-6 + cache_creation_tokens * 1.25e-6 + cache_read_tokens * 0.10e-6`
+
+### Échantillon mesuré
+
+Conversation longue couvrant :
+
+- smalltalk initial
+- recommandation saucisson
+- follow-up "pas de beaujolais dispo ?"
+- paella puis précision "plutôt blanc"
+- recherche mémoire à Saint-Genis-Laval
+- recherche mémoire avec Médéric / vin nature
+- question cave "combien j'ai de champagne ?"
+- discussion d'achat Bérêche
+
+Total observé sur les lignes `celestin_llm_usage` : **~$0.168**.
+
+En euros, à ordre de grandeur simple, cela représente **~0.15-0.16 €** pour une
+conversation riche de 15-20 tours visibles.
+
+### Coût par type de tour observé
+
+| Type de tour | Coût observé | Lecture business |
+|---|---:|---|
+| Smalltalk / social sans tool | ~$0.004-0.009 | Peu inquiétant isolément |
+| Recommandation avec tool | ~$0.020-0.025 | Coût élevé mais correspond au coeur payant |
+| Follow-up recommandation avec tool | ~$0.018-0.023 | Cher si l'utilisateur affine beaucoup |
+| Recherche mémoire/dégustation avec tool | ~$0.018-0.020 | Cher mais très différenciant produit |
+| Question cave factuelle avec tool | ~$0.015-0.017 | Acceptable si usage ponctuel |
+| Conversation riche complète | **~$0.17** | Base actuelle pour stress-test business |
+
+### Révision des hypothèses mensuelles
+
+L'ancienne cible `$0.13/user/mois` est trop optimiste pour un utilisateur qui
+discute vraiment avec Celestin. Elle reste un **objectif d'optimisation**, pas
+une hypothèse business prudente.
+
+Hypothèse plus réaliste tant que l'architecture `tools` native reste en place :
+
+| Usage mensuel | Hypothèse | Coût LLM/user/mois |
+|---|---|---:|
+| Léger | 10 tours simples + 2 tours tool | ~$0.08-0.12 |
+| Normal | 2-3 conversations riches courtes/mois | ~$0.35-0.60 |
+| Engagé | 10 conversations riches/mois | ~$1.50-1.70 |
+| Très engagé | 30 conversations riches/mois | ~$4.50-5.10 |
+
+Règle rapide de pilotage :
+
+`coût mensuel ≈ conversations_riches * $0.17 + tours_tool_isolés * $0.02 + tours_simples * $0.006`
+
+### Impact sur prix et marge
+
+À `$7-9/mois`, le modèle reste sain pour un usage normal, mais il n'est plus
+correct de dire que le coût LLM est toujours marginal.
+
+| Prix mensuel | Budget LLM à 15% du CA | Conversations riches incluses avant dépassement |
+|---|---:|---:|
+| $6.90 | ~$1.04 | ~6/mois |
+| $8.90 | ~$1.34 | ~8/mois |
+| $11.90 | ~$1.79 | ~10/mois |
+
+Lecture :
+
+- Pour un usage normal, la marge LLM reste bonne.
+- Pour un power user qui parle à Celestin tous les jours, le coût devient une
+  vraie ligne de compte d'exploitation.
+- Le prix `$7-9/mois` reste défendable, mais il doit probablement s'accompagner
+  d'une optimisation technique avant croissance large.
+- Une offre annuelle à prix réduit reste pertinente, mais elle ne doit pas
+  cacher le risque des très gros utilisateurs.
+
+### Ce que ça change sur la stratégie produit
+
+La qualité de la voie `tools` stabilisée est bonne : Celestin tient la
+conversation, retrouve des souvenirs et recommande correctement. Le problème
+actuel est surtout **latence + coût**, pas qualité.
+
+Conséquence : ne pas casser cette version en cherchant une économie immédiate.
+La bonne séquence business/tech :
+
+1. Garder la voie `tools` native comme baseline fiable.
+2. Mesurer sur de vraies sessions production, pas seulement dogfood admin.
+3. Prototyper une voie recommandation plus économique :
+   - traducteur sommelier court
+   - retrieval cave hybride (`embedding` + full-text + filtres)
+   - appel final unique avec sortie structurée
+4. Garder les tools natifs pour les questions factuelles cave et dégustations.
+5. Comparer coût, latence et qualité sur un golden set avant bascule.
+
+Le business model n'a pas besoin de pivot maintenant. Mais les hypothèses
+financières doivent piloter avec **$0.35-0.60/user actif/mois** comme base
+prudente, et **$1.50+/mois** pour les utilisateurs très engagés.

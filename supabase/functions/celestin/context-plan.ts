@@ -62,34 +62,34 @@ export function buildContextPlan(routingResult: TurnRoutingResult): ContextPlan 
       return withReasons({
         ...basePlan(),
         profile: 'recommendation',
-        cave: 'shortlist',
+        cave: 'count',
         zones: 'names',
         memories: 'targeted',
         tools: 'auto',
         history: 'normal',
-      }, ['recommendation: combine taste profile, cellar shortlist, and targeted texture'])
+      }, ['recommendation: combine taste profile, targeted texture, and tool-resolved cellar candidates'])
 
     case 'recommendation_refinement':
       return withReasons({
         ...basePlan(),
         profile: 'recommendation',
-        cave: 'shortlist',
+        cave: 'count',
         zones: 'names',
         memories: 'targeted',
         tools: 'auto',
         history: 'normal',
-      }, ['recommendation refinement: keep current task context actionable'])
+      }, ['recommendation refinement: keep profile and memory context, resolve cellar candidates via tools'])
 
     case 'memory_guided_recommendation':
       return withReasons({
         ...basePlan(),
         profile: 'recommendation',
-        cave: 'shortlist',
+        cave: 'count',
         zones: 'names',
         memories: 'targeted',
         tools: 'force_tastings',
         history: 'normal',
-      }, ['memory-guided recommendation: recommendation must be grounded in exact tasting evidence'])
+      }, ['memory-guided recommendation: ground in exact tasting evidence without injecting cellar shortlist'])
 
     case 'memory_lookup':
       return withReasons({

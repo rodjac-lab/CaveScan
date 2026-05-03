@@ -1,6 +1,6 @@
 import type { SupabaseServiceClient } from "./auth.ts"
 
-export type CelestinToolName = 'query_cellar' | 'query_tastings' | 'query_memory'
+export type CelestinToolName = 'query_cellar' | 'query_tastings' | 'query_memory' | 'search_cellar_candidates'
 
 export interface ToolContext {
   userId: string
@@ -11,6 +11,7 @@ type ToolInput = Record<string, unknown>
 
 const MAX_LIMIT = 12
 const MAX_SCAN_ROWS = 500
+const DEFAULT_RECOMMENDATION_LIMIT = 6
 
 function text(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim().slice(0, 120) : undefined
@@ -30,6 +31,12 @@ function limit(value: unknown): number {
   return Math.min(MAX_LIMIT, Math.max(1, n))
 }
 
+function recommendationLimit(value: unknown): number {
+  const n = integer(value)
+  if (!n) return DEFAULT_RECOMMENDATION_LIMIT
+  return Math.min(8, Math.max(1, n))
+}
+
 function compactBottle(row: Record<string, unknown>) {
   return {
     id: typeof row.id === 'string' ? row.id.slice(0, 8) : null,
@@ -46,6 +53,29 @@ function compactBottle(row: Record<string, unknown>) {
     rating: row.rating ?? null,
     drunk_at: row.drunk_at ?? null,
     tasting_note: typeof row.tasting_note === 'string' ? row.tasting_note.slice(0, 500) : null,
+  }
+}
+
+function compactCandidateBottle(row: Record<string, unknown> & { local_score?: number }) {
+  const pairings = Array.isArray(row.food_pairings)
+    ? row.food_pairings.filter((item): item is string => typeof item === 'string').slice(0, 3)
+    : []
+  const character = typeof row.character === 'string' ? row.character.slice(0, 160) : null
+  return {
+    id: typeof row.id === 'string' ? row.id.slice(0, 8) : null,
+    domaine: row.domaine ?? null,
+    cuvee: row.cuvee ?? null,
+    appellation: row.appellation ?? null,
+    millesime: row.millesime ?? null,
+    couleur: row.couleur ?? null,
+    country: row.country ?? null,
+    region: row.region ?? null,
+    grape_varieties: Array.isArray(row.grape_varieties) ? row.grape_varieties.slice(0, 3) : null,
+    food_pairings: pairings.length > 0 ? pairings : null,
+    character,
+    quantity: row.quantity ?? null,
+    status: row.status ?? null,
+    why_candidate: whyCandidate(row, character, pairings),
   }
 }
 
@@ -151,6 +181,22 @@ function identityText(row: Record<string, unknown>): string {
   ].filter(Boolean).join(' ')
 }
 
+function candidateText(row: Record<string, unknown>): string {
+  return [
+    identityText(row),
+    Array.isArray(row.grape_varieties) ? row.grape_varieties.join(' ') : '',
+    Array.isArray(row.food_pairings) ? row.food_pairings.join(' ') : '',
+    row.character,
+  ].filter(Boolean).join(' ')
+}
+
+function whyCandidate(row: Record<string, unknown>, character: string | null, pairings: string[]): string {
+  if (character) return character
+  if (pairings.length > 0) return `Accords reperes : ${pairings.join(', ')}.`
+  const color = typeof row.couleur === 'string' ? row.couleur : 'vin'
+  return `Candidat ${color} disponible en cave.`
+}
+
 function tagsText(row: Record<string, unknown>): string {
   const tags = row.tasting_tags
   if (!tags || typeof tags !== 'object') return ''
@@ -192,6 +238,45 @@ function rankByFreeQuery<T extends Record<string, unknown>>(rows: T[], input: To
     const aScore = freeQueryScore([identityText(a), a.tasting_note, tagsText(a)].join(' '), freeQuery)
     return bScore - aScore
   })
+}
+
+function requestedColor(input: ToolInput): string | undefined {
+  const explicit = text(input.color)
+  if (explicit) return normalize(explicit)
+  const query = normalize(text(input.query))
+  if (/\b(rouge|rouges)\b/.test(query)) return 'rouge'
+  if (/\b(blanc|blancs)\b/.test(query)) return 'blanc'
+  if (/\b(rose|roses|rosé|rosés)\b/.test(query)) return 'rose'
+  if (/\b(champagne|bulles|petillant|pétillant|effervescent)\b/.test(query)) return 'bulles'
+  return undefined
+}
+
+function styleScore(row: Record<string, unknown>, rawStyle: string | undefined): number {
+  if (!rawStyle) return 0
+  return freeQueryScore(candidateText(row), rawStyle) * 2
+}
+
+function rankRecommendationCandidates(rows: Array<Record<string, unknown>>, input: ToolInput) {
+  const query = text(input.query)
+  const style = text(input.style)
+  const color = requestedColor(input)
+
+  return rows
+    .map((row) => {
+      const queryScore = freeQueryScore(candidateText(row), query)
+      const colorScore = color && normalize(row.couleur) === color ? 6 : 0
+      const inStockScore = typeof row.quantity === 'number' && row.quantity > 0 ? 2 : 0
+      return {
+        row,
+        score: queryScore * 3 + styleScore(row, style) + colorScore + inStockScore,
+      }
+    })
+    .filter((entry) => {
+      if (color && normalize(entry.row.couleur) !== color) return false
+      return entry.score > 0 || !query
+    })
+    .sort((a, b) => b.score - a.score)
+    .map(({ row, score }) => ({ ...row, local_score: score }))
 }
 
 export const CELESTIN_TOOLS = [
@@ -263,12 +348,32 @@ export const CELESTIN_TOOLS = [
       required: ['query'],
     },
   },
+  {
+    name: 'search_cellar_candidates',
+    description: [
+      'Recherche des bouteilles candidates dans la cave actuelle pour une recommandation subjective.',
+      'Utilise cet outil quand l utilisateur demande quoi boire, un accord mets-vin, une couleur ou un style de vin a choisir dans sa cave.',
+      'L outil retourne une liste compacte de candidats avec bottle_id court, couleur, caractere court et why_candidate. Choisis ensuite 1 a 3 bouteilles dans recommendation_selection avec ces ids.',
+      'Ne construis pas de cartes UI : le backend les materialise depuis recommendation_selection.',
+    ].join(' '),
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Demande naturelle complete : plat, occasion, contrainte couleur, style.' },
+        color: { type: 'string', enum: ['rouge', 'blanc', 'rose', 'bulles'] },
+        style: { type: 'string', description: 'Style recherche : gouleyant, tendu, ample, frais, gastronomique, etc.' },
+        limit: { type: 'number' },
+      },
+      required: ['query'],
+    },
+  },
 ]
 
 export async function executeCelestinTool(name: string, input: ToolInput, ctx: ToolContext): Promise<string> {
   if (name === 'query_cellar') return queryCellar(input, ctx)
   if (name === 'query_tastings') return queryTastings(input, ctx)
   if (name === 'query_memory') return queryMemory(input, ctx)
+  if (name === 'search_cellar_candidates') return searchCellarCandidates(input, ctx)
   return JSON.stringify({ error: `Unknown tool: ${name}` })
 }
 
@@ -383,5 +488,31 @@ async function queryMemory(input: ToolInput, ctx: ToolContext): Promise<string> 
       expires_at: row.expires_at,
       created_at: row.created_at,
     })),
+  })
+}
+
+async function searchCellarCandidates(input: ToolInput, ctx: ToolContext): Promise<string> {
+  const rowLimit = recommendationLimit(input.limit)
+  const rawQuery = text(input.query)
+
+  const { data, error } = await ctx.supabase
+    .from('bottles')
+    .select('id,domaine,cuvee,appellation,millesime,couleur,country,region,grape_varieties,food_pairings,character,quantity,status')
+    .eq('user_id', ctx.userId)
+    .eq('status', 'in_stock')
+    .limit(MAX_SCAN_ROWS)
+
+  if (error) return JSON.stringify({ error: error.message })
+
+  const ranked = rankRecommendationCandidates((data ?? []) as Array<Record<string, unknown>>, input)
+  const rows = ranked.slice(0, rowLimit).map((row) => compactCandidateBottle(row))
+
+  return JSON.stringify({
+    source: 'cellar_candidates',
+    query: rawQuery ?? null,
+    totalRows: ranked.length,
+    listedRows: rows.length,
+    rows,
+    instruction: 'Selectionne uniquement des bottle_id presents dans rows. Mets 1 a 3 ids dans recommendation_selection. Reponse chat courte; les cartes seront construites par le backend avec why_candidate/fiche bouteille.',
   })
 }

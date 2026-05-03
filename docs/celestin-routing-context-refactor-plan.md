@@ -496,7 +496,6 @@ Champs candidats a retirer du body standard :
 - `profile` legacy string ;
 - `compiledProfileMarkdown` ;
 - `memories` preconstruit ;
-- `sqlRetrieval` legacy si remplace ;
 - `context.recentDrunk` si resolu cote backend.
 
 Champs a garder :

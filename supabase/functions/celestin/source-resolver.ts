@@ -16,7 +16,6 @@ export type SourceRequirementKind =
   | 'memories'
   | 'tastings'
   | 'tools'
-  | 'sql_retrieval'
 
 export interface SourceRequirement {
   kind: SourceRequirementKind
@@ -44,10 +43,6 @@ export interface ResolvedMemoriesSource {
     matchedTokens: string[]
     notePreview: string | null
   }>
-}
-
-export interface ResolvedSqlSource {
-  text: string
 }
 
 export interface ResolvedCaveSource {
@@ -83,7 +78,6 @@ export interface ResolvedContextSources {
   requirements: SourceRequirement[]
   profile?: ResolvedProfileSource
   memories?: ResolvedMemoriesSource
-  sqlRetrieval?: ResolvedSqlSource
   tastings?: ResolvedTastingsSource
   cave: ResolvedCaveSource
   zones: string[]
@@ -145,14 +139,6 @@ export function buildSourceRequirements(contextPlan: ContextPlan): SourceRequire
       kind: 'tastings',
       level: 'exact',
       reason: 'route needs exact tasting facts from backend source',
-    })
-  }
-
-  if (contextPlan.truthPolicy === 'exact_only' || contextPlan.truthPolicy === 'memory_only') {
-    requirements.push({
-      kind: 'sql_retrieval',
-      level: contextPlan.truthPolicy,
-      reason: 'answer must prefer exact retrieved facts over generated knowledge',
     })
   }
 
@@ -431,19 +417,6 @@ async function resolveMemoriesFromBackend(
     source: 'backend_tastings',
     selectedTastingMemories: ranked.map(compactSelectedTastingMemory),
   }
-}
-
-function resolveSqlRetrieval(body: RequestBody, contextPlan: ContextPlan): ResolvedSqlSource | undefined {
-  const text = body.sqlRetrieval?.trim()
-  if (!text) return undefined
-
-  const shouldUseSql =
-    contextPlan.tools !== 'none'
-    || contextPlan.truthPolicy === 'exact_only'
-    || contextPlan.truthPolicy === 'memory_only'
-
-  if (!shouldUseSql) return undefined
-  return { text }
 }
 
 function resolveZones(body: RequestBody, contextPlan: ContextPlan): string[] {
@@ -847,7 +820,6 @@ export async function resolveContextSourcesForRequest(
     requirements: buildSourceRequirements(contextPlan),
     profile,
     memories,
-    sqlRetrieval: resolveSqlRetrieval(body, contextPlan),
     tastings,
     cave,
     zones,

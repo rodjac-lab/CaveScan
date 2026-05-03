@@ -1,17 +1,18 @@
 import { buildContextPlan, type ContextPlan } from "./context-plan.ts"
+import { buildContextPackage } from "./context-package.ts"
 import { computeNextState, INITIAL_STATE, type ConversationState } from "./conversation-state.ts"
 import { buildDeterministicResponse } from "./deterministic-response.ts"
 import { celestinWithFallback, type CelestinProviderTrace } from "./llm-providers.ts"
 import { resolveActiveMemoryFocus } from "./memory-focus.ts"
-import { assembleCelestinPrompt, buildProviderHistory } from "./prompt-assembler.ts"
+import { buildProviderHistory } from "./prompt-assembler.ts"
 import { canResolveRecommendationUiAction, ensureRecommendationUiAction } from "./recommendation-action.ts"
 import { applyResponsePolicy } from "./response-policy.ts"
 import { interpretTurnWithRouting } from "./turn-interpreter.ts"
 import { persistCelestinTurnObservability } from "./observability.ts"
-import { resolveContextSourcesForRequest, type ResolvedContextSources } from "./source-resolver.ts"
-import type { CelestinToolName } from "./tools.ts"
+import type { ResolvedContextSources } from "./source-resolver.ts"
+import { forcedToolNameForSourceMode, resolveSourceMode, shouldEnableToolsForSourceMode, shouldRequireToolUseForSourceMode, type SourceMode } from "./source-mode.ts"
 import type { AuthContext } from "./auth.ts"
-import type { CelestinResponse, RequestBody } from "./types.ts"
+import type { CaveBottle, CelestinResponse, RequestBody } from "./types.ts"
 
 export interface CelestinTurnRuntimeResult {
   response: CelestinResponse
@@ -33,41 +34,6 @@ function resolveRequestSource(body: RequestBody): string {
 
 function uiActionKind(response: CelestinResponse): string {
   return response.ui_action?.kind ?? 'none'
-}
-
-function normalizeForSourceGate(message: string): string {
-  return message
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[’']/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-export function forcedToolNameForTurn(contextPlan: ContextPlan): CelestinToolName | undefined {
-  if (contextPlan.tools === 'force_cellar') return 'query_cellar'
-  if (contextPlan.tools === 'force_memory') return 'query_memory'
-  if (contextPlan.tools === 'force_tastings') return 'query_tastings'
-  return undefined
-}
-
-export function shouldRequireToolUseForTurn(contextPlan: ContextPlan, body: RequestBody): boolean {
-  if (contextPlan.tools === 'auto') {
-    const normalized = normalizeForSourceGate(body.message)
-    const isPersonalSubject = /\b(j ai|je|j y|moi|me|mes|on|nous|tu)\b/.test(normalized)
-    const asksPastMemory = /\b(deja|ete|alle|allee|alles|souvenir|souviens|retrouve|retrouver|cherche|chercher|restaurant|resto|lieu|nom|note|degustation|bu|ouvert)\b/.test(normalized)
-    const asksEllipticMemoryDetail = /\b(restaurant|resto|lieu|nom|adresse|ville|ou|où|quand|avec qui)\b/.test(normalized)
-    const lastAssistant = [...body.history].reverse().find((turn) => turn.role === 'assistant')?.text
-    const assistantWasDiscussingPersonalMemory = lastAssistant
-      ? /\b(rome|restaurant|resto|barchetta|premnord|peppoli|pèppoli|degust|dégust|souvenir|tu y as|tu as bu|vous y etiez|vous y étiez)\b/i.test(lastAssistant)
-      : false
-
-    return (isPersonalSubject && asksPastMemory)
-      || (asksEllipticMemoryDetail && assistantWasDiscussingPersonalMemory)
-  }
-
-  return false
 }
 
 function isClarificationMessage(message: string): boolean {
@@ -116,6 +82,10 @@ function emptyProviderTrace(): CelestinProviderTrace {
   }
 }
 
+function usedRecommendationCandidateTool(trace: CelestinProviderTrace): boolean {
+  return trace.toolCalls.some((tool) => tool.name === 'search_cellar_candidates')
+}
+
 function buildDebugTrace(input: {
   body: RequestBody
   conversationState: ConversationState
@@ -131,6 +101,7 @@ function buildDebugTrace(input: {
   providerErrors: string[]
   providerTrace: CelestinProviderTrace
   contextPlan: ContextPlan
+  sourceMode: SourceMode
   resolvedSources: ResolvedContextSources
 }) {
   const { body, conversationState, nextState, rawResponse, response, routingResult } = input
@@ -147,6 +118,7 @@ function buildDebugTrace(input: {
     conversationalIntent: (typeof body.conversationalIntent === 'string' ? body.conversationalIntent : null),
     routing: routingResult.routing,
     contextPlan: input.contextPlan,
+    sourceMode: input.sourceMode,
     state: {
       beforePhase: conversationState.phase,
       beforeTask: conversationState.taskType ?? null,
@@ -180,6 +152,72 @@ function buildDebugTrace(input: {
   }
 }
 
+function compactBottleFromRow(row: Record<string, unknown>): CaveBottle | null {
+  if (typeof row.id !== 'string') return null
+  return {
+    id: row.id.slice(0, 8),
+    domaine: typeof row.domaine === 'string' ? row.domaine : null,
+    cuvee: typeof row.cuvee === 'string' ? row.cuvee : null,
+    appellation: typeof row.appellation === 'string' ? row.appellation : null,
+    millesime: typeof row.millesime === 'number' ? row.millesime : null,
+    couleur: typeof row.couleur === 'string' ? row.couleur : null,
+    character: typeof row.character === 'string' ? row.character : null,
+    quantity: typeof row.quantity === 'number' ? row.quantity : undefined,
+    food_pairings: Array.isArray(row.food_pairings) ? row.food_pairings.filter((item): item is string => typeof item === 'string') : null,
+  }
+}
+
+async function resolveRecommendationSelectionSources(input: {
+  response: CelestinResponse
+  resolvedSources: ResolvedContextSources
+  auth?: AuthContext
+}): Promise<ResolvedContextSources> {
+  const selectionIds = (input.response.recommendation_selection ?? [])
+    .map((item) => item.bottle_id?.trim())
+    .filter((id): id is string => !!id)
+  if (selectionIds.length === 0) return input.resolvedSources
+  const allSelectionsAlreadyResolved = selectionIds.every((id) =>
+    input.resolvedSources.cave.bottles.some((bottle) => bottle.id.startsWith(id) || id.startsWith(bottle.id)),
+  )
+  if (allSelectionsAlreadyResolved) {
+    return input.resolvedSources
+  }
+  if (!input.auth?.userId || !input.auth.supabase) return input.resolvedSources
+
+  const { data, error } = await input.auth.supabase
+    .from('bottles')
+    .select('id,domaine,cuvee,appellation,millesime,couleur,character,quantity,food_pairings,status')
+    .eq('user_id', input.auth.userId)
+    .eq('status', 'in_stock')
+    .limit(500)
+
+  if (error) {
+    console.warn('[celestin:recommendations] Could not resolve selected bottles:', error.message)
+    return input.resolvedSources
+  }
+
+  const selected = (data ?? [])
+    .filter((row: Record<string, unknown>) => {
+      if (typeof row.id !== 'string') return false
+      return selectionIds.some((id) => row.id.startsWith(id) || id.startsWith(row.id.slice(0, 8)))
+    })
+    .map((row: Record<string, unknown>) => compactBottleFromRow(row))
+    .filter((bottle): bottle is CaveBottle => bottle !== null)
+
+  if (selected.length === 0) return input.resolvedSources
+
+  return {
+    ...input.resolvedSources,
+    cave: {
+      ...input.resolvedSources.cave,
+      level: 'shortlist',
+      referenceCount: selected.length,
+      totalBottles: selected.reduce((sum, bottle) => sum + (typeof bottle.quantity === 'number' ? bottle.quantity : 1), 0),
+      bottles: selected,
+    },
+  }
+}
+
 export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Promise<CelestinTurnRuntimeResult> {
   const startedAt = performance.now()
   const turnId = crypto.randomUUID()
@@ -193,25 +231,28 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
     const routingResult = interpretTurnWithRouting(body.message, !!body.image, conversationState, lastAssistantText, conversationalIntent)
     const { interpretation, routing } = routingResult
     const contextPlan = buildContextPlan(routingResult)
+    const sourceMode = resolveSourceMode(contextPlan, body)
 
     console.log(`[celestin] source=${requestSource} message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} route=${routing.winner} profile=${contextPlan.profile} cavePlan=${contextPlan.cave} tools=${contextPlan.tools} truth=${contextPlan.truthPolicy} state=${conversationState.phase} convIntent=${conversationalIntent ?? 'null'} history=${body.history.length} cave=${body.cave?.length ?? 0} image=${body.image ? 'yes' : 'no'}`)
 
     const activeMemoryFocus = resolveActiveMemoryFocus(body, interpretation, conversationState, lastAssistantText)
-    const resolvedSources = await resolveContextSourcesForRequest(body, contextPlan, auth)
+    const contextPackage = await buildContextPackage({
+      body,
+      interpretation,
+      contextPlan,
+      state: conversationState,
+      activeMemoryFocus,
+      lastAssistantText,
+      routingIntent: routing.winner,
+      auth,
+    })
     const {
+      sources: resolvedSources,
       contextBlock,
       systemPrompt,
       userPrompt,
       providerHistory,
-    } = assembleCelestinPrompt({
-      body,
-      interpretation,
-      contextPlan,
-      resolvedSources,
-      state: { ...conversationState, memoryFocus: activeMemoryFocus },
-      lastAssistantText,
-      routingIntent: routing.winner,
-    })
+    } = contextPackage
 
     const deterministicResponse = buildDeterministicResponse({
       body,
@@ -248,6 +289,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
         providerErrors: [],
         providerTrace,
         contextPlan,
+        sourceMode,
         resolvedSources,
       })
 
@@ -276,6 +318,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
         providerErrors: [],
         providerTrace,
         contextPlan,
+        sourceMode,
         resolvedSources,
       })
 
@@ -299,8 +342,13 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       {
         auth,
         requestSource,
-        forcedToolName: forcedToolNameForTurn(contextPlan),
-        requireToolUse: shouldRequireToolUseForTurn(contextPlan, body),
+        toolsEnabled: shouldEnableToolsForSourceMode({
+          sourceMode,
+          authReady: !!auth?.userId && !!auth.supabase,
+          hasImage: !!body.image,
+        }),
+        forcedToolName: forcedToolNameForSourceMode(sourceMode),
+        requireToolUse: shouldRequireToolUseForSourceMode(sourceMode),
         validateResponse: (candidate) => {
           const policyCandidate = applyResponsePolicy(candidate, interpretation)
           if (
@@ -327,12 +375,19 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       },
     )
 
+    const policyResponse = applyResponsePolicy(rawResponse, interpretation)
+    const responseSources = await resolveRecommendationSelectionSources({
+      response: policyResponse,
+      resolvedSources,
+      auth,
+    })
     const response = ensureRecommendationUiAction({
-      response: applyResponsePolicy(rawResponse, interpretation),
+      response: policyResponse,
       interpretation,
       routingIntent: routing.winner,
-      resolvedSources,
+      resolvedSources: responseSources,
       userMessage: body.message,
+      requireStructuredSelection: usedRecommendationCandidateTool(providerTrace),
     })
 
     const nextState = computeNextState(
@@ -359,7 +414,8 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       providerErrors,
       providerTrace,
       contextPlan,
-      resolvedSources,
+      sourceMode,
+      resolvedSources: responseSources,
     })
 
     await persistCelestinTurnObservability({
@@ -387,7 +443,8 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       providerErrors,
       providerTrace,
       contextPlan,
-      resolvedSources,
+      sourceMode,
+      resolvedSources: responseSources,
     })
 
     if (body.debugTrace) {
@@ -401,11 +458,12 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
         provider,
         providerPath: providerTrace.providerPath,
         contextPlan,
+        sourceMode,
         toolCalls: providerTrace.toolCalls.map((tool) => ({ name: tool.name, totalRows: tool.totalRows, durationMs: tool.durationMs })),
       }))
     }
 
-    console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} nextState=${nextState.phase} focus=${nextState.memoryFocus ?? 'none'} msg="${response.message.slice(0, 120)}" compiled=${resolvedSources.profile?.compiledMarkdown ? 'yes' : 'no'}`)
+    console.log(`[celestin] Done by ${provider}: ui_action=${response.ui_action?.kind ?? 'none'} nextState=${nextState.phase} focus=${nextState.memoryFocus ?? 'none'} sourceMode=${sourceMode.kind} msg="${response.message.slice(0, 120)}" compiled=${responseSources.profile?.compiledMarkdown ? 'yes' : 'no'}`)
 
     return {
       response,

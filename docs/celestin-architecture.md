@@ -372,8 +372,6 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 | `lib/recommendationStore.ts` | Cache prefetch (module-level) |
 | `lib/celestinConversation.ts` | `buildCelestinRequestBody()` — assemble le payload (cave resumee, profil, memories, state, compiled profile) |
 | `lib/celestinChatRequest.ts` | `prepareCelestinRequest()` — orchestre l'appel : `Promise.all(memoryEvidence, profil)` puis appel unique `celestin`; le classifier n'est plus dans le chemin principal |
-| `lib/celestinIntentClassifier.ts` | Client legacy/debug de l'edge function `classify-celestin-intent` (n'est plus appele sur le chemin principal Celestin) |
-| `lib/sqlRetrievalRouter.ts` | Builders factuels legacy/debug. Le runtime principal passe par les outils internes Claude dans `supabase/functions/celestin/tools.ts` |
 | `lib/userProfiles.ts` | Profil compilé utilisateur + `getCompiledUserProfileCached()` (cache module-level) |
 | `lib/enrichWine.ts` | Enrichissement async post-save (fire-and-forget) : arômes, accords, température, pays/région, maturité |
 
@@ -401,8 +399,16 @@ Claude peut appeler au plus un round d'outils internes :
 - `query_cellar` : stock actuel user-scope
 - `query_tastings` : degustations passees user-scope
 - `query_memory` : faits de memoire conversationnelle user-scope
+- `search_cellar_candidates` : candidats de cave pour une recommandation subjective
 
 Ces outils ne sont pas du SQL libre et sont des fonctions serveur bornees. Si l'utilisateur n'est pas authentifie, les outils sont desactives et Claude repond avec le contexte injecte.
+
+Le choix d'usage des sources est explicite dans `SourceMode` :
+- `normal` : les tools sont disponibles quand la route/mode les autorise, avec choix modele `auto`.
+- `source_required` : le profil/contexte restent injectes, mais Claude doit appeler au moins un outil (`tool_choice:any`) et choisir lequel.
+- `forced_tool` : le backend force un outil exact pour les questions factuelles strictes (`query_cellar`, `query_tastings` ou `query_memory`).
+
+`ContextPackage` est le paquet transmis au provider : `ContextPlan` + sources resolues + prompt assemble + history provider. Il ne decide pas quoi charger ; il rend explicite ce qui est envoye a Claude pour le tour courant.
 
 Les fallbacks Gemini/OpenAI n'ont pas les tools internes. Ils peuvent servir de secours conversationnel, mais ne doivent pas devenir la source de verite pour une question exacte. Le debug expose `providerTrace`, les tool calls et les erreurs provider pour detecter ces cas.
 
@@ -431,6 +437,29 @@ interface CelestinProviderResponse {
 construit depuis `recommendation_selection`, apres resolution des bouteilles et
 deduplication. Le parser accepte encore `ui_action.show_recommendations` comme
 compatibilite legacy, mais ce n'est plus la voie cible.
+
+Les cartes ne reprennent pas le texte conversationnel de Claude. Le texte du
+chat reste dans `message`; les cartes sont reconstruites par le backend depuis
+les bouteilles resolues (`character`, `food_pairings`, identite, millesime,
+couleur). Si Claude a utilise `search_cellar_candidates`, il met uniquement les
+`bottle_id` choisis dans `recommendation_selection`.
+
+Pour les recommandations texte, le contexte cave injecte ne contient plus la
+shortlist legacy de 40 bouteilles. Le prompt garde le profil, les souvenirs
+utiles et un resume/count de cave ; les candidats de cave passent par
+`search_cellar_candidates`, puis les `bottle_id` selectionnes sont resolus cote
+backend pour construire les cartes.
+
+Dans la voie tools native, un appel a `search_cellar_candidates` rend le chemin
+cartes strict : si la reponse finale ne contient pas de `recommendation_selection`
+resoluble, le backend ne reconstruit pas de cartes en devinant les bouteilles
+depuis le texte. Le texte conversationnel peut rester affiche, mais les cartes
+exigent une selection structuree.
+
+Pour contenir les couts de cette voie transitoire, `search_cellar_candidates`
+retourne un payload compact (6 candidats par defaut, champs courts,
+`why_candidate`) et le follow-up Claude apres tool a un plafond de sortie adapte
+au type d outil.
 
 La reponse HTTP finale reste `CelestinResponse` :
 

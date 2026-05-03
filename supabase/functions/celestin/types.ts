@@ -47,8 +47,6 @@ export interface LegacyRequestContextFields {
   memories?: string
   memoryEvidenceMode?: 'exact' | 'synthesis'
   memoryTrace?: Record<string, unknown>
-  sqlRetrieval?: string
-  sqlRetrievalTrace?: Record<string, unknown>
   compiledProfileMarkdown?: string
   context?: {
     dayOfWeek: string

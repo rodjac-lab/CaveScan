@@ -18,10 +18,6 @@ import {
   loadAdminCelestinObservability,
   type AdminCelestinObservabilitySnapshot,
 } from '@/lib/adminCelestinObservability'
-import { supabase } from '@/lib/supabase'
-import { routeFactualQueryFromClassification, type SqlRetrievalResult } from '@/lib/sqlRetrievalRouter'
-import { classifyFactualIntent, type ClassifiedIntent } from '@/lib/celestinIntentClassifier'
-import type { Bottle } from '@/lib/types'
 
 // === SHARED TYPES ===
 
@@ -358,31 +354,6 @@ export function RealTracesPanel({
                   Policy: ui_action retiree ({trace.response.policy.rawUiActionKind} {'->'} {trace.response.policy.finalUiActionKind})
                 </p>
               )}
-              {trace.request.sqlRetrieval && (
-                <div className="mt-2 rounded-lg border border-[var(--border-color)] px-2 py-2">
-                  <p className="font-medium text-[var(--text-primary)]">SQL retrieval (factuel)</p>
-                  {trace.request.sqlRetrieval.trace && (
-                    <>
-                      <p>Intents: {trace.request.sqlRetrieval.trace.detectedIntents.join(', ') || '—'}</p>
-                      {trace.request.sqlRetrieval.trace.matchedFilters.length > 0 && (
-                        <p>Filtres: {trace.request.sqlRetrieval.trace.matchedFilters.join(', ')}</p>
-                      )}
-                      {trace.request.sqlRetrieval.trace.blocks.length > 0 && (
-                        <div className="mt-1 space-y-1">
-                          {trace.request.sqlRetrieval.trace.blocks.map((block, index) => (
-                            <p key={`${trace.id}-sql-block-${index}`}>
-                              [{block.intent}] {block.label} → {block.resultCount} résultat(s)
-                            </p>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {trace.request.sqlRetrieval.preview && (
-                    <p className="mt-2 whitespace-pre-wrap">Bloc injecté: {trace.request.sqlRetrieval.preview}</p>
-                  )}
-                </div>
-              )}
               {trace.request.retrieval && (
                 <div className="mt-2 rounded-lg border border-[var(--border-color)] px-2 py-2">
                   <p className="font-medium text-[var(--text-primary)]">Retrieval</p>
@@ -650,164 +621,6 @@ export function MemoryAuditPanel({
               </div>
             </>
           )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-type SqlPanelStatus = 'idle' | 'running' | 'done'
-
-export function SqlRetrievalPanel() {
-  const [query, setQuery] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [drunkBottles, setDrunkBottles] = useState<Bottle[]>([])
-  const [caveBottles, setCaveBottles] = useState<Bottle[]>([])
-  const [result, setResult] = useState<SqlRetrievalResult | null>(null)
-  const [classified, setClassified] = useState<ClassifiedIntent | null>(null)
-  const [status, setStatus] = useState<SqlPanelStatus>('idle')
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [drunkRes, caveRes] = await Promise.all([
-          supabase.from('bottles').select('*').eq('status', 'drunk').order('drunk_at', { ascending: false }).limit(300),
-          supabase.from('bottles').select('*').eq('status', 'in_stock').order('added_at', { ascending: false }).limit(500),
-        ])
-        setDrunkBottles((drunkRes.data as Bottle[]) ?? [])
-        setCaveBottles((caveRes.data as Bottle[]) ?? [])
-      } finally {
-        setLoading(false)
-      }
-    }
-    void loadData()
-  }, [])
-
-  const drunkMonthBreakdown = useMemo(() => {
-    const buckets = new Map<string, number>()
-    for (const bottle of drunkBottles) {
-      if (!bottle.drunk_at) continue
-      const d = new Date(bottle.drunk_at)
-      if (Number.isNaN(d.getTime())) continue
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      buckets.set(key, (buckets.get(key) ?? 0) + 1)
-    }
-    return Array.from(buckets.entries()).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12)
-  }, [drunkBottles])
-
-  async function handleRun() {
-    const trimmed = query.trim()
-    if (!trimmed) {
-      setResult(null)
-      setClassified(null)
-      setStatus('done')
-      return
-    }
-    setStatus('running')
-    try {
-      const classification = await classifyFactualIntent({
-        query: trimmed,
-        cave: caveBottles,
-        drunk: drunkBottles,
-      })
-      setClassified(classification)
-      setResult(routeFactualQueryFromClassification(classification, drunkBottles, caveBottles))
-    } finally {
-      setStatus('done')
-    }
-  }
-
-  return (
-    <div className="rounded-[14px] border border-[var(--border-color)] bg-[var(--card-background)] p-5">
-      <h3 className="mb-2 text-[13px] font-semibold text-[var(--text-primary)]">SQL Retrieval Router (factuel)</h3>
-      <p className="mb-4 text-[12px] text-[var(--text-muted)]">
-        Testeur manuel : classifier LLM (edge function <span className="font-mono">classify-celestin-intent</span>) → builders déterministes (temporel, géographique, quantitatif, classement, inventaire) → bloc texte injecté dans le prompt Celestin.
-      </p>
-
-      <div className="mb-3 text-[11px] text-[var(--text-muted)]">
-        {loading ? (
-          'Chargement des bouteilles…'
-        ) : (
-          <>
-            Source : {drunkBottles.length} bouteille(s) bue(s) · {caveBottles.length} fiche(s) en cave.
-          </>
-        )}
-      </div>
-
-      {!loading && drunkMonthBreakdown.length > 0 && (
-        <details className="mb-3 text-[11px] text-[var(--text-muted)]">
-          <summary className="cursor-pointer">Distribution des dégustations par mois (12 derniers mois présents)</summary>
-          <ul className="mt-2 grid grid-cols-2 gap-1 sm:grid-cols-3">
-            {drunkMonthBreakdown.map(([month, count]) => (
-              <li key={month} className="rounded border border-[var(--border-color)] px-2 py-1">
-                <span className="font-mono">{month}</span> : {count}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-
-      <div className="mb-3 flex gap-2">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleRun() }}
-          placeholder="ex : les vins bus en mars / mes meilleurs Brunello / combien de Barolo en cave"
-          className="flex-1 rounded-[8px] border border-[var(--border-color)] bg-transparent px-3 py-2 text-[12px] text-[var(--text-primary)]"
-          disabled={loading}
-        />
-        <button
-          onClick={() => { void handleRun() }}
-          disabled={loading || status === 'running'}
-          className="rounded-[10px] border border-[var(--border-color)] bg-transparent px-4 py-2 text-[12px] font-medium text-[var(--text-primary)] disabled:opacity-50"
-        >
-          {status === 'running' ? 'Classification…' : 'Tester'}
-        </button>
-      </div>
-
-      {status === 'done' && classified && (
-        <div className="mb-3 rounded-[8px] border border-[var(--border-color)] p-2 text-[11px] text-[var(--text-muted)]">
-          <p className="mb-1 font-medium text-[var(--text-primary)]">Classifier output</p>
-          <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px]">
-{JSON.stringify(classified, null, 2)}
-          </pre>
-        </div>
-      )}
-
-      {status === 'done' && !result && (
-        <p className="text-[11px] italic text-[var(--text-muted)]">
-          {!classified || classified.isFactual === false
-            ? 'Query classée non-factuelle. Celestin répond sans bloc SQL.'
-            : 'Classification reçue mais aucun bloc SQL produit (intent inattendu ou filtres incomplets).'}
-        </p>
-      )}
-
-      {result && (
-        <div className="space-y-3 text-[11px] text-[var(--text-muted)]">
-          <div className="rounded-[8px] border border-[var(--border-color)] p-2">
-            <p className="font-medium text-[var(--text-primary)]">Trace</p>
-            <p>Intents détectés : {result.trace.detectedIntents.join(', ')}</p>
-            {result.trace.matchedFilters.length > 0 && <p>Filtres : {result.trace.matchedFilters.join(', ')}</p>}
-          </div>
-
-          <div>
-            <p className="mb-1 font-medium text-[var(--text-primary)]">Blocs produits ({result.blocks.length})</p>
-            <ul className="space-y-1">
-              {result.blocks.map((block, idx) => (
-                <li key={`${block.intent}-${idx}`} className="rounded border border-[var(--border-color)] px-2 py-1">
-                  [{block.intent}] {block.label} → <strong>{block.resultCount}</strong> résultat(s)
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <p className="mb-1 font-medium text-[var(--text-primary)]">Bloc exact injecté dans le prompt LLM</p>
-            <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded border border-[var(--border-color)] bg-[var(--bg-card)] p-2 font-mono text-[10px]">
-{result.serialized}
-            </pre>
-          </div>
         </div>
       )}
     </div>

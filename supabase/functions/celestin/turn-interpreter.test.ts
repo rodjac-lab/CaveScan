@@ -319,6 +319,20 @@ describe('conversationalIntent arbitrage', () => {
     expect(result.interpretation.inferredTaskType).toBe('recommendation')
   })
 
+  it('routes generic wine-for-food phrasing as recommendation without classifier help', () => {
+    const result = interpretTurnWithRouting(
+      'Je cherche un vin gouleyant pour du saucisson',
+      false,
+      state(),
+      undefined,
+      null,
+    )
+
+    expect(result.routing.winner).toBe('recommendation_request')
+    expect(result.interpretation.shouldAllowUiAction).toBe(true)
+    expect(result.interpretation.inferredTaskType).toBe('recommendation')
+  })
+
   it('routes memory references when classifier says memory_lookup', () => {
     const result = interpretTurnWithRouting(
       'Tu te souviens de la derniere fois ?',

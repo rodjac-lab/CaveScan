@@ -3,7 +3,6 @@ import { rankCaveBottles } from '@/lib/recommendationRanking'
 import { getSeason, getDayOfWeek, formatDrunkSummary, resolveBottleIds } from '@/lib/contextHelpers'
 import type { RecommendationCard } from '@/lib/recommendationStore'
 import type { MemoryEvidenceTrace } from '@/lib/tastingMemories'
-import type { SqlRetrievalTrace } from '@/lib/sqlRetrievalRouter'
 import type { Bottle, BottleVolumeOption, TasteProfile, WineColor, WineExtraction } from '@/lib/types'
 
 export interface WineActionData {
@@ -165,8 +164,6 @@ export function buildCelestinRequestBody(input: {
   memoryTrace?: MemoryEvidenceTrace
   conversationState?: Record<string, unknown> | null
   compiledProfileMarkdown?: string
-  sqlRetrievalBlock?: string
-  sqlRetrievalTrace?: SqlRetrievalTrace
   conversationalIntent?: string | null
   debugTrace?: boolean
   requestSource?: string
@@ -212,8 +209,6 @@ export function buildCelestinRequestBody(input: {
     ...(input.conversationState ? { conversationState: input.conversationState } : {}),
     ...(input.image ? { image: input.image } : {}),
     ...(!input.backendManagedContext && input.compiledProfileMarkdown ? { compiledProfileMarkdown: input.compiledProfileMarkdown } : {}),
-    ...(input.sqlRetrievalBlock ? { sqlRetrieval: input.sqlRetrievalBlock } : {}),
-    ...(input.sqlRetrievalTrace ? { sqlRetrievalTrace: input.sqlRetrievalTrace } : {}),
     ...(input.conversationalIntent ? { conversationalIntent: input.conversationalIntent } : {}),
     ...(input.debugTrace ? { debugTrace: true } : {}),
     ...(input.requestSource ? { requestSource: input.requestSource } : {}),

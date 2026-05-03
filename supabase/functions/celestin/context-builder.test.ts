@@ -44,15 +44,6 @@ describe('buildContextBlockFromResolvedSources', () => {
     expect(block).toContain('N ajoute aucun autre vin')
   })
 
-  it('renders deterministic SQL retrieval only when already resolved', () => {
-    const block = buildContextBlockFromResolvedSources(sources({
-      sqlRetrieval: { text: '[Inventaire exact]' },
-    }))
-
-    expect(block).toContain('Faits deterministes extraits de la base')
-    expect(block).toContain('[Inventaire exact]')
-  })
-
   it('renders cellar count without bottle details', () => {
     const block = buildContextBlockFromResolvedSources(sources({
       cave: { level: 'count', totalBottles: 12, referenceCount: 8, bottles: [] },

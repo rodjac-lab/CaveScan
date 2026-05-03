@@ -53,7 +53,7 @@ describe('buildContextPlan', () => {
   it('uses recommendation sources for first recommendation requests', () => {
     expectPlan('recommendation_request', {
       profile: 'recommendation',
-      cave: 'shortlist',
+      cave: 'count',
       zones: 'names',
       memories: 'targeted',
       tools: 'auto',
@@ -65,7 +65,7 @@ describe('buildContextPlan', () => {
   it('keeps recommendation refinements actionable', () => {
     expectPlan('recommendation_refinement', {
       profile: 'recommendation',
-      cave: 'shortlist',
+      cave: 'count',
       zones: 'names',
       memories: 'targeted',
       tools: 'auto',
@@ -89,7 +89,7 @@ describe('buildContextPlan', () => {
   it('grounds memory-guided recommendation while preserving recommendation context', () => {
     expectPlan('memory_guided_recommendation', {
       profile: 'recommendation',
-      cave: 'shortlist',
+      cave: 'count',
       zones: 'names',
       memories: 'targeted',
       tools: 'force_tastings',

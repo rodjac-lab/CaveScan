@@ -28,7 +28,6 @@ import {
   RealTracesPanel,
   RoutingProbePanel,
   RunEvalPanel,
-  SqlRetrievalPanel,
 } from '@/components/debug/DebugPanels'
 import { DebugSection } from '@/components/debug/sections/DebugSection'
 import { useDebugCelestinTools } from '@/hooks/useDebugCelestinTools'
@@ -84,7 +83,6 @@ export default function Debug() {
         <DebugSection title="Observabilité" icon="🔍" subtitle="regarder le runtime">
           <AdminCelestinObservabilityPanel />
           <CelestinTimingsPanel />
-          <SqlRetrievalPanel />
           <RealTracesPanel
             realTraceEnabled={celestinTools.realTraceEnabled}
             realTraces={celestinTools.realTraces}

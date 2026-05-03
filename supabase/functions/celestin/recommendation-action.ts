@@ -25,27 +25,6 @@ function containsPhrase(haystack: string, phrase: string): boolean {
   return phrase.length > 0 && new RegExp(`(^| )${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( |$)`).test(haystack)
 }
 
-function sentenceForBottle(message: string, bottle: CaveBottle): string | null {
-  const needles = [
-    normalize(bottle.domaine),
-    normalize(bottle.cuvee),
-    normalize(bottle.appellation),
-  ].filter((needle) => needle.length >= 4)
-
-  const sentences = message
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter(Boolean)
-
-  const match = sentences.find((sentence) => {
-    const normalized = normalize(sentence)
-    return needles.some((needle) => containsPhrase(normalized, needle))
-  })
-
-  if (!match) return null
-  return match.length > 180 ? `${match.slice(0, 177).trim()}...` : match
-}
-
 function mentionScore(message: string, bottle: CaveBottle): { score: number; firstIndex: number } {
   const normalizedMessage = normalize(message)
   const fields = [
@@ -113,17 +92,17 @@ function cardAppellation(bottle: CaveBottle): string {
   return bottle.appellation || bottle.character || 'Dans ta cave'
 }
 
-function cardReason(bottle: CaveBottle, message: string): string {
-  return sentenceForBottle(message, bottle)
-    ?? bottle.character
-    ?? 'Bouteille citee par Celestin pour cette demande.'
+function backendCardReason(bottle: CaveBottle): string {
+  if (bottle.character?.trim()) return bottle.character.trim()
+  if (bottle.food_pairings?.length) {
+    return `Accords reperes dans ta cave : ${bottle.food_pairings.slice(0, 3).join(', ')}.`
+  }
+  return 'Bouteille selectionnee dans ta cave.'
 }
 
-function selectionReason(selection: RecommendationSelection, bottle: CaveBottle, message: string): string {
+function selectionReason(selection: RecommendationSelection, bottle: CaveBottle): string {
   return selection.reason?.trim()
-    || sentenceForBottle(message, bottle)
-    || bottle.character
-    || 'Bouteille choisie par Celestin pour cette demande.'
+    || backendCardReason(bottle)
 }
 
 function bottleKey(bottle: CaveBottle): string {
@@ -155,7 +134,7 @@ function buildRecommendationCards(message: string, bottles: CaveBottle[]): Recom
       appellation: cardAppellation(bottle),
       millesime: bottle.millesime,
       badge: BADGES[index] ?? 'De ta cave',
-      reason: cardReason(bottle, message),
+      reason: backendCardReason(bottle),
       color: cardColor(bottle.couleur),
     }))
 }
@@ -183,7 +162,6 @@ function findBottleForSelection(selection: RecommendationSelection, bottles: Cav
 
 function buildCardsFromSelection(
   selection: RecommendationSelection[] | null | undefined,
-  message: string,
   bottles: CaveBottle[],
 ): RecommendationCard[] | null {
   if (!selection) return null
@@ -204,12 +182,37 @@ function buildCardsFromSelection(
       appellation: cardAppellation(bottle),
       millesime: bottle.millesime,
       badge: cardBadge(item.badge, cards.length),
-      reason: selectionReason(item, bottle, message),
+      reason: selectionReason(item, bottle),
       color: cardColor(bottle.couleur),
     })
   }
 
-  return cards.slice(0, 3)
+  return cards.length > 0 ? cards.slice(0, 3) : null
+}
+
+function buildCardsFromModelAction(
+  response: CelestinResponse,
+  bottles: CaveBottle[],
+): RecommendationCard[] | null {
+  if (response.ui_action?.kind !== 'show_recommendations') return null
+
+  const selections: RecommendationSelection[] = response.ui_action.payload.cards.map((card) => ({
+    bottle_id: card.bottle_id ?? null,
+    name: card.name,
+    reason: null,
+    badge: card.badge,
+  }))
+
+  return buildCardsFromSelection(selections, bottles)
+}
+
+function canUseRecommendationSources(resolvedSources: ResolvedContextSources): boolean {
+  return (resolvedSources.cave.level === 'shortlist' || resolvedSources.cave.level === 'full_debug')
+    && resolvedSources.cave.bottles.length > 0
+}
+
+function hasStructuredBottleIds(selection: RecommendationSelection[] | null | undefined): boolean {
+  return !!selection?.some((item) => !!item.bottle_id?.trim())
 }
 
 export function canResolveRecommendationUiAction(input: {
@@ -221,11 +224,11 @@ export function canResolveRecommendationUiAction(input: {
   if (response.ui_action?.kind === 'show_recommendations') {
     return filterCardsForRequest(response.ui_action.payload.cards, input.userMessage).length > 0
   }
-  if (resolvedSources.cave.level !== 'shortlist' && resolvedSources.cave.level !== 'full_debug') return false
+  if (hasStructuredBottleIds(response.recommendation_selection)) return true
+  if (!canUseRecommendationSources(resolvedSources)) return false
 
   const selectionCards = buildCardsFromSelection(
     response.recommendation_selection,
-    response.message,
     resolvedSources.cave.bottles,
   )
   const cards = selectionCards ?? buildRecommendationCards(response.message, resolvedSources.cave.bottles)
@@ -238,21 +241,29 @@ export function ensureRecommendationUiAction(input: {
   routingIntent: RoutingIntent
   resolvedSources: ResolvedContextSources
   userMessage?: string
+  requireStructuredSelection?: boolean
 }): CelestinResponse {
   const { response, interpretation, routingIntent, resolvedSources } = input
-  if (!interpretation.shouldAllowUiAction) return response
-  if (!RECOMMENDATION_ROUTES.has(routingIntent)) return response
+  const hasStructuredSelection = !!response.recommendation_selection?.length
+  const canMaterializeRecommendation =
+    (interpretation.shouldAllowUiAction && RECOMMENDATION_ROUTES.has(routingIntent))
+    || hasStructuredSelection
+
+  if (!canMaterializeRecommendation) return response
   if (response.ui_action && response.ui_action.kind !== 'show_recommendations') return response
-  if (resolvedSources.cave.level !== 'shortlist' && resolvedSources.cave.level !== 'full_debug') return response
+  if (!canUseRecommendationSources(resolvedSources)) return response
 
   const selectionCards = buildCardsFromSelection(
     response.recommendation_selection,
-    response.message,
     resolvedSources.cave.bottles,
   )
+  if (input.requireStructuredSelection && !selectionCards) {
+    if (response.ui_action?.kind !== 'show_recommendations') return response
+    return { ...response, ui_action: null }
+  }
   const cards = selectionCards
     ?? (response.ui_action?.kind === 'show_recommendations'
-      ? response.ui_action.payload.cards
+      ? buildCardsFromModelAction(response, resolvedSources.cave.bottles) ?? response.ui_action.payload.cards
       : buildRecommendationCards(response.message, resolvedSources.cave.bottles))
   const filteredCards = filterCardsForRequest(cards, input.userMessage)
   if (filteredCards.length === 0) {

@@ -11,7 +11,6 @@ function body(overrides: Partial<RequestBody> = {}): RequestBody {
     compiledProfileMarkdown: '## Profil compile',
     memories: 'Souvenir exact',
     memoryEvidenceMode: 'exact',
-    sqlRetrieval: '[SQL exact]',
     cave: [
       {
         id: 'b1',
@@ -68,7 +67,6 @@ describe('resolveContextSourcesForRequest', () => {
       'cave:tool_only',
       'zones:names',
       'tools:force_cellar',
-      'sql_retrieval:exact_only',
     ])
   })
 
@@ -102,7 +100,6 @@ describe('resolveContextSourcesForRequest', () => {
 
     expect(sources.profile).toBeUndefined()
     expect(sources.memories).toBeUndefined()
-    expect(sources.sqlRetrieval).toBeUndefined()
     expect(sources.requirements).toEqual([])
     expect(sources.cave).toMatchObject({ level: 'none', totalBottles: 2, referenceCount: 1, bottles: [] })
   })
@@ -121,7 +118,6 @@ describe('resolveContextSourcesForRequest', () => {
 
     expect(sources.profile).toBeUndefined()
     expect(sources.memories).toBeUndefined()
-    expect(sources.sqlRetrieval?.text).toBe('[SQL exact]')
     expect(sources.zones).toEqual(['Paris', 'Bourgogne'])
     expect(sources.cave).toMatchObject({ level: 'tool_only', totalBottles: 2, referenceCount: 1, bottles: [] })
   })

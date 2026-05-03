@@ -12,21 +12,6 @@ function buildResolvedMemoriesSection(memories: ResolvedMemoriesSource): string[
   return parts
 }
 
-function buildSqlRetrievalSection(sqlRetrieval: string): string {
-  return [
-    'Faits deterministes extraits de la base (source exacte, pas une inference) :',
-    sqlRetrieval,
-    [
-      'Regles d usage de ce bloc :',
-      '- Tu ne dois JAMAIS mentionner un vin qui n apparait pas explicitement dans ce bloc — regle absolue anti-hallucination.',
-      '- Suis l indicateur de rendu present dans chaque sous-bloc (ex: "Enumere les N vin(s)" liste tout ; "TROP pour lister" donne le total + 2-3 exemples + renvoie vers la page Cave).',
-      '- Les blocs classement (top N par note) et temporel (vins bus sur une periode) sont toujours enumeres en entier, quel que soit leur count.',
-      '- Si un fait de ce bloc contredit un souvenir ou ton intuition, le fait prime.',
-      '- Le bloc "Souvenirs de degustation" sert pour la texture qualitative (verbatim, ambiance), pas pour les chiffres.',
-    ].join('\n'),
-  ].join('\n\n')
-}
-
 export function buildContextBlockFromResolvedSources(sources: ResolvedContextSources): string {
   const parts: string[] = []
 
@@ -38,10 +23,6 @@ export function buildContextBlockFromResolvedSources(sources: ResolvedContextSou
 
   if (sources.memories) {
     parts.push(buildResolvedMemoriesSection(sources.memories).join('\n\n'))
-  }
-
-  if (sources.sqlRetrieval) {
-    parts.push(buildSqlRetrievalSection(sources.sqlRetrieval.text))
   }
 
   if (sources.zones.length > 0) {

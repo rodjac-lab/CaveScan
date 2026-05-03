@@ -13,7 +13,6 @@ import { recordProviderResponse, type CelestinProviderResponseTrace } from "./pr
 import { parseAndValidate } from "./response-validation.ts"
 import type { AuthContext } from "./auth.ts"
 import { CELESTIN_TOOLS, executeCelestinTool, type CelestinToolName } from "./tools.ts"
-import { shouldEnableCelestinTools } from "./tool-policy.ts"
 import { logAnthropicUsage } from "../_shared/anthropic-usage.ts"
 import type { CelestinProviderResponse, CelestinResponse, ConversationTurn } from "./types.ts"
 
@@ -33,9 +32,10 @@ export interface CelestinProviderOptions {
   auth?: AuthContext
   requestSource?: string
   usageContext?: CelestinUsageContext
+  toolsEnabled?: boolean
   forcedToolName?: CelestinToolName
   requireToolUse?: boolean
-  validateResponse?: (response: CelestinProviderResponse) => string | null
+  validateResponse?: (response: CelestinProviderResponse, trace: CelestinProviderTrace) => string | null
 }
 
 export interface CelestinUsageContext {
@@ -277,6 +277,7 @@ async function postClaudeMessages(input: {
   auth?: AuthContext
   usageContext?: CelestinUsageContext
   forcedToolName?: CelestinToolName
+  maxTokens?: number
   trace?: CelestinProviderTrace
 }) {
   const toolsIncluded = true
@@ -289,7 +290,7 @@ async function postClaudeMessages(input: {
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 4096,
+      max_tokens: input.maxTokens ?? 4096,
       system: buildClaudeSystem(input.systemPrompt, input.cacheSystem),
       messages: input.messages,
       tools: buildClaudeTools(input.cacheTools),
@@ -338,6 +339,15 @@ async function postClaudeMessages(input: {
     console.log(`[celestin:claude-cache] create=${create} read=${read}`)
   }
   return result
+}
+
+function maxTokensForToolFollowup(toolUses: ClaudeToolUseContent[]): number {
+  const names = new Set(toolUses.map((tool) => tool.name))
+  if (names.has('search_cellar_candidates')) return 900
+  if (names.has('query_cellar')) return 600
+  if (names.has('query_memory')) return 800
+  if (names.has('query_tastings')) return 1000
+  return 1200
 }
 
 async function persistClaudeUsage(input: {
@@ -430,11 +440,7 @@ async function callClaude(
       : [{ role: 'user', content: userPrompt }]
 
   const auth = options?.auth
-  const toolsEnabled = shouldEnableCelestinTools({
-    authReady: !!auth?.userId && !!auth.supabase,
-    hasImage: !!image,
-    usageContext: options?.usageContext,
-  })
+  const toolsEnabled = !!options?.toolsEnabled
   const messagePreview = userPrompt.replace(/\s+/g, ' ').slice(0, 120)
   const forcedToolName = toolsEnabled ? options?.forcedToolName : undefined
   const toolChoice: ClaudeToolChoice = toolsEnabled
@@ -515,6 +521,7 @@ async function callClaude(
     trace,
     caller: 'celestin.claude.tool_followup',
     messagePreview,
+    maxTokens: maxTokensForToolFollowup(toolUses),
     cacheSystem: false,
     cacheTools: false,
     requestSource: options?.requestSource,
@@ -577,7 +584,7 @@ export async function celestinWithFallback(
 ): Promise<{ provider: string; response: CelestinProviderResponse; providerErrors: string[]; trace: CelestinProviderTrace }> {
   const trace = createProviderTrace()
   const validateProviderResponse = (response: CelestinProviderResponse) => {
-    const reason = options?.validateResponse?.(response)
+    const reason = options?.validateResponse?.(response, trace)
     if (reason) throw new Error(reason)
   }
 

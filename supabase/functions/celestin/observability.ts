@@ -2,6 +2,7 @@ import type { SupabaseServiceClient } from "./auth.ts"
 import type { ContextPlan } from "./context-plan.ts"
 import type { ConversationState } from "./conversation-state.ts"
 import type { CelestinProviderTrace } from "./llm-providers.ts"
+import type { SourceMode } from "./source-mode.ts"
 import { buildSourceRequirements } from "./source-resolver.ts"
 import type { ResolvedContextSources } from "./source-resolver.ts"
 import type { CelestinResponse, RequestBody } from "./types.ts"
@@ -34,6 +35,7 @@ export type CelestinTurnObservabilityInput = {
   providerErrors?: string[]
   providerTrace?: CelestinProviderTrace | null
   contextPlan?: ContextPlan | null
+  sourceMode?: SourceMode | null
   resolvedSources?: ResolvedContextSources | null
 }
 
@@ -105,9 +107,6 @@ export function summarizeResolvedSources(sources: ResolvedContextSources | null 
           selectedTastingMemories: sources.memories.selectedTastingMemories ?? [],
           chars: sources.memories.text.length,
         }
-      : null,
-    sqlRetrieval: sources.sqlRetrieval
-      ? { chars: sources.sqlRetrieval.text.length }
       : null,
     cave: {
       level: sources.cave.level,
@@ -186,6 +185,7 @@ export async function persistCelestinTurnObservability(input: CelestinTurnObserv
           finalRecommendationSelectionCount: input.response?.recommendation_selection?.length ?? 0,
           providerResponses: trace?.responses ?? [],
           contextPlan: input.contextPlan ?? null,
+          sourceMode: input.sourceMode ?? null,
           sourceRequirements: input.contextPlan ? buildSourceRequirements(input.contextPlan) : [],
           resolvedSources: summarizeResolvedSources(input.resolvedSources),
         },

@@ -89,7 +89,6 @@ describe('summarizeResolvedSources', () => {
         ],
         chars: 14,
       },
-      sqlRetrieval: null,
       cave: {
         level: 'shortlist',
         totalBottles: 12,

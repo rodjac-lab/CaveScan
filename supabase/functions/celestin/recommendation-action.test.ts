@@ -137,7 +137,7 @@ describe('ensureRecommendationUiAction', () => {
       name: 'Domaine Test Les Blancs',
       appellation: 'Sancerre',
       color: 'blanc',
-      reason: 'Je partirais sur le Sancerre 2020 Domaine Test Les Blancs : il a la tension qu il faut.',
+      reason: 'Tendu et salin.',
     })
   })
 
@@ -172,6 +172,30 @@ describe('ensureRecommendationUiAction', () => {
     })).toBe(true)
   })
 
+  it('accepts structured bottle ids before backend card materialization has fetched bottles', () => {
+    expect(canResolveRecommendationUiAction({
+      response: {
+        message: 'Voici deux choix.',
+        recommendation_selection: [{
+          bottle_id: 'abc12345',
+          name: 'Domaine Test Les Blancs',
+          reason: 'Choix issu du tool.',
+          badge: 'Accord parfait',
+        }],
+        ui_action: null,
+        action_chips: null,
+      },
+      resolvedSources: sources({
+        cave: {
+          level: 'count',
+          totalBottles: 3,
+          referenceCount: 3,
+          bottles: [],
+        },
+      }),
+    })).toBe(true)
+  })
+
   it('does not add cards on non-recommendation routes', () => {
     const response = ensureRecommendationUiAction({
       response: {
@@ -191,7 +215,28 @@ describe('ensureRecommendationUiAction', () => {
     expect(response.ui_action).toBeNull()
   })
 
-  it('keeps an existing model action unchanged', () => {
+  it('does not build legacy text-matched cards when structured selection is required', () => {
+    const response = ensureRecommendationUiAction({
+      response: {
+        message: 'Je partirais sur le Sancerre 2020 Domaine Test Les Blancs.',
+        ui_action: null,
+        action_chips: null,
+      },
+      interpretation: {
+        turnType: 'task_request',
+        cognitiveMode: 'cellar_assistant',
+        shouldAllowUiAction: true,
+        inferredTaskType: 'recommendation',
+      },
+      routingIntent: 'recommendation_request',
+      resolvedSources: sources(),
+      requireStructuredSelection: true,
+    })
+
+    expect(response.ui_action).toBeNull()
+  })
+
+  it('rebuilds existing model recommendation cards from backend bottle data when resolvable', () => {
     const response = ensureRecommendationUiAction({
       response: {
         message: 'Voici trois pistes.',
@@ -199,11 +244,11 @@ describe('ensureRecommendationUiAction', () => {
           kind: 'show_recommendations',
           payload: {
             cards: [{
-              bottle_id: 'existing',
-              name: 'Existing',
-              appellation: 'Existing',
+              bottle_id: 'abc12345',
+              name: 'Texte modele',
+              appellation: 'App modele',
               badge: 'De ta cave',
-              reason: 'Existing',
+              reason: 'Raison modele trop longue ou mal structuree.',
               color: 'rouge',
             }],
           },
@@ -221,7 +266,43 @@ describe('ensureRecommendationUiAction', () => {
     })
 
     expect(response.ui_action?.payload.cards).toHaveLength(1)
-    expect(response.ui_action?.payload.cards[0].bottle_id).toBe('existing')
+    expect(response.ui_action?.payload.cards[0]).toMatchObject({
+      bottle_id: 'abc12345',
+      name: 'Domaine Test Les Blancs',
+      appellation: 'Sancerre',
+      reason: 'Tendu et salin.',
+      color: 'blanc',
+    })
+  })
+
+  it('uses backend bottle data when the structured selection has no card reason', () => {
+    const response = ensureRecommendationUiAction({
+      response: {
+        message: 'Voici une selection.',
+        recommendation_selection: [{
+          bottle_id: 'def67890',
+          name: 'Domaine Rouge Bourgogne',
+          reason: null,
+          badge: null,
+        }],
+        ui_action: null,
+        action_chips: null,
+      },
+      interpretation: {
+        turnType: 'task_request',
+        cognitiveMode: 'cellar_assistant',
+        shouldAllowUiAction: true,
+        inferredTaskType: 'recommendation',
+      },
+      routingIntent: 'recommendation_request',
+      resolvedSources: sources(),
+    })
+
+    expect(response.ui_action?.payload.cards[0]).toMatchObject({
+      bottle_id: 'def67890',
+      reason: 'Bouteille selectionnee dans ta cave.',
+      color: 'rouge',
+    })
   })
 
   it('prefers structured selection over model-built recommendation cards', () => {
