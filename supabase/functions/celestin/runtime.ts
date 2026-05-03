@@ -55,6 +55,12 @@ function normalizeForRecommendationContract(message: string): string {
     .trim()
 }
 
+function asksUserToInspectCellar(assistantMessage: string): boolean {
+  const normalized = normalizeForRecommendationContract(assistantMessage)
+  return /\b(tu as|as tu|est ce que tu as|tu aurais|tu possedes|tu possèdes)\b.*\b(cave|blancs?|rouges?|roses?|bulles?|champagnes?|bouteilles?|vins?)\b/.test(normalized)
+    || /\b(dans ta cave|en cave|qui trainent|qui traînent|sous la main)\b/.test(normalized)
+}
+
 export function canAcceptRecommendationClarification(input: {
   userMessage: string
   routingIntent: string
@@ -62,14 +68,13 @@ export function canAcceptRecommendationClarification(input: {
 }): boolean {
   if (!isClarificationMessage(input.assistantMessage)) return false
   if (input.routingIntent !== 'recommendation_request') return false
+  if (asksUserToInspectCellar(input.assistantMessage)) return false
 
   const normalized = normalizeForRecommendationContract(input.userMessage)
-  const hasConcreteConstraint =
-    /\b(pour accompagner|avec|ce soir c est|ce midi c est|je fais|je prepare|je prépare)\b/.test(normalized)
-    || /\b(paella|poulet|pizza|sushi|poisson|boeuf|agneau|fromage|raclette|pates?|risotto|couscous|tajine|osso bucco)\b/.test(normalized)
-    || /\b(rouge|blanc|rose|bulles?|champagne)\b/.test(normalized)
+  const hasConcreteStyle = /\b(rouge|blanc|rose|bulles?|champagne)\b/.test(normalized)
+  if (hasConcreteStyle) return false
 
-  return !hasConcreteConstraint
+  return true
 }
 
 function emptyProviderTrace(): CelestinProviderTrace {

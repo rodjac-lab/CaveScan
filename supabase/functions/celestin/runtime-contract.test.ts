@@ -20,7 +20,23 @@ describe('recommendation response contract', () => {
     })).toBe(true)
   })
 
-  it('rejects clarification when the user already gave a dish', async () => {
+  it('accepts useful dish clarifications even when the user already gave a dish', async () => {
+    const { canAcceptRecommendationClarification } = await import('./runtime')
+
+    expect(canAcceptRecommendationClarification({
+      userMessage: 'Je cherche un vin pour accompagner une paella.',
+      routingIntent: 'recommendation_request',
+      assistantMessage: 'C est une paella plutôt fruits de mer ou plutôt viande ?',
+    })).toBe(true)
+
+    expect(canAcceptRecommendationClarification({
+      userMessage: 'Je cherche un vin pour accompagner un poulet rôti.',
+      routingIntent: 'recommendation_request',
+      assistantMessage: 'Tu le prépares plutôt nature ou avec une sauce crémée ?',
+    })).toBe(true)
+  })
+
+  it('rejects clarifications that ask the user to inspect their cellar', async () => {
     const { canAcceptRecommendationClarification } = await import('./runtime')
 
     expect(canAcceptRecommendationClarification({
@@ -31,6 +47,16 @@ describe('recommendation response contract', () => {
 
     expect(canAcceptRecommendationClarification({
       userMessage: 'Je cherche un vin pour accompagner un poulet rôti.',
+      routingIntent: 'recommendation_request',
+      assistantMessage: 'Tu as quoi en cave ?',
+    })).toBe(false)
+  })
+
+  it('rejects clarification when the user already gave a style constraint', async () => {
+    const { canAcceptRecommendationClarification } = await import('./runtime')
+
+    expect(canAcceptRecommendationClarification({
+      userMessage: 'Je cherche un rouge pour accompagner une paella.',
       routingIntent: 'recommendation_request',
       assistantMessage: 'Tu préfères un blanc ou un rouge ?',
     })).toBe(false)
