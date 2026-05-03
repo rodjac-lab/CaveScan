@@ -1,6 +1,6 @@
 import type { ResolvedContextSources } from "./source-resolver.ts"
 import type { RoutingIntent, TurnInterpretation } from "./turn-interpreter.ts"
-import type { CaveBottle, CelestinResponse, RecommendationCard } from "./types.ts"
+import type { CaveBottle, CelestinResponse, RecommendationCard, RecommendationSelection } from "./types.ts"
 
 const RECOMMENDATION_ROUTES: ReadonlySet<RoutingIntent> = new Set([
   'recommendation_request',
@@ -73,6 +73,15 @@ function cardColor(value: string | null): RecommendationCard['color'] {
   return 'rouge'
 }
 
+function cardBadge(value: string | null | undefined, fallbackIndex: number): string {
+  const normalized = normalize(value)
+  if (normalized === 'accord parfait') return 'Accord parfait'
+  if (normalized === 'de ta cave') return 'De ta cave'
+  if (normalized === 'decouverte') return 'Découverte'
+  if (normalized === 'audacieux') return 'Audacieux'
+  return BADGES[fallbackIndex] ?? 'De ta cave'
+}
+
 function cardName(bottle: CaveBottle): string {
   return [
     bottle.domaine,
@@ -90,6 +99,13 @@ function cardReason(bottle: CaveBottle, message: string): string {
   return sentenceForBottle(message, bottle)
     ?? bottle.character
     ?? 'Bouteille citee par Celestin pour cette demande.'
+}
+
+function selectionReason(selection: RecommendationSelection, bottle: CaveBottle, message: string): string {
+  return selection.reason?.trim()
+    || sentenceForBottle(message, bottle)
+    || bottle.character
+    || 'Bouteille choisie par Celestin pour cette demande.'
 }
 
 function bottleKey(bottle: CaveBottle): string {
@@ -126,6 +142,58 @@ function buildRecommendationCards(message: string, bottles: CaveBottle[]): Recom
     }))
 }
 
+function findBottleForSelection(selection: RecommendationSelection, bottles: CaveBottle[]): CaveBottle | null {
+  const selectionId = selection.bottle_id?.trim()
+  if (selectionId) {
+    const match = bottles.find((bottle) => bottle.id.startsWith(selectionId) || selectionId.startsWith(bottle.id))
+    if (match) return match
+  }
+
+  const selectionText = normalize(selection.name)
+  if (!selectionText) return null
+
+  const candidates = bottles
+    .map((bottle) => ({
+      bottle,
+      score: mentionScore(selectionText, bottle).score,
+    }))
+    .filter((candidate) => candidate.score >= MIN_MENTION_SCORE)
+    .sort((a, b) => b.score - a.score)
+
+  return candidates[0]?.bottle ?? null
+}
+
+function buildCardsFromSelection(
+  selection: RecommendationSelection[] | null | undefined,
+  message: string,
+  bottles: CaveBottle[],
+): RecommendationCard[] | null {
+  if (!selection) return null
+
+  const seen = new Set<string>()
+  const cards: RecommendationCard[] = []
+  for (const item of selection) {
+    const bottle = findBottleForSelection(item, bottles)
+    if (!bottle) continue
+
+    const key = bottleKey(bottle)
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    cards.push({
+      bottle_id: bottle.id,
+      name: cardName(bottle),
+      appellation: cardAppellation(bottle),
+      millesime: bottle.millesime,
+      badge: cardBadge(item.badge, cards.length),
+      reason: selectionReason(item, bottle, message),
+      color: cardColor(bottle.couleur),
+    })
+  }
+
+  return cards.slice(0, 3)
+}
+
 export function ensureRecommendationUiAction(input: {
   response: CelestinResponse
   interpretation: TurnInterpretation
@@ -138,7 +206,12 @@ export function ensureRecommendationUiAction(input: {
   if (!RECOMMENDATION_ROUTES.has(routingIntent)) return response
   if (resolvedSources.cave.level !== 'shortlist' && resolvedSources.cave.level !== 'full_debug') return response
 
-  const cards = buildRecommendationCards(response.message, resolvedSources.cave.bottles)
+  const selectionCards = buildCardsFromSelection(
+    response.recommendation_selection,
+    response.message,
+    resolvedSources.cave.bottles,
+  )
+  const cards = selectionCards ?? buildRecommendationCards(response.message, resolvedSources.cave.bottles)
   if (cards.length === 0) return response
 
   return {

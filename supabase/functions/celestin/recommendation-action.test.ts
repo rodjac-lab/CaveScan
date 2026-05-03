@@ -51,6 +51,68 @@ function sources(overrides: Partial<ResolvedContextSources> = {}): ResolvedConte
 }
 
 describe('ensureRecommendationUiAction', () => {
+  it('builds cards from structured recommendation selection before text matching', () => {
+    const response = ensureRecommendationUiAction({
+      response: {
+        message: 'Je partirais sur un blanc tendu de ta cave.',
+        recommendation_selection: [{
+          bottle_id: 'abc12345',
+          name: 'Domaine Test Les Blancs',
+          reason: 'La tension du Sancerre ira mieux que les rouges trop tanniques.',
+          badge: 'Accord parfait',
+        }],
+        ui_action: null,
+        action_chips: null,
+      },
+      interpretation: {
+        turnType: 'task_request',
+        cognitiveMode: 'cellar_assistant',
+        shouldAllowUiAction: true,
+        inferredTaskType: 'recommendation',
+      },
+      routingIntent: 'recommendation_request',
+      resolvedSources: sources(),
+    })
+
+    expect(response.ui_action?.kind).toBe('show_recommendations')
+    expect(response.ui_action?.payload.cards).toHaveLength(1)
+    expect(response.ui_action?.payload.cards[0]).toMatchObject({
+      bottle_id: 'abc12345',
+      name: 'Domaine Test Les Blancs',
+      appellation: 'Sancerre',
+      badge: 'Accord parfait',
+      reason: 'La tension du Sancerre ira mieux que les rouges trop tanniques.',
+      color: 'blanc',
+    })
+  })
+
+  it('resolves structured recommendation selection by name when bottle_id is missing', () => {
+    const response = ensureRecommendationUiAction({
+      response: {
+        message: 'Le Sancerre est le bon axe.',
+        recommendation_selection: [{
+          bottle_id: null,
+          name: 'Domaine Test Les Blancs Sancerre 2020',
+          reason: 'Nom resolu sans id.',
+          badge: null,
+        }],
+        ui_action: null,
+        action_chips: null,
+      },
+      interpretation: {
+        turnType: 'task_request',
+        cognitiveMode: 'cellar_assistant',
+        shouldAllowUiAction: true,
+        inferredTaskType: 'recommendation',
+      },
+      routingIntent: 'recommendation_request',
+      resolvedSources: sources(),
+    })
+
+    expect(response.ui_action?.payload.cards[0].bottle_id).toBe('abc12345')
+    expect(response.ui_action?.payload.cards[0].reason).toBe('Nom resolu sans id.')
+  })
+
   it('adds cards for bottles explicitly recommended by the model text', () => {
     const response = ensureRecommendationUiAction({
       response: {

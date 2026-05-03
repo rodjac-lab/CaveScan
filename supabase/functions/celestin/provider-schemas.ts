@@ -2,6 +2,20 @@ export const GEMINI_RESPONSE_SCHEMA = {
   type: 'OBJECT',
   properties: {
     message: { type: 'STRING', description: 'Reponse conversationnelle, toujours presente' },
+    recommendation_selection: {
+      type: 'ARRAY',
+      nullable: true,
+      description: 'Bouteilles choisies pour une recommandation cave. Le backend les transforme en cartes UI.',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          bottle_id: { type: 'STRING', nullable: true },
+          name: { type: 'STRING', nullable: true },
+          reason: { type: 'STRING', nullable: true },
+          badge: { type: 'STRING', nullable: true },
+        },
+      },
+    },
     ui_action: {
       type: 'OBJECT',
       nullable: true,
@@ -104,6 +118,21 @@ export const OPENAI_RESPONSE_SCHEMA = {
     type: 'object',
     properties: {
       message: { type: 'string', description: 'Reponse conversationnelle, toujours presente' },
+      recommendation_selection: {
+        type: ['array', 'null'],
+        description: 'Bouteilles choisies pour une recommandation cave. Le backend les transforme en cartes UI.',
+        items: {
+          type: 'object',
+          properties: {
+            bottle_id: { type: ['string', 'null'] },
+            name: { type: ['string', 'null'] },
+            reason: { type: ['string', 'null'] },
+            badge: { type: ['string', 'null'] },
+          },
+          required: ['bottle_id', 'name', 'reason', 'badge'],
+          additionalProperties: false,
+        },
+      },
       ui_action: {
         type: ['object', 'null'],
         properties: {
@@ -177,8 +206,7 @@ export const OPENAI_RESPONSE_SCHEMA = {
         items: { type: 'string' },
       },
     },
-    required: ['message', 'ui_action', 'action_chips'],
+    required: ['message', 'recommendation_selection', 'ui_action', 'action_chips'],
     additionalProperties: false,
   },
 }
-

@@ -25,4 +25,24 @@ describe('parseAndValidate', () => {
       action_chips: ['Voir les notes'],
     })
   })
+
+  it('keeps structured recommendation selections', () => {
+    const parsed = parseAndValidate(JSON.stringify({
+      message: 'Je partirais sur ce Sancerre.',
+      recommendation_selection: [{
+        bottle_id: 'abc12345',
+        name: 'Domaine Test Les Blancs',
+        reason: 'Tension utile sur le plat.',
+        badge: 'Accord parfait',
+      }],
+      action_chips: ['Et en rouge ?'],
+    }))
+
+    expect(parsed.recommendation_selection).toEqual([{
+      bottle_id: 'abc12345',
+      name: 'Domaine Test Les Blancs',
+      reason: 'Tension utile sur le plat.',
+      badge: 'Accord parfait',
+    }])
+  })
 })

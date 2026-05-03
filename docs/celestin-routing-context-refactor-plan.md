@@ -98,6 +98,29 @@ contrat structure type `RecommendationSelection`.
 - La prochaine correction doit donc porter sur le contrat de sortie ou le runtime,
   pas sur un ranking local de secours.
 
+## Etat au 2026-05-03 matin
+
+La reprise du chantier commence par la cible prioritaire : remplacer l'oubli de
+`ui_action` par un contrat structure.
+
+Changement en cours :
+
+- ajout de `recommendation_selection` dans `CelestinResponse` ;
+- ajout du champ aux schemas Gemini/OpenAI et au contrat JSON commun ;
+- le LLM choisit les bouteilles dans `recommendation_selection` ;
+- le backend resolve cette selection contre les bouteilles de la shortlist et
+  construit `show_recommendations` ;
+- fallback texte conserve seulement si le modele cite clairement des bouteilles ;
+- observabilite enrichie avec `rawUiActionKind`, `finalUiActionKind` et les counts
+  de selection structuree.
+
+Decision :
+
+- `ui_action` reste supporte pour compatibilite, mais la source de verite cible
+  pour les recommandations devient la selection structuree, pas les cartes generees
+  librement par le modele.
+- Le backend est responsable de la materialisation UI.
+
 ## Principe directeur
 
 Le frontend ne doit pas decider le contexte LLM.

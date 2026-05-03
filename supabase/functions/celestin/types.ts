@@ -89,6 +89,13 @@ export interface RecommendationCard {
   color: 'rouge' | 'blanc' | 'rose' | 'bulles'
 }
 
+export interface RecommendationSelection {
+  bottle_id?: string | null
+  name?: string | null
+  reason?: string | null
+  badge?: string | null
+}
+
 export type CelestinUiAction =
   | { kind: 'show_recommendations'; payload: { cards: RecommendationCard[] } }
   | { kind: 'prepare_add_wine'; payload: { extraction: WineExtraction } }
@@ -98,5 +105,6 @@ export type CelestinUiAction =
 export interface CelestinResponse {
   message: string
   ui_action?: CelestinUiAction | null
+  recommendation_selection?: RecommendationSelection[] | null
   action_chips?: string[] | null
 }

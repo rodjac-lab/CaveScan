@@ -49,5 +49,9 @@ export function parseAndValidate(raw: string): CelestinResponse {
     data.action_chips = null
   }
 
+  if (data.recommendation_selection && !Array.isArray(data.recommendation_selection)) {
+    data.recommendation_selection = null
+  }
+
   return data
 }

@@ -29,6 +29,7 @@ export type CelestinTurnObservabilityInput = {
   activeMemoryFocus?: string | null
   prompt?: PromptMetrics | null
   response?: CelestinResponse | null
+  rawResponse?: CelestinResponse | null
   provider?: string | null
   providerErrors?: string[]
   providerTrace?: CelestinProviderTrace | null
@@ -179,6 +180,10 @@ export async function persistCelestinTurnObservability(input: CelestinTurnObserv
         metadata: {
           promptCacheCreateTokens: trace?.claudeCache.creationInputTokens ?? 0,
           promptCacheReadTokens: trace?.claudeCache.readInputTokens ?? 0,
+          rawUiActionKind: input.rawResponse ? uiActionKind(input.rawResponse) : null,
+          finalUiActionKind: input.response ? uiActionKind(input.response) : null,
+          rawRecommendationSelectionCount: input.rawResponse?.recommendation_selection?.length ?? 0,
+          finalRecommendationSelectionCount: input.response?.recommendation_selection?.length ?? 0,
           contextPlan: input.contextPlan ?? null,
           sourceRequirements: input.contextPlan ? buildSourceRequirements(input.contextPlan) : [],
           resolvedSources: summarizeResolvedSources(input.resolvedSources),
