@@ -1,9 +1,11 @@
 import type { ContextPlan } from "./context-plan.ts"
 import {
+  parseCellarOriginLookup,
   parseFilteredCellarBottleCount,
   parseGenericCellarBottleCount,
   parseTastingCountQuery,
   parseTastingRatingQuery,
+  parseVolumeCellarBottleCount,
 } from "../../../shared/celestin/exact-query.ts"
 import type { ResolvedContextSources } from "./source-resolver.ts"
 import type { RoutingIntent } from "./turn-interpreter.ts"
@@ -151,7 +153,8 @@ export function buildDeterministicResponse(input: {
     filteredCellarCount
     && input.routingIntent === 'cellar_lookup'
     && input.contextPlan.truthPolicy === 'exact_only'
-    && input.resolvedSources.cave.countFilter?.filter === filteredCellarCount.filter
+    && input.resolvedSources.cave.countFilter?.kind === 'color'
+    && input.resolvedSources.cave.countFilter.filter === filteredCellarCount.filter
   ) {
     const total = input.resolvedSources.cave.totalBottles
     const references = input.resolvedSources.cave.referenceCount
@@ -171,6 +174,68 @@ export function buildDeterministicResponse(input: {
       message: `Tu as ${bottlePart} de ${label} en cave, sur ${referencePart}.`,
       ui_action: null,
       action_chips: ['Voir la cave', 'Quels rouges ?', 'Que boire ce soir ?'],
+    }
+  }
+
+  const volumeCount = parseVolumeCellarBottleCount(input.body.message)
+  if (
+    volumeCount
+    && input.routingIntent === 'cellar_lookup'
+    && input.contextPlan.truthPolicy === 'exact_only'
+    && input.resolvedSources.cave.countFilter?.kind === 'volume'
+    && input.resolvedSources.cave.countFilter.filter === volumeCount.filter
+  ) {
+    const total = input.resolvedSources.cave.totalBottles
+    const references = input.resolvedSources.cave.referenceCount
+    const label = input.resolvedSources.cave.countFilter.label
+
+    if (total === 0) {
+      return {
+        message: `Je ne trouve aucun ${label} en cave.`,
+        ui_action: null,
+        action_chips: ['Voir la cave', 'Que boire ce soir ?'],
+      }
+    }
+
+    const bottlePart = total === 1 ? '1 bouteille' : `${total} bouteilles`
+    const referencePart = references === 1 ? '1 reference' : `${references} references`
+    return {
+      message: `Tu as ${bottlePart} en ${label} (${referencePart}).`,
+      ui_action: null,
+      action_chips: ['Voir la cave', 'Que boire ce soir ?'],
+    }
+  }
+
+  const originLookup = parseCellarOriginLookup(input.body.message)
+  if (
+    originLookup
+    && input.routingIntent === 'cellar_lookup'
+    && input.contextPlan.truthPolicy === 'exact_only'
+    && input.resolvedSources.cave.countFilter?.kind === 'origin'
+    && input.resolvedSources.cave.countFilter.needle === originLookup.needle
+  ) {
+    const matches = input.resolvedSources.cave.countFilter.matches
+    const total = input.resolvedSources.cave.totalBottles
+    const label = input.resolvedSources.cave.countFilter.label
+    const polarity = input.resolvedSources.cave.countFilter.polarity
+
+    if (matches === 0) {
+      const message = polarity === 'has_not'
+        ? `Effectivement, tu n as pas de ${label} en cave.`
+        : `Je ne trouve pas de ${label} en cave.`
+      return {
+        message,
+        ui_action: null,
+        action_chips: ['Voir la cave', 'Que boire ce soir ?'],
+      }
+    }
+
+    const referencePart = matches === 1 ? '1 reference' : `${matches} references`
+    const bottlePart = total === 1 ? '1 bouteille' : `${total} bouteilles`
+    return {
+      message: `Tu as ${bottlePart} de ${label} en cave (${referencePart}).`,
+      ui_action: null,
+      action_chips: ['Voir la cave', 'Quoi en boire ce soir ?'],
     }
   }
 

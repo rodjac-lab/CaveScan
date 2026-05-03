@@ -10,6 +10,23 @@ export interface FilteredCellarBottleCountQuery {
   label: string
 }
 
+export type CellarVolumeFilter = 'magnum' | 'demi'
+
+export interface VolumeCellarBottleCountQuery {
+  kind: 'volume_cellar_bottle_count'
+  filter: CellarVolumeFilter
+  label: string
+}
+
+export type CellarOriginPolarity = 'has' | 'has_not'
+
+export interface CellarOriginLookupQuery {
+  kind: 'cellar_origin_lookup'
+  needle: string
+  label: string
+  polarity: CellarOriginPolarity
+}
+
 export interface TastingCountQuery {
   kind: 'tasting_count'
   query?: string
@@ -73,6 +90,66 @@ export function parseFilteredCellarBottleCount(message: string): FilteredCellarB
   }
 
   return null
+}
+
+export function parseVolumeCellarBottleCount(message: string): VolumeCellarBottleCountQuery | null {
+  const text = normalizeExactQueryText(message)
+  if (!/\b(combien|nombre)\b/.test(text)) return null
+
+  const mentionsCellarScope =
+    /\b(j ai|ai je|ma cave|en cave)\b/.test(text)
+    || /\bcombien de\b/.test(text)
+  if (!mentionsCellarScope) return null
+
+  if (/\bmagnums?\b/.test(text)) {
+    return { kind: 'volume_cellar_bottle_count', filter: 'magnum', label: 'magnums' }
+  }
+  if (/\b(demi[- ]bouteilles?|demis?|demi[- ]btl)\b/.test(text)) {
+    return { kind: 'volume_cellar_bottle_count', filter: 'demi', label: 'demi-bouteilles' }
+  }
+  return null
+}
+
+const ORIGIN_HINT_TERMS: Array<{ pattern: RegExp; needles: string[]; label: string }> = [
+  { pattern: /\b(italiens?|italiennes?|italie|italy)\b/, needles: ['italie', 'italy'], label: 'vins italiens' },
+  { pattern: /\b(francais(es)?|france)\b/, needles: ['france'], label: 'vins francais' },
+  { pattern: /\b(espagnols?|espagnoles?|espagne|spain)\b/, needles: ['espagne', 'spain'], label: 'vins espagnols' },
+  { pattern: /\b(portugais(es)?|portugal)\b/, needles: ['portugal'], label: 'vins portugais' },
+  { pattern: /\b(allemands?|allemandes?|allemagne|germany)\b/, needles: ['allemagne', 'germany'], label: 'vins allemands' },
+  { pattern: /\b(americains?|americaines?|usa|etats[- ]unis|united states)\b/, needles: ['usa', 'etats-unis', 'united states'], label: 'vins americains' },
+  { pattern: /\b(croates?|croatie|croatia)\b/, needles: ['croatie', 'croatia'], label: 'vins croates' },
+  { pattern: /\b(hongrois(es)?|hongrie|hungary)\b/, needles: ['hongrie', 'hungary'], label: 'vins hongrois' },
+  { pattern: /\b(roumains?|roumaines?|roumanie|romania)\b/, needles: ['roumanie', 'romania'], label: 'vins roumains' },
+  { pattern: /\b(autrichiens?|autrichiennes?|autriche|austria)\b/, needles: ['autriche', 'austria'], label: 'vins autrichiens' },
+  { pattern: /\b(suisses?|suisse)\b/, needles: ['suisse'], label: 'vins suisses' },
+  { pattern: /\b(grecs?|grecques?|grece|greece)\b/, needles: ['grece', 'greece'], label: 'vins grecs' },
+]
+
+export function parseCellarOriginLookup(message: string): CellarOriginLookupQuery | null {
+  const text = normalizeExactQueryText(message)
+
+  const hint = ORIGIN_HINT_TERMS.find((entry) => entry.pattern.test(text))
+  if (!hint) return null
+
+  const cellarScope =
+    /\b(ma cave|en cave|dans (ma )?cave|j ai|ai je)\b/.test(text)
+    || /\bil (n )?y ?a (pas )?(des|du|de la|de l)?\b/.test(text)
+  if (!cellarScope) return null
+
+  const negated =
+    /\b(pas de|aucun(e)?|aucuns?|jamais|n ai pas|n y a pas|n y en a pas)\b/.test(text)
+
+  return {
+    kind: 'cellar_origin_lookup',
+    needle: hint.needles[0],
+    label: hint.label,
+    polarity: negated ? 'has_not' : 'has',
+  }
+}
+
+export function originAliasNeedles(needle: string): string[] {
+  const entry = ORIGIN_HINT_TERMS.find((item) => item.needles.includes(needle))
+  return entry ? entry.needles : [needle]
 }
 
 export function parseTastingCountQuery(message: string): TastingCountQuery | null {

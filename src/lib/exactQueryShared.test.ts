@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  parseCellarOriginLookup,
   parseFilteredCellarBottleCount,
   parseGenericCellarBottleCount,
   parseTastingCountQuery,
   parseTastingRatingQuery,
+  parseVolumeCellarBottleCount,
 } from '../../shared/celestin/exact-query'
 
 describe('exact query parsing', () => {
@@ -66,5 +68,48 @@ describe('exact query parsing', () => {
       kind: 'tasting_rating',
       query: 'caillez lemaire',
     })
+  })
+
+  it('extracts magnum and demi-bouteille volume cellar counts', () => {
+    expect(parseVolumeCellarBottleCount("Combien de magnums j'ai en cave ?")).toEqual({
+      kind: 'volume_cellar_bottle_count',
+      filter: 'magnum',
+      label: 'magnums',
+    })
+    expect(parseVolumeCellarBottleCount('J ai combien de demi-bouteilles ?')).toEqual({
+      kind: 'volume_cellar_bottle_count',
+      filter: 'demi',
+      label: 'demi-bouteilles',
+    })
+  })
+
+  it('does not match volume queries without cellar scope', () => {
+    expect(parseVolumeCellarBottleCount('Le magnum, c est mieux ?')).toBeNull()
+  })
+
+  it('detects positive cellar origin lookups', () => {
+    expect(parseCellarOriginLookup("J'ai des vins italiens dans ma cave ?")).toMatchObject({
+      kind: 'cellar_origin_lookup',
+      needle: 'italie',
+      polarity: 'has',
+      label: 'vins italiens',
+    })
+    expect(parseCellarOriginLookup("Il y a des espagnols en cave ?")).toMatchObject({
+      kind: 'cellar_origin_lookup',
+      needle: 'espagne',
+      polarity: 'has',
+    })
+  })
+
+  it('detects negated cellar origin lookups', () => {
+    expect(parseCellarOriginLookup("Il n'y a pas de vin italien dans ma cave ?")).toMatchObject({
+      kind: 'cellar_origin_lookup',
+      needle: 'italie',
+      polarity: 'has_not',
+    })
+  })
+
+  it('does not match origin lookups outside cellar context', () => {
+    expect(parseCellarOriginLookup('Parle moi des vins italiens en general')).toBeNull()
   })
 })

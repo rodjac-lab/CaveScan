@@ -2,10 +2,15 @@ import type { ContextPlan } from './context-plan.ts'
 import type { AuthContext } from './auth.ts'
 import {
   normalizeExactQueryText,
+  originAliasNeedles,
+  parseCellarOriginLookup,
   parseFilteredCellarBottleCount,
   parseTastingCountQuery,
   parseTastingRatingQuery,
+  parseVolumeCellarBottleCount,
   type CellarBottleCountFilter,
+  type CellarOriginPolarity,
+  type CellarVolumeFilter,
 } from '../../../shared/celestin/exact-query.ts'
 import { searchCellarCandidates, type ToolInput } from './tools.ts'
 import type { CaveBottle, RequestBody } from './types.ts'
@@ -46,17 +51,18 @@ export interface ResolvedMemoriesSource {
   }>
 }
 
+export type CellarCountFilterDescriptor =
+  | { kind: 'color'; filter: CellarBottleCountFilter; label: string }
+  | { kind: 'volume'; filter: CellarVolumeFilter; label: string }
+  | { kind: 'origin'; needle: string; label: string; polarity: CellarOriginPolarity; matches: number }
+
 export interface ResolvedCaveSource {
   level: ContextPlan['cave']
   totalBottles: number
   referenceCount: number
   bottles: CaveBottle[]
   origin?: 'preempted_candidates'
-  countFilter?: {
-    kind: 'color'
-    filter: CellarBottleCountFilter
-    label: string
-  }
+  countFilter?: CellarCountFilterDescriptor
 }
 
 export interface ResolvedTastingsSource {
@@ -167,6 +173,37 @@ function colorMatchesCountFilter(color: unknown, filter: CellarBottleCountFilter
 
 function filteredCaveRows<T extends { couleur?: unknown }>(rows: T[], filter: CellarBottleCountFilter): T[] {
   return rows.filter((row) => colorMatchesCountFilter(row.couleur, filter))
+}
+
+function volumeMatchesFilter(volume: unknown, filter: CellarVolumeFilter): boolean {
+  if (volume == null) return false
+  const numeric = typeof volume === 'number' ? volume : Number(volume)
+  if (!Number.isFinite(numeric)) return false
+  if (filter === 'magnum') return numeric >= 1.5 - 0.001
+  if (filter === 'demi') return numeric <= 0.4
+  return false
+}
+
+function volumeFilteredCaveRows<T extends { volume?: unknown; volume_l?: unknown }>(rows: T[], filter: CellarVolumeFilter): T[] {
+  return rows.filter((row) => {
+    const raw = row.volume_l ?? row.volume
+    return volumeMatchesFilter(raw, filter)
+  })
+}
+
+function originMatchesNeedles<T extends { country?: unknown; region?: unknown; appellation?: unknown; cuvee?: unknown; domaine?: unknown }>(row: T, needles: string[]): boolean {
+  const haystack = normalizeExactQueryText([
+    row.country ?? '',
+    row.region ?? '',
+    row.appellation ?? '',
+    row.cuvee ?? '',
+    row.domaine ?? '',
+  ].filter(Boolean).join(' '))
+  return needles.some((needle) => haystack.includes(needle))
+}
+
+function originFilteredCaveRows<T extends { country?: unknown; region?: unknown; appellation?: unknown; cuvee?: unknown; domaine?: unknown }>(rows: T[], needles: string[]): T[] {
+  return rows.filter((row) => originMatchesNeedles(row, needles))
 }
 
 function resolveProfile(body: RequestBody, contextPlan: ContextPlan): ResolvedProfileSource | undefined {
@@ -455,10 +492,32 @@ async function resolveZonesFromBackend(
 }
 
 function resolveCave(body: RequestBody, contextPlan: ContextPlan): ResolvedCaveSource {
-  const countFilter = parseFilteredCellarBottleCount(body.message)
-  const cave = countFilter
-    ? filteredCaveRows(body.cave ?? [], countFilter.filter)
-    : body.cave ?? []
+  const colorFilter = parseFilteredCellarBottleCount(body.message)
+  const volumeFilter = colorFilter ? null : parseVolumeCellarBottleCount(body.message)
+  const originFilter = colorFilter || volumeFilter ? null : parseCellarOriginLookup(body.message)
+
+  let cave = body.cave ?? []
+  let descriptor: CellarCountFilterDescriptor | undefined
+
+  if (colorFilter) {
+    cave = filteredCaveRows(cave, colorFilter.filter)
+    descriptor = { kind: 'color', filter: colorFilter.filter, label: colorFilter.label }
+  } else if (volumeFilter) {
+    cave = volumeFilteredCaveRows(cave, volumeFilter.filter)
+    descriptor = { kind: 'volume', filter: volumeFilter.filter, label: volumeFilter.label }
+  } else if (originFilter) {
+    const needles = originAliasNeedles(originFilter.needle)
+    const matched = originFilteredCaveRows(cave, needles)
+    cave = matched
+    descriptor = {
+      kind: 'origin',
+      needle: originFilter.needle,
+      label: originFilter.label,
+      polarity: originFilter.polarity,
+      matches: matched.length,
+    }
+  }
+
   const counts = summarizeCave(cave)
   const shouldIncludeBottles = contextPlan.cave === 'shortlist' || contextPlan.cave === 'full_debug'
 
@@ -466,9 +525,7 @@ function resolveCave(body: RequestBody, contextPlan: ContextPlan): ResolvedCaveS
     level: contextPlan.cave,
     ...counts,
     bottles: shouldIncludeBottles ? cave : [],
-    countFilter: countFilter
-      ? { kind: 'color', filter: countFilter.filter, label: countFilter.label }
-      : undefined,
+    countFilter: descriptor,
   }
 }
 
@@ -704,10 +761,19 @@ async function resolveCaveFromBackend(
     }
   }
 
-  const countFilter = parseFilteredCellarBottleCount(body.message)
+  const colorFilter = parseFilteredCellarBottleCount(body.message)
+  const volumeFilter = colorFilter ? null : parseVolumeCellarBottleCount(body.message)
+  const originFilter = colorFilter || volumeFilter ? null : parseCellarOriginLookup(body.message)
+
+  const needsOriginColumns = !!originFilter
+  const needsVolumeColumn = !!volumeFilter
+  const baseColumns = ['quantity', 'couleur']
+  if (needsVolumeColumn) baseColumns.push('volume_l')
+  if (needsOriginColumns) baseColumns.push('country', 'region', 'appellation', 'cuvee', 'domaine')
+
   const { data, error } = await auth.supabase
     .from('bottles')
-    .select('quantity,couleur')
+    .select(baseColumns.join(','))
     .eq('user_id', auth.userId)
     .eq('status', 'in_stock')
 
@@ -716,9 +782,28 @@ async function resolveCaveFromBackend(
     return local
   }
 
-  const rows = countFilter
-    ? filteredCaveRows(data ?? [], countFilter.filter)
-    : data ?? []
+  let rows: Array<Record<string, unknown>> = (data ?? []) as Array<Record<string, unknown>>
+  let descriptor: CellarCountFilterDescriptor | undefined
+
+  if (colorFilter) {
+    rows = filteredCaveRows(rows, colorFilter.filter)
+    descriptor = { kind: 'color', filter: colorFilter.filter, label: colorFilter.label }
+  } else if (volumeFilter) {
+    rows = volumeFilteredCaveRows(rows, volumeFilter.filter)
+    descriptor = { kind: 'volume', filter: volumeFilter.filter, label: volumeFilter.label }
+  } else if (originFilter) {
+    const needles = originAliasNeedles(originFilter.needle)
+    const matched = originFilteredCaveRows(rows, needles)
+    rows = matched
+    descriptor = {
+      kind: 'origin',
+      needle: originFilter.needle,
+      label: originFilter.label,
+      polarity: originFilter.polarity,
+      matches: matched.length,
+    }
+  }
+
   return {
     level: contextPlan.cave,
     referenceCount: rows.length,
@@ -727,9 +812,7 @@ async function resolveCaveFromBackend(
       return sum + Math.max(1, quantity)
     }, 0),
     bottles: [],
-    countFilter: countFilter
-      ? { kind: 'color', filter: countFilter.filter, label: countFilter.label }
-      : undefined,
+    countFilter: descriptor,
   }
 }
 
