@@ -240,18 +240,9 @@ export function ensureRecommendationUiAction(input: {
   userMessage?: string
 }): CelestinResponse {
   const { response, interpretation, routingIntent, resolvedSources } = input
-  if (response.ui_action?.kind === 'show_recommendations') {
-    const cards = filterCardsForRequest(response.ui_action.payload.cards, input.userMessage)
-    return {
-      ...response,
-      ui_action: cards.length > 0
-        ? { ...response.ui_action, payload: { cards } }
-        : null,
-    }
-  }
-  if (response.ui_action) return response
   if (!interpretation.shouldAllowUiAction) return response
   if (!RECOMMENDATION_ROUTES.has(routingIntent)) return response
+  if (response.ui_action && response.ui_action.kind !== 'show_recommendations') return response
   if (resolvedSources.cave.level !== 'shortlist' && resolvedSources.cave.level !== 'full_debug') return response
 
   const selectionCards = buildCardsFromSelection(
@@ -259,9 +250,15 @@ export function ensureRecommendationUiAction(input: {
     response.message,
     resolvedSources.cave.bottles,
   )
-  const cards = selectionCards ?? buildRecommendationCards(response.message, resolvedSources.cave.bottles)
+  const cards = selectionCards
+    ?? (response.ui_action?.kind === 'show_recommendations'
+      ? response.ui_action.payload.cards
+      : buildRecommendationCards(response.message, resolvedSources.cave.bottles))
   const filteredCards = filterCardsForRequest(cards, input.userMessage)
-  if (filteredCards.length === 0) return response
+  if (filteredCards.length === 0) {
+    if (response.ui_action?.kind !== 'show_recommendations') return response
+    return { ...response, ui_action: null }
+  }
 
   return {
     ...response,

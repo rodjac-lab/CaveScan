@@ -25,10 +25,10 @@ function buildResolvedCardFields(bottle: {
   millesime?: number | null
 }) {
   const name = [bottle.domaine, bottle.cuvee].filter(Boolean).join(' — ')
-  const appellation = [bottle.appellation, bottle.millesime].filter(Boolean).join(' ')
   return {
     name: name || bottle.appellation || 'Selection de la cave',
-    appellation: appellation || bottle.appellation || '',
+    appellation: bottle.appellation || '',
+    millesime: bottle.millesime ?? null,
   }
 }
 
@@ -87,7 +87,7 @@ export function buildGreetingContext(
   }
 }
 
-export function resolveBottleIds<T extends { bottle_id?: string; name?: string; appellation?: string }>(
+export function resolveBottleIds<T extends { bottle_id?: string; name?: string; appellation?: string; millesime?: number | null }>(
   cards: T[],
   bottles: Array<{ id: string; domaine?: string | null; cuvee?: string | null; appellation?: string | null; millesime?: number | null }>,
 ): T[] {
@@ -101,6 +101,7 @@ export function resolveBottleIds<T extends { bottle_id?: string; name?: string; 
       bottle_id: match.id,
       name: resolved.name,
       appellation: resolved.appellation,
+      millesime: resolved.millesime,
     }
   })
 }

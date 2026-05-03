@@ -224,6 +224,52 @@ describe('ensureRecommendationUiAction', () => {
     expect(response.ui_action?.payload.cards[0].bottle_id).toBe('existing')
   })
 
+  it('prefers structured selection over model-built recommendation cards', () => {
+    const response = ensureRecommendationUiAction({
+      response: {
+        message: 'Voici le bon choix.',
+        recommendation_selection: [{
+          bottle_id: 'abc12345',
+          name: 'Domaine Test Les Blancs',
+          reason: 'Selection structuree resolue par le backend.',
+          badge: 'Accord parfait',
+        }],
+        ui_action: {
+          kind: 'show_recommendations',
+          payload: {
+            cards: [{
+              bottle_id: 'model-card',
+              name: 'Carte modele',
+              appellation: 'App modele',
+              badge: 'De ta cave',
+              reason: 'Carte construite par le modele.',
+              color: 'rouge',
+            }],
+          },
+        },
+        action_chips: null,
+      },
+      interpretation: {
+        turnType: 'task_request',
+        cognitiveMode: 'cellar_assistant',
+        shouldAllowUiAction: true,
+        inferredTaskType: 'recommendation',
+      },
+      routingIntent: 'recommendation_request',
+      resolvedSources: sources(),
+    })
+
+    expect(response.ui_action?.payload.cards).toHaveLength(1)
+    expect(response.ui_action?.payload.cards[0]).toMatchObject({
+      bottle_id: 'abc12345',
+      name: 'Domaine Test Les Blancs',
+      appellation: 'Sancerre',
+      millesime: 2020,
+      reason: 'Selection structuree resolue par le backend.',
+      color: 'blanc',
+    })
+  })
+
   it('filters hard pairing color mismatches from model cards', () => {
     const response = ensureRecommendationUiAction({
       response: {
