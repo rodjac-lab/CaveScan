@@ -24,6 +24,22 @@
     "notes": "Verifier si les rouges restent secondaires et prudents."
   },
   {
+    "id": "poulet_roti",
+    "message": "Je cherche un vin pour accompagner un poulet rôti.",
+    "notes": "Regression cartes : demande de recommandation claire, doit materialiser des cartes.",
+    "expectations": {
+      "expectedUiActionKind": "show_recommendations"
+    }
+  },
+  {
+    "id": "marc_pizza",
+    "message": "Ce soir dîner rapide avec Marc, pizza maison.",
+    "notes": "Reco contextuelle avec contrainte sociale simple, sans relance inutile.",
+    "expectations": {
+      "expectedUiActionKind": "show_recommendations"
+    }
+  },
+  {
     "id": "memory_rome",
     "message": "Tu te souviens du chianti qu'on avait adore avec des spaghetti a Rome ?",
     "notes": "Tester la qualite relationnelle et l'usage de la memoire."
@@ -94,6 +110,24 @@
     "id": "new_selection_after_recommendation",
     "message": "Tu en as d autres, plutot en blanc ?",
     "notes": "Une demande explicite de nouvelle selection doit rester conversationnelle mais relancer une shortlist.",
+    "history": [
+      {
+        "role": "user",
+        "content": "Je cherche un vin pour accompagner une paella."
+      },
+      {
+        "role": "assistant",
+        "content": "Pour une paella, je partirais sur un blanc tendu, un rose structure ou un rouge tres leger. Voici trois pistes pour toi."
+      }
+    ],
+    "expectations": {
+      "expectedUiActionKind": "show_recommendations"
+    }
+  },
+  {
+    "id": "new_red_selection_after_paella",
+    "message": "Tu en as d autres, plutot en rouge ?",
+    "notes": "Regression paella : un refinement couleur explicite doit relancer une selection, pas rester en clarification vague.",
     "history": [
       {
         "role": "user",

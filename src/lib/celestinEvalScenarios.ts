@@ -32,6 +32,24 @@ export const CELESTIN_EVAL_SCENARIOS: CelestinEvalScenario[] = [
     },
   },
   {
+    id: 'accord_poulet_roti',
+    message: 'Je cherche un vin pour accompagner un poulet rôti.',
+    notes: 'Demande claire de recommandation. Doit sortir des cartes.',
+    expectations: {
+      expectedUiActionKind: 'show_recommendations',
+      forbiddenPatterns: FORBIDDEN_PATTERNS_DEFAULT,
+    },
+  },
+  {
+    id: 'marc_pizza',
+    message: 'Ce soir dîner rapide avec Marc, pizza maison.',
+    notes: 'Contexte social simple, pas de relance inutile.',
+    expectations: {
+      expectedUiActionKind: 'show_recommendations',
+      forbiddenPatterns: FORBIDDEN_PATTERNS_DEFAULT,
+    },
+  },
+  {
     id: 'fromage',
     message: 'Plateau de fromages',
     notes: 'Priorite au blanc.',

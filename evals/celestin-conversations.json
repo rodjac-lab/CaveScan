@@ -166,6 +166,40 @@
     ]
   },
   {
+    "id": "poulet_roti_after_social_ack",
+    "type": "conversation",
+    "description": "Regression cartes — apres un merci en idle, une nouvelle demande poulet roti doit ressortir des cartes puis Super Merci doit clore",
+    "turns": [
+      {
+        "message": "Je cherche un vin pour ce soir.",
+        "expect": {
+          "uiAction": null
+        }
+      },
+      {
+        "message": "Merci !",
+        "expect": {
+          "uiAction": "none",
+          "nextPhase": "idle_smalltalk"
+        }
+      },
+      {
+        "message": "Je cherche un vin pour accompagner un poulet rôti.",
+        "expect": {
+          "uiAction": "show_recommendations",
+          "nextPhase": "post_task_ack"
+        }
+      },
+      {
+        "message": "Super Merci",
+        "expect": {
+          "uiAction": "none",
+          "nextPhase": "idle_smalltalk"
+        }
+      }
+    ]
+  },
+  {
     "id": "reco_then_encavage",
     "type": "conversation",
     "description": "Reco → merci → encavage → context switch propre",
