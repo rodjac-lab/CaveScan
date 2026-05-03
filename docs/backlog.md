@@ -55,6 +55,7 @@ Source unique de verite pour les travaux produit/tech.
 - [ ] Intros de recommandation plus naturelles, moins ecrites et moins repetitives
 - [ ] Durcir l'usage des souvenirs (ne citer que si lien vraiment evident)
 - [ ] Relance conversationnelle quand contexte mets/vin incomplet, au lieu de sur-prescrire
+- [ ] Recommandations a plusieurs niveaux d'audace : proposer d'abord l'accord classique fiable, puis une option aventureuse explicite si elle a du sens. Exemple : sushi -> classique blanc sec/Riesling/Chablis/Champagne ; aventureux -> rose ou rouge tres leger seulement si l'utilisateur veut tenter autre chose. A structurer plus tard dans le contrat (`classic_selection` / `adventurous_selection` ou `pairing_risk`) pour eviter que les garde-fous deterministes coupent les demandes volontaires.
 - [x] Encavage conversationnel : collecte infos manquantes par echange naturel avant fiche (prix, emplacement)
 - [x] Mieux exploiter la richesse des notes brutes et photos de plats (pas juste les tags resumes) — souvenirs de degustation (verbatim) injectes en wine_conversation + tasting_memory + cellar_assistant
 - [x] Millesime comme champ explicite des cartes de recommandation

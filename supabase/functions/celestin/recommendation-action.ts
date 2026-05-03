@@ -75,7 +75,13 @@ function cardColor(value: string | null): RecommendationCard['color'] {
 
 function disallowedColorsForRequest(message: string | undefined): Set<RecommendationCard['color']> {
   const normalized = normalize(message)
-  if (/\b(sushi|sashimi|poisson cru)\b/.test(normalized)) return new Set(['rouge'])
+  const isRawFishPairing = /\b(sushi|sashimi|poisson cru)\b/.test(normalized)
+  const explicitlyRequestsRed = /\b(rouge|rouges)\b/.test(normalized)
+    || /\b(plutot|plutot un|envie de|propose moi|cherche)\s+(un\s+)?rouge\b/.test(normalized)
+    || /\b(marre|assez)\s+des\s+blancs\b/.test(normalized)
+    || /\bpas\s+de\s+blancs?\b/.test(normalized)
+
+  if (isRawFishPairing && !explicitlyRequestsRed) return new Set(['rouge'])
   return new Set()
 }
 

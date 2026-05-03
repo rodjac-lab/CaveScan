@@ -267,4 +267,40 @@ describe('ensureRecommendationUiAction', () => {
     expect(response.ui_action?.payload.cards).toHaveLength(1)
     expect(response.ui_action?.payload.cards[0].color).toBe('blanc')
   })
+
+  it('keeps a light red recommendation when the user explicitly asks red for sushi', () => {
+    const response = ensureRecommendationUiAction({
+      response: {
+        message: 'Si tu veux tenter le rouge sur sushi, je viserais tres leger.',
+        ui_action: {
+          kind: 'show_recommendations',
+          payload: {
+            cards: [
+              {
+                bottle_id: 'red',
+                name: 'Morgon',
+                appellation: 'Morgon',
+                badge: 'Audacieux',
+                reason: 'Rouge leger, peu tannique.',
+                color: 'rouge',
+              },
+            ],
+          },
+        },
+        action_chips: null,
+      },
+      interpretation: {
+        turnType: 'task_request',
+        cognitiveMode: 'cellar_assistant',
+        shouldAllowUiAction: true,
+        inferredTaskType: 'recommendation',
+      },
+      routingIntent: 'recommendation_request',
+      resolvedSources: sources(),
+      userMessage: "J'en ai marre des blancs. Propose-moi un rouge leger sur mes sushis.",
+    })
+
+    expect(response.ui_action?.payload.cards).toHaveLength(1)
+    expect(response.ui_action?.payload.cards[0].color).toBe('rouge')
+  })
 })
