@@ -46,6 +46,32 @@ function isClarificationMessage(message: string): boolean {
   return /\?/.test(message) || /\b(dis[- ]moi|precise|précise|quel plat|quelle occasion|tu manges quoi|c'est pour quoi)\b/i.test(message)
 }
 
+function normalizeForRecommendationContract(message: string): string {
+  return message
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[’']/g, ' ')
+    .trim()
+}
+
+export function canAcceptRecommendationClarification(input: {
+  userMessage: string
+  routingIntent: string
+  assistantMessage: string
+}): boolean {
+  if (!isClarificationMessage(input.assistantMessage)) return false
+  if (input.routingIntent !== 'recommendation_request') return false
+
+  const normalized = normalizeForRecommendationContract(input.userMessage)
+  const hasConcreteConstraint =
+    /\b(pour accompagner|avec|ce soir c est|ce midi c est|je fais|je prepare|je prépare)\b/.test(normalized)
+    || /\b(paella|poulet|pizza|sushi|poisson|boeuf|agneau|fromage|raclette|pates?|risotto|couscous|tajine|osso bucco)\b/.test(normalized)
+    || /\b(rouge|blanc|rose|bulles?|champagne)\b/.test(normalized)
+
+  return !hasConcreteConstraint
+}
+
 function emptyProviderTrace(): CelestinProviderTrace {
   return {
     attempts: [],
@@ -247,7 +273,11 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
             interpretation.shouldAllowUiAction
             && (routing.winner === 'recommendation_request' || routing.winner === 'recommendation_refinement' || routing.winner === 'memory_guided_recommendation')
             && !canResolveRecommendationUiAction({ response: policyCandidate, resolvedSources, userMessage: body.message })
-            && !isClarificationMessage(policyCandidate.message)
+            && !canAcceptRecommendationClarification({
+              userMessage: body.message,
+              routingIntent: routing.winner,
+              assistantMessage: policyCandidate.message,
+            })
           ) {
             return 'Recommendation response contract violation: no resolvable ui_action or recommendation_selection'
           }
