@@ -122,9 +122,9 @@ describe('buildContextPlan', () => {
     })
   })
 
-  it('keeps unknown turns profile-free while allowing tools', () => {
+  it('keeps unknown turns textured while allowing tools', () => {
     expectPlan('unknown', {
-      profile: 'none',
+      profile: 'minimal',
       cave: 'none',
       zones: 'none',
       memories: 'none',

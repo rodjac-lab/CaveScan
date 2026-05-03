@@ -33,24 +33,24 @@ function body(message: string): RequestBody {
   }
 }
 
-describe('forcedToolNameForTurn', () => {
-  it('forces tasting lookup for personal past-memory questions on auto tools', async () => {
-    const { forcedToolNameForTurn } = await import('./runtime')
+describe('tool use gate', () => {
+  it('requires one tool for personal past-memory questions on auto tools', async () => {
+    const { shouldRequireToolUseForTurn } = await import('./runtime')
 
-    expect(forcedToolNameForTurn(plan(), body("J'ai deja ete a Rome ?"))).toBe('query_tastings')
-    expect(forcedToolNameForTurn(plan(), body("Je ne retrouve pas le nom du restaurant"))).toBe('query_tastings')
+    expect(shouldRequireToolUseForTurn(plan(), body("J'ai deja ete a Rome ?"))).toBe(true)
+    expect(shouldRequireToolUseForTurn(plan(), body("Je ne retrouve pas le nom du restaurant"))).toBe(true)
   })
 
   it('does not force tools for general wine culture questions', async () => {
-    const { forcedToolNameForTurn } = await import('./runtime')
+    const { shouldRequireToolUseForTurn } = await import('./runtime')
 
-    expect(forcedToolNameForTurn(plan(), body('La biodynamie, c est serieux ?'))).toBeUndefined()
-    expect(forcedToolNameForTurn(plan(), body('Parle-moi du Gamay'))).toBeUndefined()
+    expect(shouldRequireToolUseForTurn(plan(), body('La biodynamie, c est serieux ?'))).toBe(false)
+    expect(shouldRequireToolUseForTurn(plan(), body('Parle-moi du Gamay'))).toBe(false)
   })
 
   it('preserves explicit forced tool plans', async () => {
     const { forcedToolNameForTurn } = await import('./runtime')
 
-    expect(forcedToolNameForTurn(plan({ tools: 'force_cellar' }), body("J'ai deja ete a Rome ?"))).toBe('query_cellar')
+    expect(forcedToolNameForTurn(plan({ tools: 'force_cellar' }))).toBe('query_cellar')
   })
 })

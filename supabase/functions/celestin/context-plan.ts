@@ -153,9 +153,8 @@ export function buildContextPlan(routingResult: TurnRoutingResult): ContextPlan 
     default:
       return withReasons({
         ...basePlan(),
-        profile: 'none',
         tools: 'auto',
         truthPolicy: 'prudent_factual',
-      }, ['fallback: avoid profile-based guessing, but allow tools when the model needs exact personal facts'])
+      }, ['fallback: keep user texture available, but require tools for exact personal facts'])
   }
 }

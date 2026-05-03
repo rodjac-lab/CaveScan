@@ -22,9 +22,10 @@ const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001'
 const OPENAI_MODEL = 'gpt-4.1-mini'
-type ClaudeToolChoice = 'auto' | 'none'
+type ClaudeToolChoice = 'auto' | 'any' | 'none'
 type ClaudeToolChoicePayload =
   | { type: 'auto' }
+  | { type: 'any' }
   | { type: 'none' }
   | { type: 'tool'; name: CelestinToolName }
 
@@ -33,6 +34,7 @@ export interface CelestinProviderOptions {
   requestSource?: string
   usageContext?: CelestinUsageContext
   forcedToolName?: CelestinToolName
+  requireToolUse?: boolean
   validateResponse?: (response: CelestinProviderResponse) => string | null
 }
 
@@ -235,6 +237,7 @@ function buildClaudeTools(cacheTools: boolean) {
 function buildClaudeToolChoice(toolChoice: ClaudeToolChoice, forcedToolName?: CelestinToolName): ClaudeToolChoicePayload {
   if (toolChoice === 'none') return { type: 'none' }
   if (forcedToolName) return { type: 'tool', name: forcedToolName }
+  if (toolChoice === 'any') return { type: 'any' }
   return { type: 'auto' }
 }
 
@@ -434,10 +437,15 @@ async function callClaude(
   })
   const messagePreview = userPrompt.replace(/\s+/g, ' ').slice(0, 120)
   const forcedToolName = toolsEnabled ? options?.forcedToolName : undefined
+  const toolChoice: ClaudeToolChoice = toolsEnabled
+    ? options?.requireToolUse && !forcedToolName
+      ? 'any'
+      : 'auto'
+    : 'none'
   const first = await postClaudeMessages({
     systemPrompt,
     messages,
-    toolChoice: toolsEnabled ? 'auto' : 'none',
+    toolChoice,
     forcedToolName,
     trace,
     caller: 'celestin.claude.first',
