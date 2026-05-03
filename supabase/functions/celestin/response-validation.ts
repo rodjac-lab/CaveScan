@@ -1,4 +1,4 @@
-import type { CelestinResponse, UiActionKind } from "./types.ts"
+import type { CelestinProviderResponse, UiActionKind } from "./types.ts"
 
 function stripMarkdownCodeBlock(text: string): string {
   let result = text.trim()
@@ -22,9 +22,9 @@ function extractJsonObject(text: string): string {
   return stripped
 }
 
-export function parseAndValidate(raw: string): CelestinResponse {
+export function parseAndValidate(raw: string): CelestinProviderResponse {
   const jsonText = extractJsonObject(raw).replace(/[\r\n]/g, ' ')
-  const data = JSON.parse(jsonText) as CelestinResponse
+  const data = JSON.parse(jsonText) as CelestinProviderResponse
   if (!data.message) {
     throw new Error('Invalid response: missing "message" field')
   }

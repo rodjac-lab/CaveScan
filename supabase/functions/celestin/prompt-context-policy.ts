@@ -55,9 +55,9 @@ export function buildContextPlanInstructions(
     && (interpretation?.inferredTaskType === 'recommendation' || state?.taskType === 'recommendation')
   ) {
     if (turnType === 'task_request' || (turnType === 'task_continue' && state?.phase === 'collecting_info')) {
-      parts.push('[RECOMMANDATION IMMEDIATE — Si la demande actuelle suffit, utilise show_recommendations maintenant avec 2-3 cartes de la cave. Base-toi sur la demande courante ; n introduis pas un autre plat, pays ou souvenir non mentionne.]')
+      parts.push('[RECOMMANDATION IMMEDIATE — Si la demande actuelle suffit, choisis 2-3 bouteilles de la cave dans recommendation_selection. Base-toi sur la demande courante ; n introduis pas un autre plat, pays ou souvenir non mentionne.]')
     } else if (routingIntent === 'recommendation_refinement') {
-      parts.push('[NOUVELLE SELECTION — L utilisateur demande d autres bouteilles ou une variante. Utilise show_recommendations maintenant, en respectant la nouvelle contrainte.]')
+      parts.push('[NOUVELLE SELECTION — L utilisateur demande d autres bouteilles ou une variante. Fournis une nouvelle recommendation_selection, en respectant la nouvelle contrainte.]')
     } else {
       parts.push('[RECOMMANDATION — Reponds d abord a la demande actuelle. N invente pas un autre contexte. Ne cite un souvenir que s il aide directement le choix.]')
     }

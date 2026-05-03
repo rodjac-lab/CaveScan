@@ -179,6 +179,7 @@ Identifie pendant le nettoyage SQL routing. Les quick wins sont deja livres (com
 - [ ] "Ce soir on est 6" : recommandation menu complet (apero -> dessert)
 - [ ] "Mon ami aime le Bourgogne" : recommandations cadeau
 - [ ] Decouverte de la semaine : 1 vin hors cave que Celestin pense que l'utilisateur aimerait
+- [ ] Idee produit plus tard : recommandations a plusieurs niveaux d'audace. Exemple : donner d'abord l'accord classique fiable (Riesling/Chablis/Champagne sur sushi), puis proposer une option aventureuse si cela a du sens ("si tu veux tenter autre chose, un rose ou rouge tres leger"). Hors chantier refacto routing/prompt actuel.
 - [ ] Quand une bouteille est 5/5 : "Tu adores ce style. Voici 3 domaines similaires"
 
 ### Cave avancee

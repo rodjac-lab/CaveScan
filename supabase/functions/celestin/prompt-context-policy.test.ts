@@ -91,8 +91,8 @@ describe('buildContextPlanInstructions', () => {
     })
 
     expect(policy).toContain('RECOMMANDATION IMMEDIATE')
-    expect(policy).toContain('show_recommendations')
-    expect(policy).toContain('2-3 cartes')
+    expect(policy).toContain('recommendation_selection')
+    expect(policy).toContain('2-3 bouteilles')
   })
 
   it('centralizes encavage continuation action policy', () => {

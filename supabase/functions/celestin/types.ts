@@ -98,11 +98,22 @@ export interface RecommendationSelection {
   badge?: string | null
 }
 
-export type CelestinUiAction =
-  | { kind: 'show_recommendations'; payload: { cards: RecommendationCard[] } }
+export type BackendMaterializedUiAction =
+  { kind: 'show_recommendations'; payload: { cards: RecommendationCard[] } }
+
+export type OperationalUiAction =
   | { kind: 'prepare_add_wine'; payload: { extraction: WineExtraction } }
   | { kind: 'prepare_add_wines'; payload: { extractions: WineExtraction[] } }
   | { kind: 'prepare_log_tasting'; payload: { extraction: WineExtraction } }
+
+export type CelestinUiAction = BackendMaterializedUiAction | OperationalUiAction
+
+export interface CelestinProviderResponse {
+  message: string
+  ui_action?: OperationalUiAction | null
+  recommendation_selection?: RecommendationSelection[] | null
+  action_chips?: string[] | null
+}
 
 export interface CelestinResponse {
   message: string

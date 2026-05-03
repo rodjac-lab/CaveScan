@@ -1,4 +1,4 @@
-import type { CelestinResponse } from "./types.ts"
+import type { CelestinProviderResponse } from "./types.ts"
 
 export interface CelestinProviderResponseTrace {
   provider: string
@@ -21,7 +21,7 @@ export function previewProviderText(value: string, max = 1600): string {
   return value.trim().replace(/\s+/g, ' ').slice(0, max)
 }
 
-function summarizeProviderResponse(response: CelestinResponse): CelestinProviderResponseTrace['normalized'] {
+function summarizeProviderResponse(response: CelestinProviderResponse): CelestinProviderResponseTrace['normalized'] {
   return {
     messagePreview: previewProviderText(response.message, 500),
     uiActionKind: response.ui_action?.kind ?? 'none',
@@ -35,7 +35,7 @@ export function recordProviderResponse(input: {
   provider: string
   rawText: string
   parseStatus: CelestinProviderResponseTrace['parseStatus']
-  response?: CelestinResponse
+  response?: CelestinProviderResponse
   error?: unknown
 }) {
   if (!input.trace) return

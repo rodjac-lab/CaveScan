@@ -15,7 +15,7 @@ import type { AuthContext } from "./auth.ts"
 import { CELESTIN_TOOLS, executeCelestinTool, type CelestinToolName } from "./tools.ts"
 import { shouldEnableCelestinTools } from "./tool-policy.ts"
 import { logAnthropicUsage } from "../_shared/anthropic-usage.ts"
-import type { CelestinResponse, ConversationTurn } from "./types.ts"
+import type { CelestinProviderResponse, CelestinResponse, ConversationTurn } from "./types.ts"
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
@@ -33,7 +33,7 @@ export interface CelestinProviderOptions {
   requestSource?: string
   usageContext?: CelestinUsageContext
   forcedToolName?: CelestinToolName
-  validateResponse?: (response: CelestinResponse) => string | null
+  validateResponse?: (response: CelestinProviderResponse) => string | null
 }
 
 export interface CelestinUsageContext {
@@ -146,7 +146,7 @@ async function callGeminiModel(
   }
 }
 
-async function callGemini(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinResponse> {
+async function callGemini(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
   return callGeminiModel(
     'gemini-2.5-flash',
     'Gemini 2.5 Flash',
@@ -159,7 +159,7 @@ async function callGemini(systemPrompt: string, userPrompt: string, history: Con
   )
 }
 
-async function callGeminiFlashLite(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinResponse> {
+async function callGeminiFlashLite(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
   return callGeminiModel(
     'gemini-3.1-flash-lite-preview',
     'Gemini 3.1 Flash-Lite',
@@ -172,7 +172,7 @@ async function callGeminiFlashLite(systemPrompt: string, userPrompt: string, his
   )
 }
 
-async function callGemini3Flash(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinResponse> {
+async function callGemini3Flash(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
   return callGeminiModel(
     'gemini-3-flash-preview',
     'Gemini 3 Flash',
@@ -185,7 +185,7 @@ async function callGemini3Flash(systemPrompt: string, userPrompt: string, histor
   )
 }
 
-async function callGemini3FlashLow(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinResponse> {
+async function callGemini3FlashLow(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
   return callGeminiModel(
     'gemini-3-flash-preview',
     'Gemini 3 Flash (thinking low)',
@@ -244,7 +244,7 @@ function extractClaudeText(result: { content?: Array<{ type: string; text?: stri
   return textContent.text
 }
 
-function parseClaudeResponse(text: string, trace?: CelestinProviderTrace): CelestinResponse {
+function parseClaudeResponse(text: string, trace?: CelestinProviderTrace): CelestinProviderResponse {
   try {
     const parsed = parseAndValidate(text)
     recordProviderResponse({ trace, provider: 'Claude', rawText: text, parseStatus: 'success', response: parsed })
@@ -414,7 +414,7 @@ async function callClaude(
   image?: string,
   options?: CelestinProviderOptions,
   trace?: CelestinProviderTrace,
-): Promise<CelestinResponse> {
+): Promise<CelestinProviderResponse> {
   if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not configured')
 
   const messages = history.length > 0
@@ -521,7 +521,7 @@ async function callClaude(
   return parseClaudeResponse(extractClaudeText(final), trace)
 }
 
-async function callOpenAI(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinResponse> {
+async function callOpenAI(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
   if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not configured')
 
   const messages = buildOpenAIMessages(systemPrompt, userPrompt, history, image)
@@ -566,15 +566,15 @@ export async function celestinWithFallback(
   forcedProvider?: string,
   image?: string,
   options?: CelestinProviderOptions,
-): Promise<{ provider: string; response: CelestinResponse; providerErrors: string[]; trace: CelestinProviderTrace }> {
+): Promise<{ provider: string; response: CelestinProviderResponse; providerErrors: string[]; trace: CelestinProviderTrace }> {
   const trace = createProviderTrace()
-  const validateProviderResponse = (response: CelestinResponse) => {
+  const validateProviderResponse = (response: CelestinProviderResponse) => {
     const reason = options?.validateResponse?.(response)
     if (reason) throw new Error(reason)
   }
 
   if (forcedProvider) {
-    const providerMap: Record<string, { name: string; call: () => Promise<CelestinResponse> }> = {
+    const providerMap: Record<string, { name: string; call: () => Promise<CelestinProviderResponse> }> = {
       claude: { name: 'Claude', call: () => callClaude(systemPrompt, userPrompt, history, image, options, trace) },
       gemini: { name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history, image, trace) },
       'gemini-flash-lite': { name: 'Gemini 3.1 Flash-Lite', call: () => callGeminiFlashLite(systemPrompt, userPrompt, history, image, trace) },
@@ -598,7 +598,7 @@ export async function celestinWithFallback(
     }
   }
 
-  const providers: Array<{ name: string; call: () => Promise<CelestinResponse> }> = []
+  const providers: Array<{ name: string; call: () => Promise<CelestinProviderResponse> }> = []
   if (ANTHROPIC_API_KEY) providers.push({ name: 'Claude Haiku 4.5', call: () => callClaude(systemPrompt, userPrompt, history, image, options, trace) })
   if (GEMINI_API_KEY) providers.push({ name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history, image, trace) })
   if (OPENAI_API_KEY) providers.push({ name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history, image, trace) })

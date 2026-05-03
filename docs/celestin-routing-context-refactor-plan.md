@@ -216,6 +216,26 @@ La separation du contrat reponse a commence cote schemas provider :
 Prochaine passe : faire descendre cette separation dans les types/runtime jusqu'a
 ce que le modele ne soit plus conceptuellement responsable de l'UI.
 
+## Etat au 2026-05-03 - Response Contract descendu dans le runtime
+
+La separation provider/backend est maintenant explicite dans les types et les
+directives :
+
+- `CelestinProviderResponse` represente la sortie modele ;
+- `CelestinResponse` represente la sortie finale renvoyee au frontend ;
+- `OperationalUiAction` couvre les actions que le modele peut declencher
+  (`prepare_add_wine`, `prepare_add_wines`, `prepare_log_tasting`) ;
+- `BackendMaterializedUiAction` couvre `show_recommendations`, construit par le
+  backend depuis `recommendation_selection` ;
+- `rules.ts` et `prompt-context-policy.ts` ne demandent plus
+  `show_recommendations` au modele, mais `recommendation_selection` ;
+- le parser accepte encore `show_recommendations` pour compatibilite temporaire
+  avec Claude / anciennes sorties, mais ce n'est plus le contrat cible.
+
+La prochaine suppression legacy possible sera de refuser `show_recommendations`
+dans `parseAndValidate` quand les logs provider confirment que la compatibilite
+n'est plus necessaire.
+
 ## Principe directeur
 
 Le frontend ne doit pas decider le contexte LLM.
