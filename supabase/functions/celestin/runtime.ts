@@ -167,19 +167,57 @@ function compactBottleFromRow(row: Record<string, unknown>): CaveBottle | null {
   }
 }
 
+function compactBottleFromToolCandidate(row: Record<string, unknown>): CaveBottle | null {
+  if (typeof row.id !== 'string') return null
+  return {
+    id: row.id.slice(0, 8),
+    domaine: typeof row.domaine === 'string' ? row.domaine : null,
+    cuvee: typeof row.cuvee === 'string' ? row.cuvee : null,
+    appellation: typeof row.appellation === 'string' ? row.appellation : null,
+    millesime: typeof row.millesime === 'number' ? row.millesime : null,
+    couleur: typeof row.couleur === 'string' ? row.couleur : null,
+    character: typeof row.why_candidate === 'string'
+      ? row.why_candidate
+      : typeof row.character === 'string'
+        ? row.character
+        : null,
+    quantity: typeof row.quantity === 'number' ? row.quantity : undefined,
+    food_pairings: Array.isArray(row.food_pairings) ? row.food_pairings.filter((item): item is string => typeof item === 'string') : null,
+  }
+}
+
+function mergeCaveBottles(primary: CaveBottle[], extra: CaveBottle[]): CaveBottle[] {
+  const byId = new Map<string, CaveBottle>()
+  for (const bottle of [...primary, ...extra]) {
+    if (!bottle.id || byId.has(bottle.id)) continue
+    byId.set(bottle.id, bottle)
+  }
+  return [...byId.values()]
+}
+
+function resolveRecommendationToolCandidates(providerTrace: CelestinProviderTrace): CaveBottle[] {
+  return providerTrace.toolCalls
+    .filter((tool) => tool.name === 'search_cellar_candidates')
+    .flatMap((tool) => tool.rows ?? [])
+    .map((row) => compactBottleFromToolCandidate(row))
+    .filter((bottle): bottle is CaveBottle => bottle !== null)
+}
+
 async function resolveRecommendationSelectionSources(input: {
   response: CelestinResponse
   resolvedSources: ResolvedContextSources
+  providerTrace: CelestinProviderTrace
   auth?: AuthContext
 }): Promise<ResolvedContextSources> {
+  const toolCandidates = resolveRecommendationToolCandidates(input.providerTrace)
   const selectionIds = (input.response.recommendation_selection ?? [])
     .map((item) => item.bottle_id?.trim())
     .filter((id): id is string => !!id)
-  if (selectionIds.length === 0) return input.resolvedSources
+  if (selectionIds.length === 0 && toolCandidates.length === 0) return input.resolvedSources
   const allSelectionsAlreadyResolved = selectionIds.every((id) =>
     input.resolvedSources.cave.bottles.some((bottle) => bottle.id.startsWith(id) || id.startsWith(bottle.id)),
   )
-  if (allSelectionsAlreadyResolved) {
+  if (allSelectionsAlreadyResolved && toolCandidates.length === 0) {
     return input.resolvedSources
   }
   if (!input.auth?.userId || !input.auth.supabase) return input.resolvedSources
@@ -204,16 +242,17 @@ async function resolveRecommendationSelectionSources(input: {
     .map((row: Record<string, unknown>) => compactBottleFromRow(row))
     .filter((bottle): bottle is CaveBottle => bottle !== null)
 
-  if (selected.length === 0) return input.resolvedSources
+  const bottles = mergeCaveBottles(selected, toolCandidates)
+  if (bottles.length === 0) return input.resolvedSources
 
   return {
     ...input.resolvedSources,
     cave: {
       ...input.resolvedSources.cave,
       level: 'shortlist',
-      referenceCount: selected.length,
-      totalBottles: selected.reduce((sum, bottle) => sum + (typeof bottle.quantity === 'number' ? bottle.quantity : 1), 0),
-      bottles: selected,
+      referenceCount: bottles.length,
+      totalBottles: bottles.reduce((sum, bottle) => sum + (typeof bottle.quantity === 'number' ? bottle.quantity : 1), 0),
+      bottles,
     },
   }
 }
@@ -384,6 +423,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
     const responseSources = await resolveRecommendationSelectionSources({
       response: policyResponse,
       resolvedSources,
+      providerTrace,
       auth,
     })
     const response = ensureRecommendationUiAction({

@@ -60,6 +60,7 @@ export interface CelestinToolCallTrace {
   totalRows?: number
   listedRows?: number
   totalQuantity?: number
+  rows?: Array<Record<string, unknown>>
   error?: string
 }
 
@@ -497,6 +498,9 @@ async function callClaude(
           totalRows: typeof parsed.totalRows === 'number' ? parsed.totalRows : undefined,
           listedRows: typeof parsed.listedRows === 'number' ? parsed.listedRows : undefined,
           totalQuantity: typeof parsed.totalQuantity === 'number' ? parsed.totalQuantity : undefined,
+          rows: tool.name === 'search_cellar_candidates' && Array.isArray(parsed.rows)
+            ? parsed.rows.filter((row): row is Record<string, unknown> => !!row && typeof row === 'object')
+            : undefined,
           error: typeof parsed.error === 'string' ? parsed.error : undefined,
         })
       }
@@ -526,7 +530,7 @@ async function callClaude(
     caller: 'celestin.claude.tool_followup',
     messagePreview,
     maxTokens: maxTokensForToolFollowup(toolUses),
-    cacheSystem: false,
+    cacheSystem: true,
     cacheTools: false,
     requestSource: options?.requestSource,
     auth,

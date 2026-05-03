@@ -7,7 +7,7 @@ export interface ToolContext {
   supabase: SupabaseServiceClient
 }
 
-type ToolInput = Record<string, unknown>
+export type ToolInput = Record<string, unknown>
 
 const MAX_LIMIT = 12
 const MAX_SCAN_ROWS = 500
@@ -491,7 +491,7 @@ async function queryMemory(input: ToolInput, ctx: ToolContext): Promise<string> 
   })
 }
 
-async function searchCellarCandidates(input: ToolInput, ctx: ToolContext): Promise<string> {
+export async function searchCellarCandidates(input: ToolInput, ctx: ToolContext): Promise<string> {
   const rowLimit = recommendationLimit(input.limit)
   const rawQuery = text(input.query)
 
