@@ -53,6 +53,7 @@ function emptyProviderTrace(): CelestinProviderTrace {
     claudeCache: { creationInputTokens: 0, readInputTokens: 0 },
     usage: { inputTokens: 0, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 },
     providerPath: 'direct_response',
+    responses: [],
   }
 }
 

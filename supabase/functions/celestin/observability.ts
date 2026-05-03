@@ -184,6 +184,7 @@ export async function persistCelestinTurnObservability(input: CelestinTurnObserv
           finalUiActionKind: input.response ? uiActionKind(input.response) : null,
           rawRecommendationSelectionCount: input.rawResponse?.recommendation_selection?.length ?? 0,
           finalRecommendationSelectionCount: input.response?.recommendation_selection?.length ?? 0,
+          providerResponses: trace?.responses ?? [],
           contextPlan: input.contextPlan ?? null,
           sourceRequirements: input.contextPlan ? buildSourceRequirements(input.contextPlan) : [],
           resolvedSources: summarizeResolvedSources(input.resolvedSources),

@@ -162,6 +162,41 @@ Regle de validation pour la suite :
 - lancer l'eval LLM complete seulement comme gate finale ou avant deploiement
   sensible.
 
+## Etat au 2026-05-03 - recommandation selection-first
+
+Le contrat recommandation est maintenant stabilise dans le sens du plan :
+
+- `recommendation_selection` est la voie cible pour les recommandations cave ;
+- le LLM choisit les bouteilles et fournit les raisons ;
+- le backend resout les `bottle_id`, deduplique et construit les cartes ;
+- `ui_action.show_recommendations` reste seulement une compatibilite, et n'est
+  plus la source de verite quand une selection structuree existe ;
+- le fallback "top 3 local" ne choisit plus a la place du LLM ;
+- l'affichage frontend garde `appellation` et `millesime` separes, pour eviter le
+  doublon visuel du millesime.
+
+La note produit "niveaux d'audace" a ete retiree du backlog de ce chantier : ce
+n'est pas une etape du refacto structurel actuel.
+
+## Etat au 2026-05-03 - ProviderAdapter commence
+
+Le ProviderAdapter reste encore dans `llm-providers.ts`, mais une premiere
+separation concrete est en place :
+
+- `provider-adapter.ts` normalise la trace provider ;
+- chaque provider peut persister un apercu tronque du texte brut retourne ;
+- la trace stocke aussi le resume normalise : `uiActionKind`,
+  `recommendationSelectionCount`, `actionChipsCount`, `messagePreview` ;
+- l'observabilite peut maintenant aider a separer trois causes :
+  - le modele n'a pas emis le champ attendu ;
+  - le parsing / wrapping a transforme la sortie ;
+  - la policy ou le backend a retire ou materialise l'action.
+
+Prochaine etape stricte du plan : nettoyer le `Response Contract` en separant
+reponse conversationnelle, selection de vins, et action operationnelle
+encavage/degustation. Ne pas ajouter de nouvelle dimension produit avant ce
+nettoyage.
+
 ## Principe directeur
 
 Le frontend ne doit pas decider le contexte LLM.
