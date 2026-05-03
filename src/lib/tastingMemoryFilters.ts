@@ -7,6 +7,7 @@ import type {
 import {
   isContextDependentMemoryQuery,
   isExactPastTastingQuery,
+  isMemoryReferenceQuery,
 } from '../../shared/celestin/memory-intent-patterns.ts'
 
 const STOP_WORDS = new Set([
@@ -456,6 +457,6 @@ export function buildFilterLabels(filters: ExactMemoryFilters): string[] {
 export function classifyMemoryEvidenceMode(query: string, hasFilters: boolean): MemoryEvidenceMode {
   const normalized = normalizeForMatch(query)
   if (isExactPastTastingQuery(normalized)) return 'exact'
-  if (hasFilters && /\b(souviens|souvenir|rappelle|rappel|soiree|soirée)\b/.test(normalized)) return 'synthesis'
+  if (hasFilters && isMemoryReferenceQuery(normalized)) return 'synthesis'
   return 'synthesis'
 }

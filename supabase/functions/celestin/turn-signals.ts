@@ -1,6 +1,9 @@
 import type { CognitiveMode } from './turn-types.ts'
 import type { ConversationalIntent } from './types.ts'
-import { isMemoryFollowUpReply } from '../../../shared/celestin/memory-intent-patterns.ts'
+import {
+  isMemoryFollowUpReply,
+  isMemoryReferenceQuery,
+} from '../../../shared/celestin/memory-intent-patterns.ts'
 
 const INTENT_CLASSIFICATION_KEYS = [
   'isRecommendationRequest',
@@ -68,17 +71,6 @@ const ENCAVAGE = [
 const TASTING = [
   /\b(deguste|degustations?|goute)(?:\s|$|[.,!?])/i,
   /\b(bu |ouvert |hier soir|on a bu|note ca|degustations?)\b/i,
-]
-
-const MEMORY = [
-  /\b(tu te souviens|la derniere fois|chez \w+|on avait bu|rappelle|souvenir)\b/i,
-  /\b(ai[- ]je deja bu|deja bu|deja goute|deja ouvert)\b/i,
-  /\bj[' ]?avais mis combien d[' ]etoiles\b/i,
-  /\bquelle\s+note\s+j[' ]?avais\s+mis\b/i,
-  /\bj[' ]?avais\s+mis\s+quelle\s+note\b/i,
-  /\bdeja\b.*\b(note|noté|notee|notée|degustation|dégustation)\b/i,
-  /\b(retrouve|retrouver|retrouverais|retrouvera?is|retrouveras)\b.*\b(note|degustation|dégustation|souvenir)\b/i,
-  /\bje l[' ]?ai\b.*\b(note|noté|notee|notée|deguste|dégusté|goute|goûté|bu)\b/i,
 ]
 
 const CELLAR_LOOKUP = [
@@ -155,7 +147,7 @@ function isMemoryFollowUp(text: string, lastAssistantText?: string): boolean {
 }
 
 export function detectCognitiveMode(lower: string): CognitiveMode {
-  if (matchesAny(lower, MEMORY) || matchesAny(lower, TASTING)) return 'tasting_memory'
+  if (isMemoryReferenceQuery(lower) || matchesAny(lower, TASTING)) return 'tasting_memory'
   if (matchesAny(lower, CELLAR_LOOKUP) || matchesAny(lower, RECOMMENDATION) || matchesAny(lower, ENCAVAGE)) {
     return 'cellar_assistant'
   }
@@ -232,7 +224,7 @@ export function buildRoutingSignals(
     isRecommendationRequest: matchesAny(lower, RECOMMENDATION),
     isEncavageRequest: matchesAny(lower, ENCAVAGE),
     isTastingReference: matchesAny(lower, TASTING),
-    isMemoryReference: matchesAny(lower, MEMORY),
+    isMemoryReference: isMemoryReferenceQuery(lower),
     isRestaurantImage: /\b(carte|resto|restaurant|menu|ardoise)\b/i.test(lower),
     isImageWineQuestion: isQuestion || isWineCulture || /\b(penses|avis|tu connais|c'est bien|c'est bon)\b/i.test(lower),
   }

@@ -20,11 +20,16 @@ export const RATING_OR_VINTAGE_ASK_PATTERNS: readonly RegExp[] = [
   /\bon avait\b.*\b(note|notes|etoiles?)\b/,
 ]
 
+// Direct memory references ("tu te souviens", "la derniere fois", "rappelle").
+export const DIRECT_MEMORY_REFERENCE_PATTERNS: readonly RegExp[] = [
+  /\b(tu te souviens|la derniere fois|chez \w+|on avait bu|rappelle|souvenir)\b/,
+]
+
 // "Have I already drunk/tasted/opened X" questions.
 export const PAST_CONSUMPTION_ASK_PATTERNS: readonly RegExp[] = [
   /\bdeja\b.*\b(bu|goute|ouvert|deguste)\b/,
-  /\b(ai[- ]?je|jai|j'en|jen)\b.*\b(bu|goute|ouvert|deguste)\b/,
-  /\b(quels|lesquels|combien|liste|inventaire)\b.*\b(jai|j'en|jen|deja|bu|goute|ouvert|deguste)\b/,
+  /\b(ai[- ]?je|j[' ]?ai|jai|j[' ]?en|jen)\b.*\bdeja\b.*\b(bu|goute|ouvert|deguste)\b/,
+  /\b(quels|lesquels|combien|liste|inventaire)\b.*\b(bu|goute|ouvert|deguste)\b/,
 ]
 
 // "Did I already note X / I noted X / what's the rating I gave" — past notes.
@@ -89,6 +94,20 @@ export function isMemoryFocusLookup(normalizedText: string): boolean {
     RECALL_ASK_PATTERNS,
     PAST_NOTE_ASK_PATTERNS,
     FOLLOW_UP_STRUCTURAL_PATTERNS,
+  )
+}
+
+/**
+ * "This message is directly about tasting memory."
+ */
+export function isMemoryReferenceQuery(normalizedText: string): boolean {
+  return matchesAnyGroup(
+    normalizedText,
+    DIRECT_MEMORY_REFERENCE_PATTERNS,
+    RATING_OR_VINTAGE_ASK_PATTERNS,
+    PAST_CONSUMPTION_ASK_PATTERNS,
+    PAST_NOTE_ASK_PATTERNS,
+    RECALL_ASK_PATTERNS,
   )
 }
 
