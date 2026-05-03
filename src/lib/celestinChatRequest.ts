@@ -1,7 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import {
   buildMemoryEvidenceBundle,
-  type MemorySelectionProfile,
 } from '@/lib/tastingMemories'
 import {
   buildCelestinRequestBody,
@@ -146,21 +145,11 @@ function editDistanceAtMostOne(a: string, b: string): boolean {
   return edits + (a.length - i) + (b.length - j) <= 1
 }
 
-export function resolveLegacyMemorySelectionProfile(
-  conversationState?: Record<string, unknown> | null,
-): MemorySelectionProfile {
-  return conversationState && (conversationState as { taskType?: string | null }).taskType === 'recommendation'
-    ? 'recommendation'
-    : 'default'
-}
-
 export function shouldUseBackendManagedContext(input: {
   message: string
   image?: string
   conversationState?: Record<string, unknown> | null
 }): boolean {
-  if (input.image) return false
-
   const taskType = (input.conversationState as { taskType?: string | null } | null | undefined)?.taskType
   if (taskType === 'tasting') return false
 
@@ -171,7 +160,6 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
   body: ReturnType<typeof buildCelestinRequestBody>
   prepTimings: PrepTimings
 }> {
-  const memorySelectionProfile = resolveLegacyMemorySelectionProfile(input.conversationState)
   const backendManagedContext = shouldUseBackendManagedContext(input)
 
   const shouldSkipMemoryRetrieval =
@@ -186,7 +174,6 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
           query: input.message,
           recentMessages: toMemoryMessages(input.messages),
           drunkBottles: input.drunk,
-          selectionProfile: memorySelectionProfile,
         })),
     timed(() => backendManagedContext ? Promise.resolve(undefined) : loadCompiledProfileMarkdown()),
   ])

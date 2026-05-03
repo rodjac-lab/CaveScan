@@ -87,4 +87,5 @@ describe('PromptAssembler', () => {
     expect(assembled.systemPrompt).toContain('--- CONTEXTE UTILISATEUR ---')
     expect(assembled.userPrompt).toContain('Combien ai-je de bouteilles ?')
   })
+
 })

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   isObviousSocialMessage,
-  resolveLegacyMemorySelectionProfile,
   shouldUseBackendManagedContext,
   shouldSkipLegacyMemoryRetrieval,
 } from '@/lib/celestinChatRequest'
@@ -28,22 +27,13 @@ describe('celestinChatRequest routing guards', () => {
     expect(shouldSkipLegacyMemoryRetrieval('C etait comment le 2014 ?')).toBe(false)
   })
 
-  it('does not infer recommendation memory profile from frontend lexical rules', () => {
-    expect(resolveLegacyMemorySelectionProfile(null)).toBe('default')
-    expect(resolveLegacyMemorySelectionProfile({ taskType: null })).toBe('default')
-    expect(resolveLegacyMemorySelectionProfile({ taskType: 'cellar_lookup' })).toBe('default')
-  })
-
-  it('keeps recommendation memory profile for an active recommendation thread', () => {
-    expect(resolveLegacyMemorySelectionProfile({ taskType: 'recommendation' })).toBe('recommendation')
-  })
-
   it('uses backend-managed context for text turns outside operational active tasks', () => {
     expect(shouldUseBackendManagedContext({ message: 'Salut' })).toBe(true)
     expect(shouldUseBackendManagedContext({ message: 'J ai combien de bouteilles en cave ?' })).toBe(true)
     expect(shouldUseBackendManagedContext({ message: 'J ai combien de degustations de Champagne ?' })).toBe(true)
     expect(shouldUseBackendManagedContext({ message: "J'avais mis combien d'etoiles au Rayas ?" })).toBe(true)
     expect(shouldUseBackendManagedContext({ message: 'Que boire avec une pizza ?' })).toBe(true)
+    expect(shouldUseBackendManagedContext({ message: '', image: 'data:image/jpeg;base64,abc' })).toBe(true)
     expect(shouldUseBackendManagedContext({
       message: 'Et en blanc ?',
       conversationState: { taskType: 'recommendation' },

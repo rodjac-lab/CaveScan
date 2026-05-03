@@ -33,6 +33,18 @@ export function buildProviderHistory(body: RequestBody, contextPlan?: ContextPla
   return body.history.slice(0, -2)
 }
 
+function buildSystemPromptWithContext(
+  cognitiveMode: TurnInterpretation['cognitiveMode'],
+  contextPolicy: string,
+  contextBlock: string,
+): string {
+  return [
+    buildCelestinSystemPrompt(cognitiveMode),
+    contextPolicy ? `--- POLITIQUE DU TOUR ---\n\n${contextPolicy}` : '',
+    `--- CONTEXTE UTILISATEUR ---\n\n${contextBlock}`,
+  ].filter(Boolean).join('\n\n')
+}
+
 export function assembleCelestinPrompt(input: PromptAssemblyInput): AssembledCelestinPrompt {
   const contextBlock = buildContextBlockFromResolvedSources(input.resolvedSources)
   const contextPolicy = buildContextPlanInstructions(input.contextPlan, {
@@ -40,19 +52,17 @@ export function assembleCelestinPrompt(input: PromptAssemblyInput): AssembledCel
     state: input.state,
     routingIntent: input.routingIntent,
   })
-  const systemParts = [
-    buildCelestinSystemPrompt(input.interpretation.cognitiveMode),
-    contextPolicy ? `--- POLITIQUE DU TOUR ---\n\n${contextPolicy}` : '',
-    `--- CONTEXTE UTILISATEUR ---\n\n${contextBlock}`,
-  ].filter(Boolean)
-  const systemPrompt = systemParts.join('\n\n')
+  const systemPrompt = buildSystemPromptWithContext(
+    input.interpretation.cognitiveMode,
+    contextPolicy,
+    contextBlock,
+  )
 
   const userPrompt = buildUserPrompt(
     input.body,
     input.interpretation,
     input.state,
     input.lastAssistantText,
-    input.routingIntent,
   )
 
   return {

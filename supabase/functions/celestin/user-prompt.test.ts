@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { INITIAL_STATE, type ConversationState } from './conversation-state'
 import { buildUserPrompt } from './user-prompt'
 import type { RequestBody } from './types'
-import type { TurnInterpretation, RoutingIntent } from './turn-interpreter'
+import type { TurnInterpretation } from './turn-interpreter'
 
 function body(message: string, overrides: Partial<RequestBody> = {}): RequestBody {
   return {
@@ -34,7 +34,6 @@ type Case = {
   interp: TurnInterpretation
   state: ConversationState
   lastAssistantText?: string
-  routingIntent?: RoutingIntent
 }
 
 const CASES: Case[] = [
@@ -80,7 +79,6 @@ const CASES: Case[] = [
     interp: interp({ turnType: 'context_switch', cognitiveMode: 'wine_conversation' }),
     state: state({ phase: 'post_task_ack', taskType: 'recommendation', lastUiActionKind: 'show_recommendations' }),
     lastAssistantText: 'Je te propose quelques bouteilles pour le poulet roti.',
-    routingIntent: 'exploratory_reco_pivot',
   },
   {
     name: 'context_switch wine_conversation pivot reco',
@@ -130,14 +128,12 @@ const CASES: Case[] = [
     message: "ce soir c'est pizza",
     interp: interp({ turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'recommendation' }),
     state: state(),
-    routingIntent: 'recommendation_request',
   },
   {
     name: 'fallback recommendation_refinement',
     message: 'autre chose en blanc ?',
     interp: interp({ turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }),
     state: state({ phase: 'post_task_ack', taskType: 'recommendation', lastUiActionKind: 'show_recommendations' }),
-    routingIntent: 'recommendation_refinement',
   },
   {
     name: 'fallback default reco persistent',
@@ -157,7 +153,6 @@ const CASES: Case[] = [
     bodyOverrides: { context: { dayOfWeek: 'samedi', season: 'ete', recentDrunk: ['Domaine A 2020', 'Domaine B 2019'] } },
     interp: interp({ turnType: 'task_request', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'recommendation' }),
     state: state(),
-    routingIntent: 'recommendation_request',
   },
   {
     name: 'unknown with image and recentDrunk',
@@ -184,7 +179,6 @@ describe('buildUserPrompt', () => {
       interpretation,
       { ...INITIAL_STATE, phase: 'post_task_ack', taskType: 'recommendation', lastUiActionKind: 'show_recommendations' },
       'Je te propose quelques bouteilles pour le poulet rôti. [Vins proposés : ...]',
-      'exploratory_reco_pivot',
     )
 
     expect(prompt).toBe('Et si je veux plutôt un italien ?')
@@ -202,8 +196,6 @@ describe('buildUserPrompt', () => {
       body("Ce soir c'est pizza"),
       interpretation,
       INITIAL_STATE,
-      undefined,
-      'recommendation_request',
     )
 
     expect(prompt).toBe("Ce soir c'est pizza")
@@ -220,8 +212,6 @@ describe('buildUserPrompt', () => {
       body('Combien de bouteilles ai-je en cave ?'),
       interpretation,
       INITIAL_STATE,
-      undefined,
-      'cellar_lookup',
     )
 
     expect(prompt).toBe('Combien de bouteilles ai-je en cave ?')
@@ -237,7 +227,6 @@ describe('buildUserPrompt — branch coverage snapshots', () => {
         c.interp,
         c.state,
         c.lastAssistantText,
-        c.routingIntent,
       )
       expect(prompt).toMatchSnapshot()
     })

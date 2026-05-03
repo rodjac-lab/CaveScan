@@ -1,6 +1,6 @@
 import type { ConversationState } from "./conversation-state.ts"
 import { resolveActiveMemoryFocus } from "./memory-focus.ts"
-import type { RoutingIntent, TurnInterpretation } from "./turn-interpreter.ts"
+import type { TurnInterpretation } from "./turn-interpreter.ts"
 import type { RequestBody } from "./types.ts"
 
 const IMAGE_DIRECTIVE = "L'utilisateur a joint une photo. Analyse-la et reponds en fonction de ce que tu vois."
@@ -63,9 +63,7 @@ export function buildUserPrompt(
   interpretation: TurnInterpretation,
   state: ConversationState,
   lastAssistantText?: string,
-  routingIntent?: RoutingIntent,
 ): string {
-  void routingIntent
   const parts: string[] = []
   const { turnType, cognitiveMode } = interpretation
   const memoryFocus = resolveActiveMemoryFocus(body, interpretation, state, lastAssistantText)

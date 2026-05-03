@@ -49,6 +49,40 @@ export interface CelestinResponse {
   action_chips?: string[] | null
 }
 
+export interface CelestinRequestBody {
+  message: string
+  history: Array<{ role: 'user' | 'assistant'; text: string; image?: string }>
+  cave?: Array<{
+    id: string
+    domaine: string | null
+    appellation: string | null
+    millesime: number | null
+    couleur: string | null
+    cuvee: string | null
+    quantity: number
+    volume: string | number
+    local_score: number
+  }>
+  profile?: string
+  memories?: string
+  context?: {
+    dayOfWeek: string
+    season: string
+    recentDrunk?: string[]
+  }
+  zones?: string[]
+  contextStrategy?: 'backend_managed'
+  memoryEvidenceMode?: 'exact' | 'synthesis'
+  memoryTrace?: MemoryEvidenceTrace
+  conversationState?: Record<string, unknown> | null
+  image?: string
+  compiledProfileMarkdown?: string
+  conversationalIntent?: string
+  debugTrace?: boolean
+  requestSource?: string
+  sessionId?: string | null
+}
+
 export function buildWelcomeChips(now = new Date()): string[] {
   const hour = now.getHours()
   const day = now.getDay()
@@ -169,10 +203,26 @@ export function buildCelestinRequestBody(input: {
   requestSource?: string
   sessionId?: string | null
   backendManagedContext?: boolean
-}) {
-  const ranked = input.backendManagedContext
-    ? []
-    : rankCaveBottles('generic', input.message, input.cave, input.drunk, input.profile, input.cave.length)
+}): CelestinRequestBody {
+  const baseBody = {
+    message: input.message,
+    history: buildHistory(input.messages),
+    ...(input.conversationState ? { conversationState: input.conversationState } : {}),
+    ...(input.image ? { image: input.image } : {}),
+    ...(input.conversationalIntent ? { conversationalIntent: input.conversationalIntent } : {}),
+    ...(input.debugTrace ? { debugTrace: true } : {}),
+    ...(input.requestSource ? { requestSource: input.requestSource } : {}),
+    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+  }
+
+  if (input.backendManagedContext) {
+    return {
+      ...baseBody,
+      contextStrategy: 'backend_managed',
+    }
+  }
+
+  const ranked = rankCaveBottles('generic', input.message, input.cave, input.drunk, input.profile, input.cave.length)
   const caveSummary = ranked.map(({ bottle, score }) => ({
     id: bottle.id.substring(0, 8),
     domaine: bottle.domaine,
@@ -185,34 +235,24 @@ export function buildCelestinRequestBody(input: {
     local_score: Math.round(score * 100) / 100,
   }))
 
-  const profileStr = !input.backendManagedContext && input.profile ? serializeProfileForPrompt(input.profile) : undefined
-  const memoriesStr = input.backendManagedContext ? undefined : input.memoriesOverride || undefined
-  const recentDrunk = input.backendManagedContext ? [] : input.drunk.slice(0, 5).map(formatDrunkSummary)
+  const profileStr = input.profile ? serializeProfileForPrompt(input.profile) : undefined
+  const memoriesStr = input.memoriesOverride || undefined
+  const recentDrunk = input.drunk.slice(0, 5).map(formatDrunkSummary)
 
   return {
-    message: input.message,
-    history: buildHistory(input.messages),
-    ...(!input.backendManagedContext ? { cave: caveSummary } : {}),
+    ...baseBody,
+    cave: caveSummary,
     profile: profileStr,
     memories: memoriesStr,
-    ...(!input.backendManagedContext ? {
-      context: {
-        dayOfWeek: getDayOfWeek(),
-        season: getSeason(),
-        recentDrunk: recentDrunk.length > 0 ? recentDrunk : undefined,
-      },
-    } : {}),
-    zones: !input.backendManagedContext && input.zones.length > 0 ? input.zones : undefined,
-    ...(input.backendManagedContext ? { contextStrategy: 'backend_managed' } : {}),
-    ...(!input.backendManagedContext && input.memoryEvidenceMode ? { memoryEvidenceMode: input.memoryEvidenceMode } : {}),
-    ...(!input.backendManagedContext && input.memoryTrace ? { memoryTrace: input.memoryTrace } : {}),
-    ...(input.conversationState ? { conversationState: input.conversationState } : {}),
-    ...(input.image ? { image: input.image } : {}),
-    ...(!input.backendManagedContext && input.compiledProfileMarkdown ? { compiledProfileMarkdown: input.compiledProfileMarkdown } : {}),
-    ...(input.conversationalIntent ? { conversationalIntent: input.conversationalIntent } : {}),
-    ...(input.debugTrace ? { debugTrace: true } : {}),
-    ...(input.requestSource ? { requestSource: input.requestSource } : {}),
-    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+    context: {
+      dayOfWeek: getDayOfWeek(),
+      season: getSeason(),
+      recentDrunk: recentDrunk.length > 0 ? recentDrunk : undefined,
+    },
+    ...(input.zones.length > 0 ? { zones: input.zones } : {}),
+    ...(input.memoryEvidenceMode ? { memoryEvidenceMode: input.memoryEvidenceMode } : {}),
+    ...(input.memoryTrace ? { memoryTrace: input.memoryTrace } : {}),
+    ...(input.compiledProfileMarkdown ? { compiledProfileMarkdown: input.compiledProfileMarkdown } : {}),
   }
 }
 
