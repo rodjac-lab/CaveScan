@@ -11,6 +11,7 @@ function plan(overrides: Partial<ContextPlan> = {}): ContextPlan {
     tools: 'none',
     history: 'compact',
     truthPolicy: 'standard',
+    cellarCandidates: 'none',
     reasons: ['test'],
     ...overrides,
   }
@@ -21,6 +22,19 @@ describe('buildContextPlanInstructions', () => {
     expect(buildContextPlanInstructions(plan({
       truthPolicy: 'prudent_factual',
     }))).toBe('')
+  })
+
+  it('emits a candidates directive when cellar candidates are preempted', () => {
+    const policy = buildContextPlanInstructions(plan({
+      cellarCandidates: 'preempted',
+      cave: 'count',
+      profile: 'recommendation',
+      tools: 'none',
+    }))
+
+    expect(policy).toContain('CANDIDATS CAVE')
+    expect(policy).toContain('recommendation_selection')
+    expect(policy).toContain('hors liste')
   })
 
   it('allows auto tools for personal facts without forcing retrieval', () => {

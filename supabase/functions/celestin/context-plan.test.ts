@@ -56,7 +56,8 @@ describe('buildContextPlan', () => {
       cave: 'count',
       zones: 'names',
       memories: 'none',
-      tools: 'auto',
+      tools: 'none',
+      cellarCandidates: 'preempted',
       history: 'normal',
       truthPolicy: 'standard',
     })
@@ -68,7 +69,8 @@ describe('buildContextPlan', () => {
       cave: 'count',
       zones: 'names',
       memories: 'none',
-      tools: 'auto',
+      tools: 'none',
+      cellarCandidates: 'preempted',
       history: 'normal',
       truthPolicy: 'standard',
     })
@@ -93,6 +95,7 @@ describe('buildContextPlan', () => {
       zones: 'names',
       memories: 'targeted',
       tools: 'force_tastings',
+      cellarCandidates: 'preempted',
       history: 'normal',
       truthPolicy: 'standard',
     })

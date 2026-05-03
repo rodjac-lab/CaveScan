@@ -26,6 +26,10 @@ export function buildContextPlanInstructions(
     parts.push('[CAVE OUTIL — Pour les questions de cave, utilise les faits exacts ou query_cellar. Compte les quantites de bouteilles, pas seulement les references.]')
   }
 
+  if (contextPlan.cellarCandidates === 'preempted') {
+    parts.push('[CANDIDATS CAVE — Les bouteilles disponibles te sont fournies dans le contexte. Choisis 1 a 3 bottle_id parmi cette liste pour recommendation_selection. N invente pas un bottle_id, ne propose pas une bouteille hors liste.]')
+  }
+
   if (contextPlan.tools === 'force_tastings') {
     parts.push('[DEGUSTATIONS OUTIL — Pour une question de nombre, liste, verification "ai-je / je n ai pas", note, millesime ou domaine deja bu, utilise query_tastings ou les degustations resolues.]')
   } else if (contextPlan.tools === 'force_memory') {

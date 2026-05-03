@@ -36,6 +36,7 @@ function plan(overrides: Partial<ContextPlan>): ContextPlan {
     tools: 'none',
     history: 'compact',
     truthPolicy: 'standard',
+    cellarCandidates: 'none',
     reasons: ['test'],
     ...overrides,
   }
@@ -1042,5 +1043,192 @@ describe('resolveContextSourcesForRequest', () => {
     expect(sources.profile).toBeUndefined()
     expect(sources.cave).toMatchObject({ level: 'none', totalBottles: 0, referenceCount: 0, bottles: [] })
     expect(sources.zones).toEqual([])
+  })
+
+  it('preempts cellar candidates for recommendation routes when authenticated', async () => {
+    const supabase = {
+      from(table: string) {
+        if (table === 'bottles') {
+          return {
+            select: (cols: string) => {
+              if (cols.includes('quantity,couleur') && !cols.includes('domaine')) {
+                return {
+                  eq: () => ({
+                    eq: async () => ({
+                      data: [
+                        { quantity: 2, couleur: 'rouge' },
+                        { quantity: 1, couleur: 'blanc' },
+                      ],
+                      error: null,
+                    }),
+                  }),
+                }
+              }
+              return {
+                eq: () => ({
+                  eq: () => ({
+                    limit: async () => ({
+                      data: [
+                        {
+                          id: 'aaaaaaaa11111111',
+                          domaine: 'Domaine Gangloff',
+                          cuvee: null,
+                          appellation: 'Cote-Rotie',
+                          millesime: 2018,
+                          couleur: 'rouge',
+                          country: 'France',
+                          region: 'Rhone',
+                          grape_varieties: ['syrah'],
+                          food_pairings: ['agneau', 'gibier'],
+                          character: 'puissant epice',
+                          quantity: 2,
+                          status: 'in_stock',
+                        },
+                        {
+                          id: 'bbbbbbbb22222222',
+                          domaine: 'Domaine Macle',
+                          cuvee: 'Cotes du Jura',
+                          appellation: 'Cotes du Jura',
+                          millesime: 2014,
+                          couleur: 'blanc',
+                          country: 'France',
+                          region: 'Jura',
+                          grape_varieties: ['savagnin'],
+                          food_pairings: ['fromage', 'volaille'],
+                          character: 'oxydatif tendu',
+                          quantity: 1,
+                          status: 'in_stock',
+                        },
+                      ],
+                      error: null,
+                    }),
+                  }),
+                }),
+              }
+            },
+          }
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              order: async () => ({ data: [], error: null }),
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: 'un rouge pour ce soir avec un gigot',
+        cave: [],
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'recommendation',
+        cave: 'count',
+        zones: 'names',
+        tools: 'none',
+        cellarCandidates: 'preempted',
+        history: 'normal',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.cave.level).toBe('shortlist')
+    expect(sources.cave.origin).toBe('preempted_candidates')
+    expect(sources.cave.bottles.length).toBeGreaterThan(0)
+    expect(sources.cave.bottles[0].id).toMatch(/^[a-z0-9]+$/)
+  })
+
+  it('falls back to non-preempted cave when search returns no candidates', async () => {
+    const supabase = {
+      from(table: string) {
+        if (table === 'bottles') {
+          return {
+            select: (cols: string) => {
+              if (cols.includes('quantity,couleur') && !cols.includes('domaine')) {
+                return {
+                  eq: () => ({
+                    eq: async () => ({ data: [], error: null }),
+                  }),
+                }
+              }
+              return {
+                eq: () => ({
+                  eq: () => ({
+                    limit: async () => ({ data: [], error: null }),
+                  }),
+                }),
+              }
+            },
+          }
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              order: async () => ({ data: [], error: null }),
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: 'un rouge pour ce soir',
+        cave: [],
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'recommendation',
+        cave: 'count',
+        zones: 'names',
+        tools: 'none',
+        cellarCandidates: 'preempted',
+        history: 'normal',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.cave.level).toBe('count')
+    expect(sources.cave.bottles).toHaveLength(0)
+    expect(sources.cave.origin).toBeUndefined()
+  })
+
+  it('skips preempt when authentication is missing', async () => {
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: 'un rouge pour ce soir',
+        cave: [
+          {
+            id: 'b1',
+            domaine: 'Domaine A',
+            cuvee: null,
+            appellation: 'Morgon',
+            millesime: 2020,
+            couleur: 'rouge',
+            character: null,
+            quantity: 2,
+          },
+        ],
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'recommendation',
+        cave: 'count',
+        zones: 'names',
+        tools: 'none',
+        cellarCandidates: 'preempted',
+        history: 'normal',
+      }),
+    )
+
+    expect(sources.cave.origin).toBeUndefined()
   })
 })

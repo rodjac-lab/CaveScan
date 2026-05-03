@@ -46,7 +46,14 @@ export function buildContextBlockFromResolvedSources(sources: ResolvedContextSou
   }
 
   if (sources.cave.bottles.length > 0) {
-    parts.push(`Bouteilles en cave : ${sources.cave.totalBottles} bouteilles (${sources.cave.referenceCount} references).`)
+    if (sources.cave.origin === 'preempted_candidates') {
+      const totalLabel = sources.cave.totalBottles > 0
+        ? ` (cave totale : ${sources.cave.totalBottles} bouteilles)`
+        : ''
+      parts.push(`Candidats cave pre-selectionnes : ${sources.cave.bottles.length} bouteilles${totalLabel}. Choisis 1 a 3 bouteilles parmi cette liste en mettant leur bottle_id (8 caracteres) dans recommendation_selection. Ne propose pas de bouteille hors de cette liste.`)
+    } else {
+      parts.push(`Bouteilles en cave : ${sources.cave.totalBottles} bouteilles (${sources.cave.referenceCount} references).`)
+    }
     for (const b of sources.cave.bottles) {
       const label = [b.domaine, b.cuvee, b.appellation, b.millesime, b.couleur]
         .filter(Boolean)

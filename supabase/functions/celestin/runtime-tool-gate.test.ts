@@ -20,6 +20,7 @@ function plan(overrides: Partial<ContextPlan> = {}): ContextPlan {
     tools: 'auto',
     history: 'compact',
     truthPolicy: 'prudent_factual',
+    cellarCandidates: 'none',
     reasons: ['test'],
     ...overrides,
   }

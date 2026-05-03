@@ -92,4 +92,46 @@ describe('buildContextBlockFromResolvedSources', () => {
     expect(block).toContain('accords=agneau, volaille rotie')
     expect(block).toContain('score_local=0.91')
   })
+
+  it('renders preempted candidates with explicit choose-from instruction', () => {
+    const block = buildContextBlockFromResolvedSources(sources({
+      cave: {
+        level: 'shortlist',
+        totalBottles: 12,
+        referenceCount: 2,
+        origin: 'preempted_candidates',
+        bottles: [
+          {
+            id: 'aaaaaaaa',
+            domaine: 'Domaine Gangloff',
+            cuvee: null,
+            appellation: 'Cote-Rotie',
+            millesime: 2018,
+            couleur: 'rouge',
+            character: 'puissant epice',
+            quantity: 2,
+            food_pairings: ['gibier'],
+          },
+          {
+            id: 'bbbbbbbb',
+            domaine: 'Domaine Macle',
+            cuvee: null,
+            appellation: 'Cotes du Jura',
+            millesime: 2014,
+            couleur: 'blanc',
+            character: 'oxydatif',
+            quantity: 1,
+            food_pairings: null,
+          },
+        ],
+      },
+    }))
+
+    expect(block).toContain('Candidats cave pre-selectionnes : 2 bouteilles')
+    expect(block).toContain('cave totale : 12 bouteilles')
+    expect(block).toContain('recommendation_selection')
+    expect(block).toContain('Ne propose pas de bouteille hors de cette liste')
+    expect(block).toContain('- [aaaaaaaa] Domaine Gangloff')
+    expect(block).toContain('- [bbbbbbbb] Domaine Macle')
+  })
 })

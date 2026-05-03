@@ -21,6 +21,7 @@ function plan(overrides: Partial<ContextPlan> = {}): ContextPlan {
     tools: 'force_cellar',
     history: 'compact',
     truthPolicy: 'exact_only',
+    cellarCandidates: 'none',
     reasons: ['test'],
     ...overrides,
   }

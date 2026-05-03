@@ -7,6 +7,7 @@ export type MemoriesContextLevel = 'none' | 'targeted' | 'exact'
 export type ToolContextPolicy = 'none' | 'auto' | 'force_cellar' | 'force_memory' | 'force_tastings'
 export type HistoryContextLevel = 'compact' | 'normal' | 'pivot'
 export type TruthPolicy = 'standard' | 'prudent_factual' | 'exact_only' | 'memory_only'
+export type CellarCandidatesPolicy = 'none' | 'preempted'
 
 export interface ContextPlan {
   profile: ProfileContextLevel
@@ -16,6 +17,7 @@ export interface ContextPlan {
   tools: ToolContextPolicy
   history: HistoryContextLevel
   truthPolicy: TruthPolicy
+  cellarCandidates: CellarCandidatesPolicy
   reasons: string[]
 }
 
@@ -28,6 +30,7 @@ function basePlan(): ContextPlan {
     tools: 'none',
     history: 'compact',
     truthPolicy: 'standard',
+    cellarCandidates: 'none',
     reasons: [],
   }
 }
@@ -64,9 +67,10 @@ export function buildContextPlan(routingResult: TurnRoutingResult): ContextPlan 
         profile: 'recommendation',
         cave: 'count',
         zones: 'names',
-        tools: 'auto',
+        tools: 'none',
+        cellarCandidates: 'preempted',
         history: 'normal',
-      }, ['recommendation: combine taste profile and tool-resolved cellar candidates'])
+      }, ['recommendation: backend pre-empts cellar candidates so the LLM picks in a single shot'])
 
     case 'recommendation_refinement':
       return withReasons({
@@ -74,9 +78,10 @@ export function buildContextPlan(routingResult: TurnRoutingResult): ContextPlan 
         profile: 'recommendation',
         cave: 'count',
         zones: 'names',
-        tools: 'auto',
+        tools: 'none',
+        cellarCandidates: 'preempted',
         history: 'normal',
-      }, ['recommendation refinement: keep profile context, resolve cellar candidates via tools'])
+      }, ['recommendation refinement: backend pre-empts cellar candidates for the new constraint'])
 
     case 'memory_guided_recommendation':
       return withReasons({
@@ -86,8 +91,9 @@ export function buildContextPlan(routingResult: TurnRoutingResult): ContextPlan 
         zones: 'names',
         memories: 'targeted',
         tools: 'force_tastings',
+        cellarCandidates: 'preempted',
         history: 'normal',
-      }, ['memory-guided recommendation: ground in exact tasting evidence without injecting cellar shortlist'])
+      }, ['memory-guided recommendation: ground in tasting evidence and pre-empt cellar candidates'])
 
     case 'memory_lookup':
       return withReasons({

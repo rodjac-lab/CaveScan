@@ -7,6 +7,7 @@ import {
   parseTastingRatingQuery,
   type CellarBottleCountFilter,
 } from '../../../shared/celestin/exact-query.ts'
+import { searchCellarCandidates, type ToolInput } from './tools.ts'
 import type { CaveBottle, RequestBody } from './types.ts'
 
 export type SourceRequirementKind =
@@ -50,6 +51,7 @@ export interface ResolvedCaveSource {
   totalBottles: number
   referenceCount: number
   bottles: CaveBottle[]
+  origin?: 'preempted_candidates'
   countFilter?: {
     kind: 'color'
     filter: CellarBottleCountFilter
@@ -803,18 +805,102 @@ async function resolveTastingsFromBackend(
   }
 }
 
+function detectColorHint(message: string): ToolInput['color'] | undefined {
+  const normalized = normalizeExactQueryText(message)
+  if (/\brouges?\b/.test(normalized)) return 'rouge'
+  if (/\bblancs?\b/.test(normalized)) return 'blanc'
+  if (/\broses?\b/.test(normalized)) return 'rose'
+  if (/\b(bulles?|champagnes?|petillants?|effervescents?)\b/.test(normalized)) return 'bulles'
+  return undefined
+}
+
+function compactCandidateAsCaveBottle(row: Record<string, unknown>): CaveBottle | null {
+  const id = typeof row.id === 'string' ? row.id : null
+  if (!id) return null
+  const character = typeof row.character === 'string'
+    ? row.character
+    : typeof row.why_candidate === 'string'
+      ? row.why_candidate
+      : null
+  return {
+    id,
+    domaine: typeof row.domaine === 'string' ? row.domaine : null,
+    cuvee: typeof row.cuvee === 'string' ? row.cuvee : null,
+    appellation: typeof row.appellation === 'string' ? row.appellation : null,
+    millesime: typeof row.millesime === 'number' ? row.millesime : null,
+    couleur: typeof row.couleur === 'string' ? row.couleur : null,
+    character,
+    quantity: typeof row.quantity === 'number' ? row.quantity : 1,
+    food_pairings: Array.isArray(row.food_pairings)
+      ? row.food_pairings.filter((item): item is string => typeof item === 'string').slice(0, 5)
+      : null,
+  }
+}
+
+async function resolveCellarCandidatesFromBackend(
+  body: RequestBody,
+  contextPlan: ContextPlan,
+  cave: ResolvedCaveSource,
+  auth: SourceResolverAuth,
+): Promise<ResolvedCaveSource> {
+  if (contextPlan.cellarCandidates !== 'preempted') return cave
+  if (!auth?.userId || !auth.supabase) return cave
+  if (cave.bottles.length > 0 && cave.level === 'shortlist') return cave
+
+  const message = typeof body.message === 'string' ? body.message.trim() : ''
+  if (!message) return cave
+
+  const toolInput: ToolInput = { query: message }
+  const color = detectColorHint(message)
+  if (color) toolInput.color = color
+
+  let payload: Record<string, unknown>
+  try {
+    const raw = await searchCellarCandidates(toolInput, { userId: auth.userId, supabase: auth.supabase })
+    payload = JSON.parse(raw) as Record<string, unknown>
+  } catch (err) {
+    console.warn('[celestin:source-resolver] cellar candidate preempt failed:', err instanceof Error ? err.message : String(err))
+    return cave
+  }
+
+  if (typeof payload.error === 'string') {
+    console.warn('[celestin:source-resolver] cellar candidate preempt error:', payload.error)
+    return cave
+  }
+
+  const rows = Array.isArray(payload.rows) ? payload.rows : []
+  const bottles = rows
+    .map((row) => (row && typeof row === 'object') ? compactCandidateAsCaveBottle(row as Record<string, unknown>) : null)
+    .filter((bottle): bottle is CaveBottle => bottle !== null)
+
+  if (bottles.length === 0) return cave
+
+  const totalQuantity = bottles.reduce((sum, bottle) => sum + Math.max(1, bottle.quantity ?? 1), 0)
+
+  return {
+    ...cave,
+    level: 'shortlist',
+    referenceCount: bottles.length,
+    totalBottles: cave.totalBottles > 0 ? cave.totalBottles : totalQuantity,
+    bottles,
+    origin: 'preempted_candidates',
+  }
+}
+
 export async function resolveContextSourcesForRequest(
   body: RequestBody,
   contextPlan: ContextPlan,
   auth?: SourceResolverAuth,
 ): Promise<ResolvedContextSources> {
   const profile = await resolveProfileFromBackend(body, contextPlan, auth)
-  const [cave, zones, memories, tastings] = await Promise.all([
+  const [initialCave, zones, memories, tastings] = await Promise.all([
     resolveCaveFromBackend(body, contextPlan, auth, profile),
     resolveZonesFromBackend(body, contextPlan, auth),
     resolveMemoriesFromBackend(body, contextPlan, auth),
     resolveTastingsFromBackend(body, contextPlan, auth),
   ])
+
+  const cave = await resolveCellarCandidatesFromBackend(body, contextPlan, initialCave, auth)
 
   return {
     requirements: buildSourceRequirements(contextPlan),
