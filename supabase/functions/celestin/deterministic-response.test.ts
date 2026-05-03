@@ -47,12 +47,50 @@ describe('buildDeterministicResponse', () => {
     expect(response?.message).toBe('Tu as 12 bouteilles en cave, sur 8 references.')
   })
 
-  it('does not answer filtered cellar count questions deterministically yet', () => {
+  it('does not answer filtered cellar count questions without a resolved filter source', () => {
     const response = buildDeterministicResponse({
       body: body('Combien de bouteilles de Champagne ai-je ?'),
       routingIntent: 'cellar_lookup',
       contextPlan: plan(),
       resolvedSources: sources(),
+    })
+
+    expect(response).toBeNull()
+  })
+
+  it('answers resolved filtered cellar bottle counts without LLM', () => {
+    const response = buildDeterministicResponse({
+      body: body("J'ai combien de rouges en cave ?"),
+      routingIntent: 'cellar_lookup',
+      contextPlan: plan(),
+      resolvedSources: sources({
+        cave: {
+          level: 'tool_only',
+          totalBottles: 5,
+          referenceCount: 3,
+          bottles: [],
+          countFilter: { kind: 'color', filter: 'rouge', label: 'rouges' },
+        },
+      }),
+    })
+
+    expect(response?.message).toBe('Tu as 5 bouteilles de rouges en cave, sur 3 references.')
+  })
+
+  it('keeps filtered cellar counts unresolved when the source filter does not match', () => {
+    const response = buildDeterministicResponse({
+      body: body("J'ai combien de rouges en cave ?"),
+      routingIntent: 'cellar_lookup',
+      contextPlan: plan(),
+      resolvedSources: sources({
+        cave: {
+          level: 'tool_only',
+          totalBottles: 2,
+          referenceCount: 1,
+          bottles: [],
+          countFilter: { kind: 'color', filter: 'blanc', label: 'blancs' },
+        },
+      }),
     })
 
     expect(response).toBeNull()

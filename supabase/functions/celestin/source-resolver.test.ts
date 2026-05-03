@@ -126,6 +126,48 @@ describe('resolveContextSourcesForRequest', () => {
     expect(sources.cave).toMatchObject({ level: 'tool_only', totalBottles: 2, referenceCount: 1, bottles: [] })
   })
 
+  it('resolves filtered cellar counts from request cave when available', async () => {
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: "J'ai combien de rouges en cave ?",
+        cave: [
+          {
+            id: 'red-1',
+            domaine: 'Domaine Rouge',
+            cuvee: null,
+            appellation: 'Morgon',
+            millesime: 2020,
+            couleur: 'rouge',
+            quantity: 2,
+          },
+          {
+            id: 'white-1',
+            domaine: 'Domaine Blanc',
+            cuvee: null,
+            appellation: 'Chablis',
+            millesime: 2021,
+            couleur: 'blanc',
+            quantity: 4,
+          },
+        ],
+      }),
+      plan({
+        profile: 'none',
+        cave: 'tool_only',
+        zones: 'none',
+        tools: 'force_cellar',
+        truthPolicy: 'exact_only',
+      }),
+    )
+
+    expect(sources.cave).toMatchObject({
+      level: 'tool_only',
+      totalBottles: 2,
+      referenceCount: 1,
+      countFilter: { kind: 'color', filter: 'rouge', label: 'rouges' },
+    })
+  })
+
   it('keeps shortlist bottles only for recommendation sources', async () => {
     const sources = await resolveContextSourcesForRequest(body(), plan({
       profile: 'recommendation',
@@ -172,7 +214,7 @@ describe('resolveContextSourcesForRequest', () => {
             select: () => ({
               eq: () => ({
                 eq: async () => ({
-                  data: [{ quantity: 2 }, { quantity: 1 }],
+                  data: [{ quantity: 2, couleur: 'rouge' }, { quantity: 1, couleur: 'blanc' }],
                   error: null,
                 }),
               }),
@@ -213,6 +255,64 @@ describe('resolveContextSourcesForRequest', () => {
     expect(sources.profile?.compiledMarkdown).toContain('Profil backend')
     expect(sources.cave).toMatchObject({ level: 'tool_only', totalBottles: 3, referenceCount: 2, bottles: [] })
     expect(sources.zones).toEqual(['Paris', 'Bourgogne'])
+  })
+
+  it('resolves filtered cellar counts from backend when request cave is minimal', async () => {
+    const supabase = {
+      from(table: string) {
+        if (table === 'bottles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: async () => ({
+                  data: [
+                    { quantity: 2, couleur: 'rouge' },
+                    { quantity: 1, couleur: 'blanc' },
+                    { quantity: 3, couleur: 'rouge' },
+                  ],
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              order: async () => ({
+                data: [],
+                error: null,
+              }),
+            }),
+          }),
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: "J'ai combien de rouges en cave ?",
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        cave: [],
+        memories: undefined,
+      }),
+      plan({
+        profile: 'none',
+        cave: 'tool_only',
+        zones: 'names',
+        tools: 'force_cellar',
+        truthPolicy: 'exact_only',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.cave).toMatchObject({
+      level: 'tool_only',
+      totalBottles: 5,
+      referenceCount: 2,
+      countFilter: { kind: 'color', filter: 'rouge', label: 'rouges' },
+    })
   })
 
   it('resolves cellar shortlist from backend when recommendation body is minimal', async () => {

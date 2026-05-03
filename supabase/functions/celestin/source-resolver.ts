@@ -1,6 +1,12 @@
 import type { ContextPlan } from './context-plan.ts'
 import type { AuthContext } from './auth.ts'
-import { normalizeExactQueryText, parseTastingCountQuery, parseTastingRatingQuery } from '../../../shared/celestin/exact-query.ts'
+import {
+  normalizeExactQueryText,
+  parseFilteredCellarBottleCount,
+  parseTastingCountQuery,
+  parseTastingRatingQuery,
+  type CellarBottleCountFilter,
+} from '../../../shared/celestin/exact-query.ts'
 import type { CaveBottle, RequestBody } from './types.ts'
 
 export type SourceRequirementKind =
@@ -49,6 +55,11 @@ export interface ResolvedCaveSource {
   totalBottles: number
   referenceCount: number
   bottles: CaveBottle[]
+  countFilter?: {
+    kind: 'color'
+    filter: CellarBottleCountFilter
+    label: string
+  }
 }
 
 export interface ResolvedTastingsSource {
@@ -153,6 +164,21 @@ function summarizeCave(cave: CaveBottle[]): Pick<ResolvedCaveSource, 'totalBottl
     referenceCount: cave.length,
     totalBottles: cave.reduce((sum, bottle) => sum + Math.max(1, bottle.quantity ?? 1), 0),
   }
+}
+
+function colorMatchesCountFilter(color: unknown, filter: CellarBottleCountFilter): boolean {
+  if (typeof color !== 'string') return false
+  const normalized = normalizeExactQueryText(color)
+
+  if (filter === 'bulles') {
+    return /\b(bulles?|champagnes?|petillants?|effervescents?)\b/.test(normalized)
+  }
+
+  return normalized === filter || normalized.includes(filter)
+}
+
+function filteredCaveRows<T extends { couleur?: unknown }>(rows: T[], filter: CellarBottleCountFilter): T[] {
+  return rows.filter((row) => colorMatchesCountFilter(row.couleur, filter))
 }
 
 function resolveProfile(body: RequestBody, contextPlan: ContextPlan): ResolvedProfileSource | undefined {
@@ -454,7 +480,10 @@ async function resolveZonesFromBackend(
 }
 
 function resolveCave(body: RequestBody, contextPlan: ContextPlan): ResolvedCaveSource {
-  const cave = body.cave ?? []
+  const countFilter = parseFilteredCellarBottleCount(body.message)
+  const cave = countFilter
+    ? filteredCaveRows(body.cave ?? [], countFilter.filter)
+    : body.cave ?? []
   const counts = summarizeCave(cave)
   const shouldIncludeBottles = contextPlan.cave === 'shortlist' || contextPlan.cave === 'full_debug'
 
@@ -462,6 +491,9 @@ function resolveCave(body: RequestBody, contextPlan: ContextPlan): ResolvedCaveS
     level: contextPlan.cave,
     ...counts,
     bottles: shouldIncludeBottles ? cave : [],
+    countFilter: countFilter
+      ? { kind: 'color', filter: countFilter.filter, label: countFilter.label }
+      : undefined,
   }
 }
 
@@ -697,9 +729,10 @@ async function resolveCaveFromBackend(
     }
   }
 
+  const countFilter = parseFilteredCellarBottleCount(body.message)
   const { data, error } = await auth.supabase
     .from('bottles')
-    .select('quantity')
+    .select('quantity,couleur')
     .eq('user_id', auth.userId)
     .eq('status', 'in_stock')
 
@@ -708,7 +741,9 @@ async function resolveCaveFromBackend(
     return local
   }
 
-  const rows = data ?? []
+  const rows = countFilter
+    ? filteredCaveRows(data ?? [], countFilter.filter)
+    : data ?? []
   return {
     level: contextPlan.cave,
     referenceCount: rows.length,
@@ -717,6 +752,9 @@ async function resolveCaveFromBackend(
       return sum + Math.max(1, quantity)
     }, 0),
     bottles: [],
+    countFilter: countFilter
+      ? { kind: 'color', filter: countFilter.filter, label: countFilter.label }
+      : undefined,
   }
 }
 

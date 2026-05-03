@@ -1,5 +1,6 @@
 import type { ContextPlan } from "./context-plan.ts"
 import {
+  parseFilteredCellarBottleCount,
   parseGenericCellarBottleCount,
   parseTastingCountQuery,
   parseTastingRatingQuery,
@@ -140,6 +141,34 @@ export function buildDeterministicResponse(input: {
 
     return {
       message: `Tu as ${bottlePart} en cave, sur ${referencePart}.`,
+      ui_action: null,
+      action_chips: ['Voir la cave', 'Quels rouges ?', 'Que boire ce soir ?'],
+    }
+  }
+
+  const filteredCellarCount = parseFilteredCellarBottleCount(input.body.message)
+  if (
+    filteredCellarCount
+    && input.routingIntent === 'cellar_lookup'
+    && input.contextPlan.truthPolicy === 'exact_only'
+    && input.resolvedSources.cave.countFilter?.filter === filteredCellarCount.filter
+  ) {
+    const total = input.resolvedSources.cave.totalBottles
+    const references = input.resolvedSources.cave.referenceCount
+    const label = input.resolvedSources.cave.countFilter.label
+
+    if (total === 0) {
+      return {
+        message: `Je ne trouve aucun ${label} en cave.`,
+        ui_action: null,
+        action_chips: ['Voir la cave', 'Que boire ce soir ?'],
+      }
+    }
+
+    const referencePart = references === 1 ? '1 reference' : `${references} references`
+    const bottlePart = total === 1 ? '1 bouteille' : `${total} bouteilles`
+    return {
+      message: `Tu as ${bottlePart} de ${label} en cave, sur ${referencePart}.`,
       ui_action: null,
       action_chips: ['Voir la cave', 'Quels rouges ?', 'Que boire ce soir ?'],
     }

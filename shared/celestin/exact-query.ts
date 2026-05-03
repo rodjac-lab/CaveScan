@@ -2,6 +2,14 @@ export interface GenericCellarBottleCountQuery {
   kind: 'generic_cellar_bottle_count'
 }
 
+export type CellarBottleCountFilter = 'rouge' | 'blanc' | 'rose' | 'bulles'
+
+export interface FilteredCellarBottleCountQuery {
+  kind: 'filtered_cellar_bottle_count'
+  filter: CellarBottleCountFilter
+  label: string
+}
+
 export interface TastingCountQuery {
   kind: 'tasting_count'
   query?: string
@@ -37,6 +45,34 @@ export function parseGenericCellarBottleCount(message: string): GenericCellarBot
   if (/\bbouteilles?\s+(de|d )\s+\w+/.test(text)) return null
 
   return { kind: 'generic_cellar_bottle_count' }
+}
+
+export function parseFilteredCellarBottleCount(message: string): FilteredCellarBottleCountQuery | null {
+  const text = normalizeExactQueryText(message)
+  if (!/\b(combien|nombre)\b/.test(text)) return null
+
+  const mentionsCellarScope =
+    /\b(j ai|ai je|ma cave|en cave)\b/.test(text)
+    || /\bcombien de\b/.test(text)
+  if (!mentionsCellarScope) return null
+
+  if (/\b(rouges?|vins? rouges?|bouteilles? rouges?)\b/.test(text)) {
+    return { kind: 'filtered_cellar_bottle_count', filter: 'rouge', label: 'rouges' }
+  }
+
+  if (/\b(blancs?|vins? blancs?|bouteilles? blancs?)\b/.test(text)) {
+    return { kind: 'filtered_cellar_bottle_count', filter: 'blanc', label: 'blancs' }
+  }
+
+  if (/\b(roses?|vins? roses?|bouteilles? roses?)\b/.test(text)) {
+    return { kind: 'filtered_cellar_bottle_count', filter: 'rose', label: 'roses' }
+  }
+
+  if (/\b(champagnes?|bulles?|petillants?|vins? petillants?|bouteilles? de champagne)\b/.test(text)) {
+    return { kind: 'filtered_cellar_bottle_count', filter: 'bulles', label: 'champagnes et bulles' }
+  }
+
+  return null
 }
 
 export function parseTastingCountQuery(message: string): TastingCountQuery | null {

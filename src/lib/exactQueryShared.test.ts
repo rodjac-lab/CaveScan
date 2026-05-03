@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { parseGenericCellarBottleCount, parseTastingCountQuery, parseTastingRatingQuery } from '../../shared/celestin/exact-query'
+import {
+  parseFilteredCellarBottleCount,
+  parseGenericCellarBottleCount,
+  parseTastingCountQuery,
+  parseTastingRatingQuery,
+} from '../../shared/celestin/exact-query'
 
 describe('exact query parsing', () => {
   it('recognizes generic cellar bottle counts', () => {
@@ -11,6 +16,28 @@ describe('exact query parsing', () => {
   it('does not treat filtered cellar bottle counts as generic', () => {
     expect(parseGenericCellarBottleCount('Combien de bouteilles de Champagne ai-je ?')).toBeNull()
     expect(parseGenericCellarBottleCount("J'ai combien de rouges en cave ?")).toBeNull()
+  })
+
+  it('extracts filtered cellar bottle count colors', () => {
+    expect(parseFilteredCellarBottleCount("J'ai combien de rouges en cave ?")).toEqual({
+      kind: 'filtered_cellar_bottle_count',
+      filter: 'rouge',
+      label: 'rouges',
+    })
+    expect(parseFilteredCellarBottleCount('Combien de bouteilles de Champagne ai-je ?')).toEqual({
+      kind: 'filtered_cellar_bottle_count',
+      filter: 'bulles',
+      label: 'champagnes et bulles',
+    })
+    expect(parseFilteredCellarBottleCount('Nombre de blancs dans ma cave ?')).toEqual({
+      kind: 'filtered_cellar_bottle_count',
+      filter: 'blanc',
+      label: 'blancs',
+    })
+  })
+
+  it('does not treat recommendation color preferences as exact count filters', () => {
+    expect(parseFilteredCellarBottleCount('Je veux un rouge leger sur des sushis')).toBeNull()
   })
 
   it('extracts simple tasting count filters', () => {

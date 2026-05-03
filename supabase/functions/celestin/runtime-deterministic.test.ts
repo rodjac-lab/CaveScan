@@ -25,7 +25,7 @@ function supabaseMock() {
             select: () => ({
               eq: () => ({
                 eq: async () => ({
-                  data: [{ quantity: 2 }, { quantity: 1 }],
+                  data: [{ quantity: 2, couleur: 'rouge' }, { quantity: 1, couleur: 'blanc' }],
                   error: null,
                 }),
               }),
@@ -227,6 +227,27 @@ describe('runCelestinTurn deterministic exact answers', () => {
     expect(result.debugTrace.providerTrace.attempts).toEqual([])
     expect(mock.calls).toContain('bottles')
     expect(mock.calls).toContain('zones')
+  })
+
+  it('answers filtered cellar bottle counts without calling an LLM provider', async () => {
+    const { runCelestinTurn } = await import('./runtime')
+    const mock = supabaseMock()
+    const body: RequestBody = {
+      message: "J'ai combien de rouges en cave ?",
+      history: [],
+      cave: [],
+      contextStrategy: 'backend_managed',
+    }
+
+    const result = await runCelestinTurn(body, {
+      userId: 'user-1',
+      supabase: mock.client as never,
+    } as AuthContext)
+
+    expect(result.provider).toBe('deterministic')
+    expect(result.response.message).toBe('Tu as 2 bouteilles de rouges en cave, sur 1 reference.')
+    expect(result.debugTrace.providerTrace.attempts).toEqual([])
+    expect(mock.calls).toContain('bottles')
   })
 
   it('answers simple tasting counts without calling an LLM provider', async () => {
