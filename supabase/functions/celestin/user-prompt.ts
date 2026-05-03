@@ -3,6 +3,61 @@ import { resolveActiveMemoryFocus } from "./memory-focus.ts"
 import type { RoutingIntent, TurnInterpretation } from "./turn-interpreter.ts"
 import type { RequestBody } from "./types.ts"
 
+const IMAGE_DIRECTIVE = "L'utilisateur a joint une photo. Analyse-la et reponds en fonction de ce que tu vois."
+
+function appendImageDirective(parts: string[], body: RequestBody) {
+  if (body.image) {
+    parts.push(IMAGE_DIRECTIVE)
+  }
+}
+
+function appendSocialAckPrompt(parts: string[], state: ConversationState, message: string) {
+  if (state.phase === 'post_task_ack') {
+    parts.push(`[ACQUITTEMENT — L'utilisateur acquiesce apres ta derniere action. 1 phrase COURTE. Cloture chaleureuse + action_chips pour changer de sujet. Ne lance PAS un nouveau vin, domaine, region ou souvenir non demande.]`)
+  } else {
+    parts.push(`[CONVERSATION — Reponds BRIEVEMENT (1-2 phrases max) + action_chips. Reste sur le sujet actif; ne pivote pas vers un autre vin ou une autre region sans demande explicite.]`)
+  }
+  parts.push(message)
+}
+
+function appendMemoryFocusPrompt(
+  parts: string[],
+  memoryFocus: string | undefined,
+  mode: 'exact_followup' | 'general_followup',
+) {
+  if (!memoryFocus) return
+
+  if (mode === 'exact_followup') {
+    parts.push(`[FOCUS MEMOIRE — La relance courte porte probablement sur : ${memoryFocus}. Si l'utilisateur demande "combien d'etoiles", "quelle note" ou "quel millesime", reste focalise sur ce vin precis.]`)
+    return
+  }
+
+  parts.push(`[FOCUS MEMOIRE — La relance courte porte probablement sur : ${memoryFocus}. Reste focalise sur ce vin precis.]`)
+}
+
+function shouldAppendRecentDrunk(
+  body: RequestBody,
+  interpretation: TurnInterpretation,
+  state: ConversationState,
+): boolean {
+  return Boolean(
+    body.context?.recentDrunk?.length
+    && interpretation.cognitiveMode === 'cellar_assistant'
+    && (
+      interpretation.inferredTaskType === 'recommendation'
+      || state.taskType === 'recommendation'
+      || interpretation.turnType === 'prefetch'
+    ),
+  )
+}
+
+function isCollectingCellarTaskContinue(interpretation: TurnInterpretation, state: ConversationState): boolean {
+  return interpretation.turnType === 'task_continue'
+    && interpretation.cognitiveMode === 'cellar_assistant'
+    && state.phase === 'collecting_info'
+    && (state.taskType === 'recommendation' || state.taskType === 'encavage')
+}
+
 export function buildUserPrompt(
   body: RequestBody,
   interpretation: TurnInterpretation,
@@ -38,12 +93,7 @@ export function buildUserPrompt(
   }
 
   else if (turnType === 'social_ack') {
-    if (state.phase === 'post_task_ack') {
-      parts.push(`[ACQUITTEMENT — L'utilisateur acquiesce apres ta derniere action. 1 phrase COURTE. Cloture chaleureuse + action_chips pour changer de sujet. Ne lance PAS un nouveau vin, domaine, region ou souvenir non demande.]`)
-    } else {
-      parts.push(`[CONVERSATION — Reponds BRIEVEMENT (1-2 phrases max) + action_chips. Reste sur le sujet actif; ne pivote pas vers un autre vin ou une autre region sans demande explicite.]`)
-    }
-    parts.push(body.message)
+    appendSocialAckPrompt(parts, state, body.message)
   }
 
   else if (turnType === 'task_cancel') {
@@ -56,9 +106,7 @@ export function buildUserPrompt(
   }
 
   else if (turnType === 'context_switch' && cognitiveMode === 'tasting_memory') {
-    if (memoryFocus) {
-      parts.push(`[FOCUS MEMOIRE — La relance courte porte probablement sur : ${memoryFocus}. Si l'utilisateur demande "combien d'etoiles", "quelle note" ou "quel millesime", reste focalise sur ce vin precis.]`)
-    }
+    appendMemoryFocusPrompt(parts, memoryFocus, 'exact_followup')
     parts.push(body.message)
   }
 
@@ -67,19 +115,7 @@ export function buildUserPrompt(
   }
 
   else if (
-    turnType === 'task_continue'
-    && cognitiveMode === 'cellar_assistant'
-    && state.phase === 'collecting_info'
-    && state.taskType === 'recommendation'
-  ) {
-    parts.push(body.message)
-  }
-
-  else if (
-    turnType === 'task_continue'
-    && cognitiveMode === 'cellar_assistant'
-    && state.phase === 'collecting_info'
-    && state.taskType === 'encavage'
+    isCollectingCellarTaskContinue(interpretation, state)
   ) {
     parts.push(body.message)
   }
@@ -87,31 +123,18 @@ export function buildUserPrompt(
   else if (turnType === 'unknown') {
     parts.push(`[CONVERSATION — Reponds naturellement. action_chips : questions pour approfondir le sujet, PAS de suggestions de reco cave.]`)
     parts.push(body.message)
-    if (body.image) {
-      parts.push("L'utilisateur a joint une photo. Analyse-la et reponds en fonction de ce que tu vois.")
-    }
+    appendImageDirective(parts, body)
   }
 
   else {
-    if (cognitiveMode === 'tasting_memory' && memoryFocus) {
-      parts.push(`[FOCUS MEMOIRE — La relance courte porte probablement sur : ${memoryFocus}. Reste focalise sur ce vin precis.]`)
+    if (cognitiveMode === 'tasting_memory') {
+      appendMemoryFocusPrompt(parts, memoryFocus, 'general_followup')
     }
     parts.push(body.message)
-    if (body.image) {
-      parts.push("L'utilisateur a joint une photo. Analyse-la et reponds en fonction de ce que tu vois.")
-    }
+    appendImageDirective(parts, body)
   }
 
-  const shouldAppendRecentDrunk =
-    body.context?.recentDrunk?.length
-    && cognitiveMode === 'cellar_assistant'
-    && (
-      interpretation.inferredTaskType === 'recommendation'
-      || state.taskType === 'recommendation'
-      || turnType === 'prefetch'
-    )
-
-  if (shouldAppendRecentDrunk) {
+  if (shouldAppendRecentDrunk(body, interpretation, state)) {
     parts.push(`\nVins bus recemment (a eviter) : ${body.context.recentDrunk.join(', ')}`)
   }
 
