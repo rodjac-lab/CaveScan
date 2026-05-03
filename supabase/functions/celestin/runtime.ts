@@ -57,8 +57,14 @@ export function shouldRequireToolUseForTurn(contextPlan: ContextPlan, body: Requ
     const normalized = normalizeForSourceGate(body.message)
     const isPersonalSubject = /\b(j ai|je|j y|moi|me|mes|on|nous|tu)\b/.test(normalized)
     const asksPastMemory = /\b(deja|ete|alle|allee|alles|souvenir|souviens|retrouve|retrouver|cherche|chercher|restaurant|resto|lieu|nom|note|degustation|bu|ouvert)\b/.test(normalized)
+    const asksEllipticMemoryDetail = /\b(restaurant|resto|lieu|nom|adresse|ville|ou|où|quand|avec qui)\b/.test(normalized)
+    const lastAssistant = [...body.history].reverse().find((turn) => turn.role === 'assistant')?.text
+    const assistantWasDiscussingPersonalMemory = lastAssistant
+      ? /\b(rome|restaurant|resto|barchetta|premnord|peppoli|pèppoli|degust|dégust|souvenir|tu y as|tu as bu|vous y etiez|vous y étiez)\b/i.test(lastAssistant)
+      : false
 
-    return isPersonalSubject && asksPastMemory
+    return (isPersonalSubject && asksPastMemory)
+      || (asksEllipticMemoryDetail && assistantWasDiscussingPersonalMemory)
   }
 
   return false

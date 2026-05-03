@@ -33,6 +33,14 @@ function body(message: string): RequestBody {
   }
 }
 
+function bodyAfterAssistant(message: string, assistantText: string): RequestBody {
+  return {
+    message,
+    history: [{ role: 'assistant', text: assistantText }],
+    cave: [],
+  }
+}
+
 describe('tool use gate', () => {
   it('requires one tool for personal past-memory questions on auto tools', async () => {
     const { shouldRequireToolUseForTurn } = await import('./runtime')
@@ -46,6 +54,15 @@ describe('tool use gate', () => {
 
     expect(shouldRequireToolUseForTurn(plan(), body('La biodynamie, c est serieux ?'))).toBe(false)
     expect(shouldRequireToolUseForTurn(plan(), body('Parle-moi du Gamay'))).toBe(false)
+  })
+
+  it('requires one tool for elliptic personal memory follow-ups', async () => {
+    const { shouldRequireToolUseForTurn } = await import('./runtime')
+
+    expect(shouldRequireToolUseForTurn(
+      plan(),
+      bodyAfterAssistant('Dans quel restaurant ?', 'Tu as dégusté le Pèppoli à Rome avec ta famille.'),
+    )).toBe(true)
   })
 
   it('preserves explicit forced tool plans', async () => {
