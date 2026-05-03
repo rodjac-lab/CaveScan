@@ -153,7 +153,9 @@ export function buildContextPlan(routingResult: TurnRoutingResult): ContextPlan 
     default:
       return withReasons({
         ...basePlan(),
+        profile: 'none',
         tools: 'auto',
-      }, ['fallback: keep injected context minimal, but allow tools when the model needs exact personal facts'])
+        truthPolicy: 'prudent_factual',
+      }, ['fallback: avoid profile-based guessing, but allow tools when the model needs exact personal facts'])
   }
 }

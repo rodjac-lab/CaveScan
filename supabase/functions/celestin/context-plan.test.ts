@@ -121,4 +121,16 @@ describe('buildContextPlan', () => {
       truthPolicy: 'memory_only',
     })
   })
+
+  it('keeps unknown turns profile-free while allowing tools', () => {
+    expectPlan('unknown', {
+      profile: 'none',
+      cave: 'none',
+      zones: 'none',
+      memories: 'none',
+      tools: 'auto',
+      history: 'compact',
+      truthPolicy: 'prudent_factual',
+    })
+  })
 })

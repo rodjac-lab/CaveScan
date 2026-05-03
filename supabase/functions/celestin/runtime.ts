@@ -35,10 +35,29 @@ function uiActionKind(response: CelestinResponse): string {
   return response.ui_action?.kind ?? 'none'
 }
 
-function forcedToolName(contextPlan: ContextPlan): CelestinToolName | undefined {
+function normalizeForSourceGate(message: string): string {
+  return message
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[’']/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export function forcedToolNameForTurn(contextPlan: ContextPlan, body: RequestBody): CelestinToolName | undefined {
   if (contextPlan.tools === 'force_cellar') return 'query_cellar'
   if (contextPlan.tools === 'force_memory') return 'query_memory'
   if (contextPlan.tools === 'force_tastings') return 'query_tastings'
+
+  if (contextPlan.tools === 'auto') {
+    const normalized = normalizeForSourceGate(body.message)
+    const isPersonalSubject = /\b(j ai|je|j y|moi|me|mes|on|nous|tu)\b/.test(normalized)
+    const asksPastMemory = /\b(deja|ete|alle|allee|alles|souvenir|souviens|retrouve|retrouver|cherche|chercher|restaurant|resto|lieu|nom|note|degustation|bu|ouvert)\b/.test(normalized)
+
+    if (isPersonalSubject && asksPastMemory) return 'query_tastings'
+  }
+
   return undefined
 }
 
@@ -271,7 +290,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       {
         auth,
         requestSource,
-        forcedToolName: forcedToolName(contextPlan),
+        forcedToolName: forcedToolNameForTurn(contextPlan, body),
         validateResponse: (candidate) => {
           const policyCandidate = applyResponsePolicy(candidate, interpretation)
           if (
