@@ -16,6 +16,7 @@ const TOOL_ROUTES = new Set([
 const TOOL_MODES = new Set([
   'cellar_assistant',
   'tasting_memory',
+  'wine_conversation',
 ])
 
 export function shouldEnableCelestinTools(input: {

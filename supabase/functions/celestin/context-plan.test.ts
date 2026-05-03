@@ -32,7 +32,7 @@ describe('buildContextPlan', () => {
       cave: 'none',
       zones: 'none',
       memories: 'none',
-      tools: 'none',
+      tools: 'auto',
       history: 'compact',
       truthPolicy: 'prudent_factual',
     })

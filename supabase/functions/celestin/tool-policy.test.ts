@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { shouldEnableCelestinTools } from './tool-policy'
 
 describe('shouldEnableCelestinTools', () => {
-  it('disables tools for wine conversation unknown follow-ups', () => {
+  it('enables tools for wine conversation unknown follow-ups', () => {
     expect(shouldEnableCelestinTools({
       authReady: true,
       hasImage: false,
@@ -11,7 +11,7 @@ describe('shouldEnableCelestinTools', () => {
         turnType: 'unknown',
         mode: 'wine_conversation',
       },
-    })).toBe(false)
+    })).toBe(true)
   })
 
   it('enables tools for cellar lookup routes', () => {

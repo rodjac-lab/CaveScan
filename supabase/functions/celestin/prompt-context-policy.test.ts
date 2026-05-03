@@ -23,6 +23,16 @@ describe('buildContextPlanInstructions', () => {
     }))).toBe('')
   })
 
+  it('allows auto tools for personal facts without forcing retrieval', () => {
+    const policy = buildContextPlanInstructions(plan({
+      tools: 'auto',
+      truthPolicy: 'prudent_factual',
+    }))
+
+    expect(policy).toContain('OUTILS AUTO')
+    expect(policy).toContain('question generale de culture vin')
+  })
+
   it('centralizes exact cellar policy from ContextPlan', () => {
     const policy = buildContextPlanInstructions(plan({
       cave: 'tool_only',

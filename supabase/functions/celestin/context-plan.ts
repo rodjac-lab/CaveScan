@@ -44,8 +44,9 @@ export function buildContextPlan(routingResult: TurnRoutingResult): ContextPlan 
       return withReasons({
         ...basePlan(),
         profile: 'none',
+        tools: 'auto',
         truthPolicy: 'prudent_factual',
-      }, ['wine culture question: avoid personal sources unless explicitly needed'])
+      }, ['wine culture question: avoid injecting personal sources, but allow tools when the user asks for personal facts'])
 
     case 'cellar_lookup':
       return withReasons({
@@ -150,6 +151,9 @@ export function buildContextPlan(routingResult: TurnRoutingResult): ContextPlan 
     case 'prefetch':
     case 'unknown':
     default:
-      return withReasons(basePlan(), ['fallback: minimal context until routing is explicit'])
+      return withReasons({
+        ...basePlan(),
+        tools: 'auto',
+      }, ['fallback: keep injected context minimal, but allow tools when the model needs exact personal facts'])
   }
 }

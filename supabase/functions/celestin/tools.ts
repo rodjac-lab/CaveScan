@@ -91,6 +91,54 @@ function includesText(value: unknown, needle: string | undefined): boolean {
   return normalize(value).includes(normalize(needle))
 }
 
+const FREE_QUERY_STOPWORDS = new Set([
+  'avec',
+  'dans',
+  'deja',
+  'des',
+  'est',
+  'ete',
+  'etre',
+  'j ai',
+  'les',
+  'mes',
+  'pour',
+  'que',
+  'quel',
+  'quelle',
+  'quelles',
+  'quels',
+  'suis',
+  'une',
+  'vin',
+  'vins',
+])
+
+function freeQueryTokens(query: string): string[] {
+  return normalize(query)
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3 && !FREE_QUERY_STOPWORDS.has(token))
+}
+
+function freeQueryScore(value: unknown, rawQuery: string | undefined): number {
+  if (!rawQuery) return 1
+
+  const haystack = normalize(value)
+  const normalizedQuery = normalize(rawQuery)
+  if (!haystack) return 0
+  if (normalizedQuery && haystack.includes(normalizedQuery)) return 100
+
+  const tokens = freeQueryTokens(rawQuery)
+  if (tokens.length === 0) return 0
+  return tokens.reduce((score, token) => score + (haystack.includes(token) ? 1 : 0), 0)
+}
+
+export function scoreCelestinToolFreeQueryForTest(value: unknown, rawQuery: string | undefined): number {
+  return freeQueryScore(value, rawQuery)
+}
+
 function identityText(row: Record<string, unknown>): string {
   return [
     row.domaine,
@@ -131,8 +179,19 @@ function matchesWineFilters(row: Record<string, unknown>, input: ToolInput): boo
   if (region && !includesText(identity, region)) return false
   if (color && normalize(row.couleur) !== normalize(color)) return false
   if (vintage && row.millesime !== vintage) return false
-  if (freeQuery && !includesText([identity, row.tasting_note, tagsText(row)].join(' '), freeQuery)) return false
+  if (freeQuery && freeQueryScore([identity, row.tasting_note, tagsText(row)].join(' '), freeQuery) <= 0) return false
   return true
+}
+
+function rankByFreeQuery<T extends Record<string, unknown>>(rows: T[], input: ToolInput): T[] {
+  const freeQuery = text(input.query)
+  if (!freeQuery) return rows
+
+  return [...rows].sort((a, b) => {
+    const bScore = freeQueryScore([identityText(b), b.tasting_note, tagsText(b)].join(' '), freeQuery)
+    const aScore = freeQueryScore([identityText(a), a.tasting_note, tagsText(a)].join(' '), freeQuery)
+    return bScore - aScore
+  })
 }
 
 export const CELESTIN_TOOLS = [
@@ -164,6 +223,7 @@ export const CELESTIN_TOOLS = [
     description: [
       'Recherche exacte dans les degustations passees de l utilisateur.',
       'Utilise cet outil pour retrouver une note, une bouteille bue, une date de degustation, une note chiffree, un souvenir lie a un vin ou un millesime deja bu.',
+      'Utilise aussi cet outil quand l utilisateur cherche un lieu, restaurant, ville, repas, contexte ou detail present dans ses notes de degustation.',
       'Utilise aussi cet outil pour toute question de nombre, liste ou verification sur les degustations passees : combien de degustations de Champagne, quels autres vins bus, ai-je deja deguste X, je n ai pas de degustation de X.',
     ].join(' '),
     input_schema: {
@@ -226,7 +286,10 @@ async function queryCellar(input: ToolInput, ctx: ToolContext): Promise<string> 
   const { data, error } = await query
   if (error) return JSON.stringify({ error: error.message })
 
-  const filtered = (data ?? []).filter((row: Record<string, unknown>) => matchesWineFilters(row, input))
+  const filtered = rankByFreeQuery(
+    (data ?? []).filter((row: Record<string, unknown>) => matchesWineFilters(row, input)),
+    input,
+  )
   const rows = filtered.slice(0, rowLimit).map((row: Record<string, unknown>) => compactBottle(row))
   const totalQuantity = filtered.reduce((sum, row) => {
     const qty = typeof row.quantity === 'number' ? row.quantity : 1
@@ -265,7 +328,10 @@ async function queryTastings(input: ToolInput, ctx: ToolContext): Promise<string
   const { data, error } = await query
   if (error) return JSON.stringify({ error: error.message })
 
-  const filtered = (data ?? []).filter((row: Record<string, unknown>) => matchesWineFilters(row, input))
+  const filtered = rankByFreeQuery(
+    (data ?? []).filter((row: Record<string, unknown>) => matchesWineFilters(row, input)),
+    input,
+  )
   const rows = filtered.slice(0, rowLimit).map((row: Record<string, unknown>) => compactBottle(row))
   return JSON.stringify(buildToolResult({
     source: 'tastings',
@@ -280,7 +346,6 @@ async function queryMemory(input: ToolInput, ctx: ToolContext): Promise<string> 
   const rowLimit = limit(input.limit)
   const rawQuery = text(input.query)
   if (!rawQuery) return JSON.stringify({ source: 'memory', rows: [] })
-  const likeQuery = rawQuery.replace(/[%_,()]/g, ' ').replace(/\s+/g, ' ').trim()
   const category = text(input.category)
 
   let query = ctx.supabase
@@ -288,19 +353,28 @@ async function queryMemory(input: ToolInput, ctx: ToolContext): Promise<string> 
     .select('category,fact,confidence,source_quote,is_temporary,expires_at,created_at')
     .eq('user_id', ctx.userId)
     .is('superseded_by', null)
-    .or(`fact.ilike.%${likeQuery}%,source_quote.ilike.%${likeQuery}%`)
     .order('created_at', { ascending: false })
-    .limit(rowLimit)
+    .limit(MAX_SCAN_ROWS)
 
   if (category) query = query.eq('category', category)
 
   const { data, error } = await query
   if (error) return JSON.stringify({ error: error.message })
 
+  const matches = (data ?? [])
+    .map((row: Record<string, unknown>) => ({
+      row,
+      score: freeQueryScore([row.fact, row.source_quote].join(' '), rawQuery),
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score)
+  const rows = matches.slice(0, rowLimit)
+
   return JSON.stringify({
     source: 'memory',
     query: rawQuery,
-    rows: (data ?? []).map((row: Record<string, unknown>) => ({
+    totalRows: matches.length,
+    rows: rows.map(({ row }) => ({
       category: row.category,
       fact: row.fact,
       confidence: row.confidence,

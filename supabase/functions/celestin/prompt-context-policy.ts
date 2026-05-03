@@ -30,6 +30,8 @@ export function buildContextPlanInstructions(
     parts.push('[DEGUSTATIONS OUTIL — Pour une question de nombre, liste, verification "ai-je / je n ai pas", note, millesime ou domaine deja bu, utilise query_tastings ou les degustations resolues.]')
   } else if (contextPlan.tools === 'force_memory') {
     parts.push('[MEMOIRE OUTIL — Pour un fait personnel precis, utilise query_memory ou les faits memoire resolus.]')
+  } else if (contextPlan.tools === 'auto') {
+    parts.push('[OUTILS AUTO — Pour une question personnelle sur la cave, une degustation passee, un restaurant, un lieu, une note ou un souvenir precis, utilise l outil adapte. Pour une question generale de culture vin, reponds sans outil.]')
   }
 
   if (contextPlan.memories === 'targeted') {
