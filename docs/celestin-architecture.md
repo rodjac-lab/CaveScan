@@ -43,7 +43,7 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
 ```
 +================================================================+
 |                      FRONTEND (React)                           |
-|                 CeSoirModule.tsx + libraries                    |
+|      CeSoirModule.tsx + celestinConversation/celestinChatRequest |
 +================================================================+
 
   User tape un message (+ photo optionnelle)
@@ -51,25 +51,23 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
        v
   prepareCelestinRequest()
        |
-       +-- Promise.all parallele :
-       |     +-- buildMemoryEvidenceBundle()    --> tasting memories ciblees
-       |     +-- getCompiledUserProfileCached() --> profil compile (cache module-level)
+       +-- chemin backend_managed :
+       |     +-- pas de cave/profil/memoire legacy charges cote frontend
+       +-- chemin legacy :
+       |     +-- buildMemoryEvidenceBundle() + getCompiledUserProfileCached()
        |
        v
   buildCelestinRequestBody()
        |
-       +-- rankCaveBottles()              --> cave triee par pertinence
-       +-- serializeProfileForPrompt()    --> profil de gout texte
-       +-- getDayOfWeek(), getSeason()    --> contexte temporel
-       +-- zones, recentDrunk             --> metadonnees
-       +-- persistedConversationState     --> etat dialogue courant
+       +-- backend_managed par defaut     --> message, history, state, image?
+       +-- legacy seulement si necessaire --> tasting/anciens flows non migres
        |
        v
   RequestBody = {
-    message, history[], cave[], profile,
-    memories, context, zones, image?,
+    message, history[], image?,
     conversationState?,
-    memoryEvidenceMode?, compiledProfileMarkdown?
+    contextStrategy: "backend_managed",
+    requestSource?, sessionId?, debugTrace?
   }
        |
        v  HTTP POST --> supabase.functions.invoke('celestin')
@@ -170,6 +168,7 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
                        v
   Response = {
     message: "Bonne idee le Morgon !",
+    recommendation_selection?: [...],
     ui_action?: { kind, payload },
     action_chips?: ["Et en blanc ?", "Autre plat"],
     _nextState: { phase, taskType, ... }  <-- pour le frontend
@@ -178,7 +177,7 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
        v  HTTP 200 + JSON
 
 +================================================================+
-|         RESPONSE ROUTING (CeSoirModule.tsx)                     |
+|       RESPONSE ROUTING (CeSoirModule.tsx + chat helpers)         |
 +================================================================+
        |
        +-- _nextState
@@ -355,7 +354,7 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 
 | Fichier | Role |
 |---------|------|
-| `components/discover/CeSoirModule.tsx` | Chat UI + `buildRequestBody()` + `callCelestin()` + state persistence |
+| `components/discover/CeSoirModule.tsx` | Orchestrateur UI Celestin + state persistence |
 | `hooks/useRecommendations.ts` | Prefetch suggestions au lancement (`__prefetch__`) |
 | `lib/recommendationRanking.ts` | Score de pertinence par bouteille (`rankCaveBottles()`) |
 | `lib/tastingMemories.ts` | Orchestrateur memoire degustation |
@@ -370,14 +369,15 @@ Chaque cognitive mode determine **quelles donnees** sont envoyees au LLM et **qu
 | `lib/crossSessionMemory.ts` | Fallback local/debug, hors runtime prompt principal |
 | `lib/chatPersistence.ts` | Persistence conversations Supabase + extraction de facts bruts |
 | `lib/recommendationStore.ts` | Cache prefetch (module-level) |
-| `lib/celestinConversation.ts` | `buildCelestinRequestBody()` — assemble le payload (cave resumee, profil, memories, state, compiled profile) |
-| `lib/celestinChatRequest.ts` | `prepareCelestinRequest()` — orchestre l'appel : `Promise.all(memoryEvidence, profil)` puis appel unique `celestin`; le classifier n'est plus dans le chemin principal |
+| `lib/celestinConversation.ts` | `buildCelestinRequestBody()` — assemble le payload minimal backend-managed par defaut, avec branche legacy isolee pour les flows non migres |
+| `lib/celestinChatRequest.ts` | `prepareCelestinRequest()` — orchestre l'appel frontend et ne charge les souvenirs/profil legacy que quand le backend-managed est desactive |
 | `lib/userProfiles.ts` | Profil compilé utilisateur + `getCompiledUserProfileCached()` (cache module-level) |
 | `lib/enrichWine.ts` | Enrichissement async post-save (fire-and-forget) : arômes, accords, température, pays/région, maturité |
 
 Note de mise a jour sur le frontend :
 - `lib/tastingMemories.ts` est devenu un orchestrateur mince
-- `buildCelestinRequestBody()` envoie surtout `compiledProfileMarkdown`, `memories` et `memoryEvidenceMode`
+- `buildCelestinRequestBody()` envoie surtout `message`, `history`, `conversationState`, `image` et `contextStrategy: backend_managed`
+- la cave pre-rankee, le profil legacy, les souvenirs frontend, les zones et le contexte jour/saison ne partent plus sur le chemin backend-managed
 
 ## Providers LLM
 

@@ -289,7 +289,7 @@ souvenir, de note ou de degustation passee.
 
 ## Etat au 2026-05-03 - RequestBody frontend reduit
 
-Le frontend utilise deja `backend_managed` pour les tours texte hors photo. Une
+Le frontend utilise deja `backend_managed` pour les tours texte et photo. Une
 nouvelle reduction est active :
 
 - les suites texte d'encavage passent aussi en contexte backend-managed ;
@@ -297,8 +297,6 @@ nouvelle reduction est active :
   profil compile, zones ou contexte jour/saison ;
 - le backend resout les zones et le count cave via `ContextPlan` /
   `SourceResolver` ;
-- les tours photo restent legacy pour l'instant, afin de ne pas melanger cette
-  passe avec les flows OCR/image ;
 - les suites de tasting restent legacy pour l'instant, a traiter quand le contrat
   degustation sera separe aussi proprement que recommandation/encavage.
 
@@ -310,16 +308,18 @@ Le frontend collecte l'interaction. Le backend decide ce que Celestin doit voir.
 
 ### Aujourd'hui
 
-Le frontend envoie deja :
+Le chemin standard frontend envoie deja :
 
-- cave resumee ;
-- profil ;
-- profil compile ;
-- souvenirs ;
-- historique ;
-- zones ;
-- contexte jour/saison ;
-- traces.
+- message ;
+- image si presente ;
+- historique compact ;
+- conversation state ;
+- `contextStrategy: backend_managed` ;
+- session id / request source / debug flags.
+
+Les champs legacy (`cave`, `profile`, `compiledProfileMarkdown`, `memories`,
+`zones`, contexte jour/saison) restent reserves aux flows non migres, notamment
+les suites de tasting.
 
 Le backend route ensuite, puis filtre partiellement selon le mode.
 

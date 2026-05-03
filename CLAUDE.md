@@ -11,7 +11,7 @@
 
 ## Architecture Celestin (résumé)
 
-Message utilisateur → `buildCelestinRequestBody()` (cave résumée + profil + tasting memories + conversation state + profil compilé) → Edge function `celestin/` → **Turn Interpreter** (routing déterministe state-aware, pas de LLM) → **Prompt Builder** (system prompt adapté au cognitive mode) → **Claude Haiku 4.5** (primaire qualité, prompt caching, outils internes `query_cellar` / `query_tastings` / `query_memory` si besoin) → **Response Policy** (garde-fous déterministes post-LLM) → **computeNextState()** (state machine 6 états) → JSON response avec message + ui_action + action_chips + _nextState.
+Message utilisateur → `buildCelestinRequestBody()` (message, historique compact, state, image éventuelle, `contextStrategy: backend_managed` par défaut hors flows legacy) → Edge function `celestin/` → **Turn Interpreter** (routing déterministe state-aware, pas de LLM) → **SourceMode + ContextPackage** (sources backend + tools autorisés/forcés) → **PromptAssembler** (system prompt + politique du tour + contexte résolu) → **Claude Haiku 4.5** (primaire qualité, prompt caching, outils internes `query_cellar` / `query_tastings` / `query_memory` / `search_cellar_candidates` si besoin) → **Response Policy** (garde-fous déterministes post-LLM) → **computeNextState()** (state machine 6 états) → JSON response avec message + recommendation_selection matérialisée en cartes backend + ui_action legacy/action_chips + _nextState.
 
 ## Structure Supabase
 
