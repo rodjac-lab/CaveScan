@@ -59,7 +59,9 @@ export interface LegacyRequestContextFields {
 
 export type RequestBody = MinimalRequestBody & LegacyRequestContextFields
 
-export type UiActionKind = 'show_recommendations' | 'prepare_add_wine' | 'prepare_add_wines' | 'prepare_log_tasting'
+export type BackendMaterializedUiActionKind = 'show_recommendations'
+export type OperationalUiActionKind = 'prepare_add_wine' | 'prepare_add_wines' | 'prepare_log_tasting'
+export type UiActionKind = BackendMaterializedUiActionKind | OperationalUiActionKind
 
 export interface WineExtraction {
   domaine: string | null

@@ -22,28 +22,11 @@ export const GEMINI_RESPONSE_SCHEMA = {
       properties: {
         kind: {
           type: 'STRING',
-          enum: ['show_recommendations', 'prepare_add_wine', 'prepare_add_wines', 'prepare_log_tasting'],
+          enum: ['prepare_add_wine', 'prepare_add_wines', 'prepare_log_tasting'],
         },
         payload: {
           type: 'OBJECT',
           properties: {
-            cards: {
-              type: 'ARRAY',
-              nullable: true,
-              items: {
-                type: 'OBJECT',
-                properties: {
-                  bottle_id: { type: 'STRING', nullable: true },
-                  name: { type: 'STRING' },
-                  appellation: { type: 'STRING' },
-                  millesime: { type: 'INTEGER', nullable: true },
-                  badge: { type: 'STRING' },
-                  reason: { type: 'STRING' },
-                  color: { type: 'STRING' },
-                },
-                required: ['name', 'appellation', 'badge', 'reason', 'color'],
-              },
-            },
             extraction: {
               type: 'OBJECT',
               nullable: true,
@@ -138,28 +121,11 @@ export const OPENAI_RESPONSE_SCHEMA = {
         properties: {
           kind: {
             type: 'string',
-            enum: ['show_recommendations', 'prepare_add_wine', 'prepare_add_wines', 'prepare_log_tasting'],
+            enum: ['prepare_add_wine', 'prepare_add_wines', 'prepare_log_tasting'],
           },
           payload: {
             type: 'object',
             properties: {
-              cards: {
-                type: ['array', 'null'],
-                items: {
-                  type: 'object',
-                  properties: {
-                    bottle_id: { type: ['string', 'null'] },
-                    name: { type: 'string' },
-                    appellation: { type: 'string' },
-                    millesime: { type: ['integer', 'null'] },
-                    badge: { type: 'string' },
-                    reason: { type: 'string' },
-                    color: { type: 'string' },
-                  },
-                  required: ['name', 'appellation', 'badge', 'reason', 'color', 'bottle_id', 'millesime'],
-                  additionalProperties: false,
-                },
-              },
               extraction: {
                 type: ['object', 'null'],
                 properties: {
@@ -194,7 +160,7 @@ export const OPENAI_RESPONSE_SCHEMA = {
                 },
               },
             },
-            required: ['cards', 'extraction', 'extractions'],
+            required: ['extraction', 'extractions'],
             additionalProperties: false,
           },
         },

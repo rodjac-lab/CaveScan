@@ -197,6 +197,25 @@ reponse conversationnelle, selection de vins, et action operationnelle
 encavage/degustation. Ne pas ajouter de nouvelle dimension produit avant ce
 nettoyage.
 
+## Etat au 2026-05-03 - Response Contract commence
+
+La separation du contrat reponse a commence cote schemas provider :
+
+- les providers structures Gemini/OpenAI ne voient plus
+  `ui_action.show_recommendations` comme action possible ;
+- ils peuvent encore produire :
+  - une reponse conversationnelle (`message`) ;
+  - une selection de vins (`recommendation_selection`) ;
+  - une action operationnelle (`prepare_add_wine`, `prepare_add_wines`,
+    `prepare_log_tasting`) ;
+- `show_recommendations` reste accepte par le parser pour compatibilite Claude /
+  anciennes sorties, mais la voie cible est backend-only ;
+- le type distingue maintenant les actions materialisees backend et les actions
+  operationnelles.
+
+Prochaine passe : faire descendre cette separation dans les types/runtime jusqu'a
+ce que le modele ne soit plus conceptuellement responsable de l'UI.
+
 ## Principe directeur
 
 Le frontend ne doit pas decider le contexte LLM.
