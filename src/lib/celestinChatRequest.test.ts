@@ -51,7 +51,7 @@ describe('celestinChatRequest routing guards', () => {
     expect(shouldUseBackendManagedContext({
       message: 'Oui, encave-le',
       conversationState: { taskType: 'encavage' },
-    })).toBe(false)
+    })).toBe(true)
     expect(shouldUseBackendManagedContext({
       message: 'Ajoute ma note',
       conversationState: { taskType: 'tasting' },

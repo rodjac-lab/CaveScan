@@ -253,6 +253,21 @@ Motif : les routes exactes doivent rester exactes. Le profil utilisateur peut
 influencer une recommandation, mais il ne doit pas contaminer une question de
 souvenir, de note ou de degustation passee.
 
+## Etat au 2026-05-03 - RequestBody frontend reduit
+
+Le frontend utilise deja `backend_managed` pour les tours texte hors photo. Une
+nouvelle reduction est active :
+
+- les suites texte d'encavage passent aussi en contexte backend-managed ;
+- elles n'envoient plus cave pre-rankee, profil legacy, souvenirs frontend,
+  profil compile, zones ou contexte jour/saison ;
+- le backend resout les zones et le count cave via `ContextPlan` /
+  `SourceResolver` ;
+- les tours photo restent legacy pour l'instant, afin de ne pas melanger cette
+  passe avec les flows OCR/image ;
+- les suites de tasting restent legacy pour l'instant, a traiter quand le contrat
+  degustation sera separe aussi proprement que recommandation/encavage.
+
 ## Principe directeur
 
 Le frontend ne doit pas decider le contexte LLM.
