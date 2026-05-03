@@ -136,4 +136,17 @@ describe('buildContextPlan', () => {
       truthPolicy: 'prudent_factual',
     })
   })
+
+  it('pre-empts cellar candidates for the prefetch welcome turn', () => {
+    expectPlan('prefetch', {
+      profile: 'recommendation',
+      cave: 'count',
+      zones: 'names',
+      memories: 'none',
+      tools: 'none',
+      cellarCandidates: 'preempted',
+      history: 'compact',
+      truthPolicy: 'standard',
+    })
+  })
 })

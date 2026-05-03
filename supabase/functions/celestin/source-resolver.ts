@@ -933,9 +933,13 @@ async function resolveCellarCandidatesFromBackend(
   const message = typeof body.message === 'string' ? body.message.trim() : ''
   if (!message) return cave
 
-  const toolInput: ToolInput = { query: message }
-  const color = detectColorHint(message)
-  if (color) toolInput.color = color
+  const isSentinelMessage = message === '__prefetch__' || message === '__greeting__'
+  const toolInput: ToolInput = {}
+  if (!isSentinelMessage) {
+    toolInput.query = message
+    const color = detectColorHint(message)
+    if (color) toolInput.color = color
+  }
 
   let payload: Record<string, unknown>
   try {

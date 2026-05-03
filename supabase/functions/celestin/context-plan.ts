@@ -153,6 +153,16 @@ export function buildContextPlan(routingResult: TurnRoutingResult): ContextPlan 
       }, ['social turn: keep context light'])
 
     case 'prefetch':
+      return withReasons({
+        ...basePlan(),
+        profile: 'recommendation',
+        cave: 'count',
+        zones: 'names',
+        tools: 'none',
+        cellarCandidates: 'preempted',
+        history: 'compact',
+      }, ['prefetch: pre-empt cellar candidates so the welcome turn stays single-shot'])
+
     case 'unknown':
     default:
       return withReasons({
