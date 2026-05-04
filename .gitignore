@@ -51,6 +51,7 @@ docs/Redesign de Fevrier 2026/Celestin interaction/
 
 # Generated files
 evals/results/
+evals/fixtures/archive/
 test-results/
 playwright-report/
 benchmark-results.html
