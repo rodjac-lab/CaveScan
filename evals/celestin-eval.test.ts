@@ -29,12 +29,15 @@ import {
   callCelestin,
   loadJson,
   loadSupabaseEnv,
+  loadTestUserCreds,
+  loadTestUserJwt,
   resolveFixturePath,
 } from './lib/runner.mjs'
 
 import type { EvalConversation, EvalScenario } from './lib/runner.mjs'
 
 const RUN_LLM_EVAL = process.env.RUN_LLM_EVAL === '1' || process.env.RUN_LLM_EVAL === 'true'
+const EVAL_AUTH    = process.env.EVAL_AUTH    === '1' || process.env.EVAL_AUTH    === 'true'
 
 const TURN_TIMEOUT_MS = 60_000 // single Gemini call
 
@@ -52,21 +55,37 @@ interface EvalContext {
   supabaseUrl: string
   supabaseAnonKey: string
   fixture: Record<string, unknown>
+  userJwt?: string
 }
 
-function bootstrapEvalContext(): EvalContext {
+async function bootstrapEvalContext(): Promise<EvalContext> {
   const env = loadSupabaseEnv()
   const fixturePath = resolveFixturePath(null)
   const fixture = loadJson<Record<string, unknown>>(fixturePath)
   if (!fixture) throw new Error(`Could not load fixture at ${fixturePath}`)
-  return { supabaseUrl: env.supabaseUrl, supabaseAnonKey: env.supabaseAnonKey, fixture }
+
+  let userJwt: string | undefined
+  if (EVAL_AUTH) {
+    const creds = loadTestUserCreds()
+    if (!creds) {
+      throw new Error(
+        'EVAL_AUTH=1 requires TEST_USER_EMAIL and TEST_USER_PASSWORD in .env.local. ' +
+        'These authenticate the eval against the seeded test account so the edge function ' +
+        'exercises the prod prefetch path instead of the anon body-context fallback.',
+      )
+    }
+    const session = await loadTestUserJwt(env.supabaseUrl, env.supabaseAnonKey, creds)
+    userJwt = session.jwt
+  }
+
+  return { supabaseUrl: env.supabaseUrl, supabaseAnonKey: env.supabaseAnonKey, fixture, userJwt }
 }
 
 describe.skipIf(!RUN_LLM_EVAL)('Celestin LLM eval', () => {
   let ctx: EvalContext
 
-  beforeAll(() => {
-    ctx = bootstrapEvalContext()
+  beforeAll(async () => {
+    ctx = await bootstrapEvalContext()
   })
 
   describe('single-turn scenarios', () => {
@@ -74,8 +93,8 @@ describe.skipIf(!RUN_LLM_EVAL)('Celestin LLM eval', () => {
       it(
         scenario.id,
         async () => {
-          const body = buildSingleTurnBody(ctx.fixture, scenario, null)
-          const { data } = await callCelestin(body, ctx.supabaseUrl, ctx.supabaseAnonKey)
+          const body = buildSingleTurnBody(ctx.fixture, scenario, null, { omitContext: EVAL_AUTH })
+          const { data } = await callCelestin(body, ctx.supabaseUrl, ctx.supabaseAnonKey, { userJwt: ctx.userJwt })
           const analysis = analyzeScenarioResult(scenario, data)
 
           const failures: string[] = []
@@ -113,9 +132,9 @@ describe.skipIf(!RUN_LLM_EVAL)('Celestin LLM eval', () => {
 
           for (let i = 0; i < conversation.turns.length; i++) {
             const turn = conversation.turns[i]
-            const body = buildRequestBody(ctx.fixture, turn.message, history, conversationState, null)
+            const body = buildRequestBody(ctx.fixture, turn.message, history, conversationState, null, { omitContext: EVAL_AUTH })
 
-            const { data } = await callCelestin(body, ctx.supabaseUrl, ctx.supabaseAnonKey)
+            const { data } = await callCelestin(body, ctx.supabaseUrl, ctx.supabaseAnonKey, { userJwt: ctx.userJwt })
             const analysis = analyzeTurnResult(turn, data)
 
             if (!analysis.allPassed) {

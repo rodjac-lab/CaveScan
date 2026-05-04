@@ -64,27 +64,36 @@ export function ensureDir(dir) {
 /**
  * Build the request body for a celestin call inside a multi-turn conversation.
  * Carries conversationState forward.
+ *
+ * In authenticated eval mode (options.omitContext), cave/profile/memories/
+ * compiledProfileMarkdown are dropped from the body so the edge function
+ * loads them from the database under the JWT's user_id — that exercises the
+ * prod prefetch path.
  */
-export function buildRequestBody(fixture, message, history, conversationState, provider) {
+export function buildRequestBody(fixture, message, history, conversationState, provider, options = {}) {
+  const omitContext = options.omitContext === true
   return {
     message,
     history,
-    cave: fixture.cave ?? [],
-    profile: fixture.profile,
-    memories: fixture.memories,
+    ...(omitContext ? {} : {
+      cave: fixture.cave ?? [],
+      profile: fixture.profile,
+      memories: fixture.memories,
+      ...(fixture.compiledProfileMarkdown ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown } : {}),
+    }),
     context: fixture.context,
     debugTrace: true,
     requestSource: 'cli_eval',
     ...(conversationState ? { conversationState } : {}),
     ...(provider ? { provider } : {}),
-    ...(fixture.compiledProfileMarkdown ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown } : {}),
   }
 }
 
 /**
  * Single-turn scenario body — uses fixture.history as-is (preserves legacy format).
  */
-export function buildSingleTurnBody(fixture, scenario, provider) {
+export function buildSingleTurnBody(fixture, scenario, provider, options = {}) {
+  const omitContext = options.omitContext === true
   const history = (scenario.history ?? fixture.history ?? []).map((turn) => ({
     role: turn.role,
     text: turn.content,
@@ -93,28 +102,36 @@ export function buildSingleTurnBody(fixture, scenario, provider) {
   return {
     message: scenario.message,
     history,
-    cave: fixture.cave ?? [],
-    profile: fixture.profile,
-    memories: fixture.memories,
+    ...(omitContext ? {} : {
+      cave: fixture.cave ?? [],
+      profile: fixture.profile,
+      memories: fixture.memories,
+      ...(fixture.compiledProfileMarkdown ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown } : {}),
+    }),
     context: fixture.context,
     debugTrace: true,
     requestSource: 'cli_eval',
     ...(provider ? { provider } : {}),
-    ...(fixture.compiledProfileMarkdown ? { compiledProfileMarkdown: fixture.compiledProfileMarkdown } : {}),
   }
 }
 
 /**
  * POST to the deployed celestin edge function. Throws on HTTP error.
+ *
+ * options.userJwt — when set, sent as Authorization Bearer (apikey header
+ * stays the anon key, which Supabase Edge requires as the project key).
+ * The edge function then resolves auth.uid() from the JWT and reads the
+ * user's cave/profile/memory from the database.
  */
-export async function callCelestin(body, baseUrl, anonKey) {
+export async function callCelestin(body, baseUrl, anonKey, options = {}) {
   const start = Date.now()
   const functionName = process.env.CELESTIN_FUNCTION_NAME?.trim() || 'celestin'
+  const bearer = options.userJwt || anonKey
   const res = await fetch(`${baseUrl}/functions/v1/${functionName}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${anonKey}`,
+      Authorization: `Bearer ${bearer}`,
       apikey: anonKey,
     },
     body: JSON.stringify(body),
@@ -146,6 +163,38 @@ export function loadSupabaseEnv() {
   }
 
   return { supabaseUrl, supabaseAnonKey }
+}
+
+/**
+ * Read TEST_USER_EMAIL / TEST_USER_PASSWORD from .env.local + process.env.
+ * Returns null when either is missing (so callers can fall back to anon mode).
+ */
+export function loadTestUserCreds() {
+  const env = { ...readEnvFile(path.join(ROOT, '.env.local')), ...process.env }
+  const email = env.TEST_USER_EMAIL?.trim()
+  const password = env.TEST_USER_PASSWORD?.trim()
+  if (!email || !password) return null
+  return { email, password }
+}
+
+/**
+ * Sign in to the test account via Supabase auth and return its JWT.
+ * Used by the authenticated eval path so the edge function reads cave/
+ * profile/memory from the DB under the test user's RLS scope.
+ */
+export async function loadTestUserJwt(supabaseUrl, supabaseAnonKey, creds) {
+  const { createClient } = await import('@supabase/supabase-js')
+  const client = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const { data, error } = await client.auth.signInWithPassword({
+    email: creds.email,
+    password: creds.password,
+  })
+  if (error || !data.session?.access_token || !data.user?.id) {
+    throw new Error(`Failed to sign in test user (${creds.email}): ${error?.message ?? 'no session returned'}`)
+  }
+  return { jwt: data.session.access_token, userId: data.user.id }
 }
 
 /**

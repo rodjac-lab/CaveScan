@@ -94,17 +94,26 @@ declare module './runner.mjs' {
     history: Array<{ role: string; text: string }>,
     conversationState: unknown,
     provider: string | null,
+    options?: { omitContext?: boolean },
   ): Record<string, unknown>
   export function buildSingleTurnBody(
     fixture: Record<string, unknown>,
     scenario: EvalScenario,
     provider: string | null,
+    options?: { omitContext?: boolean },
   ): Record<string, unknown>
   export function callCelestin(
     body: Record<string, unknown>,
     baseUrl: string,
     anonKey: string,
+    options?: { userJwt?: string },
   ): Promise<{ data: CelestinResponse; elapsedMs: number }>
   export function loadSupabaseEnv(): { supabaseUrl: string; supabaseAnonKey: string }
+  export function loadTestUserCreds(): { email: string; password: string } | null
+  export function loadTestUserJwt(
+    supabaseUrl: string,
+    supabaseAnonKey: string,
+    creds: { email: string; password: string },
+  ): Promise<{ jwt: string; userId: string }>
   export function resolveFixturePath(explicitPath: string | null, allowTemplate?: boolean): string
 }
