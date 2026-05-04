@@ -166,13 +166,23 @@ export function loadSupabaseEnv() {
 }
 
 /**
- * Read TEST_USER_EMAIL / TEST_USER_PASSWORD from .env.local + process.env.
- * Returns null when either is missing (so callers can fall back to anon mode).
+ * Read test-user credentials from .env.local + .env.playwright.local + process.env.
+ *
+ * Priority: TEST_USER_EMAIL/PASSWORD if set, else fall back to
+ * PLAYWRIGHT_TEST_EMAIL/PASSWORD (same test account is used by both the
+ * Playwright e2e suite and the authenticated LLM eval — sharing creds avoids
+ * duplication and divergence).
+ *
+ * Returns null when neither pair is fully defined (callers fall back to anon).
  */
 export function loadTestUserCreds() {
-  const env = { ...readEnvFile(path.join(ROOT, '.env.local')), ...process.env }
-  const email = env.TEST_USER_EMAIL?.trim()
-  const password = env.TEST_USER_PASSWORD?.trim()
+  const env = {
+    ...readEnvFile(path.join(ROOT, '.env.local')),
+    ...readEnvFile(path.join(ROOT, '.env.playwright.local')),
+    ...process.env,
+  }
+  const email = env.TEST_USER_EMAIL?.trim() || env.PLAYWRIGHT_TEST_EMAIL?.trim()
+  const password = env.TEST_USER_PASSWORD?.trim() || env.PLAYWRIGHT_TEST_PASSWORD?.trim()
   if (!email || !password) return null
   return { email, password }
 }
