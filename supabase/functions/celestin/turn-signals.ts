@@ -44,7 +44,11 @@ const CANCEL = [
 ]
 
 const RECOMMENDATION = [
-  /\b(que? boire|recommande|propose|choisis|choisir|trouve[- ]moi|ce soir|pour accompagner|ouvre[- ]moi|quel vin|avec (ce|le|du|des|mon|ma|mes|un|une)|accord|accords mets)\b/i,
+  // Note: "accord" alone used to false-positive on the conversational filler
+  // "d'accord" (the \b boundary lands between the apostrophe and the 'a').
+  // Restricted to "accord(s) mets" / "accord(s) vin" so only the gastronomic
+  // sense matches; "quel accord pour mon plat" stays caught by pattern 4.
+  /\b(que? boire|recommande|propose|choisis|choisir|trouve[- ]moi|ce soir|pour accompagner|ouvre[- ]moi|quel vin|avec (ce|le|du|des|mon|ma|mes|un|une)|accords?\s+(mets?|vin))\b/i,
   /\b(pour aller avec|pour manger|pour diner|pour le repas)\b/i,
   /\b(vins?|bouteilles?)\b.{0,50}\bpour (un|une|du|de la|de l'|des|mon|ma|mes)\b/i,
   /\bpour (un|une|du|de la|de l'|des|mon|ma|mes) (plat|repas|diner|dejeuner|pizza|poulet|boeuf|agneau|poisson|fromage|dessert|pates?|risotto|couscous|tajine)\b/i,
