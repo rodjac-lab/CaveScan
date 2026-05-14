@@ -6,7 +6,9 @@ import {
   parseCellarOriginLookup,
   parseFilteredCellarBottleCount,
   parseTastingCountQuery,
+  parseTastingExtremeQuery,
   parseTastingRatingQuery,
+  parseTastingRelationshipSpanQuery,
   parseVolumeCellarBottleCount,
   type CellarBottleCountFilter,
   type CellarOriginPolarity,
@@ -14,6 +16,8 @@ import {
 } from '../../../shared/celestin/exact-query.ts'
 import { requestedColor, searchCellarCandidates, type ToolInput } from './tools.ts'
 import type { CaveBottle, RequestBody } from './types.ts'
+
+const MAX_TASTING_PAGE_ROWS = 500
 
 export type SourceRequirementKind =
   | 'profile'
@@ -66,10 +70,12 @@ export interface ResolvedCaveSource {
 }
 
 export interface ResolvedTastingsSource {
-  kind: 'count' | 'rating'
+  kind: 'count' | 'rating' | 'extreme' | 'span'
   totalRows: number
   query?: string
   queryLabel?: string
+  firstDrunkAt?: string | null
+  lastDrunkAt?: string | null
   rows?: Array<{
     domaine: string | null
     cuvee: string | null
@@ -412,7 +418,12 @@ async function resolveMemoriesFromBackend(
   if (local || contextPlan.memories === 'none' || !auth?.userId || !auth.supabase) return local
   if (
     contextPlan.tools === 'force_tastings'
-    && (parseTastingCountQuery(body.message) || parseTastingRatingQuery(body.message))
+    && (
+      parseTastingCountQuery(body.message)
+      || parseTastingRatingQuery(body.message)
+      || parseTastingExtremeQuery(body.message)
+      || parseTastingRelationshipSpanQuery(body.message)
+    )
   ) return undefined
 
   const tokens = memoryTokens(body.message)
@@ -850,6 +861,46 @@ function matchesTastingQuery(row: Record<string, unknown>, query: string | undef
   return normalizeExactQueryText(tastingIdentityText(row)).includes(normalizeExactQueryText(query))
 }
 
+function tastingExtremeOrder(extreme: 'oldest' | 'newest' | 'best' | 'worst') {
+  if (extreme === 'best') return { column: 'rating', ascending: false }
+  if (extreme === 'worst') return { column: 'rating', ascending: true }
+  return { column: 'drunk_at', ascending: extreme === 'oldest' }
+}
+
+async function fetchPagedTastingRows(
+  auth: NonNullable<SourceResolverAuth>,
+  order?: { column: string; ascending: boolean },
+): Promise<{ data: Array<Record<string, unknown>>; error: { message: string } | null }> {
+  const allRows: Array<Record<string, unknown>> = []
+  let offset = 0
+
+  while (true) {
+    let query = auth.supabase
+      .from('bottles')
+      .select('domaine,cuvee,appellation,millesime,couleur,country,region,rating,drunk_at,tasting_note')
+      .eq('user_id', auth.userId)
+      .eq('status', 'drunk')
+
+    if (order && typeof query.not === 'function' && typeof query.order === 'function') {
+      query = query
+        .not(order.column, 'is', null)
+        .order(order.column, { ascending: order.ascending, nullsFirst: false })
+    }
+
+    const canPage = typeof query.range === 'function'
+    const request = canPage
+      ? query.range(offset, offset + MAX_TASTING_PAGE_ROWS - 1)
+      : query
+    const { data, error } = await request
+    if (error) return { data: [], error }
+
+    const rows = (data ?? []) as Array<Record<string, unknown>>
+    allRows.push(...rows)
+    if (!canPage || rows.length < MAX_TASTING_PAGE_ROWS) return { data: allRows, error: null }
+    offset += MAX_TASTING_PAGE_ROWS
+  }
+}
+
 async function resolveTastingsFromBackend(
   body: RequestBody,
   contextPlan: ContextPlan,
@@ -859,21 +910,26 @@ async function resolveTastingsFromBackend(
 
   const countQuery = parseTastingCountQuery(body.message)
   const ratingQuery = parseTastingRatingQuery(body.message)
-  if (!countQuery && !ratingQuery) return undefined
+  const extremeQuery = parseTastingExtremeQuery(body.message)
+  const spanQuery = parseTastingRelationshipSpanQuery(body.message)
+  if (!countQuery && !ratingQuery && !extremeQuery && !spanQuery) return undefined
 
-  const { data, error } = await auth.supabase
-    .from('bottles')
-    .select('domaine,cuvee,appellation,millesime,couleur,country,region,rating,drunk_at,tasting_note')
-    .eq('user_id', auth.userId)
-    .eq('status', 'drunk')
+  const order = extremeQuery
+    ? tastingExtremeOrder(extremeQuery.extreme)
+    : spanQuery
+      ? { column: 'drunk_at', ascending: true }
+      : undefined
+  const { data, error } = await fetchPagedTastingRows(auth, order)
 
   if (error) {
     console.warn('[celestin:source-resolver] tasting count lookup failed:', error.message)
     return undefined
   }
 
-  const query = countQuery?.query ?? ratingQuery?.query
+  const query = countQuery?.query ?? ratingQuery?.query ?? extremeQuery?.query
   const rows = (data ?? []).filter((row: Record<string, unknown>) => matchesTastingQuery(row, query))
+  const datedRows = rows.filter((row: Record<string, unknown>) => typeof row.drunk_at === 'string' && row.drunk_at)
+  const ratedRows = rows.filter((row: Record<string, unknown>) => typeof row.rating === 'number')
   if (ratingQuery) {
     return {
       kind: 'rating',
@@ -881,6 +937,47 @@ async function resolveTastingsFromBackend(
       query: ratingQuery.query,
       queryLabel: ratingQuery.query,
       rows: rows.map((row: Record<string, unknown>) => compactTasting(row)),
+    }
+  }
+
+  if (extremeQuery) {
+    const candidateRows = extremeQuery.extreme === 'best' || extremeQuery.extreme === 'worst'
+      ? ratedRows
+      : datedRows
+    const sorted = [...candidateRows].sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+      if (extremeQuery.extreme === 'best' || extremeQuery.extreme === 'worst') {
+        return extremeQuery.extreme === 'best'
+          ? (b.rating as number) - (a.rating as number)
+          : (a.rating as number) - (b.rating as number)
+      }
+
+      const aDate = Date.parse(a.drunk_at as string)
+      const bDate = Date.parse(b.drunk_at as string)
+      return extremeQuery.extreme === 'oldest' ? aDate - bDate : bDate - aDate
+    })
+
+    return {
+      kind: 'extreme',
+      totalRows: candidateRows.length,
+      query: extremeQuery.query,
+      queryLabel: extremeQuery.query ?? extremeQuery.extreme,
+      rows: sorted.slice(0, 1).map((row: Record<string, unknown>) => compactTasting(row)),
+    }
+  }
+
+  if (spanQuery) {
+    const sorted = [...datedRows].sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+      const aDate = Date.parse(a.drunk_at as string)
+      const bDate = Date.parse(b.drunk_at as string)
+      return aDate - bDate
+    })
+
+    return {
+      kind: 'span',
+      totalRows: rows.length,
+      firstDrunkAt: typeof sorted[0]?.drunk_at === 'string' ? sorted[0].drunk_at : null,
+      lastDrunkAt: typeof sorted[sorted.length - 1]?.drunk_at === 'string' ? sorted[sorted.length - 1].drunk_at : null,
+      rows: sorted.slice(0, 1).map((row: Record<string, unknown>) => compactTasting(row)),
     }
   }
 

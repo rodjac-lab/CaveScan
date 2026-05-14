@@ -82,3 +82,252 @@ describe('search_cellar_candidates', () => {
     expect(result.rows[0].local_score).toBeUndefined()
   })
 })
+
+describe('query_tastings', () => {
+  it('returns the oldest tasting as a single authoritative row', async () => {
+    const calls: string[] = []
+    const firstPage = [
+      {
+        id: 'oldest123456',
+        domaine: 'Grange des Peres',
+        cuvee: null,
+        appellation: 'VDP du Languedoc',
+        millesime: 2009,
+        couleur: 'rouge',
+        country: 'France',
+        region: 'Languedoc',
+        rating: null,
+        drunk_at: '2026-02-01T09:05:27Z',
+        tasting_note: 'Premier souvenir.',
+        tasting_tags: null,
+        status: 'drunk',
+      },
+      {
+        id: 'second123456',
+        domaine: 'Second Domaine',
+        cuvee: null,
+        appellation: 'Bourgogne',
+        millesime: 2010,
+        couleur: 'rouge',
+        country: 'France',
+        region: 'Bourgogne',
+        rating: null,
+        drunk_at: '2026-02-02T09:05:27Z',
+        tasting_note: 'Deuxieme souvenir.',
+        tasting_tags: null,
+        status: 'drunk',
+      },
+    ]
+    const query = {
+      select: () => query,
+      eq: () => query,
+      not: (column: string, operator: string, value: unknown) => {
+        calls.push(`not:${column}:${operator}:${String(value)}`)
+        return query
+      },
+      order: (column: string, options: { ascending: boolean }) => {
+        calls.push(`order:${column}:${options.ascending}`)
+        return query
+      },
+      range: async (from: number, to: number) => {
+        calls.push(`range:${from}:${to}`)
+        return { data: from === 0 ? firstPage : [], error: null }
+      },
+    }
+    const supabase = {
+      from: () => query,
+    }
+
+    const result = JSON.parse(await executeCelestinTool(
+      'query_tastings',
+      { aggregate: 'first' },
+      { userId: 'user-1', supabase: supabase as never },
+    ))
+
+    expect(result).toMatchObject({
+      source: 'tastings',
+      aggregate: 'first',
+      totalRows: 2,
+      matchingRows: 2,
+      listedRows: 1,
+      countIsAuthoritative: false,
+      row: {
+        id: 'oldest12',
+        domaine: 'Grange des Peres',
+        appellation: 'VDP du Languedoc',
+        millesime: 2009,
+        drunk_at: '2026-02-01T09:05:27Z',
+      },
+    })
+    expect(calls).toEqual([
+      'not:drunk_at:is:null',
+      'order:drunk_at:true',
+      'range:0:499',
+    ])
+  })
+
+  it('supports explicit sort order for tasting lists', async () => {
+    const rows = [
+      {
+        id: 'low123456789',
+        domaine: 'Low Domaine',
+        cuvee: null,
+        appellation: 'A',
+        millesime: 2020,
+        couleur: 'rouge',
+        country: 'France',
+        region: 'A',
+        rating: 2,
+        drunk_at: '2026-01-01T00:00:00Z',
+        tasting_note: '',
+        tasting_tags: null,
+        status: 'drunk',
+      },
+      {
+        id: 'high12345678',
+        domaine: 'High Domaine',
+        cuvee: null,
+        appellation: 'B',
+        millesime: 2021,
+        couleur: 'rouge',
+        country: 'France',
+        region: 'B',
+        rating: 5,
+        drunk_at: '2026-01-02T00:00:00Z',
+        tasting_note: '',
+        tasting_tags: null,
+        status: 'drunk',
+      },
+    ]
+    const query = {
+      select: () => query,
+      eq: () => query,
+      limit: async () => ({ data: rows, error: null }),
+    }
+    const supabase = {
+      from: () => query,
+    }
+
+    const result = JSON.parse(await executeCelestinTool(
+      'query_tastings',
+      { sortBy: 'rating', sortOrder: 'desc', limit: 2 },
+      { userId: 'user-1', supabase: supabase as never },
+    ))
+
+    expect(result.rows.map((row: { domaine: string }) => row.domaine)).toEqual([
+      'High Domaine',
+      'Low Domaine',
+    ])
+  })
+
+  it('preserves free-query relevance for tasting lists without explicit sort', async () => {
+    const rows = [
+      {
+        id: 'recentweak123',
+        domaine: 'Recent Weak',
+        cuvee: null,
+        appellation: 'Bourgogne',
+        millesime: 2022,
+        couleur: 'blanc',
+        country: 'France',
+        region: 'Bourgogne',
+        rating: null,
+        drunk_at: '2026-05-01T00:00:00Z',
+        tasting_note: 'Yquem mention rapide.',
+        tasting_tags: null,
+        status: 'drunk',
+      },
+      {
+        id: 'olderstrong12',
+        domaine: 'Chateau Yquem',
+        cuvee: null,
+        appellation: 'Sauternes',
+        millesime: 2001,
+        couleur: 'blanc',
+        country: 'France',
+        region: 'Bordeaux',
+        rating: null,
+        drunk_at: '2026-01-01T00:00:00Z',
+        tasting_note: 'Yquem Sauternes grand souvenir.',
+        tasting_tags: null,
+        status: 'drunk',
+      },
+    ]
+    const query = {
+      select: () => query,
+      eq: () => query,
+      range: async () => ({ data: rows, error: null }),
+      limit: async () => ({ data: rows, error: null }),
+    }
+    const supabase = {
+      from: () => query,
+    }
+
+    const result = JSON.parse(await executeCelestinTool(
+      'query_tastings',
+      { query: 'Yquem Sauternes', limit: 1 },
+      { userId: 'user-1', supabase: supabase as never },
+    ))
+
+    expect(result.rows.map((row: { domaine: string }) => row.domaine)).toEqual([
+      'Chateau Yquem',
+    ])
+  })
+
+  it('counts filtered tastings across pages instead of only the first scan page', async () => {
+    const firstPage = Array.from({ length: 500 }, (_, index) => ({
+      id: `first${index}`,
+      domaine: `Champagne Domaine ${index}`,
+      cuvee: null,
+      appellation: 'Champagne',
+      millesime: 2020,
+      couleur: 'bulles',
+      country: 'France',
+      region: 'Champagne',
+      rating: null,
+      drunk_at: '2026-01-01T00:00:00Z',
+      tasting_note: '',
+      tasting_tags: null,
+      status: 'drunk',
+    }))
+    const secondPage = [
+      {
+        id: 'second123456',
+        domaine: 'Champagne Domaine 501',
+        cuvee: null,
+        appellation: 'Champagne',
+        millesime: 2021,
+        couleur: 'bulles',
+        country: 'France',
+        region: 'Champagne',
+        rating: null,
+        drunk_at: '2026-01-02T00:00:00Z',
+        tasting_note: '',
+        tasting_tags: null,
+        status: 'drunk',
+      },
+    ]
+    const calls: string[] = []
+    const query = {
+      select: () => query,
+      eq: () => query,
+      range: async (from: number, to: number) => {
+        calls.push(`range:${from}:${to}`)
+        return { data: from === 0 ? firstPage : secondPage, error: null }
+      },
+      limit: async () => ({ data: firstPage, error: null }),
+    }
+    const supabase = {
+      from: () => query,
+    }
+
+    const result = JSON.parse(await executeCelestinTool(
+      'query_tastings',
+      { aggregate: 'count', query: 'Champagne' },
+      { userId: 'user-1', supabase: supabase as never },
+    ))
+
+    expect(result.totalRows).toBe(501)
+    expect(calls).toEqual(['range:0:499', 'range:500:999'])
+  })
+})

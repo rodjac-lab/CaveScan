@@ -4,7 +4,9 @@ import {
   parseFilteredCellarBottleCount,
   parseGenericCellarBottleCount,
   parseTastingCountQuery,
+  parseTastingExtremeQuery,
   parseTastingRatingQuery,
+  parseTastingRelationshipSpanQuery,
   parseVolumeCellarBottleCount,
 } from '../../shared/celestin/exact-query'
 
@@ -67,6 +69,40 @@ describe('exact query parsing', () => {
     expect(parseTastingRatingQuery('Quelle note j avais mis au Caillez Lemaire ?')).toEqual({
       kind: 'tasting_rating',
       query: 'caillez lemaire',
+    })
+  })
+
+  it('extracts tasting extreme lookups', () => {
+    expect(parseTastingExtremeQuery('Quelle est la plus ancienne ?')).toEqual({
+      kind: 'tasting_extreme',
+      extreme: 'oldest',
+    })
+    expect(parseTastingExtremeQuery('Quelle est ma dégustation la plus récente ?')).toEqual({
+      kind: 'tasting_extreme',
+      extreme: 'newest',
+    })
+    expect(parseTastingExtremeQuery('Ma meilleure dégustation notée ?')).toEqual({
+      kind: 'tasting_extreme',
+      extreme: 'best',
+    })
+    expect(parseTastingExtremeQuery('Ma meilleure dégustation de Champagne ?')).toEqual({
+      kind: 'tasting_extreme',
+      extreme: 'best',
+      query: 'champagne',
+    })
+    expect(parseTastingExtremeQuery("Ma meilleure dégustation d'Yquem ?")).toEqual({
+      kind: 'tasting_extreme',
+      extreme: 'best',
+      query: 'yquem',
+    })
+  })
+
+  it('extracts tasting relationship span questions', () => {
+    expect(parseTastingRelationshipSpanQuery('Depuis combien de temps on se connait ?')).toEqual({
+      kind: 'tasting_relationship_span',
+    })
+    expect(parseTastingRelationshipSpanQuery('Depuis quand tu me connais ?')).toEqual({
+      kind: 'tasting_relationship_span',
     })
   })
 

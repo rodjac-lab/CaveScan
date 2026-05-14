@@ -37,6 +37,18 @@ export interface TastingRatingQuery {
   query: string
 }
 
+export type TastingExtreme = 'oldest' | 'newest' | 'best' | 'worst'
+
+export interface TastingExtremeQuery {
+  kind: 'tasting_extreme'
+  extreme: TastingExtreme
+  query?: string
+}
+
+export interface TastingRelationshipSpanQuery {
+  kind: 'tasting_relationship_span'
+}
+
 export function normalizeExactQueryText(text: string): string {
   return text
     .toLowerCase()
@@ -178,4 +190,58 @@ export function parseTastingRatingQuery(message: string): TastingRatingQuery | n
   if (!query) return null
 
   return { kind: 'tasting_rating', query }
+}
+
+export function parseTastingExtremeQuery(message: string): TastingExtremeQuery | null {
+  const text = normalizeExactQueryText(message)
+  const tastingScope = /\b(degustations?|goute|bu|bue|bus|ouvert|ouverte|ouverts|note)\b/.test(text)
+    || /\bquelle est la plus ancienne\b/.test(text)
+    || /\bla plus ancienne\b/.test(text)
+    || /\bla plus recente\b/.test(text)
+  if (!tastingScope) return null
+
+  const query = extractTastingExtremeScope(text)
+
+  if (/\b(plus ancienne|premiere|premier|la premiere|le premier)\b/.test(text)) {
+    return query
+      ? { kind: 'tasting_extreme', extreme: 'oldest', query }
+      : { kind: 'tasting_extreme', extreme: 'oldest' }
+  }
+
+  if (/\b(plus recente|derniere|dernier|la derniere|le dernier)\b/.test(text)) {
+    return query
+      ? { kind: 'tasting_extreme', extreme: 'newest', query }
+      : { kind: 'tasting_extreme', extreme: 'newest' }
+  }
+
+  if (/\b(meilleure|meilleur|mieux notee|mieux note|plus haute note|note la plus haute)\b/.test(text)) {
+    return query
+      ? { kind: 'tasting_extreme', extreme: 'best', query }
+      : { kind: 'tasting_extreme', extreme: 'best' }
+  }
+
+  if (/\b(pire|moins bonne|moins bon|moins bien notee|moins bien note|plus basse note|note la plus basse)\b/.test(text)) {
+    return query
+      ? { kind: 'tasting_extreme', extreme: 'worst', query }
+      : { kind: 'tasting_extreme', extreme: 'worst' }
+  }
+
+  return null
+}
+
+function extractTastingExtremeScope(text: string): string | undefined {
+  const match = text.match(/\bdegustations?\s+(?:de\s+|d\s+)(.+)$/)
+    ?? text.match(/\b(?:meilleure|meilleur|pire|plus ancienne|plus recente|derniere|dernier|premiere|premier)\s+(?:degustation\s+)?(?:de\s+|d\s+)(.+)$/)
+  const raw = match?.[1]
+    ?.replace(/\b(notee?|notes?|enregistree?|dans l historique)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return raw || undefined
+}
+
+export function parseTastingRelationshipSpanQuery(message: string): TastingRelationshipSpanQuery | null {
+  const text = normalizeExactQueryText(message)
+  if (!/\b(depuis quand|depuis combien de temps|combien de temps)\b/.test(text)) return null
+  if (!/\b(on se connait|tu me connais|tu me suis|avec toi|ensemble|nous)\b/.test(text)) return null
+  return { kind: 'tasting_relationship_span' }
 }

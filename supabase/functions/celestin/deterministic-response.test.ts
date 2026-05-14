@@ -228,6 +228,101 @@ describe('buildDeterministicResponse', () => {
     expect(response?.message).toBe('Tu avais mis 4/5 a Chateau Rayas Chateauneuf-du-Pape 1998.')
   })
 
+  it('answers oldest tasting lookups from resolved tasting rows', () => {
+    const response = buildDeterministicResponse({
+      body: body('Quelle est la plus ancienne ?'),
+      routingIntent: 'memory_lookup',
+      contextPlan: plan({
+        cave: 'none',
+        zones: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      resolvedSources: sources({
+        tastings: {
+          kind: 'extreme',
+          totalRows: 84,
+          queryLabel: 'oldest',
+          rows: [
+            {
+              domaine: 'Grange des Peres',
+              cuvee: null,
+              appellation: 'VDP du Languedoc',
+              millesime: 2009,
+              couleur: 'rouge',
+              rating: null,
+              drunk_at: '2026-02-01T09:05:27.652Z',
+            },
+          ],
+        },
+      }),
+    })
+
+    expect(response?.message).toBe('Ta plus ancienne degustation enregistree est Grange des Peres VDP du Languedoc 2009, degustee le 1 février 2026.')
+  })
+
+  it('answers relationship span questions without claiming relationship start', () => {
+    const response = buildDeterministicResponse({
+      body: body('Depuis combien de temps on se connait ?'),
+      routingIntent: 'tasting_log',
+      contextPlan: plan({
+        cave: 'none',
+        zones: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      resolvedSources: sources({
+        tastings: {
+          kind: 'span',
+          totalRows: 84,
+          firstDrunkAt: '2026-02-01T09:05:27.652Z',
+          lastDrunkAt: '2026-05-14T16:29:10.165Z',
+          rows: [
+            {
+              domaine: 'Grange des Peres',
+              cuvee: null,
+              appellation: 'VDP du Languedoc',
+              millesime: 2009,
+              couleur: 'rouge',
+              rating: null,
+              drunk_at: '2026-02-01T09:05:27.652Z',
+            },
+          ],
+        },
+      }),
+    })
+
+    expect(response?.message).toContain('Je ne peux pas dater notre relation avec certitude')
+    expect(response?.message).toContain('Le plus ancien enregistrement que je retrouve est le 1 février 2026 : Grange des Peres VDP du Languedoc 2009')
+    expect(response?.message).toContain('Il y a 84 degustations dans l historique')
+  })
+
+  it('does not invent best tasting when no rated row is resolved', () => {
+    const response = buildDeterministicResponse({
+      body: body('Quelle est ma meilleure dégustation notée ?'),
+      routingIntent: 'memory_lookup',
+      contextPlan: plan({
+        cave: 'none',
+        zones: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      resolvedSources: sources({
+        tastings: {
+          kind: 'extreme',
+          totalRows: 0,
+          queryLabel: 'best',
+          rows: [],
+        },
+      }),
+    })
+
+    expect(response?.message).toBe('Je ne retrouve aucune degustation notee fiable.')
+  })
+
   it('does not answer ambiguous or unrated tasting rating lookups deterministically', () => {
     const contextPlan = plan({
       cave: 'none',

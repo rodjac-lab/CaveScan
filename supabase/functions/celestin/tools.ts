@@ -12,6 +12,7 @@ export type ToolInput = Record<string, unknown>
 const MAX_LIMIT = 12
 const MAX_SCAN_ROWS = 500
 const DEFAULT_RECOMMENDATION_LIMIT = 6
+type TastingAggregate = 'list' | 'count' | 'first' | 'last' | 'best' | 'worst'
 
 function text(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim().slice(0, 120) : undefined
@@ -29,6 +30,12 @@ function limit(value: unknown): number {
   const n = integer(value)
   if (!n) return 8
   return Math.min(MAX_LIMIT, Math.max(1, n))
+}
+
+function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
+  const raw = text(value)
+  if (!raw) return undefined
+  return allowed.includes(raw as T) ? raw as T : undefined
 }
 
 function recommendationLimit(value: unknown): number {
@@ -81,7 +88,7 @@ function compactCandidateBottle(row: Record<string, unknown> & { local_score?: n
 
 function buildToolResult(input: {
   source: 'cellar' | 'tastings'
-  aggregate: 'list' | 'count'
+  aggregate: TastingAggregate
   totalRows: number
   rows: Array<ReturnType<typeof compactBottle>>
   totalQuantity?: number
@@ -96,6 +103,19 @@ function buildToolResult(input: {
       countIsAuthoritative: true,
       examples: input.rows.slice(0, 3),
       instruction: 'Pour repondre a une question de nombre, utilise totalRows comme chiffre exact. Les exemples ne sont pas une liste complete. Reponds avec le chiffre exact d abord, puis une phrase courte et naturelle si les exemples aident.',
+    }
+  }
+
+  if (input.aggregate === 'first' || input.aggregate === 'last' || input.aggregate === 'best' || input.aggregate === 'worst') {
+    return {
+      source: input.source,
+      aggregate: input.aggregate,
+      totalRows: input.totalRows,
+      matchingRows: input.totalRows,
+      listedRows: input.rows.length,
+      row: input.rows[0] ?? null,
+      countIsAuthoritative: false,
+      instruction: 'Reponds uniquement a partir de row pour identifier l extreme demande. N utilise pas totalRows comme un nombre exact de degustations; il indique seulement combien de lignes correspondent aux filtres apres recherche. Si row est null, dis que tu ne retrouves pas de donnee fiable.',
     }
   }
 
@@ -330,7 +350,9 @@ export const CELESTIN_TOOLS = [
         dateFrom: { type: 'string', description: 'Date ISO YYYY-MM-DD.' },
         dateTo: { type: 'string', description: 'Date ISO YYYY-MM-DD.' },
         query: { type: 'string', description: 'Terme libre a chercher dans l identite du vin, les notes et les tags.' },
-        aggregate: { type: 'string', enum: ['list', 'count'] },
+        aggregate: { type: 'string', enum: ['list', 'count', 'first', 'last', 'best', 'worst'] },
+        sortBy: { type: 'string', enum: ['drunk_at', 'rating', 'vintage'] },
+        sortOrder: { type: 'string', enum: ['asc', 'desc'] },
         limit: { type: 'number' },
       },
     },
@@ -415,15 +437,83 @@ async function queryCellar(input: ToolInput, ctx: ToolContext): Promise<string> 
 }
 
 async function queryTastings(input: ToolInput, ctx: ToolContext): Promise<string> {
-  const rowLimit = limit(input.limit)
-  const aggregate = text(input.aggregate) === 'count' ? 'count' : 'list'
+  const aggregate = oneOf(input.aggregate, ['list', 'count', 'first', 'last', 'best', 'worst'] as const) ?? 'list'
+  const rowLimit = aggregate === 'first' || aggregate === 'last' || aggregate === 'best' || aggregate === 'worst'
+    ? 1
+    : limit(input.limit)
+  if (isTastingExtremeAggregate(aggregate)) {
+    const result = await queryTastingExtreme(input, ctx, aggregate)
+    if ('error' in result) return JSON.stringify(result)
+
+    return JSON.stringify(buildToolResult({
+      source: 'tastings',
+      aggregate,
+      totalRows: result.matchingRows,
+      rows: result.rows.map((row: Record<string, unknown>) => compactBottle(row)),
+      rowLimit,
+    }))
+  }
+
+  const { data, error } = await fetchPagedToolTastingRows(input, ctx)
+  if (error) return JSON.stringify({ error: error.message })
+
+  const filtered = rankByFreeQuery(
+    (data ?? []).filter((row: Record<string, unknown>) => matchesWineFilters(row, input)),
+    input,
+  )
+  const sorted = shouldPreserveFreeQueryRelevance(input)
+    ? filtered
+    : sortTastingRows(filtered, input, aggregate)
+  const rows = sorted.slice(0, rowLimit).map((row: Record<string, unknown>) => compactBottle(row))
+  return JSON.stringify(buildToolResult({
+    source: 'tastings',
+    aggregate,
+    totalRows: sorted.length,
+    rows: aggregate === 'count' ? rows.slice(0, 3) : rows,
+    rowLimit,
+  }))
+}
+
+function shouldPreserveFreeQueryRelevance(input: ToolInput): boolean {
+  return !!text(input.query) && !text(input.sortBy) && !text(input.sortOrder)
+}
+
+async function fetchPagedToolTastingRows(
+  input: ToolInput,
+  ctx: ToolContext,
+): Promise<{ data: Array<Record<string, unknown>>; error: { message: string } | null }> {
+  const allRows: Array<Record<string, unknown>> = []
+  let offset = 0
+  const sortBy = oneOf(input.sortBy, ['drunk_at', 'rating', 'vintage'] as const)
+  const sortOrder = oneOf(input.sortOrder, ['asc', 'desc'] as const)
+
+  while (true) {
+    let query = buildBaseTastingQuery(input, ctx)
+    if (sortBy && typeof query.order === 'function') {
+      const column = sortBy === 'vintage' ? 'millesime' : sortBy
+      query = query.order(column, { ascending: sortOrder !== 'desc', nullsFirst: false })
+    }
+
+    const canPage = typeof query.range === 'function'
+    const request = canPage
+      ? query.range(offset, offset + MAX_SCAN_ROWS - 1)
+      : query.limit(MAX_SCAN_ROWS)
+    const { data, error } = await request
+    if (error) return { data: [], error }
+
+    const rows = (data ?? []) as Array<Record<string, unknown>>
+    allRows.push(...rows)
+    if (!canPage || rows.length < MAX_SCAN_ROWS) return { data: allRows, error: null }
+    offset += MAX_SCAN_ROWS
+  }
+}
+
+function buildBaseTastingQuery(input: ToolInput, ctx: ToolContext) {
   let query = ctx.supabase
     .from('bottles')
     .select('id,domaine,cuvee,appellation,millesime,couleur,country,region,rating,drunk_at,tasting_note,tasting_tags,status', { count: 'exact' })
     .eq('user_id', ctx.userId)
     .eq('status', 'drunk')
-    .order('drunk_at', { ascending: false, nullsFirst: false })
-    .limit(MAX_SCAN_ROWS)
 
   const minRating = numberValue(input.minRating)
   const maxRating = numberValue(input.maxRating)
@@ -433,22 +523,86 @@ async function queryTastings(input: ToolInput, ctx: ToolContext): Promise<string
   if (maxRating) query = query.lte('rating', maxRating)
   if (dateFrom) query = query.gte('drunk_at', dateFrom)
   if (dateTo) query = query.lte('drunk_at', `${dateTo}T23:59:59.999Z`)
+  return query
+}
 
-  const { data, error } = await query
-  if (error) return JSON.stringify({ error: error.message })
+function isTastingExtremeAggregate(aggregate: TastingAggregate): aggregate is 'first' | 'last' | 'best' | 'worst' {
+  return aggregate === 'first' || aggregate === 'last' || aggregate === 'best' || aggregate === 'worst'
+}
 
-  const filtered = rankByFreeQuery(
-    (data ?? []).filter((row: Record<string, unknown>) => matchesWineFilters(row, input)),
-    input,
-  )
-  const rows = filtered.slice(0, rowLimit).map((row: Record<string, unknown>) => compactBottle(row))
-  return JSON.stringify(buildToolResult({
-    source: 'tastings',
-    aggregate,
-    totalRows: filtered.length,
-    rows: aggregate === 'count' ? rows.slice(0, 3) : rows,
-    rowLimit,
-  }))
+function tastingExtremeOrder(aggregate: 'first' | 'last' | 'best' | 'worst') {
+  if (aggregate === 'best') return { column: 'rating', ascending: false }
+  if (aggregate === 'worst') return { column: 'rating', ascending: true }
+  return { column: 'drunk_at', ascending: aggregate === 'first' }
+}
+
+async function queryTastingExtreme(
+  input: ToolInput,
+  ctx: ToolContext,
+  aggregate: 'first' | 'last' | 'best' | 'worst',
+): Promise<{ rows: Array<Record<string, unknown>>; matchingRows: number } | { error: string }> {
+  const order = tastingExtremeOrder(aggregate)
+  let offset = 0
+  let matchingRows = 0
+  let firstMatch: Record<string, unknown> | null = null
+
+  while (true) {
+    let query = buildBaseTastingQuery(input, ctx)
+      .not(order.column, 'is', null)
+      .order(order.column, { ascending: order.ascending, nullsFirst: false })
+
+    if (typeof query.range === 'function') {
+      query = query.range(offset, offset + MAX_SCAN_ROWS - 1)
+    } else {
+      query = query.limit(MAX_SCAN_ROWS)
+    }
+
+    const { data, error } = await query
+    if (error) return { error: error.message }
+
+    const rows = (data ?? []) as Array<Record<string, unknown>>
+    const matches = rows.filter((row) => matchesWineFilters(row, input))
+    matchingRows += matches.length
+    if (!firstMatch && matches.length > 0) firstMatch = matches[0]
+    if (rows.length < MAX_SCAN_ROWS || typeof query.range !== 'function') {
+      return { rows: firstMatch ? [firstMatch] : [], matchingRows }
+    }
+    offset += MAX_SCAN_ROWS
+  }
+}
+
+function sortTastingRows<T extends Record<string, unknown>>(
+  rows: T[],
+  input: ToolInput,
+  aggregate: TastingAggregate,
+): T[] {
+  const explicitSortBy = oneOf(input.sortBy, ['drunk_at', 'rating', 'vintage'] as const)
+  const explicitSortOrder = oneOf(input.sortOrder, ['asc', 'desc'] as const)
+  const sortBy = explicitSortBy
+    ?? (aggregate === 'best' || aggregate === 'worst' ? 'rating' : 'drunk_at')
+  const sortOrder = explicitSortOrder
+    ?? (aggregate === 'first' || aggregate === 'worst' ? 'asc' : 'desc')
+
+  return [...rows].sort((a, b) => {
+    const left = sortableTastingValue(a, sortBy)
+    const right = sortableTastingValue(b, sortBy)
+    if (left == null && right == null) return 0
+    if (left == null) return 1
+    if (right == null) return -1
+    return sortOrder === 'asc' ? left - right : right - left
+  })
+}
+
+function sortableTastingValue(row: Record<string, unknown>, sortBy: 'drunk_at' | 'rating' | 'vintage'): number | null {
+  if (sortBy === 'drunk_at') {
+    if (typeof row.drunk_at !== 'string') return null
+    const time = Date.parse(row.drunk_at)
+    return Number.isNaN(time) ? null : time
+  }
+  if (sortBy === 'rating') {
+    return typeof row.rating === 'number' ? row.rating : null
+  }
+  return typeof row.millesime === 'number' ? row.millesime : null
 }
 
 async function queryMemory(input: ToolInput, ctx: ToolContext): Promise<string> {

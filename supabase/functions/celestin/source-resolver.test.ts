@@ -1020,6 +1020,390 @@ describe('resolveContextSourcesForRequest', () => {
     expect(sources.profile).toBeUndefined()
   })
 
+  it('resolves oldest tasting evidence from backend for force_tastings plans', async () => {
+    const supabase = {
+      from(table: string) {
+        if (table === 'user_profiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: null,
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        expect(table).toBe('bottles')
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({
+                data: [
+                  {
+                    domaine: 'Recent Domaine',
+                    cuvee: null,
+                    appellation: 'Saint-Estephe',
+                    millesime: 2015,
+                    couleur: 'rouge',
+                    country: 'France',
+                    region: 'Bordeaux',
+                    rating: 3,
+                    drunk_at: '2026-05-10T12:00:00Z',
+                    tasting_note: 'Recent.',
+                  },
+                  {
+                    domaine: 'Grange des Peres',
+                    cuvee: null,
+                    appellation: 'VDP du Languedoc',
+                    millesime: 2009,
+                    couleur: 'rouge',
+                    country: 'France',
+                    region: 'Languedoc',
+                    rating: null,
+                    drunk_at: '2026-02-01T09:05:27Z',
+                    tasting_note: 'Premier souvenir.',
+                  },
+                ],
+                error: null,
+              }),
+            }),
+          }),
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: 'Quelle est la plus ancienne ?',
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'none',
+        cave: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.tastings).toMatchObject({
+      kind: 'extreme',
+      totalRows: 2,
+      queryLabel: 'oldest',
+      rows: [
+        {
+          domaine: 'Grange des Peres',
+          appellation: 'VDP du Languedoc',
+          millesime: 2009,
+          drunk_at: '2026-02-01T09:05:27Z',
+        },
+      ],
+    })
+  })
+
+  it('pages deterministic tasting extremes before answering', async () => {
+    const calls: string[] = []
+    const firstPage = Array.from({ length: 500 }, (_, index) => ({
+      domaine: `Recent Domaine ${index}`,
+      cuvee: null,
+      appellation: 'Saint-Estephe',
+      millesime: 2015,
+      couleur: 'rouge',
+      country: 'France',
+      region: 'Bordeaux',
+      rating: 3,
+      drunk_at: `2026-05-${String((index % 20) + 1).padStart(2, '0')}T12:00:00Z`,
+      tasting_note: 'Recent.',
+    }))
+    const secondPage = [
+      {
+        domaine: 'Grange des Peres',
+        cuvee: null,
+        appellation: 'VDP du Languedoc',
+        millesime: 2009,
+        couleur: 'rouge',
+        country: 'France',
+        region: 'Languedoc',
+        rating: null,
+        drunk_at: '2026-02-01T09:05:27Z',
+        tasting_note: 'Premier souvenir.',
+      },
+    ]
+    const query = {
+      select: () => query,
+      eq: () => query,
+      not: (column: string, operator: string, value: unknown) => {
+        calls.push(`not:${column}:${operator}:${String(value)}`)
+        return query
+      },
+      order: (column: string, options: { ascending: boolean }) => {
+        calls.push(`order:${column}:${options.ascending}`)
+        return query
+      },
+      range: async (from: number, to: number) => {
+        calls.push(`range:${from}:${to}`)
+        return {
+          data: from === 0 ? firstPage : secondPage,
+          error: null,
+        }
+      },
+    }
+    const supabase = { from: () => query }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: 'Quelle est la plus ancienne ?',
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'none',
+        cave: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.tastings?.rows?.[0]).toMatchObject({
+      domaine: 'Grange des Peres',
+      drunk_at: '2026-02-01T09:05:27Z',
+    })
+    expect(calls).toContain('range:0:499')
+    expect(calls).toContain('range:500:999')
+  })
+
+  it('preserves scoped filters for best tasting extremes', async () => {
+    const supabase = {
+      from(table: string) {
+        expect(table).toBe('bottles')
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({
+                data: [
+                  {
+                    domaine: 'Grand Rouge',
+                    cuvee: null,
+                    appellation: 'Bordeaux',
+                    millesime: 2010,
+                    couleur: 'rouge',
+                    country: 'France',
+                    region: 'Bordeaux',
+                    rating: 5,
+                    drunk_at: '2026-01-01T00:00:00Z',
+                    tasting_note: 'Tres bien, mais pas Champagne.',
+                  },
+                  {
+                    domaine: 'Laherte',
+                    cuvee: null,
+                    appellation: 'Champagne',
+                    millesime: 2018,
+                    couleur: 'bulles',
+                    country: 'France',
+                    region: 'Champagne',
+                    rating: 4,
+                    drunk_at: '2026-01-02T00:00:00Z',
+                    tasting_note: 'Champagne note.',
+                  },
+                ],
+                error: null,
+              }),
+            }),
+          }),
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: 'Ma meilleure dégustation de Champagne ?',
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'none',
+        cave: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.tastings).toMatchObject({
+      kind: 'extreme',
+      query: 'champagne',
+      rows: [{ domaine: 'Laherte', appellation: 'Champagne', rating: 4 }],
+    })
+  })
+
+  it('resolves relationship span from dated tasting evidence', async () => {
+    const supabase = {
+      from(table: string) {
+        if (table === 'user_profiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: null,
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        expect(table).toBe('bottles')
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({
+                data: [
+                  {
+                    domaine: 'Recent Domaine',
+                    cuvee: null,
+                    appellation: 'Saint-Estephe',
+                    millesime: 2015,
+                    couleur: 'rouge',
+                    country: 'France',
+                    region: 'Bordeaux',
+                    rating: 3,
+                    drunk_at: '2026-05-10T12:00:00Z',
+                    tasting_note: 'Recent.',
+                  },
+                  {
+                    domaine: 'Grange des Peres',
+                    cuvee: null,
+                    appellation: 'VDP du Languedoc',
+                    millesime: 2009,
+                    couleur: 'rouge',
+                    country: 'France',
+                    region: 'Languedoc',
+                    rating: null,
+                    drunk_at: '2026-02-01T09:05:27Z',
+                    tasting_note: 'Premier souvenir.',
+                  },
+                ],
+                error: null,
+              }),
+            }),
+          }),
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: 'Depuis combien de temps on se connait ?',
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'none',
+        cave: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.tastings).toMatchObject({
+      kind: 'span',
+      totalRows: 2,
+      firstDrunkAt: '2026-02-01T09:05:27Z',
+      lastDrunkAt: '2026-05-10T12:00:00Z',
+      rows: [
+        {
+          domaine: 'Grange des Peres',
+          appellation: 'VDP du Languedoc',
+          millesime: 2009,
+        },
+      ],
+    })
+  })
+
+  it('does not resolve best tasting from unrated rows', async () => {
+    const supabase = {
+      from(table: string) {
+        if (table === 'user_profiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: null,
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        expect(table).toBe('bottles')
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({
+                data: [
+                  {
+                    domaine: 'Domaine Sans Note',
+                    cuvee: null,
+                    appellation: 'Bourgogne',
+                    millesime: 2020,
+                    couleur: 'blanc',
+                    country: 'France',
+                    region: 'Bourgogne',
+                    rating: null,
+                    drunk_at: '2026-01-01T00:00:00Z',
+                    tasting_note: 'Pas de note chiffree.',
+                  },
+                ],
+                error: null,
+              }),
+            }),
+          }),
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: 'Quelle est ma meilleure dégustation notée ?',
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'none',
+        cave: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.tastings).toMatchObject({
+      kind: 'extreme',
+      totalRows: 0,
+      queryLabel: 'best',
+      rows: [],
+    })
+  })
+
   it('does not query backend for pure wine questions', async () => {
     const supabase = {
       from() {

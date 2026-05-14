@@ -4,7 +4,9 @@ import {
   parseFilteredCellarBottleCount,
   parseGenericCellarBottleCount,
   parseTastingCountQuery,
+  parseTastingExtremeQuery,
   parseTastingRatingQuery,
+  parseTastingRelationshipSpanQuery,
   parseVolumeCellarBottleCount,
 } from "../../../shared/celestin/exact-query.ts"
 import type { ResolvedContextSources } from "./source-resolver.ts"
@@ -24,6 +26,18 @@ function formatTastingLabel(row: ResolvedTastingRow): string {
 
 function formatRating(rating: number): string {
   return `${Number.isInteger(rating) ? rating.toString() : rating.toFixed(1)}/5`
+}
+
+function formatDate(value: string | null | undefined): string | null {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return new Intl.DateTimeFormat('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Europe/Paris',
+  }).format(date)
 }
 
 function cleanWineField(value: string | null | undefined): string | null {
@@ -286,6 +300,75 @@ export function buildDeterministicResponse(input: {
       message: `Tu avais mis ${formatRating(row.rating)} a ${label}.`,
       ui_action: null,
       action_chips: ['Voir les degustations', 'Retrouver une autre note'],
+    }
+  }
+
+  const extremeQuery = parseTastingExtremeQuery(input.body.message)
+  if (
+    extremeQuery
+    && (input.routingIntent === 'tasting_log' || input.routingIntent === 'memory_lookup')
+    && input.contextPlan.truthPolicy === 'memory_only'
+    && input.resolvedSources.tastings?.kind === 'extreme'
+  ) {
+    const row = input.resolvedSources.tastings.rows?.[0]
+    if (!row) {
+      const fallback = {
+        oldest: 'Je ne retrouve aucune degustation datee fiable.',
+        newest: 'Je ne retrouve aucune degustation datee fiable.',
+        best: 'Je ne retrouve aucune degustation notee fiable.',
+        worst: 'Je ne retrouve aucune degustation notee fiable.',
+      }[extremeQuery.extreme]
+      return {
+        message: fallback,
+        ui_action: null,
+        action_chips: ['Voir les degustations', 'Retrouver une autre note'],
+      }
+    }
+
+    const label = formatTastingLabel(row)
+    if (!label) return null
+
+    const date = formatDate(row.drunk_at)
+    const rating = row.rating != null ? formatRating(row.rating) : null
+    const suffix = extremeQuery.extreme === 'best' || extremeQuery.extreme === 'worst'
+      ? rating ? `, note ${rating}` : ''
+      : date ? `, degustee le ${date}` : ''
+
+    const intro = {
+      oldest: 'Ta plus ancienne degustation enregistree est',
+      newest: 'Ta degustation la plus recente est',
+      best: 'Ta degustation la mieux notee est',
+      worst: 'Ta degustation la moins bien notee est',
+    }[extremeQuery.extreme]
+
+    return {
+      message: `${intro} ${label}${suffix}.`,
+      ui_action: null,
+      action_chips: ['Voir les degustations', 'Retrouver une autre note'],
+    }
+  }
+
+  const spanQuery = parseTastingRelationshipSpanQuery(input.body.message)
+  if (
+    spanQuery
+    && (input.routingIntent === 'tasting_log' || input.routingIntent === 'memory_lookup')
+    && input.contextPlan.truthPolicy === 'memory_only'
+    && input.resolvedSources.tastings?.kind === 'span'
+  ) {
+    const total = input.resolvedSources.tastings.totalRows
+    const firstDate = input.resolvedSources.tastings.firstDrunkAt
+    const firstRow = input.resolvedSources.tastings.rows?.[0]
+    if (!firstDate || !firstRow) return null
+
+    const date = formatDate(firstDate)
+    const label = formatTastingLabel(firstRow)
+    if (!date || !label) return null
+
+    const count = total === 1 ? '1 degustation' : `${total} degustations`
+    return {
+      message: `Je ne peux pas dater notre relation avec certitude depuis les donnees de degustation. Le plus ancien enregistrement que je retrouve est le ${date} : ${label}. Il y a ${count} dans l historique.`,
+      ui_action: null,
+      action_chips: ['Voir la premiere degustation', 'Quelle est la plus recente ?'],
     }
   }
 
