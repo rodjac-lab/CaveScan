@@ -49,6 +49,14 @@ describe('exact query parsing', () => {
       kind: 'tasting_count',
       query: 'champagne',
     })
+    expect(parseTastingCountQuery('Combien de dégustations avec Marc ?')).toEqual({
+      kind: 'tasting_count',
+      query: 'marc',
+    })
+    expect(parseTastingCountQuery("Combien de dégustations d'Yquem ?")).toEqual({
+      kind: 'tasting_count',
+      query: 'yquem',
+    })
   })
 
   it('supports generic tasting counts', () => {

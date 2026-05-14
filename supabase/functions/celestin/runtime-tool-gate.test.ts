@@ -72,6 +72,15 @@ describe('tool use gate', () => {
     expect(forcedToolNameForSourceMode(resolveSourceMode(plan({ tools: 'force_cellar' }), body('Combien de Champagne ?')))).toBe('query_cellar')
   })
 
+  it('does not allow non-Claude providers to answer source-required turns without tool adapters', async () => {
+    const { providerCanAnswerWithCurrentTools } = await import('./llm-providers')
+
+    expect(providerCanAnswerWithCurrentTools('Claude Haiku 4.5', { requireToolUse: true })).toBe(true)
+    expect(providerCanAnswerWithCurrentTools('Gemini', { requireToolUse: true })).toBe(false)
+    expect(providerCanAnswerWithCurrentTools('GPT-4.1 mini', { forcedToolName: 'query_tastings' })).toBe(false)
+    expect(providerCanAnswerWithCurrentTools('Gemini')).toBe(true)
+  })
+
   it('disables tools for normal source mode when the context plan has no tools', async () => {
     const { resolveSourceMode, shouldEnableToolsForSourceMode } = await import('./source-mode')
     const sourceMode = resolveSourceMode(plan({ tools: 'none' }), body('Merci !'))

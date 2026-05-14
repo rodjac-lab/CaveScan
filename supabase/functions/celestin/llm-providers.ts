@@ -38,6 +38,12 @@ export interface CelestinProviderOptions {
   validateResponse?: (response: CelestinProviderResponse, trace: CelestinProviderTrace) => string | null
 }
 
+export function providerCanAnswerWithCurrentTools(providerName: string, options?: CelestinProviderOptions): boolean {
+  const requiresToolBackedAnswer = !!options?.forcedToolName || !!options?.requireToolUse
+  if (!requiresToolBackedAnswer) return true
+  return providerName.toLowerCase().includes('claude')
+}
+
 export interface CelestinUsageContext {
   turnId: string
   route: string
@@ -607,6 +613,9 @@ export async function celestinWithFallback(
     }
     const selected = providerMap[forcedProvider.toLowerCase()]
     if (!selected) throw new Error(`Unknown provider: ${forcedProvider}`)
+    if (!providerCanAnswerWithCurrentTools(selected.name, options)) {
+      throw new Error(`${selected.name} cannot answer source-required turns without tool adapters.`)
+    }
     console.log(`[celestin] Forced provider: ${selected.name}`)
     const startedAt = performance.now()
     try {
@@ -623,8 +632,8 @@ export async function celestinWithFallback(
 
   const providers: Array<{ name: string; call: () => Promise<CelestinProviderResponse> }> = []
   if (ANTHROPIC_API_KEY) providers.push({ name: 'Claude Haiku 4.5', call: () => callClaude(systemPrompt, userPrompt, history, image, options, trace) })
-  if (GEMINI_API_KEY) providers.push({ name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history, image, trace) })
-  if (OPENAI_API_KEY) providers.push({ name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history, image, trace) })
+  if (GEMINI_API_KEY && providerCanAnswerWithCurrentTools('Gemini', options)) providers.push({ name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history, image, trace) })
+  if (OPENAI_API_KEY && providerCanAnswerWithCurrentTools('GPT-4.1 mini', options)) providers.push({ name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history, image, trace) })
 
   if (providers.length === 0) {
     throw new Error('No API keys configured.')

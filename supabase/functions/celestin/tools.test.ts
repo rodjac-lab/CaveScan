@@ -83,6 +83,64 @@ describe('search_cellar_candidates', () => {
   })
 })
 
+describe('query_cellar', () => {
+  it('counts in-stock bottles across pages instead of only the first scan page', async () => {
+    const firstPage = Array.from({ length: 500 }, (_, index) => ({
+      id: `first${index}`,
+      domaine: `Domaine ${index}`,
+      cuvee: null,
+      appellation: 'Bourgogne',
+      millesime: 2020,
+      couleur: 'rouge',
+      country: 'France',
+      region: 'Bourgogne',
+      quantity: 1,
+      status: 'in_stock',
+      shelf: null,
+    }))
+    const secondPage = [
+      {
+        id: 'second123456',
+        domaine: 'Domaine 501',
+        cuvee: null,
+        appellation: 'Bourgogne',
+        millesime: 2021,
+        couleur: 'rouge',
+        country: 'France',
+        region: 'Bourgogne',
+        quantity: 2,
+        status: 'in_stock',
+        shelf: null,
+      },
+    ]
+    const calls: string[] = []
+    const query = {
+      select: () => query,
+      eq: () => query,
+      order: () => query,
+      range: async (from: number, to: number) => {
+        calls.push(`range:${from}:${to}`)
+        return { data: from === 0 ? firstPage : secondPage, error: null }
+      },
+      limit: async () => ({ data: firstPage, error: null }),
+    }
+    const supabase = {
+      from: () => query,
+    }
+
+    const result = JSON.parse(await executeCelestinTool(
+      'query_cellar',
+      { aggregate: 'count', query: 'Bourgogne' },
+      { userId: 'user-1', supabase: supabase as never },
+    ))
+
+    expect(result.totalRows).toBe(501)
+    expect(result.totalQuantity).toBe(502)
+    expect(result.countIsAuthoritative).toBe(true)
+    expect(calls).toEqual(['range:0:499', 'range:500:999'])
+  })
+})
+
 describe('query_tastings', () => {
   it('returns the oldest tasting as a single authoritative row', async () => {
     const calls: string[] = []

@@ -169,7 +169,7 @@ export function parseTastingCountQuery(message: string): TastingCountQuery | nul
   if (!/\b(combien|nombre)\b/.test(text)) return null
   if (!/\bdegustations?\b/.test(text)) return null
 
-  const scoped = text.match(/\bdegustations?\s+(?:de|d )\s+(.+?)(?:\b(j ai|ai je|fait|faites|deja|deja fait|deja faites|j avais|avais je)\b|$)/)
+  const scoped = text.match(/\bdegustations?\s+(?:de\s+|d\s+|avec\s+|pour\s+|sur\s+|chez\s+|a\s+|au\s+|aux\s+|en\s+)(.+?)(?:\b(j ai|ai je|fait|faites|deja|deja fait|deja faites|j avais|avais je)\b|$)/)
   const query = scoped?.[1]?.trim().replace(/\s+/g, ' ')
 
   return query

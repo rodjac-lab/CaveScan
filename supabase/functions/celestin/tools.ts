@@ -406,15 +406,7 @@ export async function executeCelestinTool(name: string, input: ToolInput, ctx: T
 async function queryCellar(input: ToolInput, ctx: ToolContext): Promise<string> {
   const rowLimit = limit(input.limit)
   const aggregate = text(input.aggregate) === 'count' ? 'count' : 'list'
-  const query = ctx.supabase
-    .from('bottles')
-    .select('id,domaine,cuvee,appellation,millesime,couleur,country,region,quantity,status,shelf', { count: 'exact' })
-    .eq('user_id', ctx.userId)
-    .eq('status', 'in_stock')
-    .order('millesime', { ascending: true, nullsFirst: false })
-    .limit(MAX_SCAN_ROWS)
-
-  const { data, error } = await query
+  const { data, error } = await fetchPagedCellarRows(input, ctx)
   if (error) return JSON.stringify({ error: error.message })
 
   const filtered = rankByFreeQuery(
@@ -434,6 +426,41 @@ async function queryCellar(input: ToolInput, ctx: ToolContext): Promise<string> 
     rows,
     rowLimit,
   }))
+}
+
+async function fetchPagedCellarRows(
+  input: ToolInput,
+  ctx: ToolContext,
+): Promise<{ data: Array<Record<string, unknown>>; error: { message: string } | null }> {
+  const allRows: Array<Record<string, unknown>> = []
+  let offset = 0
+  const needsVolume = text(input.query)?.toLowerCase().includes('demi') || text(input.query)?.toLowerCase().includes('magnum')
+
+  while (true) {
+    let query = ctx.supabase
+      .from('bottles')
+      .select(needsVolume
+        ? 'id,domaine,cuvee,appellation,millesime,couleur,country,region,quantity,status,shelf,volume_l'
+        : 'id,domaine,cuvee,appellation,millesime,couleur,country,region,quantity,status,shelf', { count: 'exact' })
+      .eq('user_id', ctx.userId)
+      .eq('status', 'in_stock')
+
+    if (typeof query.order === 'function') {
+      query = query.order('millesime', { ascending: true, nullsFirst: false })
+    }
+
+    const canPage = typeof query.range === 'function'
+    const request = canPage
+      ? query.range(offset, offset + MAX_SCAN_ROWS - 1)
+      : query.limit(MAX_SCAN_ROWS)
+    const { data, error } = await request
+    if (error) return { data: [], error }
+
+    const rows = (data ?? []) as Array<Record<string, unknown>>
+    allRows.push(...rows)
+    if (!canPage || rows.length < MAX_SCAN_ROWS) return { data: allRows, error: null }
+    offset += MAX_SCAN_ROWS
+  }
 }
 
 async function queryTastings(input: ToolInput, ctx: ToolContext): Promise<string> {
