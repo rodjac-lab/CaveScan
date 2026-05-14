@@ -33,7 +33,7 @@ function genMsgId(): string {
   return `msg-${nextMsgId++}`
 }
 
-export function useCeSoirChatFlow(): CeSoirChatViewProps {
+export function useCeSoirChatFlow(userId?: string | null): CeSoirChatViewProps {
   const navigate = useNavigate()
 
   const { bottles: caveBottles } = useBottles()
@@ -58,7 +58,7 @@ export function useCeSoirChatFlow(): CeSoirChatViewProps {
     conversationStateRef,
     syncActiveMemoryFacts,
     syncConversationState,
-  } = useCeSoirSessionState(genMsgId)
+  } = useCeSoirSessionState(genMsgId, userId ?? null)
 
   const photoInputRef = useRef<HTMLInputElement>(null)
   const threadRef = useRef<HTMLDivElement>(null)

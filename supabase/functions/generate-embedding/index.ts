@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "jsr:@supabase/supabase-js@2"
+import { applyOwnedRowFilter, getBearerToken } from "./ownership.ts"
 
 // === CONFIG ===
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
@@ -33,6 +34,22 @@ interface SaveSessionRequest {
 type RequestBody = QueryRequest | SaveRequest | SaveSessionRequest
 
 // === UTILS ===
+
+function jsonResponse(body: Record<string, unknown>, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+  })
+}
+
+async function requireAuthenticatedUserId(req: Request, supabase: ReturnType<typeof createClient>): Promise<string | null> {
+  const token = getBearerToken(req.headers)
+  if (!token) return null
+
+  const { data, error } = await supabase.auth.getUser(token)
+  if (error || !data.user?.id) return null
+  return data.user.id
+}
 
 async function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
   const controller = new AbortController()
@@ -97,49 +114,45 @@ Deno.serve(async (req) => {
     if ('query' in body && body.query) {
       const text = body.query.trim()
       if (text.length === 0) {
-        return new Response(
-          JSON.stringify({ error: 'query is required' }),
-          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
-        )
+        return jsonResponse({ error: 'query is required' }, 400)
       }
 
       console.log(`[generate-embedding] Query mode (${text.length} chars)`)
       const embedding = await generateEmbedding(text)
 
-      return new Response(JSON.stringify({ embedding }), {
-        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-      })
+      return jsonResponse({ embedding })
     }
 
     // Mode 2: Save — generate embedding and store it in the bottle row
     if ('text' in body && 'bottle_id' in body && body.text && body.bottle_id) {
       const text = body.text.trim()
       if (text.length === 0) {
-        return new Response(
-          JSON.stringify({ error: 'text is required' }),
-          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
-        )
+        return jsonResponse({ error: 'text is required' }, 400)
+      }
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+      const userId = await requireAuthenticatedUserId(req, supabase)
+      if (!userId) {
+        return jsonResponse({ error: 'Authentication required to save embeddings' }, 401)
       }
 
       console.log(`[generate-embedding] Save mode for bottle ${body.bottle_id} (${text.length} chars)`)
       const embedding = await generateEmbedding(text)
 
-      // Save to DB using service role (bypasses RLS)
-      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-      const { error: updateError } = await supabase
+      const { data: updated, error: updateError } = await applyOwnedRowFilter(supabase
         .from('bottles')
-        .update({ embedding: JSON.stringify(embedding) })
-        .eq('id', body.bottle_id)
+        .update({ embedding: JSON.stringify(embedding) }), body.bottle_id, userId)
 
       if (updateError) {
         console.error(`[generate-embedding] DB update failed:`, updateError)
         throw new Error(`Failed to save embedding: ${updateError.message}`)
       }
+      if (!updated) {
+        return jsonResponse({ error: 'Bottle not found for authenticated user' }, 404)
+      }
 
       console.log(`[generate-embedding] Embedding saved for bottle ${body.bottle_id}`)
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-      })
+      return jsonResponse({ success: true })
     }
 
     // Mode 3: Save session — generate embedding and store it in the chat_sessions row
@@ -147,43 +160,39 @@ Deno.serve(async (req) => {
       const text = body.text.trim()
       const sessionId = (body as SaveSessionRequest).session_id
       if (text.length === 0) {
-        return new Response(
-          JSON.stringify({ error: 'text is required' }),
-          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
-        )
+        return jsonResponse({ error: 'text is required' }, 400)
+      }
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+      const userId = await requireAuthenticatedUserId(req, supabase)
+      if (!userId) {
+        return jsonResponse({ error: 'Authentication required to save embeddings' }, 401)
       }
 
       console.log(`[generate-embedding] Save mode for session ${sessionId} (${text.length} chars)`)
       const embedding = await generateEmbedding(text)
 
-      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-      const { error: updateError } = await supabase
+      const { data: updated, error: updateError } = await applyOwnedRowFilter(supabase
         .from('chat_sessions')
-        .update({ summary_embedding: JSON.stringify(embedding) })
-        .eq('id', sessionId)
+        .update({ summary_embedding: JSON.stringify(embedding) }), sessionId, userId)
 
       if (updateError) {
         console.error(`[generate-embedding] DB update failed:`, updateError)
         throw new Error(`Failed to save session embedding: ${updateError.message}`)
       }
+      if (!updated) {
+        return jsonResponse({ error: 'Chat session not found for authenticated user' }, 404)
+      }
 
       console.log(`[generate-embedding] Embedding saved for session ${sessionId}`)
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-      })
+      return jsonResponse({ success: true })
     }
 
-    return new Response(
-      JSON.stringify({ error: 'Request must contain { query }, { text, bottle_id }, or { text, session_id }' }),
-      { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
-    )
+    return jsonResponse({ error: 'Request must contain { query }, { text, bottle_id }, or { text, session_id }' }, 400)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('[generate-embedding] Error:', message)
 
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
-    )
+    return jsonResponse({ error: message }, 500)
   }
 })

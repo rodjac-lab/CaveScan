@@ -54,9 +54,15 @@ export function setCrossSessionConfig(config: Partial<CrossSessionConfig>): void
 function getTtlMs(): number {
   return getCrossSessionConfig().ttlDays * 24 * 60 * 60 * 1000
 }
-export function loadSessions(): SessionSummary[] {
+
+function sessionsKey(ownerKey?: string | null): string {
+  return ownerKey ? `${SESSIONS_KEY}:${ownerKey}` : SESSIONS_KEY
+}
+
+export function loadSessions(ownerKey?: string | null): SessionSummary[] {
   try {
-    const raw = localStorage.getItem(SESSIONS_KEY)
+    const key = sessionsKey(ownerKey)
+    const raw = localStorage.getItem(key)
     if (!raw) return []
 
     const sessions = JSON.parse(raw) as SessionSummary[]
@@ -71,7 +77,7 @@ export function loadSessions(): SessionSummary[] {
 
     // Persist pruned list if we removed any
     if (valid.length !== sessions.length) {
-      localStorage.setItem(SESSIONS_KEY, JSON.stringify(valid))
+      localStorage.setItem(key, JSON.stringify(valid))
     }
 
     return valid
@@ -79,7 +85,10 @@ export function loadSessions(): SessionSummary[] {
     return []
   }
 }
-export function saveCurrentSession(messages: Array<{ role: string; text: string; isLoading?: boolean; actionChips?: unknown }>): void {
+export function saveCurrentSession(
+  messages: Array<{ role: string; text: string; isLoading?: boolean; actionChips?: unknown }>,
+  ownerKey?: string | null,
+): void {
   const meaningful = messages.filter(m => !m.isLoading && !m.actionChips && m.text.length > 1)
   if (meaningful.length < 2) return
 
@@ -94,32 +103,34 @@ export function saveCurrentSession(messages: Array<{ role: string; text: string;
   }
 
   try {
-    const sessions = loadSessions()
+    const key = sessionsKey(ownerKey)
+    const sessions = loadSessions(ownerKey)
     const config = getCrossSessionConfig()
 
     if (sessions.length === 0) {
-      localStorage.setItem(SESSIONS_KEY, JSON.stringify([newSession]))
+      localStorage.setItem(key, JSON.stringify([newSession]))
     } else {
       // Replace the last entry (current session)
       sessions[sessions.length - 1] = newSession
-      localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions.slice(-config.maxSessions)))
+      localStorage.setItem(key, JSON.stringify(sessions.slice(-config.maxSessions)))
     }
   } catch { /* localStorage full or unavailable */ }
 }
-export function rotateSessions(): void {
+export function rotateSessions(ownerKey?: string | null): void {
   try {
-    const sessions = loadSessions()
+    const key = sessionsKey(ownerKey)
+    const sessions = loadSessions(ownerKey)
     const config = getCrossSessionConfig()
 
     if (sessions.length === 0) return
 
     const trimmed = sessions.slice(-(config.maxSessions - 1))
-    localStorage.setItem(SESSIONS_KEY, JSON.stringify(trimmed))
+    localStorage.setItem(key, JSON.stringify(trimmed))
   } catch { /* ignore */ }
 }
-export function clearAllSessions(): void {
+export function clearAllSessions(ownerKey?: string | null): void {
   try {
-    localStorage.removeItem(SESSIONS_KEY)
+    localStorage.removeItem(sessionsKey(ownerKey))
   } catch { /* ignore */ }
 }
 export function getMemoryDebugInfo(): {

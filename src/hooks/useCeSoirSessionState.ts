@@ -5,7 +5,8 @@ import {
   loadActiveMemoryFacts,
   type MemoryFact,
 } from '@/lib/chatPersistence'
-import { getCompiledUserProfileCached } from '@/lib/userProfiles'
+import { getCompiledUserProfileCached, invalidateCompiledUserProfileCache } from '@/lib/userProfiles'
+import { clearRecommendationCache } from '@/lib/recommendationStore'
 import {
   saveCurrentSession as saveCrossSession,
   rotateSessions,
@@ -19,17 +20,42 @@ import type { ChatMessage } from '@/lib/ceSoirChatTypes'
 let persistedMessages: ChatMessage[] | null = null
 let persistedConversationState: Record<string, unknown> | null = null
 
-export function useCeSoirSessionState(createMessageId: () => string) {
+type PersistedSessionState = {
+  messages: ChatMessage[]
+  conversationState: Record<string, unknown> | null
+}
+
+const persistedByUser = new Map<string, PersistedSessionState>()
+
+function initialMessages(createMessageId: () => string): ChatMessage[] {
+  return [{ id: createMessageId(), role: 'celestin', text: buildSharedGreeting(), actionChips: buildSharedWelcomeChips() }]
+}
+
+function persistForUser(userKey: string, messages: ChatMessage[], conversationState: Record<string, unknown> | null): void {
+  persistedByUser.set(userKey, { messages, conversationState })
+}
+
+export function clearPersistedCeSoirSessionState(): void {
+  persistedMessages = null
+  persistedConversationState = null
+  persistedByUser.clear()
+}
+
+export function useCeSoirSessionState(createMessageId: () => string, userId?: string | null) {
+  const userKey = userId ?? 'anonymous'
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    if (persistedMessages) return persistedMessages
-    rotateSessions()
-    return [{ id: createMessageId(), role: 'celestin', text: buildSharedGreeting(), actionChips: buildSharedWelcomeChips() }]
+    const persisted = persistedByUser.get(userKey)?.messages ?? (userId ? null : persistedMessages)
+    if (persisted) return persisted
+    rotateSessions(userKey)
+    return initialMessages(createMessageId)
   })
 
   useEffect(() => {
-    persistedMessages = messages
-    saveCrossSession(messages)
-  }, [messages])
+    const conversationState = persistedByUser.get(userKey)?.conversationState ?? (userId ? null : persistedConversationState)
+    persistForUser(userKey, messages, conversationState)
+    if (!userId) persistedMessages = messages
+    saveCrossSession(messages, userKey)
+  }, [messages, userId, userKey])
 
   const messagesRef = useRef(messages)
 
@@ -40,16 +66,24 @@ export function useCeSoirSessionState(createMessageId: () => string) {
   const sessionIdRef = useRef<string | null>(null)
   const userTurnCountRef = useRef(0)
   const memoryFactsRawRef = useRef<MemoryFact[]>([])
-  const conversationStateRef = useRef<Record<string, unknown> | null>(persistedConversationState)
+  const conversationStateRef = useRef<Record<string, unknown> | null>(
+    persistedByUser.get(userKey)?.conversationState ?? (userId ? null : persistedConversationState),
+  )
 
   const syncActiveMemoryFacts = useCallback((facts: MemoryFact[]) => {
     memoryFactsRawRef.current = facts
   }, [])
 
   const syncConversationState = useCallback((nextState: Record<string, unknown>) => {
-    persistedConversationState = nextState
+    persistForUser(userKey, messagesRef.current, nextState)
+    if (!userId) persistedConversationState = nextState
     conversationStateRef.current = nextState
-  }, [])
+  }, [userId, userKey])
+
+  useEffect(() => {
+    invalidateCompiledUserProfileCache()
+    clearRecommendationCache()
+  }, [userKey])
 
   useEffect(() => {
     createSession().then((id) => { sessionIdRef.current = id })
@@ -72,7 +106,7 @@ export function useCeSoirSessionState(createMessageId: () => string) {
         }
       }
     }
-  }, [syncActiveMemoryFacts])
+  }, [syncActiveMemoryFacts, userKey])
 
   return {
     messages,
