@@ -208,7 +208,10 @@ function routeCollectingInfo(state: ConversationState, signals: RoutingSignals, 
 
   if (
     (signals.isWineCulture || signals.isQuestion)
-    && /\b(au fait|sinon|et sinon|interessant|intéressant)\b/i.test(signals.lower)
+    && (
+      state.taskType === 'recommendation'
+      || /\b(au fait|sinon|et sinon|interessant|intéressant)\b/i.test(signals.lower)
+    )
   ) {
     return routed(wineContextSwitch(), state.phase, 'wine_question', candidates)
   }
@@ -220,8 +223,12 @@ function routeCollectingInfo(state: ConversationState, signals: RoutingSignals, 
     return routed({ turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true }, state.phase, 'encavage_request', candidates)
   }
 
-  if (state.taskType === 'recommendation') {
+  if (state.taskType === 'recommendation' && (signals.isRefinement || signals.isMemoryGuidedRecommendation)) {
     return routed({ turnType: 'task_continue', cognitiveMode: 'cellar_assistant', shouldAllowUiAction: true, inferredTaskType: 'recommendation' }, state.phase, 'recommendation_refinement', candidates)
+  }
+
+  if (state.taskType === 'recommendation') {
+    return routed({ turnType: 'context_switch', cognitiveMode: detectCognitiveMode(signals.lower), shouldAllowUiAction: false }, state.phase, 'unknown', candidates)
   }
 
   return routed({ turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }, state.phase, 'unknown', candidates)

@@ -36,6 +36,7 @@ export interface MinimalRequestBody {
   requestSource?: string
   sessionId?: string | null
   contextStrategy?: 'legacy' | 'backend_managed'
+  orchestrationVersion?: 'v1' | 'v2'
   image?: string
   conversationState?: ConversationState
   conversationalIntent?: ConversationalIntent | string | null

@@ -4,6 +4,11 @@ import {
   isMemoryFollowUpReply,
   isMemoryReferenceQuery,
 } from '../../../shared/celestin/memory-intent-patterns.ts'
+import {
+  isExactCellarQuery,
+  isExactTastingQueryKind,
+  parseExactQuery,
+} from '../../../shared/celestin/exact-query.ts'
 
 const INTENT_CLASSIFICATION_KEYS = [
   'isRecommendationRequest',
@@ -213,11 +218,14 @@ export function buildRoutingSignals(
     : false
   const isQuestion = matchesAny(lower, QUESTION)
   const isWineCulture = matchesAny(lower, WINE_CULTURE)
+  const exactQuery = parseExactQuery(message)
+  const hasExactCellarQuery = isExactCellarQuery(exactQuery)
+  const hasExactTastingQuery = isExactTastingQueryKind(exactQuery)
 
   const regexSignals: RoutingSignals = {
     lower,
     hadRecentReco,
-    isInventoryQuestion: matchesAny(lower, CELLAR_LOOKUP) || isCellarFollowUp(lower, lastAssistantText),
+    isInventoryQuestion: hasExactCellarQuery || matchesAny(lower, CELLAR_LOOKUP) || isCellarFollowUp(lower, lastAssistantText),
     isTastingMemoryFollowUp: isMemoryFollowUp(lower, lastAssistantText),
     isSocialAck: matchesAny(lower, SOCIAL_ACK),
     isCancel: matchesAny(lower, CANCEL),
@@ -228,7 +236,7 @@ export function buildRoutingSignals(
     isQuestion,
     isRecommendationRequest: matchesAny(lower, RECOMMENDATION),
     isEncavageRequest: matchesAny(lower, ENCAVAGE),
-    isTastingReference: matchesAny(lower, TASTING),
+    isTastingReference: hasExactTastingQuery || matchesAny(lower, TASTING),
     isMemoryReference: isMemoryReferenceQuery(lower),
     isRestaurantImage: /\b(carte|resto|restaurant|menu|ardoise)\b/i.test(lower),
     isImageWineQuestion: isQuestion || isWineCulture || /\b(penses|avis|tu connais|c'est bien|c'est bon)\b/i.test(lower),

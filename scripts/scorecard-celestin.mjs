@@ -24,6 +24,7 @@
  * Usage:
  *   node scripts/scorecard-celestin.mjs                       # deterministic only, default (~2.5min, ~$0.10)
  *   node scripts/scorecard-celestin.mjs --quick               # 10 single-turn deterministic (~30s)
+ *   node scripts/scorecard-celestin.mjs --auth                # authenticated test account; DB cave/profile/memory
  *   node scripts/scorecard-celestin.mjs --with-judge          # Phase 2: + LLM judge (~5min, ~$0.20)
  *   node scripts/scorecard-celestin.mjs --provider claude     # force a specific provider (gemini|gemini-flash-lite|claude|openai)
  *
@@ -46,11 +47,14 @@ import {
   ensureDir,
   loadJson,
   loadSupabaseEnv,
+  loadTestUserCreds,
+  loadTestUserJwt,
   resolveFixturePath,
 } from '../evals/lib/runner.mjs'
 import { summarizeAssistantMessage } from '../evals/lib/assertions.mjs'
 
 const QUICK = process.argv.includes('--quick')
+const AUTH = process.argv.includes('--auth') || process.argv.includes('--test-user')
 // LLM judge is OFF by default — enable explicitly with --with-judge.
 const WITH_JUDGE = process.argv.includes('--with-judge')
 const NO_JUDGE = !WITH_JUDGE
@@ -66,6 +70,12 @@ const PROVIDER = parseFlagValue('provider')
 const VALID_PROVIDERS = ['gemini', 'gemini-flash-lite', 'gemini-3-flash', 'gemini-3-flash-low', 'claude', 'openai']
 if (PROVIDER && !VALID_PROVIDERS.includes(PROVIDER)) {
   console.error(`Invalid --provider: ${PROVIDER}. Must be one of: ${VALID_PROVIDERS.join(', ')}`)
+  process.exit(1)
+}
+
+const ORCHESTRATION = parseFlagValue('orchestration') ?? 'v1'
+if (!['v1', 'v2'].includes(ORCHESTRATION)) {
+  console.error(`Invalid --orchestration: ${ORCHESTRATION}. Must be v1 or v2.`)
   process.exit(1)
 }
 
@@ -115,7 +125,9 @@ function recoCardCount(uiAction) {
 
 function isProviderErrorMessage(message) {
   if (!message) return false
-  return /^\[[a-z0-9-]+\]\s/i.test(message.trim())
+  const trimmed = message.trim()
+  return /^\[[a-z0-9-]+\]\s/i.test(trimmed)
+    || /momentanement indisponible|momentanément indisponible|all providers failed|fetch failed/i.test(trimmed)
 }
 
 function evaluateDeterministic(message, uiAction) {
@@ -235,6 +247,39 @@ function aggregate(results) {
     summary.latencyMs = { count: latencies.length, mean, p50, p95, min: latencies[0], max: latencies[latencies.length - 1] }
   }
 
+  const byCapability = {}
+  for (const result of results) {
+    const capability = result.capability ?? 'UNKNOWN'
+    const bucket = byCapability[capability] ?? {
+      responses: 0,
+      failures: 0,
+      fallback: 0,
+      providerErrors: 0,
+      recommendationCards: 0,
+      latencies: [],
+    }
+    bucket.responses += 1
+    bucket.failures += Object.values(result.scorecard).some((entry) => entry.pass === false) ? 1 : 0
+    bucket.fallback += result.providerPath === 'fallback_response' ? 1 : 0
+    bucket.providerErrors += isProviderErrorMessage(result.assistantMessage) ? 1 : 0
+    bucket.recommendationCards += result.uiActionKind === 'show_recommendations' ? 1 : 0
+    if (Number.isFinite(result.latencyMs)) bucket.latencies.push(result.latencyMs)
+    byCapability[capability] = bucket
+  }
+
+  summary.byCapability = Object.fromEntries(Object.entries(byCapability).map(([capability, bucket]) => {
+    const latencies = bucket.latencies.sort((a, b) => a - b)
+    return [capability, {
+      responses: bucket.responses,
+      failures: bucket.failures,
+      fallback: bucket.fallback,
+      providerErrors: bucket.providerErrors,
+      recommendationCards: bucket.recommendationCards,
+      latencyP50Ms: latencies.length ? latencies[Math.floor(latencies.length * 0.5)] : null,
+      latencyP95Ms: latencies.length ? latencies[Math.floor(latencies.length * 0.95)] : null,
+    }]
+  }))
+
   return summary
 }
 
@@ -248,13 +293,15 @@ function buildMarkdown(summary, results, meta) {
   lines.push(`# Celestin Scorecard — ${meta.timestamp}`)
   lines.push('')
   lines.push(`Mode: ${meta.mode} | Provider: ${meta.provider} | Total responses scored: ${meta.totalResponses} | Wall-clock: ${meta.elapsedSec}s`)
+  lines.push(`Orchestration: ${meta.orchestration}`)
+  lines.push(`Context: ${meta.authenticated ? `authenticated test account (${meta.userId})` : `local fixture (${meta.fixture})`}`)
   lines.push('')
   lines.push('## Summary by criterion')
   lines.push('')
   lines.push('| Criterion | Pass | Fail | N/A | Pass rate |')
   lines.push('|-----------|------|------|-----|-----------|')
   for (const [key, s] of Object.entries(summary)) {
-    if (key === 'overall' || key === 'latencyMs') continue
+    if (key === 'overall' || key === 'latencyMs' || key === 'byCapability') continue
     lines.push(`| ${key} | ${s.pass} | ${s.fail} | ${s.na} | **${fmtPct(s.passRate)}** |`)
   }
   lines.push(`| **OVERALL** | ${summary.overall.pass} | ${summary.overall.fail} | — | **${fmtPct(summary.overall.passRate)}** |`)
@@ -265,6 +312,17 @@ function buildMarkdown(summary, results, meta) {
     lines.push(`## Latency (per Celestin call, ms)`)
     lines.push('')
     lines.push(`mean=${l.mean} | p50=${l.p50} | p95=${l.p95} | min=${l.min} | max=${l.max} | n=${l.count}`)
+    lines.push('')
+  }
+
+  if (summary.byCapability) {
+    lines.push('## Summary by capability')
+    lines.push('')
+    lines.push('| Capability | Responses | Failures | Fallback | Provider errors | Reco cards | p50 | p95 |')
+    lines.push('|------------|-----------|----------|----------|-----------------|------------|-----|-----|')
+    for (const [capability, bucket] of Object.entries(summary.byCapability)) {
+      lines.push(`| ${capability} | ${bucket.responses} | ${bucket.failures} | ${bucket.fallback} | ${bucket.providerErrors} | ${bucket.recommendationCards} | ${bucket.latencyP50Ms ?? 'N/A'} | ${bucket.latencyP95Ms ?? 'N/A'} |`)
+    }
     lines.push('')
   }
 
@@ -303,9 +361,12 @@ async function runSingleTurn(ctx, scenarios) {
     const scenario = scenarios[i]
     process.stdout.write(`  [single ${i + 1}/${scenarios.length}] ${scenario.id}... `)
     try {
-      const body = buildSingleTurnBody(ctx.fixture, scenario, PROVIDER)
+      const body = buildSingleTurnBody(ctx.fixture, scenario, PROVIDER, {
+        orchestrationVersion: ORCHESTRATION,
+        omitContext: ctx.authenticated,
+      })
       const callStart = Date.now()
-      const { data } = await callCelestin(body, ctx.supabaseUrl, ctx.supabaseAnonKey)
+      const { data } = await callCelestin(body, ctx.supabaseUrl, ctx.supabaseAnonKey, { userJwt: ctx.userJwt })
       const latencyMs = Date.now() - callStart
       const message = data.message ?? ''
       const uiAction = data.ui_action ?? null
@@ -322,6 +383,10 @@ async function runSingleTurn(ctx, scenarios) {
         userMessage: scenario.message,
         assistantMessage: message,
         uiActionKind: uiAction?.kind ?? null,
+        capability: data._debug?.capability ?? null,
+        confidence: data._debug?.confidence ?? null,
+        responseMode: data._debug?.responseMode ?? null,
+        providerPath: data._debug?.providerTrace?.providerPath ?? null,
         latencyMs,
         scorecard: { ...deterministic, ...judge },
       })
@@ -345,9 +410,12 @@ async function runMultiTurn(ctx, conversations) {
     for (let t = 0; t < conv.turns.length; t++) {
       const turn = conv.turns[t]
       try {
-        const body = buildRequestBody(ctx.fixture, turn.message, history, conversationState, PROVIDER)
+        const body = buildRequestBody(ctx.fixture, turn.message, history, conversationState, PROVIDER, {
+          orchestrationVersion: ORCHESTRATION,
+          omitContext: ctx.authenticated,
+        })
         const callStart = Date.now()
-        const { data } = await callCelestin(body, ctx.supabaseUrl, ctx.supabaseAnonKey)
+        const { data } = await callCelestin(body, ctx.supabaseUrl, ctx.supabaseAnonKey, { userJwt: ctx.userJwt })
         const latencyMs = Date.now() - callStart
         const message = data.message ?? ''
         const uiAction = data.ui_action ?? null
@@ -364,6 +432,10 @@ async function runMultiTurn(ctx, conversations) {
           userMessage: turn.message,
           assistantMessage: message,
           uiActionKind: uiAction?.kind ?? null,
+          capability: data._debug?.capability ?? null,
+          confidence: data._debug?.confidence ?? null,
+          responseMode: data._debug?.responseMode ?? null,
+          providerPath: data._debug?.providerTrace?.providerPath ?? null,
           latencyMs,
           scorecard: { ...deterministic, ...judge },
         })
@@ -391,14 +463,38 @@ async function main() {
   const fixture = loadJson(fixturePath)
   if (!fixture) throw new Error(`Could not load fixture at ${fixturePath}`)
 
-  const ctx = { supabaseUrl: env.supabaseUrl, supabaseAnonKey: env.supabaseAnonKey, fixture }
+  let authSession = null
+  if (AUTH) {
+    const creds = loadTestUserCreds()
+    if (!creds) {
+      throw new Error(
+        '--auth requires TEST_USER_EMAIL and TEST_USER_PASSWORD, or PLAYWRIGHT_TEST_EMAIL and PLAYWRIGHT_TEST_PASSWORD, in .env.local/.env.playwright.local.',
+      )
+    }
+    authSession = await loadTestUserJwt(env.supabaseUrl, env.supabaseAnonKey, creds)
+  }
+
+  const ctx = {
+    supabaseUrl: env.supabaseUrl,
+    supabaseAnonKey: env.supabaseAnonKey,
+    fixture,
+    authenticated: !!authSession,
+    userJwt: authSession?.jwt,
+  }
 
   const scenarios = loadJson(DEFAULT_SCENARIOS) ?? []
   const conversations = QUICK ? [] : loadJson(DEFAULT_CONVERSATIONS) ?? []
 
   console.log(`Celestin scorecard — ${scenarios.length} single-turn + ${conversations.length} multi-turn`)
   console.log(`Fixture: ${path.relative(process.cwd(), fixturePath)}`)
+  if (authSession) {
+    console.log(`Authenticated test account: ${authSession.userId}`)
+    console.log('Context source: Supabase account data (fixture cave/profile/memory omitted)')
+  } else {
+    console.log('Context source: local fixture body')
+  }
   console.log(`Provider: ${PROVIDER ?? 'default (Gemini → OpenAI fallback)'}`)
+  console.log(`Orchestration: ${ORCHESTRATION}`)
   console.log('')
 
   const startedAt = Date.now()
@@ -422,6 +518,9 @@ async function main() {
     timestamp,
     mode: QUICK ? 'quick (single-turn only)' : 'full',
     provider: PROVIDER ?? 'default',
+    orchestration: ORCHESTRATION,
+    authenticated: !!authSession,
+    userId: authSession?.userId ?? null,
     totalResponses: allResults.length,
     elapsedSec,
     fixture: path.basename(fixturePath),
@@ -429,7 +528,8 @@ async function main() {
 
   ensureDir(DEFAULT_OUT_DIR)
   const providerSuffix = PROVIDER ? `-${PROVIDER}` : ''
-  const baseName = `scorecard${providerSuffix}-${timestamp}`
+  const orchestrationSuffix = ORCHESTRATION === 'v2' ? '-v2' : ''
+  const baseName = `scorecard${providerSuffix}${orchestrationSuffix}-${timestamp}`
   const jsonPath = path.join(DEFAULT_OUT_DIR, `${baseName}.json`)
   const mdPath = path.join(DEFAULT_OUT_DIR, `${baseName}.md`)
 
@@ -438,7 +538,7 @@ async function main() {
 
   console.log('=== SUMMARY ===')
   for (const [key, s] of Object.entries(summary)) {
-    if (key === 'overall' || key === 'latencyMs') continue
+    if (key === 'overall' || key === 'latencyMs' || key === 'byCapability') continue
     console.log(`  ${key.padEnd(36)} ${fmtPct(s.passRate).padStart(7)}  (${s.pass}/${s.pass + s.fail}, ${s.na} N/A)`)
   }
   console.log('  ---')
@@ -446,6 +546,12 @@ async function main() {
   if (summary.latencyMs) {
     const l = summary.latencyMs
     console.log(`  ${'LATENCY ms (mean/p50/p95)'.padEnd(36)} ${l.mean}/${l.p50}/${l.p95}  (n=${l.count})`)
+  }
+  if (summary.byCapability) {
+    console.log('  ---')
+    for (const [capability, bucket] of Object.entries(summary.byCapability)) {
+      console.log(`  ${capability.padEnd(36)} responses=${bucket.responses} failures=${bucket.failures} fallback=${bucket.fallback} cards=${bucket.recommendationCards}`)
+    }
   }
   console.log('')
   console.log(`Reports written:`)

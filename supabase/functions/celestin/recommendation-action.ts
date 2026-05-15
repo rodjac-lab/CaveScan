@@ -206,6 +206,32 @@ function buildCardsFromModelAction(
   return buildCardsFromSelection(selections, bottles)
 }
 
+function backfillRecommendationCards(cards: RecommendationCard[], bottles: CaveBottle[], userMessage?: string): RecommendationCard[] {
+  if (cards.length >= 2) return cards.slice(0, 3)
+
+  const seen = new Set(cards.map((card) => normalize(card.bottle_id ?? card.name)))
+  const disallowed = disallowedColorsForRequest(userMessage)
+  const next = [...cards]
+  for (const bottle of bottles) {
+    if (next.length >= 3) break
+    if (disallowed.has(cardColor(bottle.couleur))) continue
+    const key = normalize(bottle.id || cardName(bottle))
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    next.push({
+      bottle_id: bottle.id,
+      name: cardName(bottle),
+      appellation: cardAppellation(bottle),
+      millesime: bottle.millesime,
+      badge: BADGES[next.length] ?? 'De ta cave',
+      reason: backendCardReason(bottle),
+      color: cardColor(bottle.couleur),
+    })
+  }
+
+  return next
+}
+
 function canUseRecommendationSources(resolvedSources: ResolvedContextSources): boolean {
   return (resolvedSources.cave.level === 'shortlist' || resolvedSources.cave.level === 'full_debug')
     && resolvedSources.cave.bottles.length > 0
@@ -253,6 +279,7 @@ export function ensureRecommendationUiAction(input: {
   resolvedSources: ResolvedContextSources
   userMessage?: string
   requireStructuredSelection?: boolean
+  minimumCards?: number
 }): CelestinResponse {
   const { response, interpretation, routingIntent, resolvedSources } = input
   const hasStructuredSelection = !!response.recommendation_selection?.length
@@ -276,7 +303,12 @@ export function ensureRecommendationUiAction(input: {
     ?? (response.ui_action?.kind === 'show_recommendations'
       ? buildCardsFromModelAction(response, resolvedSources.cave.bottles) ?? response.ui_action.payload.cards
       : buildRecommendationCards(response.message, resolvedSources.cave.bottles))
-  const filteredCards = filterCardsForRequest(cards, input.userMessage)
+  const filteredCards = filterCardsForRequest(
+    (input.minimumCards ?? 1) > 1
+      ? backfillRecommendationCards(cards, resolvedSources.cave.bottles, input.userMessage)
+      : cards,
+    input.userMessage,
+  )
   if (filteredCards.length === 0) {
     if (response.ui_action?.kind !== 'show_recommendations') return response
     return { ...response, ui_action: null }

@@ -30,6 +30,8 @@ import {
   findLatestRealFixture,
   loadJson,
   loadSupabaseEnv,
+  loadTestUserCreds,
+  loadTestUserJwt,
 } from '../evals/lib/runner.mjs'
 
 const ROOT = process.cwd()
@@ -42,6 +44,8 @@ function parseArgs(argv) {
     outDir: DEFAULT_OUT_DIR,
     dryRun: false,
     provider: null,
+    orchestration: 'v1',
+    auth: false,
   }
 
   for (let i = 2; i < argv.length; i++) {
@@ -51,7 +55,13 @@ function parseArgs(argv) {
     else if (arg === '--conversations' && argv[i + 1]) args.conversations = path.resolve(argv[++i])
     else if (arg === '--out-dir' && argv[i + 1]) args.outDir = path.resolve(argv[++i])
     else if (arg === '--provider' && argv[i + 1]) args.provider = argv[++i]
+    else if (arg === '--orchestration' && argv[i + 1]) args.orchestration = argv[++i]
+    else if (arg === '--auth' || arg === '--test-user') args.auth = true
     else if (arg === '--dry-run') args.dryRun = true
+  }
+
+  if (!['v1', 'v2'].includes(args.orchestration)) {
+    throw new Error(`Invalid --orchestration: ${args.orchestration}. Must be v1 or v2.`)
   }
 
   if (!args.scenarios && !args.conversations) {
@@ -69,7 +79,7 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
 }
 
-async function runConversation(conversation, fixture, baseUrl, anonKey, dryRun, provider) {
+async function runConversation(conversation, fixture, baseUrl, anonKey, dryRun, provider, orchestration, authSession) {
   const turns = conversation.turns
   const turnResults = []
   let history = []
@@ -82,7 +92,10 @@ async function runConversation(conversation, fixture, baseUrl, anonKey, dryRun, 
     const turn = turns[i]
     console.log(`    Turn ${i + 1}/${turns.length}: "${turn.message}"`)
 
-    const body = buildRequestBody(fixture, turn.message, history, conversationState, provider)
+    const body = buildRequestBody(fixture, turn.message, history, conversationState, provider, {
+      orchestrationVersion: orchestration,
+      omitContext: !!authSession,
+    })
 
     if (dryRun) {
       turnResults.push({
@@ -103,7 +116,7 @@ async function runConversation(conversation, fixture, baseUrl, anonKey, dryRun, 
     }
 
     try {
-      const { data, elapsedMs } = await callCelestin(body, baseUrl, anonKey)
+      const { data, elapsedMs } = await callCelestin(body, baseUrl, anonKey, { userJwt: authSession?.jwt })
 
       const analysis = analyzeTurnResult(turn, data)
 
@@ -414,8 +427,28 @@ async function main() {
 
   ensureDir(args.outDir)
 
+  let authSession = null
+  if (args.auth) {
+    if (dryRun) {
+      console.log('Auth mode requested, skipped in dry-run.')
+    } else {
+      const creds = loadTestUserCreds()
+      if (!creds) {
+        throw new Error(
+          '--auth requires TEST_USER_EMAIL and TEST_USER_PASSWORD, or PLAYWRIGHT_TEST_EMAIL and PLAYWRIGHT_TEST_PASSWORD, in .env.local/.env.playwright.local.',
+        )
+      }
+      authSession = await loadTestUserJwt(supabaseUrl, supabaseAnonKey, creds)
+    }
+  }
+
   if (args.provider) {
     console.log(`\n🔧 Forced provider: ${args.provider}`)
+  }
+  console.log(`Orchestration: ${args.orchestration}`)
+  if (authSession) {
+    console.log(`Authenticated test account: ${authSession.userId}`)
+    console.log('Context source: Supabase account data (fixture cave/profile/memory omitted)')
   }
 
   const structuredMemoryBits = [
@@ -432,7 +465,7 @@ async function main() {
   const singleResults = []
   const conversationResults = []
 
-  console.log(`\n=== Memory runtime: compiled_profile_v1 ===`)
+  console.log(`\n=== Memory runtime: compiled_profile_${args.orchestration} ===`)
 
   if (scenarios && scenarios.length > 0) {
     console.log(`\n=== Single-turn scenarios (${scenarios.length}) ===`)
@@ -440,7 +473,10 @@ async function main() {
     // ~3-4× without changing per-scenario semantics. Conversations stay
     // sequential below because turns chain state.
     const runOne = async (scenario) => {
-      const body = buildSingleTurnBody(fixture, scenario, args.provider)
+      const body = buildSingleTurnBody(fixture, scenario, args.provider, {
+        orchestrationVersion: args.orchestration,
+        omitContext: !!authSession,
+      })
       console.log(`Running ${scenario.id}: ${scenario.message}`)
       if (args.dryRun) {
         return {
@@ -460,7 +496,7 @@ async function main() {
         }
       }
       try {
-        const { data, elapsedMs } = await callCelestin(body, supabaseUrl, supabaseAnonKey)
+        const { data, elapsedMs } = await callCelestin(body, supabaseUrl, supabaseAnonKey, { userJwt: authSession?.jwt })
         return {
           id: scenario.id,
           elapsedMs,
@@ -500,6 +536,8 @@ async function main() {
         supabaseAnonKey,
         args.dryRun,
         args.provider,
+        args.orchestration,
+        authSession,
       )
       conversationResults.push(result)
     }
@@ -509,24 +547,28 @@ async function main() {
     console.log(`\n  Conversations: ${passed} passed, ${failed} failed out of ${conversationResults.length}`)
   }
 
-  const jsonPath = path.join(args.outDir, `celestin-eval-compiled_profile_v1-${timestamp}.json`)
-  const htmlPath = path.join(args.outDir, `celestin-eval-compiled_profile_v1-${timestamp}.html`)
+  const modeId = `compiled_profile_${args.orchestration}`
+  const jsonPath = path.join(args.outDir, `celestin-eval-${modeId}-${timestamp}.json`)
+  const htmlPath = path.join(args.outDir, `celestin-eval-${modeId}-${timestamp}.html`)
 
   fs.writeFileSync(jsonPath, JSON.stringify({
     fixture,
     scenarios: scenarios ?? [],
     conversations: conversations ?? [],
     memoryRuntime: {
-      id: 'compiled_profile_v1',
+      id: modeId,
       label: 'Compiled profile',
     },
+    orchestration: args.orchestration,
+    authenticated: !!authSession,
+    userId: authSession?.userId ?? null,
     singleResults,
     conversationResults,
   }, null, 2))
   fs.writeFileSync(
     htmlPath,
     renderHtmlReport(singleResults, conversationResults, fixture, scenarios ?? [], {
-      modeLabel: 'compiled_profile_v1',
+      modeLabel: modeId,
     }),
   )
 

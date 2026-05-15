@@ -225,6 +225,8 @@ describe('runCelestinTurn deterministic exact answers', () => {
     expect(result.provider).toBe('deterministic')
     expect(result.response.message).toBe('Tu as 3 bouteilles en cave, sur 2 references.')
     expect(result.debugTrace.providerTrace.attempts).toEqual([])
+    expect(result.debugTrace.capability).toBe('FACTS')
+    expect(result.debugTrace.responseMode).toBe('deterministic')
     expect(mock.calls).toContain('bottles')
     expect(mock.calls).toContain('zones')
   })

@@ -11,6 +11,7 @@ import { interpretTurnWithRouting } from "./turn-interpreter.ts"
 import { persistCelestinTurnObservability } from "./observability.ts"
 import type { ResolvedContextSources } from "./source-resolver.ts"
 import { forcedToolNameForSourceMode, resolveSourceMode, shouldEnableToolsForSourceMode, shouldRequireToolUseForSourceMode, type SourceMode } from "./source-mode.ts"
+import { buildCelestinV2Plan, buildLowConfidenceV2Response, shouldClarifyLowConfidenceV2, type CelestinV2Plan } from "./v2-plan.ts"
 import type { AuthContext } from "./auth.ts"
 import type { CaveBottle, CelestinResponse, RequestBody } from "./types.ts"
 
@@ -103,6 +104,7 @@ function buildDebugTrace(input: {
   contextPlan: ContextPlan
   sourceMode: SourceMode
   resolvedSources: ResolvedContextSources
+  v2Plan: CelestinV2Plan
 }) {
   const { body, conversationState, nextState, rawResponse, response, routingResult } = input
 
@@ -119,6 +121,12 @@ function buildDebugTrace(input: {
     routing: routingResult.routing,
     contextPlan: input.contextPlan,
     sourceMode: input.sourceMode,
+    capability: input.v2Plan.capability,
+    confidence: input.v2Plan.confidence,
+    actionContract: input.v2Plan.actionContract,
+    responseMode: input.v2Plan.responseMode,
+    orchestrationVersion: input.v2Plan.orchestrationVersion,
+    v2: input.v2Plan,
     state: {
       beforePhase: conversationState.phase,
       beforeTask: conversationState.taskType ?? null,
@@ -271,8 +279,9 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
     const { interpretation, routing } = routingResult
     const contextPlan = buildContextPlan(routingResult)
     const sourceMode = resolveSourceMode(contextPlan, body)
+    const v2Plan = buildCelestinV2Plan({ body, routingResult, contextPlan, sourceMode })
 
-    console.log(`[celestin] source=${requestSource} message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} route=${routing.winner} profile=${contextPlan.profile} cavePlan=${contextPlan.cave} tools=${contextPlan.tools} truth=${contextPlan.truthPolicy} state=${conversationState.phase} convIntent=${conversationalIntent ?? 'null'} history=${body.history.length} cave=${body.cave?.length ?? 0} image=${body.image ? 'yes' : 'no'}`)
+    console.log(`[celestin] source=${requestSource} message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} route=${routing.winner} capability=${v2Plan.capability} confidence=${v2Plan.confidence.toFixed(2)} orchestration=${v2Plan.orchestrationVersion} profile=${contextPlan.profile} cavePlan=${contextPlan.cave} tools=${contextPlan.tools} truth=${contextPlan.truthPolicy} state=${conversationState.phase} convIntent=${conversationalIntent ?? 'null'} history=${body.history.length} cave=${body.cave?.length ?? 0} image=${body.image ? 'yes' : 'no'}`)
 
     const activeMemoryFocus = resolveActiveMemoryFocus(body, interpretation, conversationState, lastAssistantText)
     const contextPackage = await buildContextPackage({
@@ -292,6 +301,81 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       userPrompt,
       providerHistory,
     } = contextPackage
+
+    if (shouldClarifyLowConfidenceV2(v2Plan)) {
+      const rawResponse = buildLowConfidenceV2Response(v2Plan)
+      const response = applyResponsePolicy(rawResponse, interpretation)
+      const providerTrace = emptyProviderTrace()
+      const provider = 'v2_clarification'
+      const nextState = computeNextState(
+        conversationState,
+        interpretation.turnType,
+        false,
+        undefined,
+        undefined,
+        activeMemoryFocus,
+      )
+
+      const debugTrace = buildDebugTrace({
+        body,
+        conversationState,
+        nextState,
+        contextBlock,
+        systemPrompt,
+        userPrompt,
+        provider,
+        activeMemoryFocus,
+        rawResponse,
+        response,
+        routingResult,
+        providerErrors: [],
+        providerTrace,
+        contextPlan,
+        sourceMode,
+        resolvedSources,
+        v2Plan,
+      })
+
+      await persistCelestinTurnObservability({
+        supabase: auth?.supabase ?? null,
+        turnId,
+        userId: auth?.userId ?? null,
+        body,
+        startedAt,
+        success: true,
+        route: routing.winner,
+        turnType: interpretation.turnType,
+        mode: interpretation.cognitiveMode,
+        stateBefore: conversationState,
+        stateAfter: nextState,
+        activeMemoryFocus,
+        prompt: {
+          systemChars: systemPrompt.length,
+          userChars: userPrompt.length,
+          contextChars: contextBlock.length,
+          providerHistoryTurns: providerHistory.length,
+        },
+        response,
+        rawResponse,
+        provider,
+        providerErrors: [],
+        providerTrace,
+        contextPlan,
+        sourceMode,
+        resolvedSources,
+        v2Plan,
+      })
+
+      console.log(`[celestin] V2 clarification: route=${routing.winner} capability=${v2Plan.capability} confidence=${v2Plan.confidence.toFixed(2)}`)
+
+      return {
+        response,
+        nextState,
+        debugTrace,
+        provider,
+        turnId,
+      }
+    }
 
     const deterministicResponse = buildDeterministicResponse({
       body,
@@ -330,6 +414,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
         contextPlan,
         sourceMode,
         resolvedSources,
+        v2Plan,
       })
 
       await persistCelestinTurnObservability({
@@ -359,6 +444,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
         contextPlan,
         sourceMode,
         resolvedSources,
+        v2Plan,
       })
 
       console.log(`[celestin] Deterministic response: route=${routing.winner} msg="${response.message.slice(0, 120)}"`)
@@ -433,6 +519,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       resolvedSources: responseSources,
       userMessage: body.message,
       requireStructuredSelection: usedRecommendationCandidateTool(providerTrace),
+      minimumCards: v2Plan.enabled && v2Plan.capability === 'RECOMMEND' ? 2 : 1,
     })
 
     const nextState = computeNextState(
@@ -461,6 +548,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       contextPlan,
       sourceMode,
       resolvedSources: responseSources,
+      v2Plan,
     })
 
     await persistCelestinTurnObservability({
@@ -490,6 +578,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       contextPlan,
       sourceMode,
       resolvedSources: responseSources,
+      v2Plan,
     })
 
     if (body.debugTrace) {

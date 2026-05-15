@@ -58,6 +58,11 @@ export type CelestinRealTraceEntry = {
     provider: string | null
     turnType: string | null
     cognitiveMode: string | null
+    capability: string | null
+    confidence: number | null
+    actionContract: string | null
+    responseMode: string | null
+    orchestrationVersion: string | null
     memoryFocus: string | null
     routing: CelestinRoutingTrace | null
     state: {
@@ -137,6 +142,11 @@ type CelestinTraceResponse = {
     policy?: unknown
     providerErrors?: unknown
     providerTrace?: unknown
+    capability?: unknown
+    confidence?: unknown
+    actionContract?: { kind?: unknown } | unknown
+    responseMode?: unknown
+    orchestrationVersion?: unknown
   } | null
 }
 
@@ -386,6 +396,13 @@ export function buildCelestinRealTraceEntry(input: {
         provider: asString(debug?.provider),
         turnType: asString(debug?.turnType),
         cognitiveMode: asString(debug?.cognitiveMode),
+        capability: asString(debug?.capability),
+        confidence: asNumber(debug?.confidence),
+        actionContract: debug?.actionContract && typeof debug.actionContract === 'object'
+          ? asString((debug.actionContract as Record<string, unknown>).kind)
+          : asString(debug?.actionContract),
+        responseMode: asString(debug?.responseMode),
+        orchestrationVersion: asString(debug?.orchestrationVersion),
         memoryFocus: asString(debug?.memoryFocus),
         routing,
         state: normalizeStateTrace(debug?.state),

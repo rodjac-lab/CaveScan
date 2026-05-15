@@ -1018,7 +1018,6 @@ async function resolveCellarCandidatesFromBackend(
   auth: SourceResolverAuth,
 ): Promise<CaveBottle[] | null> {
   if (contextPlan.cellarCandidates !== 'preempted') return null
-  if (!auth?.userId || !auth.supabase) return null
 
   const message = typeof body.message === 'string' ? body.message.trim() : ''
   if (!message) return null
@@ -1029,6 +1028,16 @@ async function resolveCellarCandidatesFromBackend(
     toolInput.query = message
     const color = requestedColor({ query: message })
     if (color) toolInput.color = color as ToolInput['color']
+  }
+
+  if (!auth?.userId || !auth.supabase) {
+    if (body.requestSource !== 'cli_eval') return null
+    const fixtureRows = (body.cave ?? []) as CaveBottle[]
+    const color = typeof toolInput.color === 'string' ? toolInput.color : null
+    const candidates = color
+      ? fixtureRows.filter((bottle) => normalizeExactQueryText(bottle.couleur ?? '').includes(normalizeExactQueryText(color)))
+      : fixtureRows
+    return candidates.slice(0, 8)
   }
 
   let payload: Record<string, unknown>

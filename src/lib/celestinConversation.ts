@@ -81,6 +81,7 @@ export interface CelestinRequestBody {
   debugTrace?: boolean
   requestSource?: string
   sessionId?: string | null
+  orchestrationVersion?: 'v1' | 'v2'
 }
 
 export function buildWelcomeChips(now = new Date()): string[] {

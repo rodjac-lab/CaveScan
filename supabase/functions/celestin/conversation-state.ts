@@ -69,6 +69,12 @@ export function computeNextState(
     ({ phase, taskType, lastUiActionKind, turnsSinceLastAction: 0, memoryFocus: nextMemoryFocus })
   const postTaskAck = (): ConversationState => next('post_task_ack', resolveTask(), uiActionKind ?? null)
   const collectingInfo = (): ConversationState => next('collecting_info', resolveTask(), null)
+  const taskRequestWithoutUiAction = (): ConversationState => {
+    // Only encavage has a legitimate "collect more details before showing UI"
+    // phase. A recommendation without cards must not trap follow-up turns into
+    // the recommendation response contract.
+    return resolveTask() === 'encavage' ? collectingInfo() : { ...INITIAL_STATE }
+  }
   const activeTask = (lastUiActionKind: string | null = current.lastUiActionKind): ConversationState =>
     next('active_task', current.taskType, lastUiActionKind)
   const stay = (): ConversationState => ({
@@ -80,7 +86,7 @@ export function computeNextState(
   switch (current.phase) {
     case 'idle_smalltalk': {
       if (turnType === 'task_request') {
-        return responseHasUiAction ? postTaskAck() : collectingInfo()
+        return responseHasUiAction ? postTaskAck() : taskRequestWithoutUiAction()
       }
       return stay()
     }
@@ -103,7 +109,7 @@ export function computeNextState(
         return responseHasUiAction ? postTaskAck() : activeTask()
       }
       if (turnType === 'task_request') {
-        return responseHasUiAction ? postTaskAck() : collectingInfo()
+        return responseHasUiAction ? postTaskAck() : taskRequestWithoutUiAction()
       }
       // context_switch, smalltalk, or anything else → idle
       return { ...INITIAL_STATE }

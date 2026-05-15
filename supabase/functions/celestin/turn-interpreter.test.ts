@@ -760,6 +760,36 @@ describe('routing audit matrix', () => {
     })
   })
 
+  it('lets exact tasting queries escape recommendation collection state', () => {
+    expectRoute({
+      id: 'collecting-info-exact-tasting-query',
+      message: "Non c'est bon. Pierre me demande depuis combien de temps on se connait toi et moi ?",
+      state: {
+        phase: 'collecting_info',
+        taskType: 'recommendation',
+      },
+      lastAssistantText: 'Tu cherches juste un bon verre ou un accord pour un plat ?',
+      expectedWinner: 'tasting_log',
+      expectedMode: 'tasting_memory',
+      expectedUiAction: false,
+    })
+  })
+
+  it('does not force generic check-ins through the recommendation card contract', () => {
+    expectRoute({
+      id: 'collecting-info-generic-check-in',
+      message: 'Tu es là ?',
+      state: {
+        phase: 'collecting_info',
+        taskType: 'recommendation',
+      },
+      lastAssistantText: 'Tu cherches juste un bon verre ou un accord pour un plat ?',
+      expectedWinner: 'unknown',
+      expectedMode: 'wine_conversation',
+      expectedUiAction: false,
+    })
+  })
+
   it('lets explicit wine-culture pivots escape recommendation collection state', () => {
     expectRoute({
       id: 'collecting-info-culture-pivot',
@@ -802,6 +832,37 @@ describe('routing audit matrix', () => {
     const nextState = computeNextState(currentState, 'social_ack', false)
 
     expect(nextState).toEqual(INITIAL_STATE)
+  })
+
+  it('does not enter collection state after a recommendation answer without cards', () => {
+    const currentState = state()
+
+    const nextState = computeNextState(
+      currentState,
+      'task_request',
+      false,
+      null,
+      'recommendation',
+    )
+
+    expect(nextState).toEqual(INITIAL_STATE)
+  })
+
+  it('keeps encavage collection state after an encavage answer without UI', () => {
+    const currentState = state()
+
+    const nextState = computeNextState(
+      currentState,
+      'task_request',
+      false,
+      null,
+      'encavage',
+    )
+
+    expect(nextState).toMatchObject({
+      phase: 'collecting_info',
+      taskType: 'encavage',
+    })
   })
 
   it('routes an explicit recommendation request while collecting info as a new recommendation', () => {

@@ -41,6 +41,25 @@ export type AdminCelestinCostByUser = {
   edge_p95_ms: number | null
 }
 
+export type AdminCelestinCapabilityHealth = {
+  day: string
+  orchestration_version: string
+  capability: string
+  turns: number
+  successful_turns: number
+  failed_turns: number
+  fallback_turns: number
+  recommendation_card_turns: number
+  avg_confidence: number | null
+  edge_function_p50_ms: number | null
+  edge_function_p95_ms: number | null
+  llm_p50_ms: number | null
+  llm_p95_ms: number | null
+  input_tokens: number
+  output_tokens: number
+  avg_tool_calls: number | null
+}
+
 export type AdminCelestinSlowTurn = {
   created_at: string
   turn_id: string
@@ -50,6 +69,11 @@ export type AdminCelestinSlowTurn = {
   route: string | null
   turn_type: string | null
   mode: string | null
+  orchestration_version: string | null
+  capability: string | null
+  confidence: number | null
+  action_contract: string | null
+  response_mode: string | null
   provider: string | null
   provider_path: string | null
   edge_ms: number | null
@@ -81,6 +105,7 @@ export type AdminCelestinSlowTurn = {
 export type AdminCelestinObservabilitySnapshot = {
   daily: AdminCelestinDailyHealth[]
   costByUser: AdminCelestinCostByUser[]
+  capabilityHealth: AdminCelestinCapabilityHealth[]
   slowTurns: AdminCelestinSlowTurn[]
 }
 
@@ -102,18 +127,21 @@ export function formatSupabaseError(error: unknown): string {
 }
 
 export async function loadAdminCelestinObservability(): Promise<AdminCelestinObservabilitySnapshot> {
-  const [daily, costByUser, slowTurns] = await Promise.all([
+  const [daily, costByUser, capabilityHealth, slowTurns] = await Promise.all([
     supabase.from('admin_celestin_daily_health_v').select('*').limit(14),
     supabase.from('admin_celestin_cost_by_user_v').select('*').limit(20),
+    supabase.from('admin_celestin_capability_health_v').select('*').limit(40),
     supabase.from('admin_celestin_slow_turns_v').select('*').limit(20),
   ])
 
-  const firstError = daily.error ?? costByUser.error ?? slowTurns.error
+  const capabilityViewMissing = capabilityHealth.error?.code === 'PGRST205'
+  const firstError = daily.error ?? costByUser.error ?? (capabilityViewMissing ? null : capabilityHealth.error) ?? slowTurns.error
   if (firstError) throw new Error(formatSupabaseError(firstError))
 
   return {
     daily: (daily.data ?? []) as AdminCelestinDailyHealth[],
     costByUser: (costByUser.data ?? []) as AdminCelestinCostByUser[],
+    capabilityHealth: capabilityViewMissing ? [] : (capabilityHealth.data ?? []) as AdminCelestinCapabilityHealth[],
     slowTurns: (slowTurns.data ?? []) as AdminCelestinSlowTurn[],
   }
 }

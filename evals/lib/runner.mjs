@@ -72,6 +72,7 @@ export function ensureDir(dir) {
  */
 export function buildRequestBody(fixture, message, history, conversationState, provider, options = {}) {
   const omitContext = options.omitContext === true
+  const orchestrationVersion = options.orchestrationVersion === 'v2' ? 'v2' : null
   return {
     message,
     history,
@@ -86,6 +87,7 @@ export function buildRequestBody(fixture, message, history, conversationState, p
     requestSource: 'cli_eval',
     ...(conversationState ? { conversationState } : {}),
     ...(provider ? { provider } : {}),
+    ...(orchestrationVersion ? { orchestrationVersion } : {}),
   }
 }
 
@@ -94,6 +96,7 @@ export function buildRequestBody(fixture, message, history, conversationState, p
  */
 export function buildSingleTurnBody(fixture, scenario, provider, options = {}) {
   const omitContext = options.omitContext === true
+  const orchestrationVersion = options.orchestrationVersion === 'v2' ? 'v2' : null
   const history = (scenario.history ?? fixture.history ?? []).map((turn) => ({
     role: turn.role,
     text: turn.content,
@@ -112,6 +115,7 @@ export function buildSingleTurnBody(fixture, scenario, provider, options = {}) {
     debugTrace: true,
     requestSource: 'cli_eval',
     ...(provider ? { provider } : {}),
+    ...(orchestrationVersion ? { orchestrationVersion } : {}),
   }
 }
 

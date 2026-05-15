@@ -189,6 +189,42 @@ export function AdminCelestinObservabilityPanel() {
         </details>
       ) : null}
 
+      {snapshot?.capabilityHealth.length ? (
+        <details className="mb-3">
+          <summary className="cursor-pointer text-[11px] text-[var(--text-secondary)]">Santé par capacité</summary>
+          <div className="mt-2 max-h-48 overflow-y-auto">
+            <table className="w-full text-[10px] text-[var(--text-secondary)]">
+              <thead className="text-[var(--text-muted)]">
+                <tr>
+                  <th className="text-left">Version</th>
+                  <th className="text-left">Capacité</th>
+                  <th className="text-right">Tours</th>
+                  <th className="text-right">Cartes</th>
+                  <th className="text-right">Fallback</th>
+                  <th className="text-right">Conf.</th>
+                  <th className="text-right">fn p50</th>
+                  <th className="text-right">LLM p50</th>
+                </tr>
+              </thead>
+              <tbody>
+                {snapshot.capabilityHealth.slice(0, 16).map((row) => (
+                  <tr key={`${row.day}-${row.orchestration_version}-${row.capability}`} className="border-t border-[var(--border-color)]">
+                    <td>{row.orchestration_version}</td>
+                    <td>{row.capability}</td>
+                    <td className="text-right tabular-nums">{row.turns}</td>
+                    <td className="text-right tabular-nums">{row.recommendation_card_turns}</td>
+                    <td className="text-right tabular-nums">{row.fallback_turns}</td>
+                    <td className="text-right tabular-nums">{row.avg_confidence == null ? '—' : row.avg_confidence.toFixed(2)}</td>
+                    <td className="text-right tabular-nums">{formatNumber(row.edge_function_p50_ms)}ms</td>
+                    <td className="text-right tabular-nums">{formatNumber(row.llm_p50_ms)}ms</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      ) : null}
+
       {snapshot?.slowTurns.length ? (
         <details>
           <summary className="cursor-pointer text-[11px] text-[var(--text-secondary)]">Tours les plus lents</summary>
@@ -203,6 +239,7 @@ export function AdminCelestinObservabilityPanel() {
                   <th className="text-right">ovh</th>
                   <th className="text-right">cold</th>
                   <th className="text-right">prep</th>
+                  <th className="text-left pl-2">Cap.</th>
                   <th className="text-left pl-2">Route</th>
                   <th className="text-left pl-2">Message</th>
                 </tr>
@@ -217,6 +254,7 @@ export function AdminCelestinObservabilityPanel() {
                     <td className="text-right tabular-nums">{formatNumber(row.browser_overhead_ms)}</td>
                     <td className="text-right tabular-nums">{row.edge_cold_start ? 'oui' : '—'}</td>
                     <td className="text-right tabular-nums">{formatNumber(row.frontend_prep_ms)}</td>
+                    <td className="pl-2">{row.capability ?? '—'}</td>
                     <td className="pl-2">{row.route ?? '—'}</td>
                     <td className="pl-2 text-[var(--text-muted)]">{row.message_preview ?? '—'}</td>
                   </tr>

@@ -49,6 +49,16 @@ export interface TastingRelationshipSpanQuery {
   kind: 'tasting_relationship_span'
 }
 
+export type ExactQuery =
+  | GenericCellarBottleCountQuery
+  | FilteredCellarBottleCountQuery
+  | VolumeCellarBottleCountQuery
+  | CellarOriginLookupQuery
+  | TastingCountQuery
+  | TastingRatingQuery
+  | TastingExtremeQuery
+  | TastingRelationshipSpanQuery
+
 export function normalizeExactQueryText(text: string): string {
   return text
     .toLowerCase()
@@ -244,4 +254,29 @@ export function parseTastingRelationshipSpanQuery(message: string): TastingRelat
   if (!/\b(depuis quand|depuis combien de temps|combien de temps)\b/.test(text)) return null
   if (!/\b(on se connait|tu me connais|tu me suis|avec toi|ensemble|nous)\b/.test(text)) return null
   return { kind: 'tasting_relationship_span' }
+}
+
+export function parseExactQuery(message: string): ExactQuery | null {
+  return parseGenericCellarBottleCount(message)
+    ?? parseFilteredCellarBottleCount(message)
+    ?? parseVolumeCellarBottleCount(message)
+    ?? parseCellarOriginLookup(message)
+    ?? parseTastingCountQuery(message)
+    ?? parseTastingRatingQuery(message)
+    ?? parseTastingExtremeQuery(message)
+    ?? parseTastingRelationshipSpanQuery(message)
+}
+
+export function isExactCellarQuery(query: ExactQuery | null): boolean {
+  return query?.kind === 'generic_cellar_bottle_count'
+    || query?.kind === 'filtered_cellar_bottle_count'
+    || query?.kind === 'volume_cellar_bottle_count'
+    || query?.kind === 'cellar_origin_lookup'
+}
+
+export function isExactTastingQueryKind(query: ExactQuery | null): boolean {
+  return query?.kind === 'tasting_count'
+    || query?.kind === 'tasting_rating'
+    || query?.kind === 'tasting_extreme'
+    || query?.kind === 'tasting_relationship_span'
 }

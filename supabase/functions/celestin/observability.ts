@@ -6,6 +6,7 @@ import type { SourceMode } from "./source-mode.ts"
 import { buildSourceRequirements } from "./source-resolver.ts"
 import type { ResolvedContextSources } from "./source-resolver.ts"
 import type { CelestinResponse, RequestBody } from "./types.ts"
+import type { CelestinV2Plan } from "./v2-plan.ts"
 
 type PromptMetrics = {
   systemChars: number
@@ -37,6 +38,7 @@ export type CelestinTurnObservabilityInput = {
   contextPlan?: ContextPlan | null
   sourceMode?: SourceMode | null
   resolvedSources?: ResolvedContextSources | null
+  v2Plan?: CelestinV2Plan | null
 }
 
 export type CelestinEdgeFunctionTimingInput = {
@@ -150,6 +152,11 @@ export async function persistCelestinTurnObservability(input: CelestinTurnObserv
         route: input.route ?? null,
         turn_type: input.turnType ?? null,
         mode: input.mode ?? null,
+        orchestration_version: input.v2Plan?.orchestrationVersion ?? input.body.orchestrationVersion ?? 'v1',
+        capability: input.v2Plan?.capability ?? null,
+        confidence: input.v2Plan?.confidence ?? null,
+        action_contract: input.v2Plan?.actionContract.kind ?? null,
+        response_mode: input.v2Plan?.responseMode ?? null,
         conversational_intent: typeof input.body.conversationalIntent === 'string' ? input.body.conversationalIntent : null,
         state_before_phase: input.stateBefore?.phase ?? null,
         state_after_phase: input.stateAfter?.phase ?? null,
@@ -186,6 +193,7 @@ export async function persistCelestinTurnObservability(input: CelestinTurnObserv
           providerResponses: trace?.responses ?? [],
           contextPlan: input.contextPlan ?? null,
           sourceMode: input.sourceMode ?? null,
+          v2Plan: input.v2Plan ?? null,
           sourceRequirements: input.contextPlan ? buildSourceRequirements(input.contextPlan) : [],
           resolvedSources: summarizeResolvedSources(input.resolvedSources),
         },
