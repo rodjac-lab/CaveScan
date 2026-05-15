@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { Calendar } from 'lucide-react'
+import { preloadRoute } from '@/lib/routePreload'
 
 // Cave icon (house)
 function CaveIcon({ className }: { className?: string }) {
@@ -71,7 +72,14 @@ export default function BottomNav() {
       <div className="mx-auto flex h-16 max-w-lg items-center justify-around px-4">
         {/* Left tabs */}
         {leftTabs.map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to} className={tabClass}>
+          <NavLink
+            key={to}
+            to={to}
+            className={tabClass}
+            onPointerEnter={() => preloadRoute(to)}
+            onFocus={() => preloadRoute(to)}
+            onTouchStart={() => preloadRoute(to)}
+          >
             <Icon className="h-[22px] w-[22px]" />
             <span className="text-[10px] font-medium">{label}</span>
           </NavLink>
@@ -80,6 +88,9 @@ export default function BottomNav() {
         {/* Center Scanner button */}
         <button
           onClick={() => navigate('/scanner')}
+          onPointerEnter={() => preloadRoute('/scanner')}
+          onFocus={() => preloadRoute('/scanner')}
+          onTouchStart={() => preloadRoute('/scanner')}
           className="flex-1 flex flex-col items-center justify-center gap-1 -mt-[22px]"
         >
           <div
@@ -96,7 +107,14 @@ export default function BottomNav() {
 
         {/* Right tabs */}
         {rightTabs.map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to} className={tabClass}>
+          <NavLink
+            key={to}
+            to={to}
+            className={tabClass}
+            onPointerEnter={() => preloadRoute(to)}
+            onFocus={() => preloadRoute(to)}
+            onTouchStart={() => preloadRoute(to)}
+          >
             <Icon className="h-[22px] w-[22px]" />
             <span className="text-[10px] font-medium">{label}</span>
           </NavLink>

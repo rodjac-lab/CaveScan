@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Zone } from '@/lib/types'
 
+let cachedZones: Zone[] | null = null
+
 async function loadZones(): Promise<{ data: Zone[]; error: string | null }> {
   const { data, error } = await supabase
     .from('zones')
@@ -20,13 +22,16 @@ export function useZones(): {
   error: string | null
   refetch: () => Promise<void>
 } {
-  const [zones, setZones] = useState<Zone[]>([])
-  const [loading, setLoading] = useState(true)
+  const [zones, setZones] = useState<Zone[]>(() => cachedZones ?? [])
+  const [loading, setLoading] = useState(() => !cachedZones)
   const [error, setError] = useState<string | null>(null)
 
   const fetchZones = useCallback(async (): Promise<void> => {
     const result = await loadZones()
-    setZones(result.data)
+    if (!result.error) {
+      setZones(result.data)
+      cachedZones = result.data
+    }
     setError(result.error)
     setLoading(false)
   }, [])
@@ -38,8 +43,11 @@ export function useZones(): {
       const result = await loadZones()
       if (isCancelled) return
 
-      setZones(result.data)
-      setError(result.error)
+      if (!result.error) {
+        setZones(result.data)
+        cachedZones = result.data
+      }
+      setError(result.error && !cachedZones ? result.error : null)
       setLoading(false)
     }
 

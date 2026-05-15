@@ -1,6 +1,7 @@
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { lazyWithRetry } from '@/lib/lazyWithRetry'
+import { loadRoute, preloadPrimaryRoutes } from '@/lib/routePreload'
 import BottomNav from './components/BottomNav'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ToastContainer } from './components/Toast'
@@ -8,19 +9,19 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { Loader2 } from 'lucide-react'
 
 // Lazy-loaded pages — only downloaded when the route is visited
-const Home = lazyWithRetry(() => import('./pages/Home'))
-const AddBottle = lazyWithRetry(() => import('./pages/AddBottle'))
+const Home = lazyWithRetry(() => loadRoute('/cave'))
+const AddBottle = lazyWithRetry(() => loadRoute('/add'))
 const EditBottle = lazyWithRetry(() => import('./pages/EditBottle'))
-const RemoveBottle = lazyWithRetry(() => import('./pages/RemoveBottle'))
+const RemoveBottle = lazyWithRetry(() => loadRoute('/remove'))
 const BottlePage = lazyWithRetry(() => import('./pages/BottlePage'))
-const Settings = lazyWithRetry(() => import('./pages/Settings'))
-const Login = lazyWithRetry(() => import('./pages/Login'))
-const Signup = lazyWithRetry(() => import('./pages/Signup'))
-const Landing = lazyWithRetry(() => import('./pages/Landing'))
-const Scanner = lazyWithRetry(() => import('./pages/Scanner'))
-const Degustations = lazyWithRetry(() => import('./pages/Degustations'))
-const Decouvrir = lazyWithRetry(() => import('./pages/Decouvrir'))
-const Debug = lazyWithRetry(() => import('./pages/Debug'))
+const Settings = lazyWithRetry(() => loadRoute('/settings'))
+const Login = lazyWithRetry(() => loadRoute('/login'))
+const Signup = lazyWithRetry(() => loadRoute('/signup'))
+const Landing = lazyWithRetry(() => loadRoute('/'))
+const Scanner = lazyWithRetry(() => loadRoute('/scanner'))
+const Degustations = lazyWithRetry(() => loadRoute('/degustations'))
+const Decouvrir = lazyWithRetry(() => loadRoute('/decouvrir'))
+const Debug = lazyWithRetry(() => loadRoute('/debug'))
 
 function PageLoader() {
   return (
@@ -36,6 +37,10 @@ function AppLayout() {
   const isAuthPage = location.pathname === '/login' || location.pathname === '/signup'
   const isLanding = location.pathname === '/'
   const isScanner = location.pathname === '/scanner'
+
+  useEffect(() => {
+    if (!isAuthPage && !isLanding) preloadPrimaryRoutes()
+  }, [isAuthPage, isLanding])
 
   if (isAuthPage) {
     return (

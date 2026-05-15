@@ -5,9 +5,10 @@ import { CELESTIN_TASTING_MEMORY_LIMIT } from '@/lib/memoryConfig'
 
 const BOTTLES_SELECT_QUERY = `*, zone:zones(*)`
 
-// Module-level cache shared by bottle consumers to avoid duplicate Supabase queries.
-let cachedInStock: Bottle[] | null = null
-let cachedDrunk: Bottle[] | null = null
+// Module-level cache shared by route consumers to keep tab switches instant.
+let cachedInStock: BottleWithZone[] | null = null
+let cachedDrunk: BottleWithZone[] | null = null
+let cachedRecentlyDrunk: BottleWithZone[] | null = null
 
 export function getCachedBottles(): { inStock: Bottle[] | null; drunk: Bottle[] | null } {
   return { inStock: cachedInStock, drunk: cachedDrunk }
@@ -45,14 +46,15 @@ export function useBottles(): {
   error: string | null
   refetch: () => Promise<void>
 } {
-  const [bottles, setBottles] = useState<BottleWithZone[]>([])
-  const [loading, setLoading] = useState(true)
+  const [bottles, setBottles] = useState<BottleWithZone[]>(() => cachedInStock ?? [])
+  const [loading, setLoading] = useState(() => !cachedInStock)
   const [error, setError] = useState<string | null>(null)
 
   const fetchBottles = useCallback(async () => {
-    setLoading(true)
+    if (!cachedInStock) setLoading(true)
     const result = await loadBottles()
     setBottles(result.data)
+    cachedInStock = result.data
     setError(result.error)
     setLoading(false)
   }, [])
@@ -64,10 +66,12 @@ export function useBottles(): {
       const result = await loadBottles()
       if (isCancelled) return
 
-      setBottles(result.data)
-      setError(result.error)
+      if (!result.error) {
+        setBottles(result.data)
+        cachedInStock = result.data
+      }
+      setError(result.error && !cachedInStock ? result.error : null)
       setLoading(false)
-      cachedInStock = result.data
     }
 
     void fetchInitialBottles()
@@ -84,8 +88,8 @@ export function useRecentlyDrunk(): {
   bottles: BottleWithZone[]
   loading: boolean
 } {
-  const [bottles, setBottles] = useState<BottleWithZone[]>([])
-  const [loading, setLoading] = useState(true)
+  const [bottles, setBottles] = useState<BottleWithZone[]>(() => cachedRecentlyDrunk ?? [])
+  const [loading, setLoading] = useState(() => !cachedRecentlyDrunk)
 
   useEffect(() => {
     async function fetchRecentlyDrunk(): Promise<void> {
@@ -96,10 +100,11 @@ export function useRecentlyDrunk(): {
         .order('drunk_at', { ascending: false })
         .limit(CELESTIN_TASTING_MEMORY_LIMIT)
 
-      const bottles = data || []
-      setBottles(bottles)
+      if (data) {
+        setBottles(data)
+        cachedRecentlyDrunk = data
+      }
       setLoading(false)
-      cachedDrunk = bottles
     }
     fetchRecentlyDrunk()
   }, [])
@@ -111,8 +116,8 @@ export function useDrunkBottles(): {
   bottles: BottleWithZone[]
   loading: boolean
 } {
-  const [bottles, setBottles] = useState<BottleWithZone[]>([])
-  const [loading, setLoading] = useState(true)
+  const [bottles, setBottles] = useState<BottleWithZone[]>(() => cachedDrunk ?? [])
+  const [loading, setLoading] = useState(() => !cachedDrunk)
 
   useEffect(() => {
     async function fetchDrunkBottles(): Promise<void> {
@@ -122,7 +127,10 @@ export function useDrunkBottles(): {
         .eq('status', 'drunk')
         .order('drunk_at', { ascending: false })
 
-      setBottles(data || [])
+      if (data) {
+        setBottles(data)
+        cachedDrunk = data
+      }
       setLoading(false)
     }
     fetchDrunkBottles()
