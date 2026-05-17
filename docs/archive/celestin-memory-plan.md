@@ -160,7 +160,7 @@ Objectif : Celestin se souvient de tout — conversations, préférences implici
 - **Persona mise à jour** : instructions d'usage proactif des souvenirs et préférences
 
 **Fichiers clés :**
-- `supabase/migrations/20260329_chat_memory.sql` — tables + RPC `search_sessions`
+- `supabase/migrations/20260329000000_chat_memory.sql` — tables + RPC `search_sessions`
 - `src/lib/chatPersistence.ts` — CRUD sessions/messages, extraction, retrieval
 - `src/lib/memoryFactsSerializer.ts` — sérialisation des facts pour prompt
 - `supabase/functions/extract-chat-insights/index.ts` — edge function extraction
