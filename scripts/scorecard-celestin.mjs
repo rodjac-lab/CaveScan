@@ -241,6 +241,50 @@ function evaluateExpectedResponseContent(message, context) {
   return { pass: checks.every((check) => check.pass), detail: { checks } }
 }
 
+function evaluateFactAnswerGate(context = {}) {
+  const expectedFactDirect = typeof context.expectations?.factDirectAnswerAllowed === 'boolean'
+    ? context.expectations.factDirectAnswerAllowed
+    : null
+  const expectedFactAnswerPath = typeof context.expectations?.factAnswerPath === 'string'
+    ? context.expectations.factAnswerPath
+    : null
+  const directAnswerAllowed = context.factReadiness?.directAnswerAllowed ?? null
+  const answerPath = context.factReadiness?.answerPath ?? null
+  const checks = []
+
+  if (expectedFactDirect !== null) {
+    checks.push({
+      field: 'directAnswerAllowed',
+      expected: expectedFactDirect,
+      actual: directAnswerAllowed,
+      pass: expectedFactDirect
+        ? directAnswerAllowed === true
+        : directAnswerAllowed !== true && context.providerPath !== 'direct_response',
+    })
+  }
+  if (expectedFactAnswerPath !== null) {
+    checks.push({
+      field: 'answerPath',
+      expected: expectedFactAnswerPath,
+      actual: answerPath,
+      pass: answerPath === expectedFactAnswerPath,
+    })
+  }
+
+  return {
+    pass: checks.length === 0 ? null : checks.every((check) => check.pass),
+    detail: {
+      expectedFactDirectAnswerAllowed: expectedFactDirect,
+      expectedFactAnswerPath,
+      directAnswerAllowed,
+      answerPath,
+      checks,
+      providerPath: context.providerPath ?? null,
+      factReadiness: context.factReadiness ?? null,
+    },
+  }
+}
+
 function evaluateDeterministic(message, uiAction, context = {}) {
   const fw = firstWord(message)
   const lines = nonEmptyLineCount(message)
@@ -254,15 +298,7 @@ function evaluateDeterministic(message, uiAction, context = {}) {
   const isRecoClarification = context.capability === 'RECOMMEND'
     && (context.responseMode === 'clarification' || isClarificationText(message))
   const c5 = isRecoClarification ? cards === null : null
-  const expectedFactDirect = typeof context.expectations?.factDirectAnswerAllowed === 'boolean'
-    ? context.expectations.factDirectAnswerAllowed
-    : null
-  const directAnswerAllowed = context.factReadiness?.directAnswerAllowed ?? null
-  const c6 = expectedFactDirect === null
-    ? null
-    : expectedFactDirect
-      ? directAnswerAllowed === true
-      : directAnswerAllowed !== true && context.providerPath !== 'direct_response'
+  const c6 = evaluateFactAnswerGate(context)
   const expectedActionReady = typeof context.expectations?.actionReady === 'boolean'
     ? context.expectations.actionReady
     : null
@@ -286,13 +322,8 @@ function evaluateDeterministic(message, uiAction, context = {}) {
       detail: { cards, capability: context.capability ?? null, responseMode: context.responseMode ?? null },
     },
     c6_fact_direct_answer_gate: {
-      pass: c6,
-      detail: {
-        expectedFactDirectAnswerAllowed: expectedFactDirect,
-        directAnswerAllowed,
-        providerPath: context.providerPath ?? null,
-        factReadiness: context.factReadiness ?? null,
-      },
+      pass: c6.pass,
+      detail: c6.detail,
     },
     c7_action_clarification_no_ui: {
       pass: c7,
@@ -565,6 +596,7 @@ async function runSingleTurn(ctx, scenarios) {
         recommendationReady: data._debug?.recommendationReady ?? null,
         actionReady: data._debug?.actionReady ?? null,
         factReadiness: data._debug?.factReadiness ?? null,
+        factAnswerPath: data._debug?.factReadiness?.answerPath ?? null,
         providerPath,
         latencyMs,
         scorecard: { ...deterministic, ...judge },
@@ -627,6 +659,7 @@ async function runMultiTurn(ctx, conversations) {
           recommendationReady: data._debug?.recommendationReady ?? null,
           actionReady: data._debug?.actionReady ?? null,
           factReadiness: data._debug?.factReadiness ?? null,
+          factAnswerPath: data._debug?.factReadiness?.answerPath ?? null,
           providerPath,
           latencyMs,
           scorecard: { ...deterministic, ...judge },

@@ -76,7 +76,8 @@ export interface ResolvedTastingsSource {
   queryLabel?: string
   factReadiness?: {
     directAnswerAllowed: boolean
-    reason: 'explicit_tasting_subject' | 'typed_tasting_focus' | 'ambiguous_focus_source'
+    answerPath: 'direct_fact' | 'llm_fact_with_tools' | 'clarification'
+    reason: 'explicit_tasting_subject' | 'typed_tasting_focus' | 'ambiguous_focus_source' | 'insufficient_unique_evidence'
     focus?: {
       label: string
       source: 'tasting' | 'conversation_memory' | 'unknown'
@@ -174,6 +175,17 @@ function summarizeCave(cave: CaveBottle[]): Pick<ResolvedCaveSource, 'totalBottl
     referenceCount: cave.length,
     totalBottles: cave.reduce((sum, bottle) => sum + Math.max(1, bottle.quantity ?? 1), 0),
   }
+}
+
+type FocusedFactQuery = {
+  kind: 'rating' | 'vintage' | 'impression' | 'existence'
+  query: string
+  factReadiness: NonNullable<ResolvedTastingsSource['factReadiness']>
+}
+
+type DayMonthConstraint = {
+  day: number
+  month: number
 }
 
 function colorMatchesCountFilter(color: unknown, filter: CellarBottleCountFilter): boolean {
@@ -921,11 +933,7 @@ function directTastingEvidence(message: string): string | null {
 function resolveFocusedTastingFactQuery(
   message: string,
   activeMemoryFocus?: string | null,
-): {
-  kind: 'rating' | 'vintage' | 'impression' | 'existence'
-  query: string
-  factReadiness: NonNullable<ResolvedTastingsSource['factReadiness']>
-} | null {
+): FocusedFactQuery | null {
   const text = normalizeExactQueryText(message)
   const explicitSubject = extractPastTastingSubject(message)
   if (explicitSubject) {
@@ -934,6 +942,7 @@ function resolveFocusedTastingFactQuery(
       query: explicitSubject,
       factReadiness: {
         directAnswerAllowed: true,
+        answerPath: 'direct_fact',
         reason: 'explicit_tasting_subject',
         focus: {
           label: explicitSubject,
@@ -952,6 +961,7 @@ function resolveFocusedTastingFactQuery(
   const directAnswerAllowed = !!evidence && !hasAmbiguousFocusAttribution(message)
   const factReadiness: NonNullable<ResolvedTastingsSource['factReadiness']> = {
     directAnswerAllowed,
+    answerPath: directAnswerAllowed ? 'direct_fact' : 'llm_fact_with_tools',
     reason: directAnswerAllowed ? 'typed_tasting_focus' : 'ambiguous_focus_source',
     focus: {
       label: focus,
@@ -974,6 +984,99 @@ function resolveFocusedTastingFactQuery(
   }
 
   return null
+}
+
+function uniqueFocusedVintages(rows: Array<Record<string, unknown>>): number[] {
+  return [...new Set(rows.map((row) => row.millesime).filter((value): value is number => typeof value === 'number'))]
+}
+
+const FRENCH_MONTHS: Record<string, number> = {
+  janvier: 0,
+  fevrier: 1,
+  mars: 2,
+  avril: 3,
+  mai: 4,
+  juin: 5,
+  juillet: 6,
+  aout: 7,
+  septembre: 8,
+  octobre: 9,
+  novembre: 10,
+  decembre: 11,
+}
+
+function previousUserMessage(body: RequestBody): string | null {
+  return [...body.history].reverse().find((turn) => turn.role === 'user')?.text ?? null
+}
+
+function focusedDayMonthConstraint(body: RequestBody): DayMonthConstraint | null {
+  for (const source of [body.message, previousUserMessage(body)].filter(Boolean) as string[]) {
+    const normalized = normalizeExactQueryText(source)
+    const match = normalized.match(/\b([0-3]?\d)\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\b/)
+    if (!match) continue
+    const day = Number(match[1])
+    const month = FRENCH_MONTHS[match[2]]
+    if (day >= 1 && day <= 31 && typeof month === 'number') return { day, month }
+  }
+  return null
+}
+
+function rowMatchesDayMonth(row: Record<string, unknown>, constraint: DayMonthConstraint): boolean {
+  if (typeof row.drunk_at !== 'string') return false
+  const date = new Date(row.drunk_at)
+  if (Number.isNaN(date.getTime())) return false
+  return date.getUTCDate() === constraint.day && date.getUTCMonth() === constraint.month
+}
+
+function canAnswerFocusedFactDirectly(
+  focusedQuery: FocusedFactQuery,
+  rows: Array<Record<string, unknown>>,
+): boolean {
+  if (!focusedQuery.factReadiness.directAnswerAllowed) return false
+  if (focusedQuery.factReadiness.reason === 'explicit_tasting_subject') return true
+
+  if (focusedQuery.kind === 'rating' || focusedQuery.kind === 'impression') return rows.length === 1
+  if (focusedQuery.kind === 'vintage') return uniqueFocusedVintages(rows).length === 1
+  if (focusedQuery.kind === 'existence') return rows.length <= 1
+  return false
+}
+
+function finalizeFocusedFactReadiness(
+  focusedQuery: FocusedFactQuery,
+  rows: Array<Record<string, unknown>>,
+): NonNullable<ResolvedTastingsSource['factReadiness']> {
+  // Direct FACTS answers are allowed only after source resolution has made the evidence unique.
+  if (canAnswerFocusedFactDirectly(focusedQuery, rows)) {
+    return {
+      ...focusedQuery.factReadiness,
+      directAnswerAllowed: true,
+      answerPath: 'direct_fact',
+    }
+  }
+
+  return {
+    ...focusedQuery.factReadiness,
+    directAnswerAllowed: false,
+    answerPath: rows.length > 0 ? 'llm_fact_with_tools' : 'clarification',
+    reason: focusedQuery.factReadiness.reason === 'ambiguous_focus_source'
+      ? 'ambiguous_focus_source'
+      : 'insufficient_unique_evidence',
+    focus: focusedQuery.factReadiness.focus
+      ? {
+          ...focusedQuery.factReadiness.focus,
+          source: focusedQuery.factReadiness.reason === 'ambiguous_focus_source' ? 'unknown' : focusedQuery.factReadiness.focus.source,
+          confidence: Math.min(focusedQuery.factReadiness.focus.confidence, rows.length === 0 ? 0.45 : 0.65),
+        }
+      : undefined,
+  }
+}
+
+function focusedEvidenceRows(
+  body: RequestBody,
+  rows: Array<Record<string, unknown>>,
+): Array<Record<string, unknown>> {
+  const dateConstraint = focusedDayMonthConstraint(body)
+  return dateConstraint ? rows.filter((row) => rowMatchesDayMonth(row, dateConstraint)) : rows
 }
 
 function tastingExtremeOrder(extreme: 'oldest' | 'newest' | 'best' | 'worst') {
@@ -1058,13 +1161,15 @@ async function resolveTastingsFromBackend(
   }
 
   if (focusedQuery) {
+    const evidenceRows = focusedEvidenceRows(body, rows)
+    const focusedRows = evidenceRows.map((row: Record<string, unknown>) => compactTasting(row))
     return {
       kind: focusedQuery.kind,
-      totalRows: rows.length,
+      totalRows: evidenceRows.length,
       query: focusedQuery.query,
       queryLabel: focusedQuery.query,
-      factReadiness: focusedQuery.factReadiness,
-      rows: rows.map((row: Record<string, unknown>) => compactTasting(row)),
+      factReadiness: finalizeFocusedFactReadiness(focusedQuery, evidenceRows),
+      rows: focusedRows,
     }
   }
 

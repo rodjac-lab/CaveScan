@@ -42,6 +42,36 @@ function plan(overrides: Partial<ContextPlan>): ContextPlan {
   }
 }
 
+function tastingSupabase(rows: Array<Record<string, unknown>>) {
+  return {
+    from(table: string) {
+      if (table === 'user_profiles') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: null,
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
+      expect(table).toBe('bottles')
+      return {
+        select: () => ({
+          eq: () => ({
+            eq: async () => ({
+              data: rows,
+              error: null,
+            }),
+          }),
+        }),
+      }
+    },
+  }
+}
+
 describe('resolveContextSourcesForRequest', () => {
   it('derives an empty source contract for pure wine questions', () => {
     const requirements = buildSourceRequirements(plan({
@@ -1091,6 +1121,193 @@ describe('resolveContextSourcesForRequest', () => {
           appellation: 'Côte Rôtie',
           millesime: 2010,
           rating: 5,
+        },
+      ],
+    })
+  })
+
+  it('keeps focused vintage facts deterministic only with unique evidence', async () => {
+    const supabase = tastingSupabase([
+      {
+        domaine: 'Domaine Jamet',
+        cuvee: null,
+        appellation: 'Cote Rotie',
+        millesime: 2010,
+        couleur: 'rouge',
+        country: 'France',
+        region: 'Rhone',
+        rating: 5,
+        drunk_at: '2026-02-26',
+        tasting_note: 'Premier Jamet.',
+      },
+      {
+        domaine: 'Domaine Jamet',
+        cuvee: null,
+        appellation: 'Cote Rotie',
+        millesime: 2016,
+        couleur: 'rouge',
+        country: 'France',
+        region: 'Rhone',
+        rating: 4,
+        drunk_at: '2026-03-10',
+        tasting_note: 'Autre Jamet.',
+      },
+    ])
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: "C'était quoi comme millésime déjà ?",
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'none',
+        cave: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+      { activeMemoryFocus: 'Jamet' },
+    )
+
+    expect(sources.tastings).toMatchObject({
+      kind: 'vintage',
+      totalRows: 2,
+      query: 'Jamet',
+      factReadiness: {
+        directAnswerAllowed: false,
+        answerPath: 'llm_fact_with_tools',
+        reason: 'insufficient_unique_evidence',
+      },
+    })
+  })
+
+  it('allows deterministic focused vintage facts with one unique vintage', async () => {
+    const supabase = tastingSupabase([
+      {
+        domaine: 'Domaine Jamet',
+        cuvee: null,
+        appellation: 'Cote Rotie',
+        millesime: 2010,
+        couleur: 'rouge',
+        country: 'France',
+        region: 'Rhone',
+        rating: 5,
+        drunk_at: '2026-02-26',
+        tasting_note: 'Unique Jamet.',
+      },
+    ])
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: "C'était quoi comme millésime déjà ?",
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'none',
+        cave: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+      { activeMemoryFocus: 'Jamet' },
+    )
+
+    expect(sources.tastings).toMatchObject({
+      kind: 'vintage',
+      totalRows: 1,
+      query: 'Jamet',
+      factReadiness: {
+        directAnswerAllowed: true,
+        answerPath: 'direct_fact',
+        reason: 'typed_tasting_focus',
+      },
+    })
+  })
+
+  it('uses a previous turn date constraint to make focused vintage evidence unique', async () => {
+    const supabase = tastingSupabase([
+      {
+        domaine: 'Domaine de la Grange des Pères',
+        cuvee: null,
+        appellation: 'Pays d Herault',
+        millesime: 2019,
+        couleur: 'rouge',
+        country: 'France',
+        region: 'Languedoc',
+        rating: 5,
+        drunk_at: '2026-03-08',
+        tasting_note: 'Un autre souvenir.',
+      },
+      {
+        domaine: 'Domaine de la Grange des Pères',
+        cuvee: null,
+        appellation: 'Pays d Herault',
+        millesime: 2008,
+        couleur: 'rouge',
+        country: 'France',
+        region: 'Languedoc',
+        rating: 5,
+        drunk_at: '2026-02-26',
+        tasting_note: 'La bouteille du 26 février.',
+      },
+      {
+        domaine: 'Domaine de la Grange des Pères',
+        cuvee: null,
+        appellation: 'Pays d Herault',
+        millesime: 2021,
+        couleur: 'rouge',
+        country: 'France',
+        region: 'Languedoc',
+        rating: 4,
+        drunk_at: '2026-02-03',
+        tasting_note: 'Encore un autre souvenir.',
+      },
+    ])
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: "C'était quoi comme millésime déjà ?",
+        history: [
+          { role: 'user', text: "Tu te souviens du Grange des Pères qu'on a bu le 26 février ?" },
+          { role: 'assistant', text: 'Oui, je vois le souvenir.' },
+        ],
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'none',
+        cave: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+      { activeMemoryFocus: 'Grange des Pères' },
+    )
+
+    expect(sources.tastings).toMatchObject({
+      kind: 'vintage',
+      totalRows: 1,
+      query: 'Grange des Pères',
+      factReadiness: {
+        directAnswerAllowed: true,
+        answerPath: 'direct_fact',
+        reason: 'typed_tasting_focus',
+      },
+      rows: [
+        {
+          domaine: 'Domaine de la Grange des Pères',
+          millesime: 2008,
         },
       ],
     })

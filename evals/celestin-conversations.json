@@ -269,6 +269,8 @@
         "message": "C'était quoi comme millésime déjà ?",
         "expect": {
           "uiAction": "none",
+          "factDirectAnswerAllowed": true,
+          "factAnswerPath": "direct_fact",
           "responseContains": ["2010"]
         }
       }
@@ -315,6 +317,8 @@
         "message": "C'était quoi comme millésime déjà ?",
         "expect": {
           "uiAction": "none",
+          "factDirectAnswerAllowed": true,
+          "factAnswerPath": "direct_fact",
           "responseContains": ["2008"]
         }
       }

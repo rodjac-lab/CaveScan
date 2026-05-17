@@ -258,6 +258,7 @@ describe('buildDeterministicResponse', () => {
           ],
           factReadiness: {
             directAnswerAllowed: true,
+            answerPath: 'direct_fact',
             reason: 'explicit_tasting_subject',
             focus: {
               label: 'cote rotie',
@@ -293,6 +294,7 @@ describe('buildDeterministicResponse', () => {
           queryLabel: 'gangloff',
           factReadiness: {
             directAnswerAllowed: false,
+            answerPath: 'llm_fact_with_tools',
             reason: 'ambiguous_focus_source',
             focus: {
               label: 'Gangloff',
