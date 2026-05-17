@@ -961,6 +961,77 @@ describe('resolveContextSourcesForRequest', () => {
     expect(sources.profile).toBeUndefined()
   })
 
+  it('resolves top tasting region aggregates from backend for personal fact plans', async () => {
+    const supabase = {
+      from(table: string) {
+        if (table === 'user_profiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: null, error: null }),
+              }),
+            }),
+          }
+        }
+        expect(table).toBe('bottles')
+        const query = {
+          select: () => query,
+          eq: () => query,
+          order: () => query,
+          limit: async () => ({
+            data: [
+              { domaine: 'Domaine Dureuil-Janthial', cuvee: null, appellation: 'Rully', millesime: 2023, couleur: 'blanc', country: 'France', region: 'Bourgogne', rating: 3.5, drunk_at: '2026-05-08T11:54:48Z', tasting_note: '' },
+              { domaine: 'Droin', cuvee: 'Montmains', appellation: 'Chablis Premier Cru', millesime: 2020, couleur: 'blanc', country: 'France', region: 'Bourgogne', rating: 4.5, drunk_at: '2026-04-20T00:00:00Z', tasting_note: '' },
+              { domaine: 'Jacques Selosse', cuvee: 'Blanc de Blancs V.O. Extra Brut', appellation: 'Champagne', millesime: null, couleur: 'bulles', country: 'France', region: 'Champagne', rating: 5, drunk_at: '2026-02-26T19:18:42Z', tasting_note: '' },
+            ],
+            error: null,
+          }),
+          range: async () => ({
+            data: [
+              { domaine: 'Domaine Dureuil-Janthial', cuvee: null, appellation: 'Rully', millesime: 2023, couleur: 'blanc', country: 'France', region: 'Bourgogne', rating: 3.5, drunk_at: '2026-05-08T11:54:48Z', tasting_note: '' },
+              { domaine: 'Droin', cuvee: 'Montmains', appellation: 'Chablis Premier Cru', millesime: 2020, couleur: 'blanc', country: 'France', region: 'Bourgogne', rating: 4.5, drunk_at: '2026-04-20T00:00:00Z', tasting_note: '' },
+              { domaine: 'Jacques Selosse', cuvee: 'Blanc de Blancs V.O. Extra Brut', appellation: 'Champagne', millesime: null, couleur: 'bulles', country: 'France', region: 'Champagne', rating: 5, drunk_at: '2026-02-26T19:18:42Z', tasting_note: '' },
+            ],
+            error: null,
+          }),
+        }
+        return query
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: "Quelle est la région que j'ai le plus dégusté ?",
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'none',
+        cave: 'none',
+        memories: 'exact',
+        tools: 'force_personal',
+        truthPolicy: 'memory_only',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.tastings).toMatchObject({
+      kind: 'top',
+      totalRows: 3,
+      topDimension: 'region',
+      topRows: [
+        { name: 'Bourgogne', count: 2 },
+        { name: 'Champagne', count: 1 },
+      ],
+    })
+    expect(sources.tastings?.topRows?.[0].examples.map((row) => row.identity?.label)).toEqual([
+      'Domaine Dureuil-Janthial · Rully · 2023',
+      'Droin · Montmains · Chablis Premier Cru · 2020',
+    ])
+  })
+
   it('resolves exact tasting rating rows from backend for force_tastings plans', async () => {
     const supabase = {
       from(table: string) {

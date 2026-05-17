@@ -72,6 +72,14 @@ describe('tool use gate', () => {
     expect(forcedToolNameForSourceMode(resolveSourceMode(plan({ tools: 'force_cellar' }), body('Combien de Champagne ?')))).toBe('query_cellar')
   })
 
+  it('requires a source without forcing tastings when personal facts may live in memory', async () => {
+    const { forcedToolNameForSourceMode, resolveSourceMode } = await import('./source-mode')
+    const sourceMode = resolveSourceMode(plan({ tools: 'force_personal' }), body('Et Henriot ?'))
+
+    expect(sourceMode.kind).toBe('source_required')
+    expect(forcedToolNameForSourceMode(sourceMode)).toBeUndefined()
+  })
+
   it('does not allow non-Claude providers to answer source-required turns without tool adapters', async () => {
     const { providerCanAnswerWithCurrentTools } = await import('./llm-providers')
 

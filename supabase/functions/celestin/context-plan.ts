@@ -4,7 +4,7 @@ export type ProfileContextLevel = 'none' | 'minimal' | 'recommendation' | 'memor
 export type CaveContextLevel = 'none' | 'count' | 'shortlist' | 'tool_only' | 'full_debug'
 export type ZonesContextLevel = 'none' | 'names'
 export type MemoriesContextLevel = 'none' | 'targeted' | 'exact'
-export type ToolContextPolicy = 'none' | 'auto' | 'force_cellar' | 'force_memory' | 'force_tastings'
+export type ToolContextPolicy = 'none' | 'auto' | 'force_cellar' | 'force_memory' | 'force_tastings' | 'force_personal'
 export type HistoryContextLevel = 'compact' | 'normal' | 'pivot'
 export type TruthPolicy = 'standard' | 'prudent_factual' | 'exact_only' | 'memory_only'
 export type CellarCandidatesPolicy = 'none' | 'preempted'
@@ -100,7 +100,7 @@ export function buildContextPlan(routingResult: TurnRoutingResult): ContextPlan 
         ...basePlan(),
         profile: 'none',
         memories: 'exact',
-        tools: 'force_tastings',
+        tools: 'force_personal',
         truthPolicy: 'memory_only',
       }, ['memory lookup: exact past-experience facts must come from tasting or memory source'])
 
@@ -116,7 +116,7 @@ export function buildContextPlan(routingResult: TurnRoutingResult): ContextPlan 
         ...basePlan(),
         profile: 'none',
         memories: 'exact',
-        tools: 'force_tastings',
+        tools: 'force_personal',
         history: 'normal',
         truthPolicy: 'memory_only',
       }, ['tasting route: tasting facts need exact source grounding'])

@@ -234,7 +234,7 @@ export function shouldClarifyLowConfidenceV2(plan: CelestinV2Plan): boolean {
 
 export function buildLowConfidenceV2Response(plan: CelestinV2Plan) {
   const message = plan.capability === 'RECOMMEND'
-    ? 'Je peux te proposer une bouteille, mais il me manque un contexte clair. Tu cherches plutot un accord avec un plat, une occasion, ou un style précis ?'
+    ? 'Je peux te proposer une bouteille, mais il me manque un peu de contexte. Tu cherches plutot un accord avec un plat, une occasion, ou un style précis ?'
     : plan.capability === 'ACTIONS'
       ? "Je veux éviter de lancer une mauvaise action. Tu veux ajouter une bouteille, enregistrer une dégustation, ou sortir une bouteille de stock ?"
       : "Je peux répondre, mais je dois d'abord clarifier la demande pour ne pas inventer de fait personnel."

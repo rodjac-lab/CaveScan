@@ -9,11 +9,13 @@ import {
   parseTastingExtremeQuery,
   parseTastingRatingQuery,
   parseTastingRelationshipSpanQuery,
+  parseTastingTopQuery,
   parseVolumeCellarBottleCount,
   type CellarBottleCountFilter,
   type CellarOriginPolarity,
   type CellarVolumeFilter,
 } from '../../../shared/celestin/exact-query.ts'
+import { canonicalWineIdentity, normalizeWineIdentityPart } from '../../../shared/celestin/wine-identity.ts'
 import { requestedColor, searchCellarCandidates, type ToolInput } from './tools.ts'
 import type { CaveBottle, RequestBody } from './types.ts'
 
@@ -70,10 +72,16 @@ export interface ResolvedCaveSource {
 }
 
 export interface ResolvedTastingsSource {
-  kind: 'count' | 'rating' | 'vintage' | 'impression' | 'existence' | 'extreme' | 'span'
+  kind: 'count' | 'rating' | 'vintage' | 'impression' | 'existence' | 'extreme' | 'span' | 'top'
   totalRows: number
   query?: string
   queryLabel?: string
+  topDimension?: 'region' | 'appellation' | 'domaine'
+  topRows?: Array<{
+    name: string
+    count: number
+    examples: NonNullable<ResolvedTastingsSource['rows']>
+  }>
   factReadiness?: {
     directAnswerAllowed: boolean
     answerPath: 'direct_fact' | 'llm_fact_with_tools' | 'clarification'
@@ -93,9 +101,12 @@ export interface ResolvedTastingsSource {
     appellation: string | null
     millesime: number | null
     couleur: string | null
+    country?: string | null
+    region?: string | null
     rating: number | null
     drunk_at: string | null
     tasting_note?: string | null
+    identity?: ReturnType<typeof canonicalWineIdentity>
   }>
 }
 
@@ -146,7 +157,7 @@ export function buildSourceRequirements(contextPlan: ContextPlan): SourceRequire
       kind: 'memories',
       level: contextPlan.memories,
       reason: contextPlan.memories === 'exact'
-        ? 'memory lookup must use exact tasting evidence'
+        ? 'memory lookup must use exact tasting or conversation-memory evidence'
         : 'recommendation can use targeted tasting texture',
     })
   }
@@ -159,7 +170,7 @@ export function buildSourceRequirements(contextPlan: ContextPlan): SourceRequire
     })
   }
 
-  if (contextPlan.tools === 'force_tastings') {
+  if (contextPlan.tools === 'force_tastings' || contextPlan.tools === 'force_personal') {
     requirements.push({
       kind: 'tastings',
       level: 'exact',
@@ -440,12 +451,13 @@ async function resolveMemoriesFromBackend(
   const local = resolveMemories(body, contextPlan)
   if (local || contextPlan.memories === 'none' || !auth?.userId || !auth.supabase) return local
   if (
-    contextPlan.tools === 'force_tastings'
+    (contextPlan.tools === 'force_tastings' || contextPlan.tools === 'force_personal')
     && (
       parseTastingCountQuery(body.message)
       || parseTastingRatingQuery(body.message)
       || parseTastingExtremeQuery(body.message)
       || parseTastingRelationshipSpanQuery(body.message)
+      || parseTastingTopQuery(body.message)
       || resolveFocusedTastingFactQuery(body.message, activeMemoryFocus)
     )
   ) return undefined
@@ -868,16 +880,61 @@ function tastingIdentityText(row: Record<string, unknown>): string {
 }
 
 function compactTasting(row: Record<string, unknown>): NonNullable<ResolvedTastingsSource['rows']>[number] {
-  return {
+  const tasting = {
     domaine: typeof row.domaine === 'string' ? row.domaine : null,
     cuvee: typeof row.cuvee === 'string' ? row.cuvee : null,
     appellation: typeof row.appellation === 'string' ? row.appellation : null,
     millesime: typeof row.millesime === 'number' ? row.millesime : null,
     couleur: typeof row.couleur === 'string' ? row.couleur : null,
+    country: typeof row.country === 'string' ? row.country : null,
+    region: typeof row.region === 'string' ? row.region : null,
     rating: typeof row.rating === 'number' ? row.rating : null,
     drunk_at: typeof row.drunk_at === 'string' ? row.drunk_at : null,
     tasting_note: typeof row.tasting_note === 'string' ? row.tasting_note.slice(0, 500) : null,
   }
+  return {
+    ...tasting,
+    identity: canonicalWineIdentity(tasting),
+  }
+}
+
+function topTastingRows(
+  rows: Array<Record<string, unknown>>,
+  dimension: 'region' | 'appellation' | 'domaine',
+): NonNullable<ResolvedTastingsSource['topRows']> {
+  const groups = new Map<string, { name: string; count: number; examples: Array<Record<string, unknown>>; seen: Set<string> }>()
+  for (const row of rows) {
+    const rawName = typeof row[dimension] === 'string' && row[dimension].trim()
+      ? row[dimension].trim()
+      : dimension === 'region' && typeof row.appellation === 'string'
+        ? row.appellation.trim()
+        : ''
+    const key = normalizeWineIdentityPart(rawName)
+    if (!key) continue
+    const group = groups.get(key) ?? { name: rawName, count: 0, examples: [], seen: new Set<string>() }
+    group.count += 1
+
+    const identity = canonicalWineIdentity({
+      domaine: typeof row.domaine === 'string' ? row.domaine : null,
+      cuvee: typeof row.cuvee === 'string' ? row.cuvee : null,
+      appellation: typeof row.appellation === 'string' ? row.appellation : null,
+      millesime: typeof row.millesime === 'number' ? row.millesime : null,
+    })
+    if (identity.key && !group.seen.has(identity.key) && group.examples.length < 3) {
+      group.examples.push(row)
+      group.seen.add(identity.key)
+    }
+    groups.set(key, group)
+  }
+
+  return [...groups.values()]
+    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name))
+    .slice(0, 5)
+    .map((group) => ({
+      name: group.name,
+      count: group.count,
+      examples: group.examples.map((row) => compactTasting(row)),
+    }))
 }
 
 function matchesTastingQuery(row: Record<string, unknown>, query: string | undefined): boolean {
@@ -1125,14 +1182,19 @@ async function resolveTastingsFromBackend(
   auth: SourceResolverAuth,
   activeMemoryFocus?: string | null,
 ): Promise<ResolvedTastingsSource | undefined> {
-  if (contextPlan.tools !== 'force_tastings' || !auth?.userId || !auth.supabase) return undefined
+  if (
+    (contextPlan.tools !== 'force_tastings' && contextPlan.tools !== 'force_personal')
+    || !auth?.userId
+    || !auth.supabase
+  ) return undefined
 
   const countQuery = parseTastingCountQuery(body.message)
   const ratingQuery = parseTastingRatingQuery(body.message)
   const extremeQuery = parseTastingExtremeQuery(body.message)
   const spanQuery = parseTastingRelationshipSpanQuery(body.message)
+  const topQuery = parseTastingTopQuery(body.message)
   const focusedQuery = resolveFocusedTastingFactQuery(body.message, activeMemoryFocus)
-  if (!countQuery && !ratingQuery && !extremeQuery && !spanQuery && !focusedQuery) return undefined
+  if (!countQuery && !ratingQuery && !extremeQuery && !spanQuery && !topQuery && !focusedQuery) return undefined
 
   const order = extremeQuery
     ? tastingExtremeOrder(extremeQuery.extreme)
@@ -1211,6 +1273,15 @@ async function resolveTastingsFromBackend(
       firstDrunkAt: typeof sorted[0]?.drunk_at === 'string' ? sorted[0].drunk_at : null,
       lastDrunkAt: typeof sorted[sorted.length - 1]?.drunk_at === 'string' ? sorted[sorted.length - 1].drunk_at : null,
       rows: sorted.slice(0, 1).map((row: Record<string, unknown>) => compactTasting(row)),
+    }
+  }
+
+  if (topQuery) {
+    return {
+      kind: 'top',
+      totalRows: rows.length,
+      topDimension: topQuery.dimension,
+      topRows: topTastingRows(rows, topQuery.dimension),
     }
   }
 

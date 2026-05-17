@@ -1,4 +1,5 @@
 import type { SupabaseServiceClient } from "./auth.ts"
+import { canonicalWineIdentity, normalizeWineIdentityPart } from "../../../shared/celestin/wine-identity.ts"
 
 export type CelestinToolName = 'query_cellar' | 'query_tastings' | 'query_memory' | 'search_cellar_candidates'
 
@@ -12,7 +13,7 @@ export type ToolInput = Record<string, unknown>
 const MAX_LIMIT = 12
 const MAX_SCAN_ROWS = 500
 const DEFAULT_RECOMMENDATION_LIMIT = 6
-type TastingAggregate = 'list' | 'count' | 'first' | 'last' | 'best' | 'worst'
+type TastingAggregate = 'list' | 'count' | 'first' | 'last' | 'best' | 'worst' | 'top_region' | 'top_appellation' | 'top_domaine'
 
 function text(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim().slice(0, 120) : undefined
@@ -45,6 +46,15 @@ function recommendationLimit(value: unknown): number {
 }
 
 function compactBottle(row: Record<string, unknown>) {
+  const identity = canonicalWineIdentity({
+    domaine: typeof row.domaine === 'string' ? row.domaine : null,
+    cuvee: typeof row.cuvee === 'string' ? row.cuvee : null,
+    appellation: typeof row.appellation === 'string' ? row.appellation : null,
+    millesime: typeof row.millesime === 'number' ? row.millesime : null,
+    couleur: typeof row.couleur === 'string' ? row.couleur : null,
+    country: typeof row.country === 'string' ? row.country : null,
+    region: typeof row.region === 'string' ? row.region : null,
+  })
   return {
     id: typeof row.id === 'string' ? row.id.slice(0, 8) : null,
     domaine: row.domaine ?? null,
@@ -60,6 +70,7 @@ function compactBottle(row: Record<string, unknown>) {
     rating: row.rating ?? null,
     drunk_at: row.drunk_at ?? null,
     tasting_note: typeof row.tasting_note === 'string' ? row.tasting_note.slice(0, 500) : null,
+    identity,
   }
 }
 
@@ -93,6 +104,7 @@ function buildToolResult(input: {
   rows: Array<ReturnType<typeof compactBottle>>
   totalQuantity?: number
   rowLimit: number
+  topRows?: Array<{ name: string; count: number; examples: Array<ReturnType<typeof compactBottle>> }>
 }) {
   if (input.aggregate === 'count') {
     return {
@@ -116,6 +128,17 @@ function buildToolResult(input: {
       row: input.rows[0] ?? null,
       countIsAuthoritative: false,
       instruction: 'Reponds uniquement a partir de row pour identifier l extreme demande. N utilise pas totalRows comme un nombre exact de degustations; il indique seulement combien de lignes correspondent aux filtres apres recherche. Si row est null, dis que tu ne retrouves pas de donnee fiable.',
+    }
+  }
+
+  if (input.aggregate === 'top_region' || input.aggregate === 'top_appellation' || input.aggregate === 'top_domaine') {
+    return {
+      source: input.source,
+      aggregate: input.aggregate,
+      totalRows: input.totalRows,
+      topRows: input.topRows ?? [],
+      countIsAuthoritative: true,
+      instruction: 'Reponds a partir de topRows seulement. Donne le premier resultat comme reponse directe, puis 1-2 suivants si utile. Les examples illustrent chaque groupe; ne cite pas de nom absent de topRows/examples.',
     }
   }
 
@@ -350,7 +373,7 @@ export const CELESTIN_TOOLS = [
         dateFrom: { type: 'string', description: 'Date ISO YYYY-MM-DD.' },
         dateTo: { type: 'string', description: 'Date ISO YYYY-MM-DD.' },
         query: { type: 'string', description: 'Terme libre a chercher dans l identite du vin, les notes et les tags.' },
-        aggregate: { type: 'string', enum: ['list', 'count', 'first', 'last', 'best', 'worst'] },
+        aggregate: { type: 'string', enum: ['list', 'count', 'first', 'last', 'best', 'worst', 'top_region', 'top_appellation', 'top_domaine'] },
         sortBy: { type: 'string', enum: ['drunk_at', 'rating', 'vintage'] },
         sortOrder: { type: 'string', enum: ['asc', 'desc'] },
         limit: { type: 'number' },
@@ -464,7 +487,7 @@ async function fetchPagedCellarRows(
 }
 
 async function queryTastings(input: ToolInput, ctx: ToolContext): Promise<string> {
-  const aggregate = oneOf(input.aggregate, ['list', 'count', 'first', 'last', 'best', 'worst'] as const) ?? 'list'
+  const aggregate = oneOf(input.aggregate, ['list', 'count', 'first', 'last', 'best', 'worst', 'top_region', 'top_appellation', 'top_domaine'] as const) ?? 'list'
   const rowLimit = aggregate === 'first' || aggregate === 'last' || aggregate === 'best' || aggregate === 'worst'
     ? 1
     : limit(input.limit)
@@ -488,6 +511,17 @@ async function queryTastings(input: ToolInput, ctx: ToolContext): Promise<string
     (data ?? []).filter((row: Record<string, unknown>) => matchesWineFilters(row, input)),
     input,
   )
+  if (aggregate === 'top_region' || aggregate === 'top_appellation' || aggregate === 'top_domaine') {
+    const topRows = topTastingGroups(filtered, aggregate, rowLimit)
+    return JSON.stringify(buildToolResult({
+      source: 'tastings',
+      aggregate,
+      totalRows: filtered.length,
+      rows: [],
+      rowLimit,
+      topRows,
+    }))
+  }
   const sorted = shouldPreserveFreeQueryRelevance(input)
     ? filtered
     : sortTastingRows(filtered, input, aggregate)
@@ -499,6 +533,52 @@ async function queryTastings(input: ToolInput, ctx: ToolContext): Promise<string
     rows: aggregate === 'count' ? rows.slice(0, 3) : rows,
     rowLimit,
   }))
+}
+
+function topTastingGroups(
+  rows: Array<Record<string, unknown>>,
+  aggregate: Extract<TastingAggregate, 'top_region' | 'top_appellation' | 'top_domaine'>,
+  rowLimit: number,
+): Array<{ name: string; count: number; examples: Array<ReturnType<typeof compactBottle>> }> {
+  const field = aggregate === 'top_region'
+    ? 'region'
+    : aggregate === 'top_appellation'
+      ? 'appellation'
+      : 'domaine'
+  const groups = new Map<string, { name: string; count: number; examples: Array<Record<string, unknown>>; seen: Set<string> }>()
+
+  for (const row of rows) {
+    const rawName = typeof row[field] === 'string' && row[field].trim()
+      ? row[field].trim()
+      : aggregate === 'top_region' && typeof row.appellation === 'string'
+        ? row.appellation.trim()
+        : ''
+    const key = normalizeWineIdentityPart(rawName)
+    if (!key) continue
+    const group = groups.get(key) ?? { name: rawName, count: 0, examples: [], seen: new Set<string>() }
+    group.count += 1
+
+    const identity = canonicalWineIdentity({
+      domaine: typeof row.domaine === 'string' ? row.domaine : null,
+      cuvee: typeof row.cuvee === 'string' ? row.cuvee : null,
+      appellation: typeof row.appellation === 'string' ? row.appellation : null,
+      millesime: typeof row.millesime === 'number' ? row.millesime : null,
+    })
+    if (identity.key && !group.seen.has(identity.key) && group.examples.length < 3) {
+      group.examples.push(row)
+      group.seen.add(identity.key)
+    }
+    groups.set(key, group)
+  }
+
+  return [...groups.values()]
+    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name))
+    .slice(0, rowLimit)
+    .map((group) => ({
+      name: group.name,
+      count: group.count,
+      examples: group.examples.map((row) => compactBottle(row)),
+    }))
 }
 
 function shouldPreserveFreeQueryRelevance(input: ToolInput): boolean {

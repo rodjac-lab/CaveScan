@@ -142,6 +142,93 @@ describe('query_cellar', () => {
 })
 
 describe('query_tastings', () => {
+  it('returns top tasting regions with deduped identity examples', async () => {
+    const rows = [
+      {
+        id: 'rully123456',
+        domaine: 'Domaine Dureuil-Janthial',
+        cuvee: null,
+        appellation: 'Rully',
+        millesime: 2023,
+        couleur: 'blanc',
+        country: 'France',
+        region: 'Bourgogne',
+        rating: 3.5,
+        drunk_at: '2026-05-08T11:54:48Z',
+        tasting_note: 'Grenouilles.',
+        tasting_tags: null,
+        status: 'drunk',
+      },
+      {
+        id: 'chablis123456',
+        domaine: 'Droin',
+        cuvee: 'Montmains',
+        appellation: 'Chablis Premier Cru',
+        millesime: 2020,
+        couleur: 'blanc',
+        country: 'France',
+        region: 'Bourgogne',
+        rating: 4.5,
+        drunk_at: '2026-04-20T00:00:00Z',
+        tasting_note: '',
+        tasting_tags: null,
+        status: 'drunk',
+      },
+      {
+        id: 'selosse123456',
+        domaine: 'Jacques Selosse',
+        cuvee: 'Blanc de Blancs V.O. Extra Brut',
+        appellation: 'Champagne',
+        millesime: null,
+        couleur: 'bulles',
+        country: 'France',
+        region: 'Champagne',
+        rating: 5,
+        drunk_at: '2026-02-26T19:18:42Z',
+        tasting_note: '',
+        tasting_tags: null,
+        status: 'drunk',
+      },
+    ]
+    const query = {
+      select: () => query,
+      eq: () => query,
+      range: async () => ({ data: rows, error: null }),
+    }
+    const supabase = { from: () => query }
+
+    const result = JSON.parse(await executeCelestinTool(
+      'query_tastings',
+      { aggregate: 'top_region' },
+      { userId: 'user-1', supabase: supabase as never },
+    ))
+
+    expect(result).toMatchObject({
+      source: 'tastings',
+      aggregate: 'top_region',
+      totalRows: 3,
+      countIsAuthoritative: true,
+      topRows: [
+        {
+          name: 'Bourgogne',
+          count: 2,
+          examples: [
+            { domaine: 'Domaine Dureuil-Janthial', appellation: 'Rully' },
+            { domaine: 'Droin', cuvee: 'Montmains' },
+          ],
+        },
+        {
+          name: 'Champagne',
+          count: 1,
+          examples: [
+            { domaine: 'Jacques Selosse', appellation: 'Champagne' },
+          ],
+        },
+      ],
+    })
+    expect(result.topRows[0].examples[0].identity.label).toBe('Domaine Dureuil-Janthial · Rully · 2023')
+  })
+
   it('returns the oldest tasting as a single authoritative row', async () => {
     const calls: string[] = []
     const firstPage = [

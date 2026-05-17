@@ -7,7 +7,7 @@ export type ConversationPhase =
   | 'collecting_info'      // Collecte d'infos pour encavage (domaine → prix → zone)
   | 'disambiguation'       // Besoin de clarification
 
-export type TaskType = 'recommendation' | 'encavage' | 'tasting' | null
+export type TaskType = 'recommendation' | 'encavage' | 'tasting' | 'personal_fact' | null
 
 export interface ConversationState {
   phase: ConversationPhase
@@ -69,11 +69,14 @@ export function computeNextState(
     ({ phase, taskType, lastUiActionKind, turnsSinceLastAction: 0, memoryFocus: nextMemoryFocus })
   const postTaskAck = (): ConversationState => next('post_task_ack', resolveTask(), uiActionKind ?? null)
   const collectingInfo = (): ConversationState => next('collecting_info', resolveTask(), null)
+  const personalFactThread = (): ConversationState => next('active_task', 'personal_fact', null)
   const taskRequestWithoutUiAction = (): ConversationState => {
     // Only encavage has a legitimate "collect more details before showing UI"
     // phase. A recommendation without cards must not trap follow-up turns into
     // the recommendation response contract.
-    return resolveTask() === 'encavage' ? collectingInfo() : { ...INITIAL_STATE }
+    if (resolveTask() === 'encavage') return collectingInfo()
+    if (resolveTask() === 'personal_fact') return personalFactThread()
+    return { ...INITIAL_STATE }
   }
   const activeTask = (lastUiActionKind: string | null = current.lastUiActionKind): ConversationState =>
     next('active_task', current.taskType, lastUiActionKind)
@@ -87,6 +90,9 @@ export function computeNextState(
     case 'idle_smalltalk': {
       if (turnType === 'task_request') {
         return responseHasUiAction ? postTaskAck() : taskRequestWithoutUiAction()
+      }
+      if (turnType === 'context_switch' && resolveTask() === 'personal_fact') {
+        return personalFactThread()
       }
       return stay()
     }

@@ -49,6 +49,13 @@ export interface TastingRelationshipSpanQuery {
   kind: 'tasting_relationship_span'
 }
 
+export type TastingTopDimension = 'region' | 'appellation' | 'domaine'
+
+export interface TastingTopQuery {
+  kind: 'tasting_top'
+  dimension: TastingTopDimension
+}
+
 export type ExactQuery =
   | GenericCellarBottleCountQuery
   | FilteredCellarBottleCountQuery
@@ -58,6 +65,7 @@ export type ExactQuery =
   | TastingRatingQuery
   | TastingExtremeQuery
   | TastingRelationshipSpanQuery
+  | TastingTopQuery
 
 export function normalizeExactQueryText(text: string): string {
   return text
@@ -265,6 +273,28 @@ export function parseTastingRelationshipSpanQuery(message: string): TastingRelat
   return { kind: 'tasting_relationship_span' }
 }
 
+export function parseTastingTopQuery(message: string): TastingTopQuery | null {
+  const text = normalizeExactQueryText(message)
+  const asksTop =
+    /\b(le|la|les)\s+plus\b/.test(text)
+    || /\b(top|classement|domin(e|ent|ante|antes)|reviennent? le plus|le plus souvent|majoritaire)\b/.test(text)
+  if (!asksTop) return null
+
+  const tastingScope = /\b(degustations?|goute|goutes|bu|bue|bus|bues|deguste|degustee|degustees)\b/.test(text)
+  if (!tastingScope) return null
+
+  if (/\b(regions?|region viticole|coin|coins)\b/.test(text)) {
+    return { kind: 'tasting_top', dimension: 'region' }
+  }
+  if (/\b(appellations?|aop|aoc)\b/.test(text)) {
+    return { kind: 'tasting_top', dimension: 'appellation' }
+  }
+  if (/\b(domaines?|producteurs?|vignerons?|maisons?)\b/.test(text)) {
+    return { kind: 'tasting_top', dimension: 'domaine' }
+  }
+  return null
+}
+
 export function parseExactQuery(message: string): ExactQuery | null {
   return parseGenericCellarBottleCount(message)
     ?? parseFilteredCellarBottleCount(message)
@@ -274,6 +304,7 @@ export function parseExactQuery(message: string): ExactQuery | null {
     ?? parseTastingRatingQuery(message)
     ?? parseTastingExtremeQuery(message)
     ?? parseTastingRelationshipSpanQuery(message)
+    ?? parseTastingTopQuery(message)
 }
 
 export function isExactCellarQuery(query: ExactQuery | null): boolean {
@@ -288,4 +319,5 @@ export function isExactTastingQueryKind(query: ExactQuery | null): boolean {
     || query?.kind === 'tasting_rating'
     || query?.kind === 'tasting_extreme'
     || query?.kind === 'tasting_relationship_span'
+    || query?.kind === 'tasting_top'
 }

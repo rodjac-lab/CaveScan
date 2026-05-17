@@ -82,7 +82,7 @@ describe('buildContextPlan', () => {
       cave: 'none',
       zones: 'none',
       memories: 'exact',
-      tools: 'force_tastings',
+      tools: 'force_personal',
       history: 'compact',
       truthPolicy: 'memory_only',
     })
@@ -119,7 +119,7 @@ describe('buildContextPlan', () => {
       cave: 'none',
       zones: 'none',
       memories: 'exact',
-      tools: 'force_tastings',
+      tools: 'force_personal',
       history: 'normal',
       truthPolicy: 'memory_only',
     })

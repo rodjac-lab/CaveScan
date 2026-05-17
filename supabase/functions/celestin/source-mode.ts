@@ -43,6 +43,7 @@ function shouldRequireSourceForAutoTools(contextPlan: ContextPlan, body: Request
 export function resolveSourceMode(contextPlan: ContextPlan, body: RequestBody): SourceMode {
   const forcedTool = forcedToolNameForPlan(contextPlan)
   if (forcedTool) return { kind: 'forced_tool', tool: forcedTool }
+  if (contextPlan.tools === 'force_personal') return { kind: 'source_required' }
   if (shouldRequireSourceForAutoTools(contextPlan, body)) return { kind: 'source_required' }
   return { kind: 'normal', tools: contextPlan.tools === 'auto' ? 'auto' : 'none' }
 }

@@ -7,6 +7,7 @@ import {
   parseTastingExtremeQuery,
   parseTastingRatingQuery,
   parseTastingRelationshipSpanQuery,
+  parseTastingTopQuery,
   parseVolumeCellarBottleCount,
 } from '../../shared/celestin/exact-query'
 
@@ -117,6 +118,21 @@ describe('exact query parsing', () => {
     })
     expect(parseTastingRelationshipSpanQuery('Depuis quand tu me connais ?')).toEqual({
       kind: 'tasting_relationship_span',
+    })
+  })
+
+  it('extracts tasting top aggregate questions', () => {
+    expect(parseTastingTopQuery("Quelle est la région que j'ai le plus dégusté ?")).toEqual({
+      kind: 'tasting_top',
+      dimension: 'region',
+    })
+    expect(parseTastingTopQuery('Quels domaines reviennent le plus dans mes dégustations ?')).toEqual({
+      kind: 'tasting_top',
+      dimension: 'domaine',
+    })
+    expect(parseTastingTopQuery('Top appellations dégustées ?')).toEqual({
+      kind: 'tasting_top',
+      dimension: 'appellation',
     })
   })
 

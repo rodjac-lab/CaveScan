@@ -22,7 +22,7 @@ export type {
 } from './turn-types.ts'
 
 function taskTypeToMode(taskType: TaskType): CognitiveMode {
-  if (taskType === 'tasting') return 'tasting_memory'
+  if (taskType === 'tasting' || taskType === 'personal_fact') return 'tasting_memory'
   return 'cellar_assistant'
 }
 
@@ -53,7 +53,7 @@ function cancelTask(): TurnInterpretation {
 }
 
 function memoryContextSwitch(): TurnInterpretation {
-  return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false }
+  return { turnType: 'context_switch', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false, inferredTaskType: 'personal_fact' }
 }
 
 function cellarContextSwitch(): TurnInterpretation {
@@ -81,7 +81,11 @@ function recommendationContinuation(): TurnInterpretation {
 }
 
 function tastingRequest(): TurnInterpretation {
-  return { turnType: 'task_request', cognitiveMode: 'tasting_memory', shouldAllowUiAction: true, inferredTaskType: 'tasting' }
+  return { turnType: 'task_request', cognitiveMode: 'tasting_memory', shouldAllowUiAction: true, inferredTaskType: 'personal_fact' }
+}
+
+function personalFactContinuation(): TurnInterpretation {
+  return { turnType: 'task_continue', cognitiveMode: 'tasting_memory', shouldAllowUiAction: false, inferredTaskType: 'personal_fact' }
 }
 
 interface IntentRoute {
@@ -250,6 +254,20 @@ function routeActiveTask(state: ConversationState, signals: RoutingSignals, cand
   }
   if (signals.isInventoryQuestion) {
     return routed(cellarContextSwitch(), state.phase, 'cellar_lookup', candidates)
+  }
+  if (
+    state.taskType === 'personal_fact'
+    && (
+      signals.isTastingReference
+      || signals.isMemoryReference
+      || signals.isTastingMemoryFollowUp
+      || signals.isShortEllipticalFollowUp
+      || signals.isQuestion
+      || signals.isWineCulture
+      || signals.lower.length <= 60
+    )
+  ) {
+    return routed(personalFactContinuation(), state.phase, 'tasting_log', candidates)
   }
   return routed({ turnType: 'task_continue', cognitiveMode: taskTypeToMode(state.taskType), shouldAllowUiAction: true }, state.phase, 'unknown', candidates)
 }

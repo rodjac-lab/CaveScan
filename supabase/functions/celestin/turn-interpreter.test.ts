@@ -47,6 +47,23 @@ describe('interpretTurn', () => {
     })
   })
 
+  it('keeps short personal fact follow-ups in the tasting source thread', () => {
+    const result = interpretTurnWithRouting(
+      'Et Henriot ?',
+      false,
+      state({ phase: 'active_task', taskType: 'personal_fact' }),
+      "Le Champagne est bien present dans tes degustations, mais moins que la Bourgogne.",
+    )
+
+    expect(result.routing.winner).toBe('tasting_log')
+    expect(result.interpretation).toMatchObject({
+      turnType: 'task_continue',
+      cognitiveMode: 'tasting_memory',
+      shouldAllowUiAction: false,
+      inferredTaskType: 'personal_fact',
+    })
+  })
+
   it('keeps cellar follow-ups attached to the cellar context', () => {
     const result = interpretTurn(
       "Et Chartogne-Taillet c'est pas du champagne ?",
@@ -69,6 +86,7 @@ describe('interpretTurn', () => {
       turnType: 'context_switch',
       cognitiveMode: 'tasting_memory',
       shouldAllowUiAction: false,
+      inferredTaskType: 'personal_fact',
     })
   })
 
@@ -79,6 +97,7 @@ describe('interpretTurn', () => {
       turnType: 'context_switch',
       cognitiveMode: 'tasting_memory',
       shouldAllowUiAction: false,
+      inferredTaskType: 'personal_fact',
     })
   })
 
@@ -94,7 +113,7 @@ describe('interpretTurn', () => {
       turnType: 'task_request',
       cognitiveMode: 'tasting_memory',
       shouldAllowUiAction: true,
-      inferredTaskType: 'tasting',
+      inferredTaskType: 'personal_fact',
     })
   })
 
@@ -121,6 +140,7 @@ describe('interpretTurn', () => {
       turnType: 'context_switch',
       cognitiveMode: 'tasting_memory',
       shouldAllowUiAction: false,
+      inferredTaskType: 'personal_fact',
     })
   })
 
@@ -136,6 +156,7 @@ describe('interpretTurn', () => {
       turnType: 'context_switch',
       cognitiveMode: 'tasting_memory',
       shouldAllowUiAction: false,
+      inferredTaskType: 'personal_fact',
     })
   })
 
@@ -200,7 +221,7 @@ describe('interpretTurn', () => {
       'Un truc léger, en rouge',
       false,
       state(),
-      'Je peux te proposer une bouteille, mais il me manque un contexte clair. Tu cherches plutôt un accord avec un plat, une occasion, ou un style précis ?',
+      'Je peux te proposer une bouteille, mais il me manque un peu de contexte. Tu cherches plutôt un accord avec un plat, une occasion, ou un style précis ?',
     )
 
     expect(result.routing.winner).toBe('recommendation_refinement')
@@ -395,6 +416,7 @@ describe('conversationalIntent arbitrage', () => {
       turnType: 'context_switch',
       cognitiveMode: 'tasting_memory',
       shouldAllowUiAction: false,
+      inferredTaskType: 'personal_fact',
     })
   })
 

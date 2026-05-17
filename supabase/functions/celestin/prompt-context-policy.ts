@@ -32,6 +32,8 @@ export function buildContextPlanInstructions(
 
   if (contextPlan.tools === 'force_tastings') {
     parts.push('[DEGUSTATIONS OUTIL — Pour une question de nombre, liste, verification "ai-je / je n ai pas", note, millesime ou domaine deja bu, utilise query_tastings ou les degustations resolues.]')
+  } else if (contextPlan.tools === 'force_personal') {
+    parts.push('[FAITS PERSONNELS OUTIL — Pour une affirmation sur ce que l utilisateur a bu, aime, note, mentionne ou vecu, utilise une source active : query_tastings, query_memory, profil compile fourni, ou historique recent explicite. N affirme pas un nom personnel absent des sources.]')
   } else if (contextPlan.tools === 'force_memory') {
     parts.push('[MEMOIRE OUTIL — Pour un fait personnel precis, utilise query_memory ou les faits memoire resolus.]')
   } else if (contextPlan.tools === 'auto') {

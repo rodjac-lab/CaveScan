@@ -392,6 +392,64 @@ describe('buildDeterministicResponse', () => {
     expect(response?.message).toContain('Il y a 84 degustations dans l historique')
   })
 
+  it('answers top tasting region from backend aggregates', () => {
+    const response = buildDeterministicResponse({
+      body: body("Quelle est la région que j'ai le plus dégusté ?"),
+      routingIntent: 'tasting_log',
+      contextPlan: plan({
+        cave: 'none',
+        zones: 'none',
+        memories: 'exact',
+        tools: 'force_personal',
+        truthPolicy: 'memory_only',
+      }),
+      resolvedSources: sources({
+        cave: { level: 'none', totalBottles: 0, referenceCount: 0, bottles: [] },
+        tastings: {
+          kind: 'top',
+          totalRows: 4,
+          topDimension: 'region',
+          topRows: [
+            {
+              name: 'Bourgogne',
+              count: 3,
+              examples: [
+                {
+                  domaine: 'Domaine Dureuil-Janthial',
+                  cuvee: null,
+                  appellation: 'Rully',
+                  millesime: 2023,
+                  couleur: 'blanc',
+                  country: 'France',
+                  region: 'Bourgogne',
+                  rating: 3.5,
+                  drunk_at: '2026-05-08T11:54:48Z',
+                  identity: {
+                    producer: 'Domaine Dureuil-Janthial',
+                    cuvee: null,
+                    appellation: 'Rully',
+                    vintage: 2023,
+                    color: 'blanc',
+                    country: 'France',
+                    region: 'Bourgogne',
+                    label: 'Domaine Dureuil-Janthial · Rully · 2023',
+                    key: 'domaine dureuil janthial|rully|2023',
+                  },
+                },
+              ],
+            },
+            { name: 'Champagne', count: 1, examples: [] },
+          ],
+        },
+      }),
+    })
+
+    expect(response?.message).toContain('Bourgogne')
+    expect(response?.message).toContain('3 degustations')
+    expect(response?.message).toContain('Champagne (1)')
+    expect(response?.message).toContain('Domaine Dureuil-Janthial')
+  })
+
   it('does not invent best tasting when no rated row is resolved', () => {
     const response = buildDeterministicResponse({
       body: body('Quelle est ma meilleure dégustation notée ?'),

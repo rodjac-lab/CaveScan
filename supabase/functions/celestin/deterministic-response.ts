@@ -7,6 +7,7 @@ import {
   parseTastingExtremeQuery,
   parseTastingRatingQuery,
   parseTastingRelationshipSpanQuery,
+  parseTastingTopQuery,
   parseVolumeCellarBottleCount,
 } from "../../../shared/celestin/exact-query.ts"
 import type { ResolvedContextSources } from "./source-resolver.ts"
@@ -38,6 +39,13 @@ function formatDate(value: string | null | undefined): string | null {
     year: 'numeric',
     timeZone: 'Europe/Paris',
   }).format(date)
+}
+
+function formatTopDimension(value: string | null | undefined): string {
+  if (value === 'region') return 'region'
+  if (value === 'appellation') return 'appellation'
+  if (value === 'domaine') return 'domaine'
+  return 'categorie'
 }
 
 function cleanWineField(value: string | null | undefined): string | null {
@@ -441,6 +449,39 @@ export function buildDeterministicResponse(input: {
       message: `Je ne peux pas dater notre relation avec certitude depuis les donnees de degustation. Le plus ancien enregistrement que je retrouve est le ${date} : ${label}. Il y a ${count} dans l historique.`,
       ui_action: null,
       action_chips: ['Voir la premiere degustation', 'Quelle est la plus recente ?'],
+    }
+  }
+
+  const topQuery = parseTastingTopQuery(input.body.message)
+  if (
+    topQuery
+    && (input.routingIntent === 'tasting_log' || input.routingIntent === 'memory_lookup')
+    && input.contextPlan.truthPolicy === 'memory_only'
+    && input.resolvedSources.tastings?.kind === 'top'
+  ) {
+    const topRows = input.resolvedSources.tastings.topRows ?? []
+    const first = topRows[0]
+    if (!first) {
+      return {
+        message: `Je ne retrouve pas assez de degustations pour classer tes ${formatTopDimension(topQuery.dimension)}s.`,
+        ui_action: null,
+        action_chips: ['Voir les degustations', 'Retrouver une note'],
+      }
+    }
+
+    const examples = first.examples
+      .map((row) => row.identity?.label || formatTastingLabel(row))
+      .filter(Boolean)
+      .slice(0, 2)
+    const runnersUp = topRows.slice(1, 3)
+      .map((row) => `${row.name} (${row.count})`)
+      .join(', ')
+    const exampleText = examples.length ? ` Exemples : ${examples.join(', ')}.` : ''
+    const runnerText = runnersUp ? ` Derriere : ${runnersUp}.` : ''
+    return {
+      message: `Ta ${formatTopDimension(topQuery.dimension)} la plus degustee est ${first.name}, avec ${first.count} degustation${first.count > 1 ? 's' : ''}.${runnerText}${exampleText}`,
+      ui_action: null,
+      action_chips: ['Voir les degustations', 'Autre classement'],
     }
   }
 

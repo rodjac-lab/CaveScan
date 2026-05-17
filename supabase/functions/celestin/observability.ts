@@ -125,6 +125,12 @@ export function summarizeResolvedSources(sources: ResolvedContextSources | null 
           totalRows: sources.tastings.totalRows,
           rowCount: sources.tastings.rows?.length ?? 0,
           query: sources.tastings.query ?? null,
+          ...(sources.tastings.kind === 'top'
+            ? {
+                topDimension: sources.tastings.topDimension ?? null,
+                topRows: sources.tastings.topRows?.map((row) => ({ name: row.name, count: row.count })) ?? [],
+              }
+            : {}),
           factReadiness: sources.tastings.factReadiness ?? null,
         }
       : null,
