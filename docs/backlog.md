@@ -149,7 +149,7 @@ Ordre de priorite (du plus structurel au plus hygienique).
 
 Identifie pendant le nettoyage SQL routing. Les quick wins sont deja livres (commit aa2964c). Reste :
 
-- [x] **Alleger le prompt anti-hallucination** dans `supabase/functions/celestin/context-builder.ts` (2026-04-26). Reduction ~120 tokens sur les modes cellar_assistant/tasting_memory/wine_conversation pendant la phase routeur SQL. Le contrat SQL legacy a ensuite ete supprime le 2026-05-03 ; les faits exacts passent par les tools backend. Detail historique dans `docs/celestin-prompt-audit-2026-04.md`.
+- [x] **Alleger le prompt anti-hallucination** dans `supabase/functions/celestin/context-builder.ts` (2026-04-26). Reduction ~120 tokens sur les modes cellar_assistant/tasting_memory/wine_conversation pendant la phase routeur SQL. Le contrat SQL legacy a ensuite ete supprime le 2026-05-03 ; les faits exacts passent par les tools backend. Detail historique dans `docs/archive/celestin-prompt-audit-2026-04.md`.
 - [x] **Consolider les detecteurs de follow-up memoire** : patterns partages dans `shared/celestin/memory-intent-patterns.ts`, consommes par `memory-focus.ts`, `turn-signals.ts` et `tastingMemoryFilters.ts`. Tests routing/memoire ajoutes pour eviter les derives `cellar_lookup` / `tasting_log` vers `memory_lookup`.
 - [ ] **`tastingMemoryFilters.ts`** (476 lignes) a 3 responsabilites melangees (normalize + extract + classify). A scinder en `normalization.ts` / `exactFilters.ts` / `evidenceMode.ts` lors du prochain passage sur la memoire.
 - [ ] **`user-prompt.ts`** : 12 branches if/else en cascade. State machine de directives a materialiser comme table de dispatch.

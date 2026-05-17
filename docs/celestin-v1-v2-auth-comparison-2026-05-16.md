@@ -3,6 +3,7 @@
 > Date : 2026-05-16.
 > Compte test : `213e0662-2a6a-4868-957b-bbab982b342f`.
 > Source contexte : donnees Supabase du compte test via JWT (`--auth`), pas la cave de la fixture locale.
+> Mise a jour : cette comparaison est le point de depart. L'etat courant apres corrections du 2026-05-17 est documente dans `docs/celestin-v2-dogfood-state-2026-05-17.md`.
 
 ## 1. Rapports compares
 
@@ -212,3 +213,26 @@ Decision recommandee :
 Le critere de bascule devrait devenir :
 
 > V2 remplace V1 si elle gagne sur `RECOMMEND` reel, `FACTS`, latence, fallback, et qualite de contexte personnel, sans afficher de cartes quand elle est encore en train de clarifier.
+
+## 12. Addendum 2026-05-17 — corrections appliquees
+
+Les conclusions de ce rapport ont servi de backlog immediat. Les points suivants ont ete corriges ou mieux mesures :
+
+- `RECOMMEND` vague ne force plus les cartes : ajout de `recommendationReady`.
+- Le scorecard distingue maintenant vraie recommandation et clarification via `c5_reco_clarification_no_cards`.
+- Le scorecard verifie aussi route attendue et contenu attendu via `c8_expected_route_contract` et `c9_expected_response_content`.
+- Les faits personnels passent par `force_personal`, qui exige une source active mais permet `query_tastings`, `query_memory`, profil compile fourni ou historique recent explicite.
+- Ajout d'un fil conversationnel `personal_fact` pour les relances courtes apres un tour personnel.
+- Ajout d'agregats backend pour statistiques de degustation (`top_region`, `top_appellation`, `top_domaine`).
+- Ajout d'une identite vin canonique pour reduire les doubles lectures.
+
+Run V2 apres corrections :
+
+- rapport : `evals/results/scorecard-v2-2026-05-17T12-23-15-295Z.md` ;
+- score global : `99,5%` ;
+- `RECOMMEND` : 30 reponses, 0 echec, 3 fallbacks ;
+- `FACTS` : 16 reponses, 0 echec, p50 `509 ms` ;
+- `ACTIONS` : 5 reponses, 0 echec, p50 `459 ms` ;
+- `CHAT` : 31 reponses, 2 echecs de longueur.
+
+Decision actualisee : V2 peut passer en dogfood personnel, mais ne doit pas encore remplacer V1 par defaut. Le prochain signal attendu vient des conversations reelles, pas d'un nouveau score global isole.

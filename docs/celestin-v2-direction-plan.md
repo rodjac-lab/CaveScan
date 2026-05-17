@@ -1,8 +1,9 @@
 # Celestin V2 — direction, architecture et plan de developpement
 
-> Statut : prototype mince en cours de validation.
-> Derniere mise a jour : 2026-05-16.
-> Commit de reference : `2bd720d` (`Add experimental Celestin V2 orchestration`).
+> Statut : prototype mince en dogfood personnel limite.
+> Derniere mise a jour : 2026-05-17.
+> Commit de reference initial : `2bd720d` (`Add experimental Celestin V2 orchestration`).
+> Etat courant : voir `docs/celestin-v2-dogfood-state-2026-05-17.md`.
 
 ## 1. Idee directrice
 
@@ -43,12 +44,16 @@ Chaque plan V2 expose les champs internes suivants :
 
 - `capability` : capacite choisie pour le tour ;
 - `confidence` : niveau de confiance du routage ;
+- `recommendationReady` : indique si une recommandation peut produire des cartes ou doit clarifier ;
+- `actionReady` : indique si une action applicative est suffisamment explicite ;
 - `requiredSources` : sources attendues avant de repondre ;
 - `actionContract` : contrat applicatif explicite si une action est possible ;
 - `responseMode` : mode de reponse attendu ;
 - `orchestrationVersion` : `v1` ou `v2`.
 
 Si la confiance est basse, V2 doit privilegier une clarification ou une reponse libre. Elle ne doit pas lancer un workflow couteux ou materialiser une action fragile.
+
+Regle ajoutee apres les premiers runs V2 : `capability = RECOMMEND` ne suffit pas a afficher des cartes. Il faut aussi `recommendationReady = true`. Une demande vague comme `Je cherche un vin pour ce soir` reste une clarification sans cartes.
 
 ```mermaid
 flowchart TD
@@ -76,6 +81,11 @@ Le prototype V2 actuel ajoute :
 - des scripts d'eval et de scorecard capables de lancer `v1` ou `v2` ;
 - un mode scorecard V2 authentifie sur le compte test, pour mesurer la vraie cave/profil/memoire Supabase plutot qu'une vieille fixture locale ;
 - un comportement `RECOMMEND` ou le backend backfill les cartes seulement dans le cadre V2, sans changer le contrat V1 par defaut.
+- un gate `recommendationReady` pour separer clarification et recommandation fermee ;
+- une politique `force_personal` pour les faits personnels : source obligatoire, mais pas limitee aux seules fiches de degustation ;
+- un etat conversationnel `personal_fact` pour garder le fil des relances personnelles courtes ;
+- des agregats backend `top_region`, `top_appellation`, `top_domaine` pour les statistiques de degustation ;
+- une identite vin canonique partagee (`shared/celestin/wine-identity.ts`) pour eviter les doubles lectures.
 
 Le scorecard V2 est maintenant cable par defaut sur le compte test authentifie via :
 
@@ -123,6 +133,30 @@ Resume :
 
 Nuance importante : V2 gagne fortement sur la presence de cartes valides, mais elle peut etre trop agressive. Certains tours affichent des cartes alors que le texte demande encore une precision. Avant une bascule, il faut verifier que V2 ne materialise pas des cartes quand `responseMode = clarification` ou quand la confiance est basse.
 
+## 5ter. Etat V2 apres durcissement au 2026-05-17
+
+Les problemes principaux reveles par la comparaison du 2026-05-16 ont ete traites ou mieux mesures :
+
+- clarification de recommandation sans cartes via `recommendationReady` ;
+- scorecard renforce avec `c5_reco_clarification_no_cards`, `c8_expected_route_contract`, `c9_expected_response_content` ;
+- `FACTS` plus prudent via `force_personal` et `directAnswerAllowed` ;
+- relances personnelles mieux tenues via `taskType = personal_fact` ;
+- agregats backend pour questions statistiques ;
+- identite vin canonique pour limiter les doublons conceptuels.
+
+Dernier run V2 authentifie notable :
+
+- rapport : `evals/results/scorecard-v2-2026-05-17T12-23-15-295Z.md` ;
+- score global : `99,5%` ;
+- reponses scorees : `82` ;
+- latence p50 globale : `2080 ms` ;
+- `FACTS` : 16 reponses, 0 echec, p50 `509 ms` ;
+- `RECOMMEND` : 30 reponses, 0 echec, 3 fallbacks, p50 `3960 ms` ;
+- `ACTIONS` : 5 reponses, 0 echec, p50 `459 ms` ;
+- `CHAT` : 31 reponses, 2 echecs de longueur.
+
+Lecture : V2 est suffisamment stable pour dogfood personnel, mais pas encore assez prouvee pour une bascule globale. Les echecs restants sont surtout `CHAT` trop long ; la prochaine preuve doit venir du dogfood reel.
+
 ## 6. Criteres de succes V2
 
 La V2 ne doit remplacer la V1 que si elle gagne sur les capacites qui comptent :
@@ -166,14 +200,22 @@ V2 ne devient candidate au defaut que si elle gagne clairement sur facts, recomm
 
 ### Phase 3 — Durcir les points faibles
 
-Priorites actuelles :
+Priorites traitees depuis le premier run :
 
-1. corriger ou mesurer le cas V2 "clarification + cartes" ;
-2. analyser les fallback `RECOMMEND` restants dans le run V2 ;
-3. reduire la verbosite `CHAT` sans ajouter de bequilles prompt inutiles ;
-4. enrichir les scenarios multi-tour qui contaminent l'etat ;
-5. ajouter des scenarios de recommandation personnelle (`Marc n'aime pas les tanins`, invites, souvenirs de diners) ;
-6. documenter les decisions de bascule ou de stop.
+1. `RECOMMEND` vague -> clarification sans cartes ;
+2. scorecard ambiguite / route attendue / contenu attendu ;
+3. `FACTS` safety avec sources personnelles ;
+4. observabilite par capacite et traces runtime ;
+5. toggle dogfood V2 dans `/debug`.
+
+Priorites restantes :
+
+1. dogfood personnel sur compte reel ;
+2. reduire la verbosite `CHAT` sans ajouter de bequilles prompt inutiles ;
+3. durcir `ACTIONS` si le dogfood revele des ambiguite applicatives ;
+4. preparer une passe de clean/refactor si V2 reste stable ;
+5. garder `User Model / User Graph` comme chantier post-V2 ;
+6. garder le pairing bidirectionnel comme chantier post-V2.
 
 ### Phase 4 — Decision de bascule
 
@@ -197,8 +239,10 @@ Si V2 ne gagne pas sur `FACTS` et `RECOMMEND`, on stoppe le refactor et on revoi
 
 ## 9. Prochaine decision
 
-La prochaine decision n'est pas "continuer le refactor" de maniere generale. Elle est plus precise :
+La prochaine decision n'est plus seulement "V2 bat-elle V1 dans la scorecard ?". La scorecard est maintenant suffisamment positive pour dogfood.
 
-> Est-ce que V2 bat V1, sur le meme compte test authentifie, par capacite, sans afficher de cartes quand elle est encore en train de clarifier ?
+La prochaine decision est :
 
-La prochaine etape logique est donc de traiter les ecarts reveles par la comparaison : cartes trop agressives, fallbacks `RECOMMEND`, verbosite `CHAT`, puis scenarios de recommandation personnelle.
+> Est-ce que V2 tient en usage reel personnel, sans incident bloquant de routage, memoire personnelle, recommandation ou action ?
+
+Si oui, la prochaine etape sera une passe de clean/refactor pour reduire la complexite et rendre V2 maintenable avant extension a d'autres users. Si non, on stabilise les cas dogfood avant de refactorer.

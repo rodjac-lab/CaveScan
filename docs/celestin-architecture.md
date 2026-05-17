@@ -4,6 +4,7 @@ Celestin est le sommelier IA de l'app. Ce document decrit comment un message uti
 
 > Note
 > Cette doc reste la reference pour l'orchestrateur Celestin, le Turn Interpreter, le state machine et le runtime conversationnel.
+> Pour l'etat V2 courant et les decisions dogfood, lire aussi `docs/celestin-v2-dogfood-state-2026-05-17.md`.
 > Pour l'architecture memoire cible, lire en priorite :
 > - `docs/celestin-memory-doctrine.md`
 > - `docs/celestin-memory-runtime-architecture.md`
@@ -88,7 +89,8 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
   |   turnType      (QUOI faire)                 |
   |   cognitiveMode (COMMENT penser)             |
   |   shouldAllowUiAction (garde-fou)            |
-  |   inferredTaskType (reco/encavage/tasting)   |
+  |   inferredTaskType (reco/encavage/tasting/   |
+  |                     personal_fact)           |
   +--------------------+-------------------------+
                        |
           +------------+------------+
@@ -222,6 +224,7 @@ Un meme etat `active_task` peut etre en mode `cellar_assistant` OU `restaurant_a
 Note :
 - l'ordre reel est : `Turn Interpreter` -> `ContextPlan` -> `resolveContextSourcesForRequest` (Promise.all : profile, cave count, zones, memories, tastings, **cellar candidates pre-empted si plan.cellarCandidates === 'preempted'**) -> `buildContextBlockFromResolvedSources` / `buildUserPrompt` -> `buildDeterministicResponse` (court-circuit eventuel) -> appel LLM
 - le runtime memoire actif n'utilise plus de `User Model Resolver`
+- si `orchestrationVersion = 'v2'`, `buildCelestinV2Plan()` ajoute `capability`, `confidence`, `recommendationReady`, `actionReady`, `actionContract` et `responseMode`. V1 reste le comportement par defaut.
 
 ## Turn Interpreter : le cerveau du routing
 
@@ -254,10 +257,12 @@ Si state === collecting_info :
 Si state === active_task :
   - social ack                     --> social_ack, retour idle
   - continuation                   --> task_continue
+  - taskType personal_fact + relance courte
+                                   --> tasting_log/source_required
 
 Si state === idle_smalltalk :
   - "que boire ce soir"            --> task_request, mode: cellar_assistant
-  - image                          --> task_request, mode: cellar/restaurant
+    - image                          --> task_request, mode: cellar/restaurant
   - "c'est quoi le chenin"         --> smalltalk, mode: wine_conversation
   - "tu te souviens du Sancerre"   --> context_switch, mode: tasting_memory
   - "j'ai achete du vin"           --> task_request, mode: cellar_assistant
@@ -429,7 +434,7 @@ Le `ContextPlan` decide pour chaque route comment les sources sont resolues. Pou
 | `memory_guided_recommendation` | `force_tastings` | `preempted` | Cellar candidats pre-empted ; tastings restent en tool-use force pour ancrer la reco dans l'experience passee. |
 | `prefetch` | `none` | `preempted` | Idem reco, query sentinel mappee a un sample diversifie. |
 | `cellar_lookup` (count generique, color, volume, origine) | `force_cellar` | `none` | `buildDeterministicResponse` repond sans appeler le LLM (`provider: deterministic`, ~80-140ms). |
-| `memory_lookup`, `tasting_log` | `force_tastings` | `none` | Tools forces sur `query_tastings`/`query_memory` car necessite une vraie recherche en base ; 2 calls Claude (first + tool_followup). |
+| `memory_lookup`, `tasting_log` | `force_personal` | `none` | Source personnelle obligatoire. Claude doit appeler un outil, mais peut choisir `query_tastings` ou `query_memory`; le backend peut aussi repondre deterministiquement sur certains faits exacts. |
 | `wine_question` | `auto` | `none` | Pas de tools en pratique sauf demande personnelle elliptique ; Claude repond depuis ses connaissances generales en 1 call. |
 | `unknown` | `auto` | `none` | Filet de securite : Claude peut decider d'appeler un tool si necessaire. |
 
@@ -445,6 +450,10 @@ Le choix d'usage des sources est explicite dans `SourceMode` :
 - `normal` : les tools sont disponibles quand la route/mode les autorise, avec choix modele `auto` (ou `none` quand le ContextPlan les desactive completement).
 - `source_required` : le profil/contexte restent injectes, mais Claude doit appeler au moins un outil (`tool_choice:any`) — utilise principalement pour les follow-ups elliptiques sur memoire personnelle.
 - `forced_tool` : le backend force un outil exact pour les questions factuelles strictes (`query_cellar`, `query_tastings` ou `query_memory`).
+
+`force_personal` se traduit volontairement par `source_required`, pas par un outil impose. C'est la difference importante avec l'ancien reflexe `force_tastings` : un fait personnel peut venir d'une fiche de degustation, d'une memoire conversationnelle, du profil compile fourni, ou de l'historique recent explicite. Le LLM ne doit pas inventer un nom personnel absent de ces sources.
+
+Les questions statistiques de degustation ont un chemin backend dedie : `tasting_top` (`top_region`, `top_appellation`, `top_domaine`). Le backend groupe les lignes et expose `topRows`; la reponse ne doit citer que ces groupes et leurs exemples.
 
 `ContextPackage` est le paquet transmis au provider : `ContextPlan` + sources resolues + prompt assemble + history provider. Il ne decide pas quoi charger ; il rend explicite ce qui est envoye a Claude pour le tour courant.
 
@@ -498,6 +507,11 @@ cartes est strict : si la reponse finale ne contient pas de
 devinant les bouteilles depuis le texte (il accepte cependant un fallback
 text-mention pour rester tolerant). Le texte conversationnel peut rester
 affiche meme sans selection.
+
+En V2, le contrat reco depend aussi de `recommendationReady`. Si la demande est
+encore vague (`responseMode = clarification`), l'absence de
+`recommendation_selection` est acceptable et le backend ne doit pas backfill des
+cartes. Les cartes sont attendues seulement sur un vrai `closed_choice`.
 
 Le payload candidats est compact (6 bouteilles, champs courts, `why_candidate`).
 Si Claude est appele en tool-use sur une autre route (memoire), le follow-up

@@ -279,7 +279,7 @@ compilée). Défendable si l'expérience tient ses promesses.
 **Ces chiffres restent l'objectif à atteindre par optimisation.** Ils ne
 décrivent pas la réalité actuelle (cf. section "Erreur identifiée" ci-dessous).
 
-Calculs détaillés dans `docs/llm-comparison-2026-04-29.md`. Synthèse pour ce
+Calculs détaillés dans `docs/archive/llm-comparison-2026-04-29.md`. Synthèse pour ce
 modèle économique :
 
 | Configuration | Coût/user actif/mois | Coût/user actif/an |
