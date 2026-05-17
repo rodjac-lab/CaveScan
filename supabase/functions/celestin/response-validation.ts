@@ -22,6 +22,21 @@ function extractJsonObject(text: string): string {
   return stripped
 }
 
+export function stripStructuredResponseArtifacts(raw: string): string {
+  return raw
+    .replace(/```json\s*[\s\S]*?(?:```|$)/gi, '')
+    .replace(/(^|\n)\s*\{[\s\S]*"message"\s*:[\s\S]*$/i, '')
+    .trim()
+}
+
+export function containsStructuredResponseAttempt(raw: string): boolean {
+  return /```json\b/i.test(raw)
+    || /(^|\n)\s*\{[\s\S]*"message"\s*:/i.test(raw)
+    || /"recommendation_selection"\s*:/i.test(raw)
+    || /"ui_action"\s*:/i.test(raw)
+    || /"action_chips"\s*:/i.test(raw)
+}
+
 export function parseAndValidate(raw: string): CelestinProviderResponse {
   const jsonText = extractJsonObject(raw).replace(/[\r\n]/g, ' ')
   const data = JSON.parse(jsonText) as CelestinProviderResponse

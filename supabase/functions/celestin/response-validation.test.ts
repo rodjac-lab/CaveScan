@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseAndValidate } from './response-validation'
+import { containsStructuredResponseAttempt, parseAndValidate, stripStructuredResponseArtifacts } from './response-validation'
 
 describe('parseAndValidate', () => {
   it('parses plain JSON responses', () => {
@@ -51,5 +51,45 @@ describe('parseAndValidate', () => {
       message: '```json\n{"message":"Raclette","action_chips":["Blanc sec"]}\n```',
       ui_action: null,
     }))).toThrow('message contains raw JSON')
+  })
+
+  it('strips a trailing incomplete JSON artifact before wrapping text-only provider output', () => {
+    const cleaned = stripStructuredResponseArtifacts(`Tu touches à mon terrain favori.
+
+**Selosse** : oxydation noble et tension.
+
+\`\`\`json
+{
+  "message": "Tu touches à mon terrain favori.`,
+    )
+
+    expect(cleaned).toBe('Tu touches à mon terrain favori.\n\n**Selosse** : oxydation noble et tension.')
+  })
+
+  it('strips a trailing structured object artifact before wrapping text-only provider output', () => {
+    const cleaned = stripStructuredResponseArtifacts(`Réponse lisible.
+
+{
+  "message": "Réponse lisible.",
+  "action_chips": []`,
+    )
+
+    expect(cleaned).toBe('Réponse lisible.')
+  })
+
+  it('detects malformed structured attempts that must not be wrapped as text', () => {
+    expect(containsStructuredResponseAttempt(`Réponse lisible.
+
+\`\`\`json
+{
+  "message": "Réponse lisible.`)).toBe(true)
+
+    expect(containsStructuredResponseAttempt(`Réponse lisible.
+
+{
+  "message": "Réponse lisible.",
+  "action_chips": []`)).toBe(true)
+
+    expect(containsStructuredResponseAttempt('Réponse libre sans artefact structuré.')).toBe(false)
   })
 })

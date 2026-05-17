@@ -24,6 +24,8 @@ Ce sont les 3 documents à lire en priorité pour comprendre la nouvelle archite
   - [Comparaison V1/V2 authentifiee 2026-05-16](./celestin-v1-v2-auth-comparison-2026-05-16.md)
 - état courant V2 dogfood, corrections récentes et décisions de stabilisation :
   - [Celestin V2 — état dogfood 2026-05-17](./celestin-v2-dogfood-state-2026-05-17.md)
+- protocole de test manuel V2 et revue des conversations réelles :
+  - [Celestin — protocole dogfood](./celestin-dogfood-protocol.md)
 - produit, UX et priorités :
   - [PRD](./prd.md)
   - [UX spec](./ux-spec.md)

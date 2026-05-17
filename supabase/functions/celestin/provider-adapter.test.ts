@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { previewProviderText, recordProviderResponse, type ProviderResponseTraceSink } from './provider-adapter'
+import { containsStructuredResponseAttempt, parseAndValidate } from './response-validation'
 
 describe('provider-adapter', () => {
   it('records raw provider text and normalized response summary', () => {
@@ -34,5 +35,16 @@ describe('provider-adapter', () => {
 
   it('truncates raw provider text previews', () => {
     expect(previewProviderText('a'.repeat(20), 8)).toBe('aaaaaaaa')
+  })
+
+  it('treats malformed structured output as a provider error, not wrapped text', () => {
+    const raw = `Réponse lisible.
+
+\`\`\`json
+{
+  "message": "Réponse lisible.`
+
+    expect(containsStructuredResponseAttempt(raw)).toBe(true)
+    expect(() => parseAndValidate(raw)).toThrow()
   })
 })

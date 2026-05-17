@@ -10,7 +10,7 @@ import {
 import { GEMINI_RESPONSE_SCHEMA, OPENAI_RESPONSE_SCHEMA } from "./provider-schemas.ts"
 import { extractErrorMessage, fetchWithTimeout } from "./provider-utils.ts"
 import { recordProviderResponse, type CelestinProviderResponseTrace } from "./provider-adapter.ts"
-import { parseAndValidate } from "./response-validation.ts"
+import { containsStructuredResponseAttempt, parseAndValidate, stripStructuredResponseArtifacts } from "./response-validation.ts"
 import type { AuthContext } from "./auth.ts"
 import { CELESTIN_TOOLS, executeCelestinTool, type CelestinToolName } from "./tools.ts"
 import { logAnthropicUsage } from "../_shared/anthropic-usage.ts"
@@ -272,7 +272,12 @@ function parseClaudeResponse(text: string, trace?: CelestinProviderTrace): Celes
     recordProviderResponse({ trace, provider: 'Claude', rawText: text, parseStatus: 'success', response: parsed })
     return parsed
   } catch (err) {
-    const message = text.trim()
+    if (containsStructuredResponseAttempt(text)) {
+      recordProviderResponse({ trace, provider: 'Claude', rawText: text, parseStatus: 'error', error: err })
+      throw err
+    }
+
+    const message = stripStructuredResponseArtifacts(text)
     if (!message) {
       recordProviderResponse({ trace, provider: 'Claude', rawText: text, parseStatus: 'error', error: err })
       throw err

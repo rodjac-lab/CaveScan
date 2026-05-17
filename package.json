@@ -22,6 +22,7 @@
     "scorecard:celestin:v2": "node scripts/scorecard-celestin.mjs --orchestration v2 --auth",
     "scorecard:celestin:v2:quick": "node scripts/scorecard-celestin.mjs --quick --orchestration v2 --auth",
     "scorecard:celestin:with-judge": "node scripts/scorecard-celestin.mjs --with-judge",
+    "dogfood:celestin": "node scripts/review-celestin-dogfood.mjs",
     "debug:last": "tail -n 1 .celestin-debug/traces.jsonl 2>/dev/null || echo 'No traces captured yet. Start npm run dev and interact with the app.'",
     "debug:tail": "tail -n 5 .celestin-debug/traces.jsonl 2>/dev/null || echo 'No traces yet.'"
   },

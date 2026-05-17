@@ -76,6 +76,26 @@
     }
   },
   {
+    "id": "dogfood_champagne_to_dish",
+    "dogfood": true,
+    "message": "J'ai envie d'ouvrir un Champagne, tu ferais quoi à manger avec ?",
+    "notes": "Pairing bidirectionnel futur : vin -> plat. Aujourd'hui, ne doit pas forcer des cartes cave ; le besoin produit est un conseil plat contextualise.",
+    "expectations": {
+      "expectedUiActionKind": "none",
+      "maxCards": 0,
+      "responseMaxLines": 5
+    }
+  },
+  {
+    "id": "dogfood_user_white_acidity",
+    "dogfood": true,
+    "message": "J'aime bien l'acidité sur les blancs, tu me proposerais quoi avec des huîtres ?",
+    "notes": "Post-V2 User Model : preference explicite utilisateur + accord plat -> vin. Doit pouvoir recommander sans transformer la preference en hack lexical.",
+    "expectations": {
+      "expectedUiActionKind": "show_recommendations"
+    }
+  },
+  {
     "id": "thanks_after_recommendation",
     "message": "Merci, elles sont tres bien",
     "notes": "Apres une recommendation, un simple remerciement doit revenir en conversation.",

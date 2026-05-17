@@ -685,5 +685,34 @@
         }
       }
     ]
+  },
+  {
+    "id": "dogfood_same_session_friend_preference",
+    "dogfood": true,
+    "type": "conversation",
+    "description": "User Model futur — preference proche apprise dans la meme conversation puis recommandation contextualisee",
+    "turns": [
+      {
+        "message": "Marc vient dîner samedi. Il n'aime pas trop les tanins.",
+        "expect": {
+          "uiAction": "none",
+          "responseMaxLines": 4
+        }
+      },
+      {
+        "message": "On fera une pizza maison, tu ouvrirais quoi ?",
+        "expect": {
+          "uiAction": "show_recommendations",
+          "expectedCapability": "RECOMMEND"
+        }
+      },
+      {
+        "message": "Et pour moi, si je veux quelque chose de plus tendu ?",
+        "expect": {
+          "uiAction": "show_recommendations",
+          "expectedCapability": "RECOMMEND"
+        }
+      }
+    ]
   }
 ]
