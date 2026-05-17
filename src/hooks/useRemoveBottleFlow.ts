@@ -21,6 +21,7 @@ import {
 } from '@/lib/removeBottleFlow'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
 import { track } from '@/lib/track'
+import { uploadFailureMessage, type PhotoSource } from '@/lib/photoSource'
 import { normalizeWineColor, type BottleWithZone, type WineExtraction } from '@/lib/types'
 import { uploadPhoto } from '@/lib/uploadPhoto'
 import { extractWineFromFile } from '@/lib/wineExtractionService'
@@ -38,6 +39,7 @@ export function useRemoveBottleFlow() {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
   const [showAlternatives, setShowAlternatives] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [continueWithoutPhoto, setContinueWithoutPhoto] = useState(false)
   const [prefillHandled, setPrefillHandled] = useState(false)
   const [currentBatchIndex, setCurrentBatchIndex] = useState(0)
 
@@ -112,8 +114,9 @@ export function useRemoveBottleFlow() {
     navigate('/degustations')
   }, [navigate, scanResult?.photoUri])
 
-  const processSingleFile = useCallback(async (file: File) => {
+  const processSingleFile = useCallback(async (file: File, photoSource: PhotoSource = 'gallery') => {
     setError(null)
+    setContinueWithoutPhoto(false)
     setShowAlternatives(false)
     setStep('processing')
 
@@ -134,6 +137,7 @@ export function useRemoveBottleFlow() {
       setScanResult({
         extraction: extractionData,
         photoFile: file,
+        photoSource,
         photoUri: URL.createObjectURL(file),
         matchType: primaryMatch ? 'in_cave' : 'not_in_cave',
         primaryMatch: primaryMatch ?? null,
@@ -152,6 +156,7 @@ export function useRemoveBottleFlow() {
       navigate('/add', {
         state: {
           prefillPhotoFile: file,
+          prefillPhotoSource: photoSource,
           prefillExtraction: null,
         },
       })
@@ -164,7 +169,7 @@ export function useRemoveBottleFlow() {
     const state = location.state as RemoveBottleLocationState | null
     if (!state) return
 
-    const { prefillExtraction, prefillPhotoFile } = state
+    const { prefillExtraction, prefillPhotoFile, prefillPhotoSource } = state
 
     if (prefillExtraction) {
       setPrefillHandled(true)
@@ -190,6 +195,7 @@ export function useRemoveBottleFlow() {
       setScanResult({
         extraction,
         photoFile: prefillPhotoFile ?? null,
+        photoSource: prefillPhotoFile ? prefillPhotoSource ?? 'gallery' : null,
         photoUri: prefillPhotoFile ? URL.createObjectURL(prefillPhotoFile) : null,
         matchType: primaryMatch ? 'in_cave' : 'not_in_cave',
         primaryMatch: primaryMatch ?? null,
@@ -198,7 +204,7 @@ export function useRemoveBottleFlow() {
       setStep('result')
     } else if (prefillPhotoFile) {
       setPrefillHandled(true)
-      void processSingleFile(prefillPhotoFile)
+      void processSingleFile(prefillPhotoFile, prefillPhotoSource ?? 'gallery')
     }
   }, [location.state, bottles, bottlesLoading, prefillHandled, processSingleFile])
 
@@ -252,14 +258,14 @@ export function useRemoveBottleFlow() {
     setBatchSessionStatus(sessionId, 'ready')
   }
 
-  async function uploadTastingPhoto(file: File, fileName: string): Promise<string> {
+  async function uploadTastingPhoto(file: File, fileName: string, photoSource: PhotoSource | null): Promise<string> {
     try {
       const photoUrl = await uploadPhoto(file, fileName)
       if (!photoUrl) throw new Error('Photo upload returned no URL')
       return photoUrl
     } catch (err) {
       console.error('Tasting photo upload error:', err)
-      throw new Error("La photo n'a pas pu être enregistrée. Rafraîchis l'app puis réessaie.")
+      throw new Error(uploadFailureMessage(photoSource, 'tasting'))
     }
   }
 
@@ -274,6 +280,7 @@ export function useRemoveBottleFlow() {
       alternatives: merged.filter((candidate) => candidate.id !== bottle.id),
     })
     setShowAlternatives(false)
+    setContinueWithoutPhoto(false)
   }
 
   const handleConfirmRemove = async (bottle: BottleWithZone) => {
@@ -296,8 +303,8 @@ export function useRemoveBottleFlow() {
 
     try {
       let photoUrl: string | null = null
-      if (result.photoFile) {
-        photoUrl = await uploadTastingPhoto(result.photoFile, `${Date.now()}-front.jpg`)
+      if (result.photoFile && !continueWithoutPhoto) {
+        photoUrl = await uploadTastingPhoto(result.photoFile, `${Date.now()}-front.jpg`, result.photoSource)
       }
 
       const { id } = await insertBottle(
@@ -308,7 +315,14 @@ export function useRemoveBottleFlow() {
       navigate(`/bottle/${id}`)
     } catch (err) {
       console.error('Save error:', err)
-      setError("Echec de l'enregistrement")
+      if (err instanceof Error && result.photoFile) {
+        if (result.photoSource === 'gallery') {
+          setContinueWithoutPhoto(true)
+        }
+        setError(err.message)
+      } else {
+        setError("Echec de l'enregistrement")
+      }
       setStep('result')
     }
   }
@@ -333,7 +347,7 @@ export function useRemoveBottleFlow() {
         track('bottle_opened', { matched: true, batch: true })
       } else {
         let photoUrl: string | null = null
-        photoUrl = await uploadTastingPhoto(item.photoFile, `${Date.now()}-front-${item.id}.jpg`)
+        photoUrl = await uploadTastingPhoto(item.photoFile, `${Date.now()}-front-${item.id}.jpg`, item.photoSource)
 
         await insertBottle(
           buildDrunkBottleInsertFromExtraction(item.extraction as WineExtraction, { photoUrl }),
@@ -418,7 +432,7 @@ export function useRemoveBottleFlow() {
 
         if ((item.matchType === 'not_in_cave' || item.matchType === 'unresolved') && item.extraction) {
           let photoUrl: string | null = null
-          photoUrl = await uploadTastingPhoto(item.photoFile, `${Date.now()}-front-${item.id}.jpg`)
+          photoUrl = await uploadTastingPhoto(item.photoFile, `${Date.now()}-front-${item.id}.jpg`, item.photoSource)
 
           await insertBottle(
             buildDrunkBottleInsertFromExtraction(item.extraction, { photoUrl }),

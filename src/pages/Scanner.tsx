@@ -8,6 +8,7 @@ import { extractWineFromFile } from '@/lib/wineExtractionService'
 import {
   createBatchSession,
 } from '@/lib/batchSessionStore'
+import type { PhotoSource } from '@/lib/photoSource'
 
 type Intent = 'encaver' | 'deguster'
 
@@ -116,7 +117,7 @@ export default function Scanner() {
   }
 
   // Process a single photo with OCR
-  const processPhoto = async (file: File) => {
+  const processPhoto = async (file: File, photoSource: PhotoSource) => {
     setProcessing(true)
 
     try {
@@ -132,6 +133,7 @@ export default function Scanner() {
             state: {
               prefillBatchExtractions: parsed.bottles,
               prefillPhotoFile: file,
+              prefillPhotoSource: photoSource,
             },
           })
           return
@@ -142,6 +144,7 @@ export default function Scanner() {
           state: {
             prefillExtraction: extraction,
             prefillPhotoFile: file,
+            prefillPhotoSource: photoSource,
           },
         })
       } else {
@@ -150,6 +153,7 @@ export default function Scanner() {
             state: {
               prefillExtraction: null,
               prefillPhotoFile: file,
+              prefillPhotoSource: photoSource,
             },
           })
           return
@@ -160,6 +164,7 @@ export default function Scanner() {
           state: {
             prefillExtraction: extraction,
             prefillPhotoFile: file,
+            prefillPhotoSource: photoSource,
           },
         })
       }
@@ -172,6 +177,7 @@ export default function Scanner() {
           state: {
             prefillExtraction: null,
             prefillPhotoFile: file,
+            prefillPhotoSource: photoSource,
           },
         })
       } else {
@@ -179,6 +185,7 @@ export default function Scanner() {
           state: {
             prefillExtraction: null,
             prefillPhotoFile: file,
+            prefillPhotoSource: photoSource,
           },
         })
       }
@@ -205,7 +212,7 @@ export default function Scanner() {
     if (!blob) return
 
     const file = new File([blob], `scan-${Date.now()}.jpg`, { type: 'image/jpeg' })
-    await processPhoto(file)
+    await processPhoto(file, 'camera')
   }
 
   // Handle camera file input (mobile fallback via capture="environment")
@@ -213,7 +220,7 @@ export default function Scanner() {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    await processPhoto(file)
+    await processPhoto(file, 'camera')
   }
 
   // Handle gallery file selection
@@ -225,7 +232,7 @@ export default function Scanner() {
     e.target.value = ''
 
     if (savedFiles.length === 1) {
-      await processPhoto(savedFiles[0])
+      await processPhoto(savedFiles[0], 'gallery')
       return
     }
 
@@ -238,12 +245,13 @@ export default function Scanner() {
       navigate('/add', {
         state: {
           prefillBatchFiles: selectedFiles,
+          prefillBatchPhotoSource: 'gallery',
         },
       })
     } else {
       // Create batch session for tasting
       stopCamera()
-      createBatchSession(selectedFiles)
+      createBatchSession(selectedFiles, 'gallery')
       navigate('/remove')
     }
   }

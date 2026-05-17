@@ -1,5 +1,6 @@
 import type { BatchProgressItem } from '@/components/BatchProgress'
 import type { BatchItemData } from '@/components/BatchItemForm'
+import type { PhotoSource } from '@/lib/photoSource'
 import { normalizeWineColor, type BottleVolumeOption, type WineExtraction } from '@/lib/types'
 
 export type AddBottleStep = 'capture' | 'extracting' | 'confirm' | 'saving' | 'batch-extracting' | 'batch-confirm'
@@ -9,7 +10,9 @@ export const MAX_ADD_BOTTLE_BATCH_SIZE = 12
 export interface AddBottleLocationState {
   prefillExtraction?: Partial<WineExtraction> | null
   prefillPhotoFile?: File | null
+  prefillPhotoSource?: PhotoSource | null
   prefillBatchFiles?: File[] | null
+  prefillBatchPhotoSource?: PhotoSource | null
   prefillBatchExtractions?: Partial<WineExtraction>[] | null
   prefillQuantity?: number
   prefillVolume?: BottleVolumeOption
@@ -29,10 +32,16 @@ export function createUploadStamp(): string {
   return String(Date.now())
 }
 
-export function toBatchItemData(file: File | null, extraction: Partial<WineExtraction>, index: number): BatchItemData {
+export function toBatchItemData(
+  file: File | null,
+  extraction: Partial<WineExtraction>,
+  index: number,
+  photoSource: PhotoSource | null = null,
+): BatchItemData {
   return {
     id: `batch-${Date.now()}-${index}`,
     photoFile: file,
+    photoSource,
     photoPreview: file ? URL.createObjectURL(file) : null,
     photoFileBack: null,
     photoPreviewBack: null,
@@ -69,10 +78,11 @@ export function toBatchItemData(file: File | null, extraction: Partial<WineExtra
   }
 }
 
-export function createPendingBatchItem(file: File, index: number): BatchItemData {
+export function createPendingBatchItem(file: File, index: number, photoSource: PhotoSource = 'gallery'): BatchItemData {
   return {
     id: `batch-${Date.now()}-${index}`,
     photoFile: file,
+    photoSource,
     photoPreview: URL.createObjectURL(file),
     photoFileBack: null,
     photoPreviewBack: null,

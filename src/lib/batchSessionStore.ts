@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import type { PhotoSource } from '@/lib/photoSource'
 import type { BottleWithZone, WineExtraction } from '@/lib/types'
 
 export type BatchSessionStatus = 'processing' | 'ready' | 'done'
@@ -8,6 +9,7 @@ export type BatchExtractionStatus = 'pending' | 'extracting' | 'extracted' | 'er
 export interface BatchItem {
   id: string
   photoFile: File
+  photoSource: PhotoSource
   photoUri: string
   extraction: WineExtraction | null
   matchedBottleId: string | null
@@ -64,7 +66,7 @@ export function getActiveBatchSession(): BatchSession | null {
   return store.session
 }
 
-export function createBatchSession(files: File[]): BatchSession {
+export function createBatchSession(files: File[], photoSource: PhotoSource = 'gallery'): BatchSession {
   clearBatchSession()
 
   const now = new Date()
@@ -76,6 +78,7 @@ export function createBatchSession(files: File[]): BatchSession {
     items: files.map((file, index) => ({
       id: `batch-item-${now.getTime()}-${index}`,
       photoFile: file,
+      photoSource,
       photoUri: URL.createObjectURL(file),
       extraction: null,
       matchedBottleId: null,

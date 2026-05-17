@@ -6,6 +6,7 @@ function makeItem(id: string, patch: Partial<BatchItem> = {}): BatchItem {
   return {
     id,
     photoFile: new File(['x'], `${id}.jpg`),
+    photoSource: 'gallery',
     photoUri: `blob:${id}`,
     extraction: null,
     matchedBottleId: null,

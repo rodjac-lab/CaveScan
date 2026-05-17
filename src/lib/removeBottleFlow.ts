@@ -1,5 +1,6 @@
 import type { BatchProgressItem } from '@/components/BatchProgress'
 import type { BatchItem, BatchSession } from '@/lib/batchSessionStore'
+import type { PhotoSource } from '@/lib/photoSource'
 import type { BottleWithZone, WineExtraction } from '@/lib/types'
 
 export type Step =
@@ -15,11 +16,13 @@ export type MatchType = 'in_cave' | 'not_in_cave'
 export interface RemoveBottleLocationState {
   prefillExtraction?: Partial<WineExtraction> | null
   prefillPhotoFile?: File | null
+  prefillPhotoSource?: PhotoSource | null
 }
 
 export interface ScanResult {
   extraction: WineExtraction
   photoFile: File | null
+  photoSource: PhotoSource | null
   photoUri: string | null
   matchType: MatchType
   primaryMatch: BottleWithZone | null

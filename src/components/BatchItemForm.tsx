@@ -16,11 +16,13 @@ import { Autocomplete } from '@/components/Autocomplete'
 import { BatchNavHeader } from '@/components/BatchNavHeader'
 import { StoragePositionPicker } from '@/components/StoragePositionPicker'
 import { BOTTLE_VOLUMES, WINE_COLORS, type BottleVolumeOption, type WineColor } from '@/lib/types'
+import type { PhotoSource } from '@/lib/photoSource'
 import type { Zone } from '@/lib/types'
 
 export interface BatchItemData {
   id: string
   photoFile: File | null
+  photoSource?: PhotoSource | null
   photoPreview: string | null
   photoFileBack: File | null
   photoPreviewBack: string | null

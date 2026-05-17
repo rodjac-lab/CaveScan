@@ -3,6 +3,7 @@ import { buildCellarBottleInsert, insertBottle } from '@/lib/bottleWrites'
 import { createUploadStamp } from '@/lib/addBottleFlow'
 import { enrichWineAndUpdate } from '@/lib/enrichWine'
 import { uploadPhoto } from '@/lib/uploadPhoto'
+import type { PhotoSource } from '@/lib/photoSource'
 import type { BottleVolumeOption, WineColor, WineExtraction } from '@/lib/types'
 
 interface SingleBottleSaveDraft {
@@ -17,6 +18,7 @@ interface SingleBottleSaveDraft {
   shelf: string
   purchasePrice: string
   photoFile: File | null
+  photoSource?: PhotoSource | null
   photoFileBack: File | null
   rawExtraction: WineExtraction | null
   quantity: number

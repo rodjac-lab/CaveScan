@@ -10,6 +10,7 @@ import { MULTI_BOTTLE_IMAGE_MAX_SIZE } from '@/lib/image'
 import { track } from '@/lib/track'
 import { triggerProfileRecompute } from '@/lib/taste-profile'
 import { saveBatchCellarBottle, saveSingleCellarBottle } from '@/lib/addBottlePersistence'
+import { uploadFailureMessage } from '@/lib/photoSource'
 import {
   MAX_ADD_BOTTLE_BATCH_SIZE,
   buildRawExtractionFromPrefill,
@@ -34,7 +35,9 @@ export function useAddBottleFlow() {
   const locationState = location.state as AddBottleLocationState | null
   const prefillExtraction = locationState?.prefillExtraction ?? null
   const prefillPhotoFile = locationState?.prefillPhotoFile ?? null
+  const prefillPhotoSource = locationState?.prefillPhotoSource ?? null
   const prefillBatchFiles = locationState?.prefillBatchFiles ?? null
+  const prefillBatchPhotoSource = locationState?.prefillBatchPhotoSource ?? null
   const prefillBatchExtractions = locationState?.prefillBatchExtractions ?? null
   const prefillQuantity = locationState?.prefillQuantity ?? undefined
   const prefillVolume = locationState?.prefillVolume ?? undefined
@@ -42,11 +45,13 @@ export function useAddBottleFlow() {
 
   const [step, setStep] = useState<AddBottleStep>(hasPrefill || !!prefillPhotoFile ? 'confirm' : 'capture')
   const [photoFile, setPhotoFile] = useState<File | null>(prefillPhotoFile)
+  const [photoSource, setPhotoSource] = useState(prefillPhotoFile ? prefillPhotoSource : null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(() => (prefillPhotoFile ? URL.createObjectURL(prefillPhotoFile) : null))
   const [photoFileBack, setPhotoFileBack] = useState<File | null>(null)
   const [photoPreviewBack, setPhotoPreviewBack] = useState<string | null>(null)
   const [zoomImage, setZoomImage] = useState<{ src: string; label?: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [continueWithoutFrontPhoto, setContinueWithoutFrontPhoto] = useState(false)
 
   const [domaine, setDomaine] = useState(prefillExtraction?.domaine || '')
   const [cuvee, setCuvee] = useState(prefillExtraction?.cuvee || '')
@@ -126,7 +131,7 @@ export function useAddBottleFlow() {
 
     const items = prefillBatchExtractions
       .slice(0, MAX_ADD_BOTTLE_BATCH_SIZE)
-      .map((extraction, index) => toBatchItemData(prefillPhotoFile ?? null, extraction, index))
+      .map((extraction, index) => toBatchItemData(prefillPhotoFile ?? null, extraction, index, prefillPhotoFile ? prefillPhotoSource : null))
 
     const timer = window.setTimeout(() => {
       setBatchItems(items)
@@ -137,14 +142,14 @@ export function useAddBottleFlow() {
     }, 0)
 
     return () => window.clearTimeout(timer)
-  }, [prefillBatchExtractions, prefillPhotoFile])
+  }, [prefillBatchExtractions, prefillPhotoFile, prefillPhotoSource])
 
   useEffect(() => {
     if (!prefillBatchFiles || prefillBatchFiles.length === 0 || batchInitRef.current) return
     batchInitRef.current = true
 
     const selectedFiles = prefillBatchFiles.slice(0, MAX_ADD_BOTTLE_BATCH_SIZE)
-    const items: BatchItemData[] = selectedFiles.map(createPendingBatchItem)
+    const items: BatchItemData[] = selectedFiles.map((file, index) => createPendingBatchItem(file, index, prefillBatchPhotoSource ?? 'gallery'))
 
     const timer = window.setTimeout(() => {
       setBatchItems(items)
@@ -157,15 +162,17 @@ export function useAddBottleFlow() {
     }, 0)
 
     return () => window.clearTimeout(timer)
-  }, [prefillBatchFiles])
+  }, [prefillBatchFiles, prefillBatchPhotoSource])
 
   const handleFileSelect = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
 
     setPhotoFile(file)
+    setPhotoSource('gallery')
     setPhotoPreview(URL.createObjectURL(file))
     setError(null)
+    setContinueWithoutFrontPhoto(false)
     setStep('extracting')
 
     try {
@@ -174,7 +181,7 @@ export function useAddBottleFlow() {
       })
 
       if (ENABLE_MULTI_BOTTLE_SCAN && parsed.kind === 'multi_bottle') {
-        const items = parsed.bottles.map((extraction, index) => toBatchItemData(file, extraction, index))
+        const items = parsed.bottles.map((extraction, index) => toBatchItemData(file, extraction, index, 'gallery'))
         setBatchItems(items)
         setCurrentBatchIndex(0)
         setBatchExtractionIndex(0)
@@ -212,7 +219,7 @@ export function useAddBottleFlow() {
     }
 
     const selectedFiles = Array.from(files).slice(0, MAX_ADD_BOTTLE_BATCH_SIZE)
-    const items: BatchItemData[] = selectedFiles.map(createPendingBatchItem)
+    const items: BatchItemData[] = selectedFiles.map((file, index) => createPendingBatchItem(file, index, 'gallery'))
 
     setBatchItems(items)
     setCurrentBatchIndex(0)
@@ -313,7 +320,8 @@ export function useAddBottleFlow() {
         zoneId,
         shelf,
         purchasePrice,
-        photoFile,
+        photoFile: continueWithoutFrontPhoto ? null : photoFile,
+        photoSource,
         photoFileBack,
         rawExtraction,
         quantity,
@@ -324,6 +332,17 @@ export function useAddBottleFlow() {
       handleReset()
     } catch (err) {
       console.error('Save error:', err)
+      if (photoFile && !continueWithoutFrontPhoto && photoSource === 'gallery') {
+        setContinueWithoutFrontPhoto(true)
+        setError(uploadFailureMessage(photoSource, 'cellar'))
+        setStep('confirm')
+        return
+      }
+      if (photoFile && photoSource === 'camera') {
+        setError(uploadFailureMessage(photoSource, 'cellar'))
+        setStep('confirm')
+        return
+      }
       setError(err instanceof Error ? err.message : 'Échec de l\'enregistrement')
       setStep('confirm')
     }
@@ -390,6 +409,7 @@ export function useAddBottleFlow() {
 
     setStep('capture')
     setPhotoFile(null)
+    setPhotoSource(null)
     setPhotoPreview(null)
     setPhotoFileBack(null)
     setPhotoPreviewBack(null)
@@ -407,6 +427,7 @@ export function useAddBottleFlow() {
     setVolumeL('0.75')
     setRawExtraction(null)
     setError(null)
+    setContinueWithoutFrontPhoto(false)
     setBatchItems([])
     setCurrentBatchIndex(0)
     setBatchExtractionIndex(0)
