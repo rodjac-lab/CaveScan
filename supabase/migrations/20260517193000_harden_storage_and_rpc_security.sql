@@ -74,6 +74,10 @@ DROP POLICY IF EXISTS "Public read access" ON storage.objects;
 DROP POLICY IF EXISTS "Allow uploads" ON storage.objects;
 DROP POLICY IF EXISTS "Allow updates" ON storage.objects;
 DROP POLICY IF EXISTS "Allow deletes" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload own wine labels" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can read own wine labels" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can update own wine labels" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can delete own wine labels" ON storage.objects;
 
 CREATE POLICY "Authenticated users can upload own wine labels"
   ON storage.objects
