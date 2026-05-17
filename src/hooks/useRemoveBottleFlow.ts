@@ -252,6 +252,17 @@ export function useRemoveBottleFlow() {
     setBatchSessionStatus(sessionId, 'ready')
   }
 
+  async function uploadTastingPhoto(file: File, fileName: string): Promise<string> {
+    try {
+      const photoUrl = await uploadPhoto(file, fileName)
+      if (!photoUrl) throw new Error('Photo upload returned no URL')
+      return photoUrl
+    } catch (err) {
+      console.error('Tasting photo upload error:', err)
+      throw new Error("La photo n'a pas pu être enregistrée. Rafraîchis l'app puis réessaie.")
+    }
+  }
+
   const handleSelectAlternative = (bottle: BottleWithZone) => {
     if (!scanResult) return
     const merged = [scanResult.primaryMatch, ...scanResult.alternatives].filter(Boolean) as BottleWithZone[]
@@ -286,11 +297,7 @@ export function useRemoveBottleFlow() {
     try {
       let photoUrl: string | null = null
       if (result.photoFile) {
-        try {
-          photoUrl = await uploadPhoto(result.photoFile, `${Date.now()}-front.jpg`)
-        } catch {
-          // continue without photo
-        }
+        photoUrl = await uploadTastingPhoto(result.photoFile, `${Date.now()}-front.jpg`)
       }
 
       const { id } = await insertBottle(
@@ -326,11 +333,7 @@ export function useRemoveBottleFlow() {
         track('bottle_opened', { matched: true, batch: true })
       } else {
         let photoUrl: string | null = null
-        try {
-          photoUrl = await uploadPhoto(item.photoFile, `${Date.now()}-front-${item.id}.jpg`)
-        } catch {
-          // continue without photo
-        }
+        photoUrl = await uploadTastingPhoto(item.photoFile, `${Date.now()}-front-${item.id}.jpg`)
 
         await insertBottle(
           buildDrunkBottleInsertFromExtraction(item.extraction as WineExtraction, { photoUrl }),
@@ -415,11 +418,7 @@ export function useRemoveBottleFlow() {
 
         if ((item.matchType === 'not_in_cave' || item.matchType === 'unresolved') && item.extraction) {
           let photoUrl: string | null = null
-          try {
-            photoUrl = await uploadPhoto(item.photoFile, `${Date.now()}-front-${item.id}.jpg`)
-          } catch {
-            // continue without photo
-          }
+          photoUrl = await uploadTastingPhoto(item.photoFile, `${Date.now()}-front-${item.id}.jpg`)
 
           await insertBottle(
             buildDrunkBottleInsertFromExtraction(item.extraction, { photoUrl }),
