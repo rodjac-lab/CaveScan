@@ -213,13 +213,21 @@ export function parseTastingExtremeQuery(message: string): TastingExtremeQuery |
 
   const query = extractTastingExtremeScope(text)
 
-  if (/\b(plus ancienne|premiere|premier|la premiere|le premier)\b/.test(text)) {
+  const asksOldest =
+    /\bplus ancienne\b/.test(text)
+    || /\b(?:premiere|premier|la premiere|le premier)\s+degustation\b/.test(text)
+    || /\bdegustation\s+(?:premiere|premier|la premiere|le premier)\b/.test(text)
+  if (asksOldest) {
     return query
       ? { kind: 'tasting_extreme', extreme: 'oldest', query }
       : { kind: 'tasting_extreme', extreme: 'oldest' }
   }
 
-  if (/\b(plus recente|derniere|dernier|la derniere|le dernier)\b/.test(text)) {
+  const asksNewest =
+    /\bplus recente\b/.test(text)
+    || /\b(?:derniere|dernier|la derniere|le dernier)\s+degustation\b/.test(text)
+    || /\bdegustation\s+(?:derniere|dernier|la derniere|le dernier)\b/.test(text)
+  if (asksNewest) {
     return query
       ? { kind: 'tasting_extreme', extreme: 'newest', query }
       : { kind: 'tasting_extreme', extreme: 'newest' }

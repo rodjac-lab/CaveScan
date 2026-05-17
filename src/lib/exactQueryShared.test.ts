@@ -105,6 +105,12 @@ describe('exact query parsing', () => {
     })
   })
 
+  it('does not treat narrative time references as tasting extreme lookups', () => {
+    expect(parseTastingExtremeQuery(
+      "Les grenouilles persillade c'était la semaine dernière. On a bu Dureuil-Janthial avec."
+    )).toBeNull()
+  })
+
   it('extracts tasting relationship span questions', () => {
     expect(parseTastingRelationshipSpanQuery('Depuis combien de temps on se connait ?')).toEqual({
       kind: 'tasting_relationship_span',
