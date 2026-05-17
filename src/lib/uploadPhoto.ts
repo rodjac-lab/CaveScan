@@ -7,16 +7,27 @@ import { resizeImage } from '@/lib/image'
  */
 export async function uploadPhoto(file: File, fileName: string): Promise<string | null> {
   const compressedBlob = await resizeImage(file)
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+
+  if (userError) throw userError
+  if (!userData.user?.id) throw new Error('Photo upload requires an authenticated user')
+
+  const safeFileName = fileName
+    .replace(/[/\\]+/g, '-')
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^[.-]+|[.-]+$/g, '')
+    || 'photo.jpg'
+  const storagePath = `${userData.user.id}/${safeFileName}`
 
   const { error: uploadError } = await supabase.storage
     .from('wine-labels')
-    .upload(fileName, compressedBlob, { contentType: 'image/jpeg' })
+    .upload(storagePath, compressedBlob, { contentType: 'image/jpeg' })
 
   if (uploadError) throw uploadError
 
   const { data: urlData } = supabase.storage
     .from('wine-labels')
-    .getPublicUrl(fileName)
+    .getPublicUrl(storagePath)
 
   return urlData.publicUrl
 }
