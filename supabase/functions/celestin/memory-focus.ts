@@ -12,11 +12,11 @@ function normalizeForRouting(text: string): string {
     .trim()
 }
 
-const FOCUS_STOP_WORDS = /^(Le|La|Les|Un|Une|Et|Je|Tu|Il|Elle|On|Ce|Cet|Cette|Ca|Ça)$/i
-const GENERIC_FOCUS_WORDS = new Set(['degustation', 'note', 'souvenir', 'vin', 'vins', 'etoiles', 'millesime', 'impression', 't en', 'c est', 'marc'])
+const FOCUS_STOP_WORDS = /^(Le|La|Les|Un|Une|Et|Je|Tu|Il|Elle|On|Ce|Cet|Cette|Ca|Ça|Soit)$/i
+const GENERIC_FOCUS_WORDS = new Set(['degustation', 'note', 'souvenir', 'vin', 'vins', 'etoiles', 'millesime', 'impression', 't en', 'c est', 'c etait', 'marc'])
 
 function extractFocusCandidate(source: string): string | null {
-  const matches = source.match(/\b([A-Z][A-Za-zÀ-ÿ'’.-]{2,}(?:\s+[A-Z][A-Za-zÀ-ÿ'’.-]{2,}){0,3})\b/g)
+  const matches = source.match(/\b([A-Z][A-Za-zÀ-ÿ'’.-]{2,}(?:\s+(?:d[eu]|des|la|le|les|[A-Z][A-Za-zÀ-ÿ'’.-]{2,})){0,4})\b/g)
   if (!matches || matches.length === 0) return null
 
   for (let index = matches.length - 1; index >= 0; index -= 1) {
@@ -52,7 +52,7 @@ export function inferMemoryFocus(body: RequestBody, message: string, lastAssista
 
   const previousUserTurn = [...body.history].reverse().find((turn) => turn.role === 'user')?.text ?? null
   if (previousUserTurn && hasAmbiguousNonUserAttribution(previousUserTurn)) return null
-  const sourceTexts = [lastAssistantText, previousUserTurn].filter(Boolean) as string[]
+  const sourceTexts = [previousUserTurn, lastAssistantText].filter(Boolean) as string[]
 
   for (const source of sourceTexts) {
     if (hasAmbiguousNonUserAttribution(source)) continue
@@ -82,6 +82,9 @@ export function resolveActiveMemoryFocus(
   ]
 
   if (hasDirectTastingEvidence(body.message) && !hasAmbiguousNonUserAttribution(body.message)) {
+    const namedCandidate = extractFocusCandidate(body.message)
+    if (namedCandidate) return namedCandidate
+
     for (const pattern of directPatterns) {
       const match = body.message.match(pattern)
       const candidate = match?.[1]?.trim()

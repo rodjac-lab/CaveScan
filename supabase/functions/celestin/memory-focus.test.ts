@@ -76,6 +76,16 @@ describe('resolveActiveMemoryFocus', () => {
     expect(focus).toBe('Gangloff')
   })
 
+  it('keeps a multi-token producer focus with particles', () => {
+    const focus = resolveActiveMemoryFocus(
+      body({ message: "Tu te souviens du Grange des Pères qu'on a bu le 26 février ?" }),
+      tastingMemoryTurn,
+      INITIAL_STATE,
+    )
+
+    expect(focus).toBe('Grange des Pères')
+  })
+
   it('does not turn a wine mentioned by someone else into a tasting focus', () => {
     const focus = resolveActiveMemoryFocus(
       body({ message: "Tu te souviens du Gangloff dont m'a parlé Marc ?" }),
@@ -118,5 +128,39 @@ describe('resolveActiveMemoryFocus', () => {
     )
 
     expect(focus).toBeNull()
+  })
+
+  it('keeps the previous user focus instead of drifting to a region in the assistant answer', () => {
+    const focus = resolveActiveMemoryFocus(
+      body({
+        message: "C'était quoi comme millésime déjà ?",
+        history: [
+          { role: 'user', text: "Tu te souviens du Gangloff qu'on a bu ?" },
+          { role: 'assistant', text: 'Grand millésime en Rhône Nord, sombre et profond.' },
+        ],
+      }),
+      tastingMemoryTurn,
+      { ...INITIAL_STATE, memoryFocus: 'Gangloff' },
+      'Grand millésime en Rhône Nord, sombre et profond.',
+    )
+
+    expect(focus).toBe('Gangloff')
+  })
+
+  it('does not extract sentence glue from an assistant miss', () => {
+    const focus = resolveActiveMemoryFocus(
+      body({
+        message: "C'était quoi comme millésime déjà ?",
+        history: [
+          { role: 'user', text: "Tu te souviens du Grange des Pères qu'on a bu le 26 février ?" },
+          { role: 'assistant', text: "Je n'ai pas retrouvé cette dégustation. Soit je l'ai oubliée, soit elle n'a pas été loggée." },
+        ],
+      }),
+      tastingMemoryTurn,
+      { ...INITIAL_STATE, memoryFocus: 'Grange des Pères' },
+      "Je n'ai pas retrouvé cette dégustation. Soit je l'ai oubliée, soit elle n'a pas été loggée.",
+    )
+
+    expect(focus).toBe('Grange des Pères')
   })
 })
