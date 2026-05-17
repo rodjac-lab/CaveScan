@@ -17,6 +17,10 @@ import {
 import { recordCelestinTiming } from '@/lib/debug/celestinTimings'
 import { recordCelestinClientTiming } from '@/lib/debug/celestinClientTiming'
 import {
+  CELESTIN_V2_DOGFOOD_SOURCE,
+  isCelestinV2DogfoodEnabled,
+} from '@/lib/celestinDogfood'
+import {
   appendCelestinRealTrace,
   buildCelestinRealTraceEntry,
   isCelestinTraceEnabled,
@@ -70,6 +74,7 @@ export function useCelestinTurn({
       persistMessage(sessionIdRef.current, 'user', message, { hasImage: !!image })
 
       const t0 = performance.now()
+      const v2DogfoodEnabled = isCelestinV2DogfoodEnabled()
       const { body, prepTimings } = await prepareCelestinRequest({
         message,
         image,
@@ -81,6 +86,8 @@ export function useCelestinTurn({
         conversationState: conversationStateRef.current,
         debugTrace: traceEnabled,
         sessionId: sessionIdRef.current,
+        requestSource: v2DogfoodEnabled ? CELESTIN_V2_DOGFOOD_SOURCE : 'chat',
+        orchestrationVersion: v2DogfoodEnabled ? 'v2' : 'v1',
       })
       traceBody = body
       const t1 = performance.now()

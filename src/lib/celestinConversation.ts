@@ -203,6 +203,7 @@ export function buildCelestinRequestBody(input: {
   debugTrace?: boolean
   requestSource?: string
   sessionId?: string | null
+  orchestrationVersion?: 'v1' | 'v2'
   backendManagedContext?: boolean
 }): CelestinRequestBody {
   const baseBody = {
@@ -214,6 +215,7 @@ export function buildCelestinRequestBody(input: {
     ...(input.debugTrace ? { debugTrace: true } : {}),
     ...(input.requestSource ? { requestSource: input.requestSource } : {}),
     ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+    ...(input.orchestrationVersion ? { orchestrationVersion: input.orchestrationVersion } : {}),
   }
 
   if (input.backendManagedContext) {

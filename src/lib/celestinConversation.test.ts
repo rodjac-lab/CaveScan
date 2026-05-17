@@ -88,6 +88,9 @@ describe('buildCelestinRequestBody', () => {
       memoryEvidenceMode: 'exact',
       memoryTrace: { decision: 'exact_filters' } as never,
       compiledProfileMarkdown: '## Profil compile',
+      requestSource: 'dogfood_v2',
+      orchestrationVersion: 'v2',
+      sessionId: 'session-1',
       backendManagedContext: true,
     })
 
@@ -100,6 +103,9 @@ describe('buildCelestinRequestBody', () => {
     expect(body.compiledProfileMarkdown).toBeUndefined()
     expect(body.zones).toBeUndefined()
     expect(body.context).toBeUndefined()
+    expect(body.requestSource).toBe('dogfood_v2')
+    expect(body.orchestrationVersion).toBe('v2')
+    expect(body.sessionId).toBe('session-1')
   })
 
   it('keeps legacy context available for active-task fallback bodies', () => {
