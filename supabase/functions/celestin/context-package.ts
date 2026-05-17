@@ -25,7 +25,9 @@ export async function buildContextPackage(input: {
   routingIntent: RoutingIntent
   auth?: AuthContext
 }): Promise<ContextPackage> {
-  const sources = await resolveContextSourcesForRequest(input.body, input.contextPlan, input.auth)
+  const sources = await resolveContextSourcesForRequest(input.body, input.contextPlan, input.auth, {
+    activeMemoryFocus: input.activeMemoryFocus,
+  })
   const prompt = assembleCelestinPrompt({
     body: input.body,
     interpretation: input.interpretation,

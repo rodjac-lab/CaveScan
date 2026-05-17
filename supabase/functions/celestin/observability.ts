@@ -125,6 +125,7 @@ export function summarizeResolvedSources(sources: ResolvedContextSources | null 
           totalRows: sources.tastings.totalRows,
           rowCount: sources.tastings.rows?.length ?? 0,
           query: sources.tastings.query ?? null,
+          factReadiness: sources.tastings.factReadiness ?? null,
         }
       : null,
   }
@@ -190,6 +191,9 @@ export async function persistCelestinTurnObservability(input: CelestinTurnObserv
           finalUiActionKind: input.response ? uiActionKind(input.response) : null,
           rawRecommendationSelectionCount: input.rawResponse?.recommendation_selection?.length ?? 0,
           finalRecommendationSelectionCount: input.response?.recommendation_selection?.length ?? 0,
+          recommendationReady: input.v2Plan?.recommendationReady ?? null,
+          actionReady: input.v2Plan?.actionReady ?? null,
+          factReadiness: input.resolvedSources?.tastings?.factReadiness ?? null,
           providerResponses: trace?.responses ?? [],
           contextPlan: input.contextPlan ?? null,
           sourceMode: input.sourceMode ?? null,

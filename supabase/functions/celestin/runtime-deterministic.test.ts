@@ -293,4 +293,58 @@ describe('runCelestinTurn deterministic exact answers', () => {
     expect(result.debugTrace.providerTrace.attempts).toEqual([])
     expect(mock.calls).toContain('bottles')
   })
+
+  it('answers focused tasting vintage follow-ups without calling an LLM provider', async () => {
+    const { runCelestinTurn } = await import('./runtime')
+    const mock = supabaseTastingRatingMock()
+    const body: RequestBody = {
+      message: "C'était quoi comme millésime déjà ?",
+      history: [],
+      cave: [],
+      contextStrategy: 'backend_managed',
+      conversationState: {
+        phase: 'idle_smalltalk',
+        taskType: 'tasting',
+        memoryFocus: 'Rayas',
+      },
+      orchestrationVersion: 'v2',
+    }
+
+    const result = await runCelestinTurn(body, {
+      userId: 'user-1',
+      supabase: mock.client as never,
+    } as AuthContext)
+
+    expect(result.provider).toBe('deterministic')
+    expect(result.response.message).toBe('Je retrouve 1998 comme millesime pour Rayas.')
+    expect(result.debugTrace.providerTrace.attempts).toEqual([])
+    expect(result.debugTrace.capability).toBe('FACTS')
+  })
+
+  it('answers focused tasting impression follow-ups without calling an LLM provider', async () => {
+    const { runCelestinTurn } = await import('./runtime')
+    const mock = supabaseTastingRatingMock()
+    const body: RequestBody = {
+      message: "Et le Rayas, c'était comment ?",
+      history: [],
+      cave: [],
+      contextStrategy: 'backend_managed',
+      conversationState: {
+        phase: 'idle_smalltalk',
+        taskType: 'tasting',
+        memoryFocus: 'Gangloff',
+      },
+      orchestrationVersion: 'v2',
+    }
+
+    const result = await runCelestinTurn(body, {
+      userId: 'user-1',
+      supabase: mock.client as never,
+    } as AuthContext)
+
+    expect(result.provider).toBe('deterministic')
+    expect(result.response.message).toBe('Tu l avais note 4/5. Ta note disait : Grand souvenir.')
+    expect(result.debugTrace.providerTrace.attempts).toEqual([])
+    expect(result.debugTrace.capability).toBe('FACTS')
+  })
 })

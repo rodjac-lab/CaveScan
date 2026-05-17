@@ -279,9 +279,16 @@ export function ensureRecommendationUiAction(input: {
   resolvedSources: ResolvedContextSources
   userMessage?: string
   requireStructuredSelection?: boolean
+  allowMaterialization?: boolean
   minimumCards?: number
 }): CelestinResponse {
   const { response, interpretation, routingIntent, resolvedSources } = input
+  if (input.allowMaterialization === false) {
+    return response.ui_action?.kind === 'show_recommendations'
+      ? { ...response, ui_action: null, recommendation_selection: null }
+      : response
+  }
+
   const hasStructuredSelection = !!response.recommendation_selection?.length
   const canMaterializeRecommendation =
     (interpretation.shouldAllowUiAction && RECOMMENDATION_ROUTES.has(routingIntent))

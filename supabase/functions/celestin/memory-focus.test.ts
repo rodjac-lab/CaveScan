@@ -46,4 +46,77 @@ describe('resolveActiveMemoryFocus', () => {
 
     expect(focus).toBe('Rayas')
   })
+
+  it('refreshes an older focus from the immediate assistant answer before a rating follow-up', () => {
+    const focus = resolveActiveMemoryFocus(
+      body({
+        message: "On avait mis combien d'étoiles ?",
+        history: [
+          { role: 'user', text: 'Tu te souviens de la soirée vin du 26 février ?' },
+          { role: 'assistant', text: 'Il y avait aussi le Pedro Ximenez 1986 en digestif.' },
+          { role: 'user', text: 'Et le Rayas, il était comment ?' },
+          { role: 'assistant', text: "Le Rayas blanc 1998 : 4/5, encore très jeune, pas ton meilleur Rayas à date." },
+        ],
+      }),
+      tastingMemoryTurn,
+      { ...INITIAL_STATE, memoryFocus: 'Pedro Ximenez' },
+      "Le Rayas blanc 1998 : 4/5, encore très jeune, pas ton meilleur Rayas à date.",
+    )
+
+    expect(focus).toBe('Rayas')
+  })
+
+  it('extracts direct tasting focus only when the message carries tasting evidence', () => {
+    const focus = resolveActiveMemoryFocus(
+      body({ message: "Tu te souviens du Gangloff qu'on a bu ?" }),
+      tastingMemoryTurn,
+      INITIAL_STATE,
+    )
+
+    expect(focus).toBe('Gangloff')
+  })
+
+  it('does not turn a wine mentioned by someone else into a tasting focus', () => {
+    const focus = resolveActiveMemoryFocus(
+      body({ message: "Tu te souviens du Gangloff dont m'a parlé Marc ?" }),
+      tastingMemoryTurn,
+      INITIAL_STATE,
+    )
+
+    expect(focus).toBeNull()
+  })
+
+  it('does not infer a follow-up focus from an ambiguous previous user turn', () => {
+    const focus = resolveActiveMemoryFocus(
+      body({
+        message: "C'était quoi comme millésime déjà ?",
+        history: [
+          { role: 'user', text: "Tu te souviens du Gangloff dont m'a parlé Marc ?" },
+          { role: 'assistant', text: "Je peux regarder, mais je ne sais pas encore si tu parles d'une dégustation à toi ou d'un conseil de Marc." },
+        ],
+      }),
+      tastingMemoryTurn,
+      INITIAL_STATE,
+      "Je peux regarder, mais je ne sais pas encore si tu parles d'une dégustation à toi ou d'un conseil de Marc.",
+    )
+
+    expect(focus).toBeNull()
+  })
+
+  it('does not infer a focus from pronominal fragments in an assistant clarification', () => {
+    const focus = resolveActiveMemoryFocus(
+      body({
+        message: "C'était quoi comme millésime déjà ?",
+        history: [
+          { role: 'user', text: "Tu te souviens du Gangloff dont m'a parlé Marc ?" },
+          { role: 'assistant', text: "2010 — un grand millésime en Côte Rôtie. C'est celui que tu avais adoré chez Marc." },
+        ],
+      }),
+      tastingMemoryTurn,
+      INITIAL_STATE,
+      "2010 — un grand millésime en Côte Rôtie. C'est celui que tu avais adoré chez Marc.",
+    )
+
+    expect(focus).toBeNull()
+  })
 })

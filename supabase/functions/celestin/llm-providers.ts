@@ -91,6 +91,18 @@ export interface CelestinProviderTrace {
   responses: CelestinProviderResponseTrace[]
 }
 
+export class CelestinProviderFallbackError extends Error {
+  providerErrors: string[]
+  trace: CelestinProviderTrace
+
+  constructor(providerErrors: string[], trace: CelestinProviderTrace) {
+    super(`All providers failed. ${providerErrors.join(' | ')}`)
+    this.name = 'CelestinProviderFallbackError'
+    this.providerErrors = providerErrors
+    this.trace = trace
+  }
+}
+
 function createProviderTrace(): CelestinProviderTrace {
   return {
     attempts: [],
@@ -664,5 +676,6 @@ export async function celestinWithFallback(
     }
   }
 
-  throw new Error(`All providers failed. ${errors.join(' | ')}`)
+  trace.providerPath = 'fallback_response'
+  throw new CelestinProviderFallbackError(errors, trace)
 }

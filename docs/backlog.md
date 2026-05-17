@@ -52,6 +52,7 @@ Source unique de verite pour les travaux produit/tech.
 ### Celestin — Qualite conversationnelle
 
 - [x] Phase 3 orchestrateur : prompt builder par cognitive mode + logs _debug (fait)
+- [ ] **Post-V2 — User Model / User Graph personnel**. Changement produit separe du chantier V2 runtime : representer durablement les preferences du user et des proches (`Marc n'aime pas les tanins`, `j'aime l'acidite sur les blancs`), distinguer `moi` / `proche` / `invites`, et eviter de contaminer une recommandation generique avec un contexte social ponctuel. A cadrer apres dogfood V2 : schema minimal de facts/personnes, hierarchie avec le profil compile, regles de prudence, scorecard dediee, et outil de revision/oubli. Ne pas l'inclure dans la stabilisation immediate V2 (`FACTS safety`, `ACTIONS contract`, scorecard ambiguite, decision dogfood).
 - [ ] Intros de recommandation plus naturelles, moins ecrites et moins repetitives
 - [ ] Durcir l'usage des souvenirs (ne citer que si lien vraiment evident)
 - [ ] Relance conversationnelle quand contexte mets/vin incomplet, au lieu de sur-prescrire

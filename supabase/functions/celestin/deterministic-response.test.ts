@@ -228,6 +228,97 @@ describe('buildDeterministicResponse', () => {
     expect(response?.message).toBe('Tu avais mis 4/5 a Chateau Rayas Chateauneuf-du-Pape 1998.')
   })
 
+  it('answers single-match tasting existence lookups with the matched wine', () => {
+    const response = buildDeterministicResponse({
+      body: body('Ai-je déjà bu des Côte-Rôtie ?'),
+      routingIntent: 'memory_lookup',
+      contextPlan: plan({
+        cave: 'none',
+        zones: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      resolvedSources: sources({
+        tastings: {
+          kind: 'existence',
+          totalRows: 1,
+          query: 'cote rotie',
+          queryLabel: 'cote rotie',
+          rows: [
+            {
+              domaine: 'Gangloff',
+              cuvee: 'Sereine Noire',
+              appellation: 'Cote Rotie',
+              millesime: 2010,
+              couleur: 'rouge',
+              rating: 5,
+              drunk_at: '2026-02-26',
+            },
+          ],
+          factReadiness: {
+            directAnswerAllowed: true,
+            reason: 'explicit_tasting_subject',
+            focus: {
+              label: 'cote rotie',
+              source: 'tasting',
+              confidence: 0.95,
+              evidence: 'explicit already tasted/opened phrasing',
+            },
+          },
+        },
+      }),
+    })
+
+    expect(response?.message.toLowerCase()).toContain('gangloff')
+    expect(response?.message).toContain('2010')
+  })
+
+  it('does not answer focused tasting facts directly when the focus source is ambiguous', () => {
+    const response = buildDeterministicResponse({
+      body: body("C'était quoi comme millésime déjà ?"),
+      routingIntent: 'memory_lookup',
+      contextPlan: plan({
+        cave: 'none',
+        zones: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      resolvedSources: sources({
+        tastings: {
+          kind: 'vintage',
+          totalRows: 1,
+          query: 'gangloff',
+          queryLabel: 'gangloff',
+          factReadiness: {
+            directAnswerAllowed: false,
+            reason: 'ambiguous_focus_source',
+            focus: {
+              label: 'Gangloff',
+              source: 'unknown',
+              confidence: 0.35,
+              evidence: 'no direct tasting evidence',
+            },
+          },
+          rows: [
+            {
+              domaine: 'Gangloff',
+              cuvee: null,
+              appellation: 'Cote-Rotie',
+              millesime: 2018,
+              couleur: 'rouge',
+              rating: 4,
+              drunk_at: '2026-01-10',
+            },
+          ],
+        },
+      }),
+    })
+
+    expect(response).toBeNull()
+  })
+
   it('answers oldest tasting lookups from resolved tasting rows', () => {
     const response = buildDeterministicResponse({
       body: body('Quelle est la plus ancienne ?'),

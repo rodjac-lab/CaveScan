@@ -13,6 +13,11 @@
  *   C2 max_5_lines             — body ≤ 5 non-empty lines
  *   C3 max_1_exclamation       — at most 1 "!" in message
  *   C4 reco_cards_2_to_5       — when ui_action=show_recommendations, cards in [2..5]
+ *   C5 reco_clarification_no_cards — clarification-mode recommendations must not show cards
+ *   C6 fact_direct_answer_gate  — ambiguous FACTS turns must not use direct deterministic answers
+ *   C7 action_clarification_no_ui — ambiguous ACTIONS turns must clarify without UI action
+ *   C8 expected_route_contract  — fixture-declared route/UI expectations must match
+ *   C9 expected_response_content — fixture-declared content/length expectations must match
  *
  * Phase 2: semantic criteria via Claude Haiku 4.5 judge (scorecard-judge edge fn)
  *   J1 anti_echo                       — does not parrot the user's words back
@@ -51,10 +56,15 @@ import {
   loadTestUserJwt,
   resolveFixturePath,
 } from '../evals/lib/runner.mjs'
-import { summarizeAssistantMessage } from '../evals/lib/assertions.mjs'
+import {
+  responseContainsExpectedTerm,
+  responseLineCount,
+  summarizeAssistantMessage,
+} from '../evals/lib/assertions.mjs'
 
 const QUICK = process.argv.includes('--quick')
 const AUTH = process.argv.includes('--auth') || process.argv.includes('--test-user')
+const DOGFOOD = process.argv.includes('--dogfood')
 // LLM judge is OFF by default — enable explicitly with --with-judge.
 const WITH_JUDGE = process.argv.includes('--with-judge')
 const NO_JUDGE = !WITH_JUDGE
@@ -123,6 +133,11 @@ function recoCardCount(uiAction) {
   return uiAction.payload?.cards?.length ?? 0
 }
 
+function isClarificationText(message) {
+  if (!message) return false
+  return /\b(precise|précise|avant de|il me manque|besoin de contexte|tu manges quoi|dis[- ]moi ce que tu manges|dis[- ]moi qu[' ]?est[- ]ce que tu manges|c'est pour manger quoi|quel plat|quelle occasion|c'est pour quoi|avant de te proposer|avant de choisir)\b/i.test(message)
+}
+
 function isProviderErrorMessage(message) {
   if (!message) return false
   const trimmed = message.trim()
@@ -130,7 +145,103 @@ function isProviderErrorMessage(message) {
     || /momentanement indisponible|momentanément indisponible|all providers failed|fetch failed/i.test(trimmed)
 }
 
-function evaluateDeterministic(message, uiAction) {
+function expectedUiActionMatches(expected, uiActionKind) {
+  if (expected === undefined || expected === null) return true
+  if (expected === 'none') return uiActionKind === null
+  return uiActionKind === expected
+}
+
+function evaluateExpectedRoute(context, uiAction) {
+  const expectations = context.expectations ?? {}
+  const checks = []
+
+  if (typeof expectations.expectedCapability === 'string') {
+    checks.push({
+      field: 'capability',
+      expected: expectations.expectedCapability,
+      actual: context.capability ?? null,
+      pass: context.capability === expectations.expectedCapability,
+    })
+  }
+
+  if (typeof expectations.expectedResponseMode === 'string') {
+    checks.push({
+      field: 'responseMode',
+      expected: expectations.expectedResponseMode,
+      actual: context.responseMode ?? null,
+      pass: context.responseMode === expectations.expectedResponseMode,
+    })
+  }
+
+  if (typeof expectations.expectedProviderPath === 'string') {
+    checks.push({
+      field: 'providerPath',
+      expected: expectations.expectedProviderPath,
+      actual: context.providerPath ?? null,
+      pass: context.providerPath === expectations.expectedProviderPath,
+    })
+  }
+
+  const expectedUiAction = expectations.expectedUiActionKind ?? expectations.uiAction
+  if (expectedUiAction !== undefined && expectedUiAction !== null) {
+    const actual = uiAction?.kind ?? null
+    checks.push({
+      field: 'uiActionKind',
+      expected: expectedUiAction,
+      actual,
+      pass: expectedUiActionMatches(expectedUiAction, actual),
+    })
+  }
+
+  if (checks.length === 0) return { pass: null, detail: { checks: [] } }
+  return { pass: checks.every((check) => check.pass), detail: { checks } }
+}
+
+function evaluateExpectedResponseContent(message, context) {
+  const expectations = context.expectations ?? {}
+  const checks = []
+
+  if (Array.isArray(expectations.responseContains)) {
+    for (const term of expectations.responseContains) {
+      const pass = responseContainsExpectedTerm(message, term)
+      checks.push({ field: 'contains', expected: term, actual: pass ? 'found' : 'missing', pass })
+    }
+  }
+
+  if (Array.isArray(expectations.responseNotContains)) {
+    const responseText = stripDiacritics(String(message ?? '').toLowerCase())
+    for (const term of expectations.responseNotContains) {
+      const normalizedTerm = stripDiacritics(String(term ?? '').toLowerCase())
+      const found = responseText.includes(normalizedTerm)
+      checks.push({ field: 'not_contains', expected: term, actual: found ? 'found' : 'absent', pass: !found })
+    }
+  }
+
+  if (typeof expectations.responseMaxLength === 'number') {
+    const length = String(message ?? '').length
+    checks.push({
+      field: 'maxLength',
+      expected: expectations.responseMaxLength,
+      actual: length,
+      pass: length <= expectations.responseMaxLength,
+    })
+  }
+
+  if (typeof expectations.responseMaxLines === 'number') {
+    const lines = responseLineCount(message)
+    checks.push({
+      field: 'maxLines',
+      expected: expectations.responseMaxLines,
+      actual: lines,
+      pass: lines <= expectations.responseMaxLines,
+    })
+  }
+
+  if (checks.length === 0) return { pass: null, detail: { checks: [] } }
+  return { pass: checks.every((check) => check.pass), detail: { checks } }
+}
+
+function evaluateDeterministic(message, uiAction, context = {}) {
   const fw = firstWord(message)
   const lines = nonEmptyLineCount(message)
   const excls = exclamationCount(message)
@@ -140,12 +251,61 @@ function evaluateDeterministic(message, uiAction) {
   const c2 = lines <= 5
   const c3 = excls <= 1
   const c4 = cards === null ? null : cards >= 2 && cards <= 5
+  const isRecoClarification = context.capability === 'RECOMMEND'
+    && (context.responseMode === 'clarification' || isClarificationText(message))
+  const c5 = isRecoClarification ? cards === null : null
+  const expectedFactDirect = typeof context.expectations?.factDirectAnswerAllowed === 'boolean'
+    ? context.expectations.factDirectAnswerAllowed
+    : null
+  const directAnswerAllowed = context.factReadiness?.directAnswerAllowed ?? null
+  const c6 = expectedFactDirect === null
+    ? null
+    : expectedFactDirect
+      ? directAnswerAllowed === true
+      : directAnswerAllowed !== true && context.providerPath !== 'direct_response'
+  const expectedActionReady = typeof context.expectations?.actionReady === 'boolean'
+    ? context.expectations.actionReady
+    : null
+  const expectedUiAction = context.expectations?.expectedUiActionKind ?? context.expectations?.uiAction
+  const c7 = expectedActionReady === false
+    ? context.capability === 'ACTIONS'
+      && context.actionReady === false
+      && context.responseMode === 'clarification'
+      && expectedUiActionMatches(expectedUiAction ?? 'none', uiAction?.kind ?? null)
+    : null
+  const c8 = evaluateExpectedRoute(context, uiAction)
+  const c9 = evaluateExpectedResponseContent(message, context)
 
   return {
     c1_first_word_non_filler: { pass: c1, detail: { firstWord: fw } },
     c2_max_5_lines: { pass: c2, detail: { lines } },
     c3_max_1_exclamation: { pass: c3, detail: { exclamations: excls } },
     c4_reco_cards_2_to_5: { pass: c4, detail: { cards } },
+    c5_reco_clarification_no_cards: {
+      pass: c5,
+      detail: { cards, capability: context.capability ?? null, responseMode: context.responseMode ?? null },
+    },
+    c6_fact_direct_answer_gate: {
+      pass: c6,
+      detail: {
+        expectedFactDirectAnswerAllowed: expectedFactDirect,
+        directAnswerAllowed,
+        providerPath: context.providerPath ?? null,
+        factReadiness: context.factReadiness ?? null,
+      },
+    },
+    c7_action_clarification_no_ui: {
+      pass: c7,
+      detail: {
+        expectedActionReady,
+        actionReady: context.actionReady ?? null,
+        capability: context.capability ?? null,
+        responseMode: context.responseMode ?? null,
+        uiActionKind: uiAction?.kind ?? null,
+      },
+    },
+    c8_expected_route_contract: c8,
+    c9_expected_response_content: c9,
   }
 }
 
@@ -201,6 +361,11 @@ function aggregate(results) {
     c2_max_5_lines: { pass: 0, fail: 0, na: 0 },
     c3_max_1_exclamation: { pass: 0, fail: 0, na: 0 },
     c4_reco_cards_2_to_5: { pass: 0, fail: 0, na: 0 },
+    c5_reco_clarification_no_cards: { pass: 0, fail: 0, na: 0 },
+    c6_fact_direct_answer_gate: { pass: 0, fail: 0, na: 0 },
+    c7_action_clarification_no_ui: { pass: 0, fail: 0, na: 0 },
+    c8_expected_route_contract: { pass: 0, fail: 0, na: 0 },
+    c9_expected_response_content: { pass: 0, fail: 0, na: 0 },
   }
   for (const key of JUDGE_KEYS) counters[key] = { pass: 0, fail: 0, na: 0 }
 
@@ -294,6 +459,7 @@ function buildMarkdown(summary, results, meta) {
   lines.push('')
   lines.push(`Mode: ${meta.mode} | Provider: ${meta.provider} | Total responses scored: ${meta.totalResponses} | Wall-clock: ${meta.elapsedSec}s`)
   lines.push(`Orchestration: ${meta.orchestration}`)
+  lines.push(`Dogfood set: ${meta.dogfood ? 'included' : 'excluded'}`)
   lines.push(`Context: ${meta.authenticated ? `authenticated test account (${meta.userId})` : `local fixture (${meta.fixture})`}`)
   lines.push('')
   lines.push('## Summary by criterion')
@@ -374,7 +540,17 @@ async function runSingleTurn(ctx, scenarios) {
         process.stdout.write(`PROVIDER ERROR (${latencyMs}ms): ${message.slice(0, 120)}\n`)
         continue
       }
-      const deterministic = evaluateDeterministic(message, uiAction)
+      const capability = data._debug?.capability ?? null
+      const responseMode = data._debug?.responseMode ?? null
+      const providerPath = data._debug?.providerTrace?.providerPath ?? null
+      const deterministic = evaluateDeterministic(message, uiAction, {
+        capability,
+        responseMode,
+        providerPath,
+        actionReady: data._debug?.actionReady ?? null,
+        factReadiness: data._debug?.factReadiness ?? null,
+        expectations: scenario.expectations ?? scenario.expect ?? {},
+      })
       const judge = await judgeResponse(scenario.message, message, ctx)
       results.push({
         kind: 'single',
@@ -383,10 +559,13 @@ async function runSingleTurn(ctx, scenarios) {
         userMessage: scenario.message,
         assistantMessage: message,
         uiActionKind: uiAction?.kind ?? null,
-        capability: data._debug?.capability ?? null,
+        capability,
         confidence: data._debug?.confidence ?? null,
-        responseMode: data._debug?.responseMode ?? null,
-        providerPath: data._debug?.providerTrace?.providerPath ?? null,
+        responseMode,
+        recommendationReady: data._debug?.recommendationReady ?? null,
+        actionReady: data._debug?.actionReady ?? null,
+        factReadiness: data._debug?.factReadiness ?? null,
+        providerPath,
         latencyMs,
         scorecard: { ...deterministic, ...judge },
       })
@@ -423,7 +602,17 @@ async function runMultiTurn(ctx, conversations) {
           process.stdout.write(`    turn ${t + 1} PROVIDER ERROR (${latencyMs}ms): ${message.slice(0, 100)}\n`)
           break
         }
-        const deterministic = evaluateDeterministic(message, uiAction)
+        const capability = data._debug?.capability ?? null
+        const responseMode = data._debug?.responseMode ?? null
+        const providerPath = data._debug?.providerTrace?.providerPath ?? null
+        const deterministic = evaluateDeterministic(message, uiAction, {
+          capability,
+          responseMode,
+          providerPath,
+          actionReady: data._debug?.actionReady ?? null,
+          factReadiness: data._debug?.factReadiness ?? null,
+          expectations: turn.expect ?? {},
+        })
         const judge = await judgeResponse(turn.message, message, ctx)
         results.push({
           kind: 'multi',
@@ -432,10 +621,13 @@ async function runMultiTurn(ctx, conversations) {
           userMessage: turn.message,
           assistantMessage: message,
           uiActionKind: uiAction?.kind ?? null,
-          capability: data._debug?.capability ?? null,
+          capability,
           confidence: data._debug?.confidence ?? null,
-          responseMode: data._debug?.responseMode ?? null,
-          providerPath: data._debug?.providerTrace?.providerPath ?? null,
+          responseMode,
+          recommendationReady: data._debug?.recommendationReady ?? null,
+          actionReady: data._debug?.actionReady ?? null,
+          factReadiness: data._debug?.factReadiness ?? null,
+          providerPath,
           latencyMs,
           scorecard: { ...deterministic, ...judge },
         })
@@ -482,10 +674,15 @@ async function main() {
     userJwt: authSession?.jwt,
   }
 
-  const scenarios = loadJson(DEFAULT_SCENARIOS) ?? []
-  const conversations = QUICK ? [] : loadJson(DEFAULT_CONVERSATIONS) ?? []
+  const allScenarios = loadJson(DEFAULT_SCENARIOS) ?? []
+  const allConversations = QUICK ? [] : loadJson(DEFAULT_CONVERSATIONS) ?? []
+  const scenarios = DOGFOOD ? allScenarios : allScenarios.filter((scenario) => scenario.dogfood !== true)
+  const conversations = DOGFOOD ? allConversations : allConversations.filter((conversation) => conversation.dogfood !== true)
 
   console.log(`Celestin scorecard — ${scenarios.length} single-turn + ${conversations.length} multi-turn`)
+  if (!DOGFOOD && (scenarios.length !== allScenarios.length || conversations.length !== allConversations.length)) {
+    console.log('Dogfood scenarios skipped. Add --dogfood to include personal/user-model cases.')
+  }
   console.log(`Fixture: ${path.relative(process.cwd(), fixturePath)}`)
   if (authSession) {
     console.log(`Authenticated test account: ${authSession.userId}`)
@@ -519,6 +716,7 @@ async function main() {
     mode: QUICK ? 'quick (single-turn only)' : 'full',
     provider: PROVIDER ?? 'default',
     orchestration: ORCHESTRATION,
+    dogfood: DOGFOOD,
     authenticated: !!authSession,
     userId: authSession?.userId ?? null,
     totalResponses: allResults.length,

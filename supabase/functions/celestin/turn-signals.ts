@@ -21,6 +21,9 @@ const INTENT_CLASSIFICATION_KEYS = [
 export interface RoutingSignals {
   lower: string
   hadRecentReco: boolean
+  hadPendingRecommendationClarification: boolean
+  hasWineQuestionContext: boolean
+  isShortEllipticalFollowUp: boolean
   isInventoryQuestion: boolean
   isTastingMemoryFollowUp: boolean
   isSocialAck: boolean
@@ -49,6 +52,9 @@ const CANCEL = [
 ]
 
 const RECOMMENDATION = [
+  /\b(je cherche|je voudrais|j aimerais|je veux)\s+(un|une|du|de la|des)?\s*(vin|rouge|blanc|rose|champagne|bulles?)\b/i,
+  /\bque boire\b/i,
+  /\bqu[' ]est[- ]ce que j[' ]ouvre\b/i,
   // Note: "accord" alone used to false-positive on the conversational filler
   // "d'accord" (the \b boundary lands between the apostrophe and the 'a').
   // Restricted to "accord(s) mets" / "accord(s) vin" so only the gastronomic
@@ -192,6 +198,37 @@ const INTENT_TO_SIGNAL: Record<Exclude<ConversationalIntent, 'smalltalk'>, typeo
 
 function applyConversationalIntent(signals: RoutingSignals, intent: ConversationalIntent | null): RoutingSignals {
   if (!intent) return signals
+  if (
+    intent === 'recommendation'
+    && (signals.isWineCulture || signals.isQuestion)
+    && !signals.isRecommendationRequest
+    && !signals.isInventoryQuestion
+    && !signals.isMemoryReference
+    && !signals.isTastingReference
+  ) {
+    return {
+      ...signals,
+      isRecommendationRequest: false,
+      isRefinement: false,
+      isWineCulture: true,
+      isQuestion: true,
+    }
+  }
+  if (
+    (intent === 'memory_lookup' || intent === 'inventory_lookup')
+    && signals.isShortEllipticalFollowUp
+    && signals.hasWineQuestionContext
+  ) {
+    return {
+      ...signals,
+      isInventoryQuestion: false,
+      isTastingMemoryFollowUp: false,
+      isMemoryReference: false,
+      isTastingReference: false,
+      isWineCulture: true,
+      isQuestion: true,
+    }
+  }
   if (intent === 'smalltalk') {
     const cleared = { ...signals }
     for (const key of INTENT_CLASSIFICATION_KEYS) cleared[key] = false
@@ -216,8 +253,15 @@ export function buildRoutingSignals(
     ? normalizedAssistant.includes('[vins proposes')
       || /\b(je te propose|voici .*pistes?|trois pistes?|recommandations?|je partirais sur|shortlist)\b/i.test(normalizedAssistant)
     : false
+  const hadPendingRecommendationClarification = normalizedAssistant
+    ? /\b(avant de te proposer|avant de proposer|il me manque|besoin de contexte|tu manges quoi|qu[' ]?est[- ]ce que tu manges|quel plat|quelle occasion|quel style|accord avec un plat|tu cherches plutot|tu cherches plutôt)\b/i.test(normalizedAssistant)
+    : false
+  const hasWineQuestionContext = normalizedAssistant
+    ? /\b(temperature|température|servir|service|degres|degrés|cepage|cépage|aromes?|arômes?|terroirs?|appellation|beaujolais|bourgogne|loire|champagne|morgon|chenin|gamay)\b/i.test(normalizedAssistant)
+    : false
+  const isShortEllipticalFollowUp = /^(et\s+)?(un|une|le|la|les|du|de la|de l'|des)\s+[\p{L}\d][\p{L}\d\s'’-]{1,40}\??$/iu.test(lower)
   const isQuestion = matchesAny(lower, QUESTION)
-  const isWineCulture = matchesAny(lower, WINE_CULTURE)
+  const isWineCulture = matchesAny(lower, WINE_CULTURE) || (isShortEllipticalFollowUp && hasWineQuestionContext)
   const exactQuery = parseExactQuery(message)
   const hasExactCellarQuery = isExactCellarQuery(exactQuery)
   const hasExactTastingQuery = isExactTastingQueryKind(exactQuery)
@@ -225,8 +269,11 @@ export function buildRoutingSignals(
   const regexSignals: RoutingSignals = {
     lower,
     hadRecentReco,
+    hadPendingRecommendationClarification,
+    hasWineQuestionContext,
+    isShortEllipticalFollowUp,
     isInventoryQuestion: hasExactCellarQuery || matchesAny(lower, CELLAR_LOOKUP) || isCellarFollowUp(lower, lastAssistantText),
-    isTastingMemoryFollowUp: isMemoryFollowUp(lower, lastAssistantText),
+    isTastingMemoryFollowUp: !(isShortEllipticalFollowUp && hasWineQuestionContext) && isMemoryFollowUp(lower, lastAssistantText),
     isSocialAck: matchesAny(lower, SOCIAL_ACK),
     isCancel: matchesAny(lower, CANCEL),
     isRefinement: matchesAny(lower, REFINEMENT),

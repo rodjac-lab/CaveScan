@@ -16,6 +16,12 @@ export function collectRoutingCandidates(
   if (signals.isCancel) candidates.push(candidate('task_cancel', 100, ['cancel_phrase']))
   if (signals.isSocialAck) candidates.push(candidate('social_ack', 90, ['social_ack_phrase']))
   if (signals.isEncavageRequest) candidates.push(candidate('encavage_request', 90, ['encavage_terms']))
+  if (
+    state.taskType === 'encavage'
+    && (state.phase === 'collecting_info' || state.phase === 'active_task' || state.phase === 'post_task_ack')
+  ) {
+    candidates.push(candidate('encavage_request', 86, ['state_task_encavage']))
+  }
   if (signals.isMemoryReference || signals.isTastingMemoryFollowUp) {
     candidates.push(candidate('memory_lookup', 88, [
       signals.isMemoryReference ? 'memory_terms' : 'memory_follow_up',
@@ -25,9 +31,15 @@ export function collectRoutingCandidates(
   if (signals.isInventoryQuestion) candidates.push(candidate('cellar_lookup', 76, ['cellar_terms_or_follow_up']))
   if (signals.isRecommendationRequest) candidates.push(candidate('recommendation_request', 78, ['recommendation_terms']))
   if (signals.isRefinement) {
-    candidates.push(candidate('recommendation_refinement', state.taskType === 'recommendation' || signals.hadRecentReco ? 86 : 62, [
+    candidates.push(candidate('recommendation_refinement', state.taskType === 'recommendation' || signals.hadRecentReco || signals.hadPendingRecommendationClarification ? 86 : 62, [
       'refinement_terms',
-      state.taskType === 'recommendation' ? 'state_task_recommendation' : signals.hadRecentReco ? 'recent_recommendation_history' : 'no_reco_context',
+      state.taskType === 'recommendation'
+        ? 'state_task_recommendation'
+        : signals.hadRecentReco
+          ? 'recent_recommendation_history'
+          : signals.hadPendingRecommendationClarification
+            ? 'pending_recommendation_clarification'
+            : 'no_reco_context',
     ]))
   }
   if (signals.isMemoryGuidedRecommendation) {

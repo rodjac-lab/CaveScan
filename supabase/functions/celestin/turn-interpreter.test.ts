@@ -195,6 +195,54 @@ describe('interpretTurn', () => {
     })
   })
 
+  it('keeps recommendation clarification follow-ups in recommendation mode when local state was reset', () => {
+    const result = interpretTurnWithRouting(
+      'Un truc léger, en rouge',
+      false,
+      state(),
+      'Je peux te proposer une bouteille, mais il me manque un contexte clair. Tu cherches plutôt un accord avec un plat, une occasion, ou un style précis ?',
+    )
+
+    expect(result.routing.winner).toBe('recommendation_refinement')
+    expect(result.interpretation).toEqual({
+      turnType: 'task_continue',
+      cognitiveMode: 'cellar_assistant',
+      shouldAllowUiAction: true,
+      inferredTaskType: 'recommendation',
+    })
+  })
+
+  it('keeps short service follow-ups as wine questions even when classifier says memory', () => {
+    const result = interpretTurnWithRouting(
+      'Et un Champagne ?',
+      false,
+      state(),
+      'Un Morgon, je le servirais autour de 14-16°C pour garder le fruit et la fraîcheur.',
+      'memory_lookup',
+    )
+
+    expect(result.routing.winner).toBe('wine_question')
+    expect(result.interpretation).toEqual({
+      turnType: 'smalltalk',
+      cognitiveMode: 'wine_conversation',
+      shouldAllowUiAction: false,
+    })
+  })
+
+  it('keeps short grape follow-ups as wine questions after a culture answer', () => {
+    const result = interpretTurnWithRouting(
+      'Et le gamay ?',
+      false,
+      state(),
+      "Le Chenin est un cépage blanc de Loire. Tu peux le trouver en sec, demi-sec ou moelleux.",
+      'memory_lookup',
+    )
+
+    expect(result.routing.winner).toBe('wine_question')
+    expect(result.interpretation.cognitiveMode).toBe('wine_conversation')
+    expect(result.interpretation.shouldAllowUiAction).toBe(false)
+  })
+
   it('recognizes recommendation refinement from natural assistant wording, not only card markers', () => {
     const result = interpretTurnWithRouting(
       'Tu en as d autres, plutot en blanc ?',
@@ -719,6 +767,19 @@ describe('routing audit matrix', () => {
     })
   })
 
+  it('lets explicit wine-culture pivots override a stale recommendation frontend intent', () => {
+    expectRoute({
+      id: 'post-reco-culture-overrides-stale-intent',
+      message: "Merci ! Et sinon, c'est quoi un vin orange ?",
+      state: recentRecommendationState,
+      lastAssistantText: recentRecommendationText,
+      conversationalIntent: 'recommendation',
+      expectedWinner: 'wine_question',
+      expectedMode: 'wine_conversation',
+      expectedUiAction: false,
+    })
+  })
+
   it('keeps wine-culture follow-ups out of memory mode even if the previous answer mentions notes', () => {
     expectRoute({
       id: 'culture-follow-up-after-notes-word',
@@ -798,6 +859,17 @@ describe('routing audit matrix', () => {
         phase: 'collecting_info',
         taskType: 'recommendation',
       },
+      lastAssistantText: 'Tu cherches juste un bon verre ou un accord pour un plat ?',
+      expectedWinner: 'wine_question',
+      expectedMode: 'wine_conversation',
+      expectedUiAction: false,
+    })
+  })
+
+  it('lets explicit wine-culture pivots escape stale pending recommendation context from idle', () => {
+    expectRoute({
+      id: 'idle-pending-reco-culture-pivot',
+      message: "Merci ! Et sinon, c'est quoi un vin orange ?",
       lastAssistantText: 'Tu cherches juste un bon verre ou un accord pour un plat ?',
       expectedWinner: 'wine_question',
       expectedMode: 'wine_conversation',

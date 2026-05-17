@@ -19,6 +19,8 @@ export interface CelestinV2Plan {
   enabled: boolean
   capability: CelestinCapability
   confidence: number
+  recommendationReady: boolean
+  actionReady: boolean
   requiredSources: string[]
   actionContract: CelestinActionContract
   responseMode: CelestinResponseMode
@@ -45,20 +47,94 @@ function capabilityForRoute(route: string): CelestinCapability {
   return 'CHAT'
 }
 
+function normalizeRecommendationText(message: string): string {
+  return message
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[’']/g, ' ')
+    .trim()
+}
+
+function hasRecommendationConstraint(message: string): boolean {
+  const normalized = normalizeRecommendationText(message)
+
+  const hasStyleConstraint =
+    /\b(rouge|blanc|rose|bulles?|champagne)\b/.test(normalized)
+    && /\b(leger|legere|sec|tendu|frais|fruite|structure|puissant|tannique|mineral|vif|rond|souple|plutot)\b/.test(normalized)
+
+  const hasFoodOrMealContext = /\b(poulet|pizza|raclette|paella|poisson|viande|boeuf|agneau|porc|veau|canard|sushi|pates?|risotto|couscous|tajine|fromage|dessert|aperitif|apero|grillade|barbecue|volaille|fruits? de mer|saumon|thon|agneau|osso bucco)\b/.test(normalized)
+    || /\b(pour accompagner|pour aller avec|pour manger|ce soir c est|diner rapide|dejeuner)\b/.test(normalized)
+
+  return hasStyleConstraint || hasFoodOrMealContext
+}
+
+function recommendationReadyForRoute(input: {
+  route: string
+  message: string
+}): boolean {
+  if (input.route === 'recommendation_refinement') return true
+  if (input.route === 'prefetch') return true
+  if (input.route === 'memory_guided_recommendation') return true
+  if (input.route !== 'recommendation_request') return true
+  return hasRecommendationConstraint(input.message)
+}
+
+function hasActionPayloadSignal(input: {
+  route: string
+  message: string
+  hasImage: boolean
+}): boolean {
+  if (input.hasImage) return true
+  if (input.route === 'restaurant_image') return true
+
+  const normalized = normalizeRecommendationText(input.message)
+  if (input.route === 'image_cellar_action') return input.hasImage
+
+  if (input.route !== 'encavage_request') return true
+
+  const hasVintage = /\b(19|20)\d{2}\b/.test(normalized)
+  const hasProducerSignal = /\b(domaine|chateau|château|clos|maison)\b/.test(input.message.toLowerCase())
+  const hasAppellationOrRegion = /\b(sancerre|chablis|champagne|bourgogne|bordeaux|rhone|loire|jura|beaujolais|chianti|barolo|rioja|riesling|meursault|cote rotie|côte-rôtie)\b/.test(normalized)
+  const hasBottleObject = /\b(bouteille|bouteilles|magnum|demi bouteille|vin)\b/.test(normalized)
+
+  return hasProducerSignal && (hasVintage || hasAppellationOrRegion || hasBottleObject)
+}
+
+function actionReadyForRoute(input: {
+  route: string
+  message: string
+  hasImage: boolean
+}): boolean {
+  if (input.route !== 'encavage_request' && input.route !== 'image_cellar_action' && input.route !== 'restaurant_image') return true
+  return hasActionPayloadSignal(input)
+}
+
 function responseModeForCapability(input: {
   capability: CelestinCapability
   contextPlan: ContextPlan
   confidence: number
+  recommendationReady: boolean
+  actionReady: boolean
 }): CelestinResponseMode {
   if (input.capability !== 'CHAT' && input.confidence < 0.7) return 'clarification'
   if (input.contextPlan.truthPolicy === 'exact_only' || input.contextPlan.truthPolicy === 'memory_only') return 'deterministic'
-  if (input.capability === 'RECOMMEND') return 'closed_choice'
-  if (input.capability === 'ACTIONS') return 'workflow'
+  if (input.capability === 'RECOMMEND') return input.recommendationReady ? 'closed_choice' : 'clarification'
+  if (input.capability === 'ACTIONS') return input.actionReady ? 'workflow' : 'clarification'
   return 'free_chat'
 }
 
-function actionContractForCapability(capability: CelestinCapability): CelestinActionContract {
+function actionContractForCapability(capability: CelestinCapability, recommendationReady: boolean, actionReady: boolean): CelestinActionContract {
   if (capability === 'RECOMMEND') {
+    if (!recommendationReady) {
+      return {
+        kind: 'none',
+        allowedUiActionKinds: [],
+        requiresBackendMaterialization: false,
+        lowConfidenceBehavior: 'clarify',
+      }
+    }
+
     return {
       kind: 'closed_recommendation_selection',
       allowedUiActionKinds: ['show_recommendations'],
@@ -68,6 +144,15 @@ function actionContractForCapability(capability: CelestinCapability): CelestinAc
   }
 
   if (capability === 'ACTIONS') {
+    if (!actionReady) {
+      return {
+        kind: 'none',
+        allowedUiActionKinds: [],
+        requiresBackendMaterialization: false,
+        lowConfidenceBehavior: 'clarify',
+      }
+    }
+
     return {
       kind: 'operational_ui_action',
       allowedUiActionKinds: ['prepare_add_wine', 'prepare_add_wines', 'prepare_log_tasting'],
@@ -103,6 +188,16 @@ export function buildCelestinV2Plan(input: {
   const orchestrationVersion = resolveVersion(input.body)
   const capability = capabilityForRoute(input.routingResult.routing.winner)
   const confidence = winnerConfidence(input.routingResult)
+  const recommendationReady = capability === 'RECOMMEND'
+    ? recommendationReadyForRoute({ route: input.routingResult.routing.winner, message: input.body.message })
+    : true
+  const actionReady = capability === 'ACTIONS'
+    ? actionReadyForRoute({
+        route: input.routingResult.routing.winner,
+        message: input.body.message,
+        hasImage: !!input.body.image,
+      })
+    : true
   const requiredSources: string[] = []
   if (input.contextPlan.profile !== 'none') requiredSources.push(`profile:${input.contextPlan.profile}`)
   if (input.contextPlan.cave !== 'none') requiredSources.push(`cave:${input.contextPlan.cave}`)
@@ -117,12 +212,16 @@ export function buildCelestinV2Plan(input: {
     enabled: orchestrationVersion === 'v2',
     capability,
     confidence,
+    recommendationReady,
+    actionReady,
     requiredSources,
-    actionContract: actionContractForCapability(capability),
-    responseMode: responseModeForCapability({ capability, contextPlan: input.contextPlan, confidence }),
+    actionContract: actionContractForCapability(capability, recommendationReady, actionReady),
+    responseMode: responseModeForCapability({ capability, contextPlan: input.contextPlan, confidence, recommendationReady, actionReady }),
     reasons: [
       `route:${input.routingResult.routing.winner}`,
       `turn:${input.routingResult.interpretation.turnType}`,
+      ...(capability === 'RECOMMEND' ? [`recommendationReady:${recommendationReady}`] : []),
+      ...(capability === 'ACTIONS' ? [`actionReady:${actionReady}`] : []),
       ...input.routingResult.routing.reasons,
       ...input.contextPlan.reasons,
     ],

@@ -13,7 +13,8 @@
       {
         "message": "Un truc léger, en rouge",
         "expect": {
-          "uiAction": null,
+          "uiAction": "show_recommendations",
+          "expectedCapability": "RECOMMEND",
           "nextPhase": "post_task_ack"
         }
       },
@@ -300,6 +301,26 @@
     ]
   },
   {
+    "id": "memory_grange_des_peres_focus",
+    "type": "conversation",
+    "description": "Focus memoire verifiable — Grange des Peres doit rester le referent de la relance millesime",
+    "turns": [
+      {
+        "message": "Tu te souviens du Grange des Pères qu'on a bu le 26 février ?",
+        "expect": {
+          "uiAction": "none"
+        }
+      },
+      {
+        "message": "C'était quoi comme millésime déjà ?",
+        "expect": {
+          "uiAction": "none",
+          "responseContains": ["2008"]
+        }
+      }
+    ]
+  },
+  {
     "id": "memory_recall_rayas_rating_focus",
     "type": "conversation",
     "description": "Référent serré — la question sur les étoiles doit rester focalisée sur Rayas, sans dériver vers un inventaire global",
@@ -388,7 +409,8 @@
       {
         "message": "Plutôt un rouge.",
         "expect": {
-          "uiAction": "none",
+          "uiAction": "show_recommendations",
+          "expectedCapability": "RECOMMEND",
           "responseContains": ["ital"],
           "responseNotContains": ["grange des pères", "grange des peres"]
         }
@@ -572,6 +594,7 @@
         "message": "Et le gamay ?",
         "expect": {
           "uiAction": "none",
+          "expectedCapability": "CHAT",
           "responseMaxLength": 900
         }
       }
@@ -593,6 +616,9 @@
         "message": "Et un Champagne ?",
         "expect": {
           "uiAction": "none",
+          "expectedCapability": "CHAT",
+          "responseContains": ["8", "10"],
+          "responseNotContains": ["souvenir", "selosse", "tu as goûté", "tu as goute", "tu l'as noté", "tu l as note", "5/5"],
           "responseMaxLength": 700
         }
       }

@@ -105,6 +105,10 @@ function pluralReferences(n: number): string {
   return n === 1 ? '1 reference' : `${n} references`
 }
 
+function allowsDirectTastingFact(sources: ResolvedContextSources): boolean {
+  return sources.tastings?.factReadiness?.directAnswerAllowed !== false
+}
+
 interface CellarCountReplyInput {
   total: number
   references: number
@@ -284,20 +288,88 @@ export function buildDeterministicResponse(input: {
 
   const ratingQuery = parseTastingRatingQuery(input.body.message)
   if (
-    ratingQuery
+    (ratingQuery || input.resolvedSources.tastings?.kind === 'rating')
     && (input.routingIntent === 'tasting_log' || input.routingIntent === 'memory_lookup')
     && input.contextPlan.truthPolicy === 'memory_only'
     && input.resolvedSources.tastings?.kind === 'rating'
   ) {
+    if (!allowsDirectTastingFact(input.resolvedSources)) return null
     const rows = input.resolvedSources.tastings.rows ?? []
     if (rows.length !== 1) return null
 
     const row = rows[0]
     if (row.rating == null) return null
 
-    const label = formatTastingLabel(row) || input.resolvedSources.tastings.queryLabel || ratingQuery.query
+    const label = formatTastingLabel(row) || input.resolvedSources.tastings.queryLabel || ratingQuery?.query || 'cette degustation'
     return {
       message: `Tu avais mis ${formatRating(row.rating)} a ${label}.`,
+      ui_action: null,
+      action_chips: ['Voir les degustations', 'Retrouver une autre note'],
+    }
+  }
+
+  if (
+    (input.routingIntent === 'tasting_log' || input.routingIntent === 'memory_lookup')
+    && input.contextPlan.truthPolicy === 'memory_only'
+    && input.resolvedSources.tastings?.kind === 'vintage'
+  ) {
+    if (!allowsDirectTastingFact(input.resolvedSources)) return null
+    const rows = input.resolvedSources.tastings.rows ?? []
+    const vintages = [...new Set(rows.map((row) => row.millesime).filter((value): value is number => typeof value === 'number'))]
+    if (vintages.length === 0) return null
+    const label = input.resolvedSources.tastings.queryLabel ?? 'ce vin'
+    const value = vintages.length === 1 ? `${vintages[0]}` : vintages.slice(0, 4).join(', ')
+    return {
+      message: `Je retrouve ${value} comme millesime pour ${label}.`,
+      ui_action: null,
+      action_chips: ['Voir les degustations', 'Retrouver une autre note'],
+    }
+  }
+
+  if (
+    (input.routingIntent === 'tasting_log' || input.routingIntent === 'memory_lookup')
+    && input.contextPlan.truthPolicy === 'memory_only'
+    && input.resolvedSources.tastings?.kind === 'existence'
+  ) {
+    if (!allowsDirectTastingFact(input.resolvedSources)) return null
+    const total = input.resolvedSources.tastings.totalRows
+    const label = input.resolvedSources.tastings.queryLabel ?? input.resolvedSources.tastings.query ?? 'ce vin'
+    if (total === 0) {
+      return {
+        message: `Je ne retrouve aucune degustation de ${label}.`,
+        ui_action: null,
+        action_chips: ['Voir les degustations', 'Retrouver une note'],
+      }
+    }
+    const count = total === 1 ? '1 degustation' : `${total} degustations`
+    const firstLabel = input.resolvedSources.tastings.rows?.length === 1
+      ? formatTastingLabel(input.resolvedSources.tastings.rows[0])
+      : null
+    const qualifiedLabel = firstLabel ? `${label} (${firstLabel})` : label
+    return {
+      message: `Oui, tu as deja bu ${qualifiedLabel} : je retrouve ${count}.`,
+      ui_action: null,
+      action_chips: ['Voir les degustations', 'Retrouver une note'],
+    }
+  }
+
+  if (
+    (input.routingIntent === 'tasting_log' || input.routingIntent === 'memory_lookup')
+    && input.contextPlan.truthPolicy === 'memory_only'
+    && input.resolvedSources.tastings?.kind === 'impression'
+  ) {
+    if (!allowsDirectTastingFact(input.resolvedSources)) return null
+    const rows = input.resolvedSources.tastings.rows ?? []
+    if (rows.length !== 1) return null
+    const row = rows[0]
+    const label = formatTastingLabel(row) || input.resolvedSources.tastings.queryLabel || 'cette degustation'
+    const rating = row.rating != null ? `Tu l avais note ${formatRating(row.rating)}.` : null
+    const note = row.tasting_note?.trim()
+    if (!rating && !note) return null
+    return {
+      message: note
+        ? `${rating ? `${rating} ` : ''}Ta note disait : ${note.replace(/\s+/g, ' ').slice(0, 260)}`
+        : `${rating} Je ne retrouve pas de commentaire detaille pour ${label}.`,
       ui_action: null,
       action_chips: ['Voir les degustations', 'Retrouver une autre note'],
     }

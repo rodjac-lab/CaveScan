@@ -45,4 +45,11 @@ describe('parseAndValidate', () => {
       badge: 'Accord parfait',
     }])
   })
+
+  it('rejects provider responses that leak raw JSON inside the user-facing message', () => {
+    expect(() => parseAndValidate(JSON.stringify({
+      message: '```json\n{"message":"Raclette","action_chips":["Blanc sec"]}\n```',
+      ui_action: null,
+    }))).toThrow('message contains raw JSON')
+  })
 })

@@ -2,7 +2,7 @@ import { buildContextPlan, type ContextPlan } from "./context-plan.ts"
 import { buildContextPackage } from "./context-package.ts"
 import { computeNextState, INITIAL_STATE, type ConversationState } from "./conversation-state.ts"
 import { buildDeterministicResponse } from "./deterministic-response.ts"
-import { celestinWithFallback, type CelestinProviderTrace } from "./llm-providers.ts"
+import { CelestinProviderFallbackError, celestinWithFallback, type CelestinProviderTrace } from "./llm-providers.ts"
 import { resolveActiveMemoryFocus } from "./memory-focus.ts"
 import { buildProviderHistory } from "./prompt-assembler.ts"
 import { canResolveRecommendationUiAction, ensureRecommendationUiAction } from "./recommendation-action.ts"
@@ -72,6 +72,72 @@ export function canAcceptRecommendationClarification(input: {
   return true
 }
 
+export function operationalActionContractViolation(plan: CelestinV2Plan, response: CelestinResponse): string | null {
+  if (!plan.enabled || plan.capability !== 'ACTIONS' || plan.responseMode !== 'workflow') return null
+  const kind = response.ui_action?.kind
+  if (!kind) return 'Operational action contract violation: missing ui_action'
+  if (!plan.actionContract.allowedUiActionKinds.includes(kind)) {
+    return `Operational action contract violation: disallowed ui_action ${kind}`
+  }
+  return null
+}
+
+function isRecommendationContractError(message: string): boolean {
+  return message.includes('Recommendation response contract violation: no resolvable ui_action or recommendation_selection')
+}
+
+function firstProviderMessage(trace: CelestinProviderTrace): string | null {
+  for (const response of trace.responses) {
+    const message = response.normalized?.messagePreview?.trim()
+    if (message) return message
+  }
+  return null
+}
+
+export function canDegradeClosedChoiceRecommendation(input: {
+  error: unknown
+  v2Plan: CelestinV2Plan
+  routingIntent: string
+}): boolean {
+  if (!(input.error instanceof CelestinProviderFallbackError)) return false
+  if (!input.v2Plan.enabled || input.v2Plan.capability !== 'RECOMMEND' || input.v2Plan.responseMode !== 'closed_choice') return false
+  if (
+    input.routingIntent !== 'recommendation_request'
+    && input.routingIntent !== 'recommendation_refinement'
+    && input.routingIntent !== 'memory_guided_recommendation'
+  ) return false
+  return input.error.providerErrors.some(isRecommendationContractError) && firstProviderMessage(input.error.trace) !== null
+}
+
+export function buildClosedChoiceDegradedRecommendation(input: {
+  error: CelestinProviderFallbackError
+  userMessage: string
+  interpretation: ReturnType<typeof interpretTurnWithRouting>['interpretation']
+  routingIntent: ReturnType<typeof interpretTurnWithRouting>['routing']['winner']
+  resolvedSources: ResolvedContextSources
+}): CelestinResponse {
+  const providerMessage = firstProviderMessage(input.error.trace)
+  const message = providerMessage && !isClarificationMessage(providerMessage)
+    ? providerMessage
+    : 'Je te propose les options les plus pertinentes de ta cave pour cet accord.'
+
+  return ensureRecommendationUiAction({
+    response: {
+      message,
+      ui_action: null,
+      action_chips: ['Autre option', 'Plus frais', 'Voir ma cave'],
+      recommendation_selection: null,
+    },
+    interpretation: input.interpretation,
+    routingIntent: input.routingIntent,
+    resolvedSources: input.resolvedSources,
+    userMessage: input.userMessage,
+    requireStructuredSelection: false,
+    allowMaterialization: true,
+    minimumCards: 2,
+  })
+}
+
 function emptyProviderTrace(): CelestinProviderTrace {
   return {
     attempts: [],
@@ -117,12 +183,15 @@ function buildDebugTrace(input: {
     compiledProfile: !!input.resolvedSources.profile?.compiledMarkdown,
     memoryEvidenceMode: body.memoryEvidenceMode ?? null,
     memoryFocus: input.activeMemoryFocus,
+    factReadiness: input.resolvedSources.tastings?.factReadiness ?? null,
     conversationalIntent: (typeof body.conversationalIntent === 'string' ? body.conversationalIntent : null),
     routing: routingResult.routing,
     contextPlan: input.contextPlan,
     sourceMode: input.sourceMode,
     capability: input.v2Plan.capability,
     confidence: input.v2Plan.confidence,
+    recommendationReady: input.v2Plan.recommendationReady,
+    actionReady: input.v2Plan.actionReady,
     actionContract: input.v2Plan.actionContract,
     responseMode: input.v2Plan.responseMode,
     orchestrationVersion: input.v2Plan.orchestrationVersion,
@@ -270,20 +339,32 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
   const turnId = crypto.randomUUID()
   const conversationState: ConversationState = body.conversationState ?? { ...INITIAL_STATE }
   const requestSource = resolveRequestSource(body)
+  let routingResult: ReturnType<typeof interpretTurnWithRouting> | null = null
+  let contextPlan: ContextPlan | null = null
+  let sourceMode: SourceMode | null = null
+  let v2Plan: CelestinV2Plan | null = null
+  let activeMemoryFocus: string | null = null
+  let resolvedSources: ResolvedContextSources | null = null
+  let contextBlock = ''
+  let systemPrompt = ''
+  let userPrompt = ''
+  let providerHistory: ReturnType<typeof buildProviderHistory> = []
+  let failedProviderTrace: CelestinProviderTrace | null = null
+  let failedProviderErrors: string[] = []
 
   try {
     const lastAssistantTurn = [...body.history].reverse().find((turn) => turn.role === 'assistant')
     const lastAssistantText = lastAssistantTurn?.text
     const conversationalIntent = typeof body.conversationalIntent === 'string' ? body.conversationalIntent : null
-    const routingResult = interpretTurnWithRouting(body.message, !!body.image, conversationState, lastAssistantText, conversationalIntent)
+    routingResult = interpretTurnWithRouting(body.message, !!body.image, conversationState, lastAssistantText, conversationalIntent)
     const { interpretation, routing } = routingResult
-    const contextPlan = buildContextPlan(routingResult)
-    const sourceMode = resolveSourceMode(contextPlan, body)
-    const v2Plan = buildCelestinV2Plan({ body, routingResult, contextPlan, sourceMode })
+    contextPlan = buildContextPlan(routingResult)
+    sourceMode = resolveSourceMode(contextPlan, body)
+    v2Plan = buildCelestinV2Plan({ body, routingResult, contextPlan, sourceMode })
 
     console.log(`[celestin] source=${requestSource} message="${body.message.slice(0, 80)}" turn=${interpretation.turnType} mode=${interpretation.cognitiveMode} route=${routing.winner} capability=${v2Plan.capability} confidence=${v2Plan.confidence.toFixed(2)} orchestration=${v2Plan.orchestrationVersion} profile=${contextPlan.profile} cavePlan=${contextPlan.cave} tools=${contextPlan.tools} truth=${contextPlan.truthPolicy} state=${conversationState.phase} convIntent=${conversationalIntent ?? 'null'} history=${body.history.length} cave=${body.cave?.length ?? 0} image=${body.image ? 'yes' : 'no'}`)
 
-    const activeMemoryFocus = resolveActiveMemoryFocus(body, interpretation, conversationState, lastAssistantText)
+    activeMemoryFocus = resolveActiveMemoryFocus(body, interpretation, conversationState, lastAssistantText)
     const contextPackage = await buildContextPackage({
       body,
       interpretation,
@@ -294,13 +375,13 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       routingIntent: routing.winner,
       auth,
     })
-    const {
+    ;({
       sources: resolvedSources,
       contextBlock,
       systemPrompt,
       userPrompt,
       providerHistory,
-    } = contextPackage
+    } = contextPackage)
 
     if (shouldClarifyLowConfidenceV2(v2Plan)) {
       const rawResponse = buildLowConfidenceV2Response(v2Plan)
@@ -312,7 +393,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
         interpretation.turnType,
         false,
         undefined,
-        undefined,
+        interpretation.inferredTaskType,
         activeMemoryFocus,
       )
 
@@ -458,52 +539,94 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       }
     }
 
-    const { provider, response: rawResponse, providerErrors, trace: providerTrace } = await celestinWithFallback(
-      systemPrompt,
-      userPrompt,
-      providerHistory,
-      body.provider,
-      body.image,
-      {
-        auth,
-        requestSource,
-        toolsEnabled: shouldEnableToolsForSourceMode({
-          sourceMode,
-          authReady: !!auth?.userId && !!auth.supabase,
-          hasImage: !!body.image,
-        }),
-        forcedToolName: forcedToolNameForSourceMode(sourceMode),
-        requireToolUse: shouldRequireToolUseForSourceMode(sourceMode),
-        validateResponse: (candidate) => {
-          const policyCandidate = applyResponsePolicy(candidate, interpretation)
-          if (
-            interpretation.shouldAllowUiAction
-            && (routing.winner === 'recommendation_request' || routing.winner === 'recommendation_refinement' || routing.winner === 'memory_guided_recommendation')
-            && !canResolveRecommendationUiAction({
-              response: policyCandidate,
-              resolvedSources,
-              userMessage: body.message,
-              canFetchSelectedBottleIds: !!auth?.userId && !!auth.supabase,
-            })
-            && !canAcceptRecommendationClarification({
-              userMessage: body.message,
-              routingIntent: routing.winner,
-              assistantMessage: policyCandidate.message,
-            })
-          ) {
-            return 'Recommendation response contract violation: no resolvable ui_action or recommendation_selection'
-          }
+    let provider: string
+    let rawResponse: CelestinResponse
+    let providerErrors: string[]
+    let providerTrace: CelestinProviderTrace
+    try {
+      const providerResult = await celestinWithFallback(
+        systemPrompt,
+        userPrompt,
+        providerHistory,
+        body.provider,
+        body.image,
+        {
+          auth,
+          requestSource,
+          toolsEnabled: shouldEnableToolsForSourceMode({
+            sourceMode,
+            authReady: !!auth?.userId && !!auth.supabase,
+            hasImage: !!body.image,
+          }),
+          forcedToolName: forcedToolNameForSourceMode(sourceMode),
+          requireToolUse: shouldRequireToolUseForSourceMode(sourceMode),
+          validateResponse: (candidate) => {
+            const policyCandidate = applyResponsePolicy(candidate, interpretation)
+            const actionViolation = operationalActionContractViolation(v2Plan, policyCandidate)
+            if (actionViolation) return actionViolation
 
-          return null
+            if (
+              interpretation.shouldAllowUiAction
+              && (routing.winner === 'recommendation_request' || routing.winner === 'recommendation_refinement' || routing.winner === 'memory_guided_recommendation')
+              && (!v2Plan.enabled || v2Plan.responseMode === 'closed_choice')
+              && !canResolveRecommendationUiAction({
+                response: policyCandidate,
+                resolvedSources,
+                userMessage: body.message,
+                canFetchSelectedBottleIds: !!auth?.userId && !!auth.supabase,
+              })
+              && !(
+                !v2Plan.enabled
+                && canAcceptRecommendationClarification({
+                  userMessage: body.message,
+                  routingIntent: routing.winner,
+                  assistantMessage: policyCandidate.message,
+                })
+              )
+            ) {
+              return 'Recommendation response contract violation: no resolvable ui_action or recommendation_selection'
+            }
+
+            return null
+          },
+          usageContext: {
+            turnId,
+            route: routing.winner,
+            turnType: interpretation.turnType,
+            mode: interpretation.cognitiveMode,
+          },
         },
-        usageContext: {
-          turnId,
-          route: routing.winner,
-          turnType: interpretation.turnType,
-          mode: interpretation.cognitiveMode,
-        },
-      },
-    )
+      )
+      provider = providerResult.provider
+      rawResponse = providerResult.response
+      providerErrors = providerResult.providerErrors
+      providerTrace = providerResult.trace
+    } catch (error) {
+      if (
+        error instanceof CelestinProviderFallbackError
+        && canDegradeClosedChoiceRecommendation({ error, v2Plan, routingIntent: routing.winner })
+      ) {
+        failedProviderTrace = error.trace
+        failedProviderErrors = error.providerErrors
+        provider = 'contract_degraded'
+        rawResponse = buildClosedChoiceDegradedRecommendation({
+          error,
+          userMessage: body.message,
+          interpretation,
+          routingIntent: routing.winner,
+          resolvedSources,
+        })
+        providerErrors = error.providerErrors
+        providerTrace = error.trace
+        providerTrace.providerPath = 'fallback_response'
+      } else {
+        if (error instanceof CelestinProviderFallbackError) {
+          failedProviderTrace = error.trace
+          failedProviderErrors = error.providerErrors
+        }
+        throw error
+      }
+    }
 
     const policyResponse = applyResponsePolicy(rawResponse, interpretation)
     const responseSources = await resolveRecommendationSelectionSources({
@@ -519,7 +642,8 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       resolvedSources: responseSources,
       userMessage: body.message,
       requireStructuredSelection: usedRecommendationCandidateTool(providerTrace),
-      minimumCards: v2Plan.enabled && v2Plan.capability === 'RECOMMEND' ? 2 : 1,
+      allowMaterialization: !v2Plan.enabled || v2Plan.responseMode === 'closed_choice',
+      minimumCards: v2Plan.enabled && v2Plan.responseMode === 'closed_choice' ? 2 : 1,
     })
 
     const nextState = computeNextState(
@@ -615,7 +739,23 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
       startedAt,
       success: false,
       error,
+      route: routingResult?.routing.winner ?? null,
+      turnType: routingResult?.interpretation.turnType ?? null,
+      mode: routingResult?.interpretation.cognitiveMode ?? null,
       stateBefore: conversationState,
+      activeMemoryFocus,
+      prompt: contextPlan ? {
+        systemChars: systemPrompt.length,
+        userChars: userPrompt.length,
+        contextChars: contextBlock.length,
+        providerHistoryTurns: providerHistory.length,
+      } : null,
+      providerErrors: failedProviderErrors,
+      providerTrace: failedProviderTrace,
+      contextPlan,
+      sourceMode,
+      resolvedSources,
+      v2Plan,
     })
     throw error
   }

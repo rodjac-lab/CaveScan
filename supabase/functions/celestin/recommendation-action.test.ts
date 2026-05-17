@@ -161,6 +161,46 @@ describe('ensureRecommendationUiAction', () => {
     expect(response.ui_action).toBeNull()
   })
 
+  it('does not materialize cards when V2 is in recommendation clarification mode', () => {
+    const response = ensureRecommendationUiAction({
+      response: {
+        message: 'Avant de choisir, dis-moi ce que tu manges ce soir.',
+        ui_action: {
+          kind: 'show_recommendations',
+          payload: {
+            cards: [{
+              bottle_id: 'abc12345',
+              name: 'Domaine Test Les Blancs',
+              appellation: 'Sancerre',
+              badge: 'De ta cave',
+              reason: 'Carte trop tot.',
+              color: 'blanc',
+            }],
+          },
+        },
+        recommendation_selection: [{
+          bottle_id: 'abc12345',
+          name: 'Domaine Test Les Blancs',
+          reason: 'Selection trop tot.',
+          badge: null,
+        }],
+        action_chips: null,
+      },
+      interpretation: {
+        turnType: 'task_request',
+        cognitiveMode: 'cellar_assistant',
+        shouldAllowUiAction: true,
+        inferredTaskType: 'recommendation',
+      },
+      routingIntent: 'recommendation_request',
+      resolvedSources: sources(),
+      allowMaterialization: false,
+    })
+
+    expect(response.ui_action).toBeNull()
+    expect(response.recommendation_selection).toBeNull()
+  })
+
   it('reports whether a recommendation action can be resolved before provider acceptance', () => {
     expect(canResolveRecommendationUiAction({
       response: {

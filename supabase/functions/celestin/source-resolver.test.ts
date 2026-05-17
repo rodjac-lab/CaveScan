@@ -1020,6 +1020,82 @@ describe('resolveContextSourcesForRequest', () => {
     expect(sources.profile).toBeUndefined()
   })
 
+  it('matches focused tasting subjects across hyphen and spacing variants', async () => {
+    const supabase = {
+      from(table: string) {
+        if (table === 'user_profiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: null,
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        expect(table).toBe('bottles')
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({
+                data: [
+                  {
+                    domaine: 'Gangloff',
+                    cuvee: 'Sereine Noire',
+                    appellation: 'Côte Rôtie',
+                    millesime: 2010,
+                    couleur: 'rouge',
+                    country: 'France',
+                    region: 'Rhone',
+                    rating: 5,
+                    drunk_at: '2026-02-26',
+                    tasting_note: 'Syrah noble.',
+                  },
+                ],
+                error: null,
+              }),
+            }),
+          }),
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: 'Ai-je déjà bu des Côte-Rôtie ?',
+        cave: [],
+        profile: undefined,
+        compiledProfileMarkdown: undefined,
+        memories: undefined,
+      }),
+      plan({
+        profile: 'none',
+        cave: 'none',
+        memories: 'exact',
+        tools: 'force_tastings',
+        truthPolicy: 'memory_only',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.tastings).toMatchObject({
+      kind: 'existence',
+      totalRows: 1,
+      query: 'cote rotie',
+      rows: [
+        {
+          domaine: 'Gangloff',
+          cuvee: 'Sereine Noire',
+          appellation: 'Côte Rôtie',
+          millesime: 2010,
+          rating: 5,
+        },
+      ],
+    })
+  })
+
   it('resolves oldest tasting evidence from backend for force_tastings plans', async () => {
     const supabase = {
       from(table: string) {

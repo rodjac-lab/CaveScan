@@ -28,6 +28,9 @@ export function parseAndValidate(raw: string): CelestinProviderResponse {
   if (!data.message) {
     throw new Error('Invalid response: missing "message" field')
   }
+  if (/```(?:json)?/i.test(data.message) || /^\s*\{[\s\S]*"message"\s*:/i.test(data.message)) {
+    throw new Error('Invalid response: message contains raw JSON')
+  }
 
   const validUiActions: UiActionKind[] = ['show_recommendations', 'prepare_add_wine', 'prepare_add_wines', 'prepare_log_tasting']
   if (data.ui_action) {

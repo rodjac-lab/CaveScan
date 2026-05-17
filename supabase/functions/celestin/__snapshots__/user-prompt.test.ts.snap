@@ -3,7 +3,7 @@
 exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: context_switch cellar_assistant 1`] = `"combien de magnums ?"`;
 
 exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: context_switch tasting_memory with focus 1`] = `
-"[FOCUS MEMOIRE — La relance courte porte probablement sur : 2018. Si l'utilisateur demande "combien d'etoiles", "quelle note" ou "quel millesime", reste focalise sur ce vin precis.]
+"[FOCUS MEMOIRE — La relance courte porte probablement sur : Domaine X. Si l'utilisateur demande "combien d'etoiles", "quelle note" ou "quel millesime", reste focalise sur ce vin precis.]
 et le 2018 ?"
 `;
 
@@ -18,7 +18,7 @@ exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: fallb
 exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: fallback task_request reco immediate 1`] = `"ce soir c'est pizza"`;
 
 exports[`buildUserPrompt — branch coverage snapshots > matches snapshot: fallback tasting_memory with focus 1`] = `
-"[FOCUS MEMOIRE — La relance courte porte probablement sur : 2018. Reste focalise sur ce vin precis.]
+"[FOCUS MEMOIRE — La relance courte porte probablement sur : Mas de Daumas. Reste focalise sur ce vin precis.]
 et le 2018 ?"
 `;
 

@@ -50,6 +50,32 @@
     "notes": "Verifier que Celestin reste naturel en mode encavage."
   },
   {
+    "id": "encave_vague_action",
+    "message": "Je veux ajouter une bouteille",
+    "notes": "Action vague : V2 doit clarifier sans preparer une fiche vide.",
+    "expectations": {
+      "actionReady": false,
+      "expectedUiActionKind": "none"
+    }
+  },
+  {
+    "id": "memory_gangloff_fixture",
+    "message": "Tu te souviens du Gangloff qu'on a bu le 26 février ?",
+    "notes": "Memoire verifiable dans la fixture : doit retrouver le Gangloff 2010 et des details de degustation.",
+    "expectations": {
+      "expectedUiActionKind": "none"
+    }
+  },
+  {
+    "id": "dogfood_marc_tannins_placeholder",
+    "dogfood": true,
+    "message": "Marc n'aime pas trop les tanins, tu me conseillerais quoi pour une pizza maison ?",
+    "notes": "Post-V2 User Model : a inclure seulement avec --dogfood tant que le modele proches/preferences n'est pas cadre.",
+    "expectations": {
+      "expectedUiActionKind": "show_recommendations"
+    }
+  },
+  {
     "id": "thanks_after_recommendation",
     "message": "Merci, elles sont tres bien",
     "notes": "Apres une recommendation, un simple remerciement doit revenir en conversation.",

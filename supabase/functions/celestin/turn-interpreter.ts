@@ -263,7 +263,21 @@ function routeIdle(signals: RoutingSignals, candidates: RoutingCandidate[]): Tur
     return routed(socialAck(), 'idle_smalltalk', 'social_ack', candidates)
   }
 
+  if (
+    (signals.isWineCulture || signals.isQuestion)
+    && !signals.isRecommendationRequest
+    && !signals.isInventoryQuestion
+    && !signals.isMemoryReference
+    && !signals.isTastingReference
+  ) {
+    return routed(wineSmalltalk(), 'idle_smalltalk', 'wine_question', candidates)
+  }
+
   if (signals.hadRecentReco && signals.isRefinement) {
+    return routed(recommendationContinuation(), 'idle_smalltalk', 'recommendation_refinement', candidates)
+  }
+
+  if (signals.hadPendingRecommendationClarification && signals.isRefinement) {
     return routed(recommendationContinuation(), 'idle_smalltalk', 'recommendation_refinement', candidates)
   }
 

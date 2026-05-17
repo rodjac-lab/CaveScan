@@ -70,10 +70,20 @@ export interface ResolvedCaveSource {
 }
 
 export interface ResolvedTastingsSource {
-  kind: 'count' | 'rating' | 'extreme' | 'span'
+  kind: 'count' | 'rating' | 'vintage' | 'impression' | 'existence' | 'extreme' | 'span'
   totalRows: number
   query?: string
   queryLabel?: string
+  factReadiness?: {
+    directAnswerAllowed: boolean
+    reason: 'explicit_tasting_subject' | 'typed_tasting_focus' | 'ambiguous_focus_source'
+    focus?: {
+      label: string
+      source: 'tasting' | 'conversation_memory' | 'unknown'
+      confidence: number
+      evidence: string
+    }
+  }
   firstDrunkAt?: string | null
   lastDrunkAt?: string | null
   rows?: Array<{
@@ -413,6 +423,7 @@ async function resolveMemoriesFromBackend(
   body: RequestBody,
   contextPlan: ContextPlan,
   auth: SourceResolverAuth,
+  activeMemoryFocus?: string | null,
 ): Promise<ResolvedMemoriesSource | undefined> {
   const local = resolveMemories(body, contextPlan)
   if (local || contextPlan.memories === 'none' || !auth?.userId || !auth.supabase) return local
@@ -423,6 +434,7 @@ async function resolveMemoriesFromBackend(
       || parseTastingRatingQuery(body.message)
       || parseTastingExtremeQuery(body.message)
       || parseTastingRelationshipSpanQuery(body.message)
+      || resolveFocusedTastingFactQuery(body.message, activeMemoryFocus)
     )
   ) return undefined
 
@@ -861,6 +873,109 @@ function matchesTastingQuery(row: Record<string, unknown>, query: string | undef
   return normalizeExactQueryText(tastingIdentityText(row)).includes(normalizeExactQueryText(query))
 }
 
+function extractPastTastingSubject(message: string): string | null {
+  const text = normalizeExactQueryText(message)
+  const patterns = [
+    /\b(?:ai je|j ai)\s+deja\s+(?:bu|goute|ouvert|deguste)\s+(.+)$/,
+    /\bdeja\s+(?:bu|goute|ouvert|deguste)\s+(.+)$/,
+  ]
+
+  for (const pattern of patterns) {
+    const raw = text.match(pattern)?.[1]
+      ?.replace(/\b(du|de la|de l|des|un|une|le|la|les)\b/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (raw) return raw
+  }
+
+  return null
+}
+
+function hasAmbiguousFocusAttribution(message: string): boolean {
+  const text = normalizeExactQueryText(message)
+  return /\b(?:m a|m avait|m en a|t a|t avait|t en a|nous a|on m a)\s+(?:parle|conseille|recommande|dit)\b/.test(text)
+    || /\b(?:conseil|recommandation|avis)\s+de\b/.test(text)
+}
+
+function directTastingEvidence(message: string): string | null {
+  const text = normalizeExactQueryText(message)
+  const evidence = [
+    "qu on a bu",
+    "qu'on a bu",
+    'que j ai bu',
+    'que tu as bu',
+    'deja bu',
+    'j ai bu',
+    'on a bu',
+    'deguste',
+    'goute',
+    'ouvert',
+    'millesime',
+    'combien d etoiles',
+    'quelle note',
+    'c etait comment',
+  ].find((needle) => text.includes(normalizeExactQueryText(needle)))
+  return evidence ?? null
+}
+
+function resolveFocusedTastingFactQuery(
+  message: string,
+  activeMemoryFocus?: string | null,
+): {
+  kind: 'rating' | 'vintage' | 'impression' | 'existence'
+  query: string
+  factReadiness: NonNullable<ResolvedTastingsSource['factReadiness']>
+} | null {
+  const text = normalizeExactQueryText(message)
+  const explicitSubject = extractPastTastingSubject(message)
+  if (explicitSubject) {
+    return {
+      kind: 'existence',
+      query: explicitSubject,
+      factReadiness: {
+        directAnswerAllowed: true,
+        reason: 'explicit_tasting_subject',
+        focus: {
+          label: explicitSubject,
+          source: 'tasting',
+          confidence: 0.95,
+          evidence: 'explicit already tasted/opened phrasing',
+        },
+      },
+    }
+  }
+
+  const focus = activeMemoryFocus?.trim()
+  if (!focus) return null
+
+  const evidence = directTastingEvidence(message)
+  const directAnswerAllowed = !!evidence && !hasAmbiguousFocusAttribution(message)
+  const factReadiness: NonNullable<ResolvedTastingsSource['factReadiness']> = {
+    directAnswerAllowed,
+    reason: directAnswerAllowed ? 'typed_tasting_focus' : 'ambiguous_focus_source',
+    focus: {
+      label: focus,
+      source: directAnswerAllowed ? 'tasting' : 'unknown',
+      confidence: directAnswerAllowed ? 0.86 : 0.35,
+      evidence: evidence ?? 'no direct tasting evidence',
+    },
+  }
+
+  if (/\b(combien d etoiles|combien etoiles|quelle note|note)\b/.test(text)) {
+    return { kind: 'rating', query: focus, factReadiness }
+  }
+
+  if (/\b(quel millesime|quelle annee|c etait quoi comme millesime|millesime)\b/.test(text)) {
+    return { kind: 'vintage', query: focus, factReadiness }
+  }
+
+  if (/\b(c etait comment|quelle impression|c etait quoi|tu en avais pense|on en avait pense|tu te souviens)\b/.test(text)) {
+    return { kind: 'impression', query: focus, factReadiness }
+  }
+
+  return null
+}
+
 function tastingExtremeOrder(extreme: 'oldest' | 'newest' | 'best' | 'worst') {
   if (extreme === 'best') return { column: 'rating', ascending: false }
   if (extreme === 'worst') return { column: 'rating', ascending: true }
@@ -905,6 +1020,7 @@ async function resolveTastingsFromBackend(
   body: RequestBody,
   contextPlan: ContextPlan,
   auth: SourceResolverAuth,
+  activeMemoryFocus?: string | null,
 ): Promise<ResolvedTastingsSource | undefined> {
   if (contextPlan.tools !== 'force_tastings' || !auth?.userId || !auth.supabase) return undefined
 
@@ -912,7 +1028,8 @@ async function resolveTastingsFromBackend(
   const ratingQuery = parseTastingRatingQuery(body.message)
   const extremeQuery = parseTastingExtremeQuery(body.message)
   const spanQuery = parseTastingRelationshipSpanQuery(body.message)
-  if (!countQuery && !ratingQuery && !extremeQuery && !spanQuery) return undefined
+  const focusedQuery = resolveFocusedTastingFactQuery(body.message, activeMemoryFocus)
+  if (!countQuery && !ratingQuery && !extremeQuery && !spanQuery && !focusedQuery) return undefined
 
   const order = extremeQuery
     ? tastingExtremeOrder(extremeQuery.extreme)
@@ -926,7 +1043,7 @@ async function resolveTastingsFromBackend(
     return undefined
   }
 
-  const query = countQuery?.query ?? ratingQuery?.query ?? extremeQuery?.query
+  const query = countQuery?.query ?? ratingQuery?.query ?? extremeQuery?.query ?? focusedQuery?.query
   const rows = (data ?? []).filter((row: Record<string, unknown>) => matchesTastingQuery(row, query))
   const datedRows = rows.filter((row: Record<string, unknown>) => typeof row.drunk_at === 'string' && row.drunk_at)
   const ratedRows = rows.filter((row: Record<string, unknown>) => typeof row.rating === 'number')
@@ -936,6 +1053,17 @@ async function resolveTastingsFromBackend(
       totalRows: rows.length,
       query: ratingQuery.query,
       queryLabel: ratingQuery.query,
+      rows: rows.map((row: Record<string, unknown>) => compactTasting(row)),
+    }
+  }
+
+  if (focusedQuery) {
+    return {
+      kind: focusedQuery.kind,
+      totalRows: rows.length,
+      query: focusedQuery.query,
+      queryLabel: focusedQuery.query,
+      factReadiness: focusedQuery.factReadiness,
       rows: rows.map((row: Record<string, unknown>) => compactTasting(row)),
     }
   }
@@ -1080,13 +1208,14 @@ export async function resolveContextSourcesForRequest(
   body: RequestBody,
   contextPlan: ContextPlan,
   auth?: SourceResolverAuth,
+  options: { activeMemoryFocus?: string | null } = {},
 ): Promise<ResolvedContextSources> {
   const profile = await resolveProfileFromBackend(body, contextPlan, auth)
   const [initialCave, zones, memories, tastings, candidateUpgrade] = await Promise.all([
     resolveCaveFromBackend(body, contextPlan, auth, profile),
     resolveZonesFromBackend(body, contextPlan, auth),
-    resolveMemoriesFromBackend(body, contextPlan, auth),
-    resolveTastingsFromBackend(body, contextPlan, auth),
+    resolveMemoriesFromBackend(body, contextPlan, auth, options.activeMemoryFocus),
+    resolveTastingsFromBackend(body, contextPlan, auth, options.activeMemoryFocus),
     resolveCellarCandidatesFromBackend(body, contextPlan, auth),
   ])
 
