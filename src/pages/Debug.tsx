@@ -16,6 +16,7 @@ import {
 } from '@/lib/debug/crossSessionMemory'
 import {
   CelestinTimingsPanel,
+  CelestinDogfoodPanel,
   AdminCelestinObservabilityPanel,
   CrossSessionCleanupPanel,
   DebugHeader,
@@ -81,6 +82,7 @@ export default function Debug() {
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-6 scrollbar-hide">
         <DebugSection title="Observabilité" icon="🔍" subtitle="regarder le runtime">
+          <CelestinDogfoodPanel />
           <AdminCelestinObservabilityPanel />
           <CelestinTimingsPanel />
           <RealTracesPanel

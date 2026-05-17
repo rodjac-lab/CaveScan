@@ -18,6 +18,11 @@ import {
   loadAdminCelestinObservability,
   type AdminCelestinObservabilitySnapshot,
 } from '@/lib/adminCelestinObservability'
+import {
+  CELESTIN_V2_DOGFOOD_SOURCE,
+  isCelestinV2DogfoodEnabled,
+  setCelestinV2DogfoodEnabled,
+} from '@/lib/celestinDogfood'
 
 // === SHARED TYPES ===
 
@@ -264,6 +269,36 @@ export function AdminCelestinObservabilityPanel() {
           </div>
         </details>
       ) : null}
+    </div>
+  )
+}
+
+export function CelestinDogfoodPanel() {
+  const [enabled, setEnabled] = useState(() => isCelestinV2DogfoodEnabled())
+
+  function toggle(nextEnabled: boolean) {
+    setCelestinV2DogfoodEnabled(nextEnabled)
+    setEnabled(nextEnabled)
+  }
+
+  return (
+    <div className="rounded-[10px] border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-medium text-[var(--text-primary)]">Dogfood Celestin V2</p>
+          <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+            Ce réglage ne concerne que ce navigateur. Les tours seront tracés avec request_source={CELESTIN_V2_DOGFOOD_SOURCE}.
+          </p>
+        </div>
+        <label className="flex shrink-0 items-center gap-2 text-[12px] text-[var(--text-secondary)]">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(event) => toggle(event.target.checked)}
+          />
+          {enabled ? 'V2 active' : 'V1'}
+        </label>
+      </div>
     </div>
   )
 }

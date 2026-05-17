@@ -6,3 +6,12 @@ export function isCelestinV2DogfoodEnabled(): boolean {
   const value = window.localStorage.getItem(CELESTIN_V2_DOGFOOD_KEY)
   return value === 'true' || value === '1'
 }
+
+export function setCelestinV2DogfoodEnabled(enabled: boolean): void {
+  if (typeof window === 'undefined') return
+  if (enabled) {
+    window.localStorage.setItem(CELESTIN_V2_DOGFOOD_KEY, 'true')
+  } else {
+    window.localStorage.removeItem(CELESTIN_V2_DOGFOOD_KEY)
+  }
+}
