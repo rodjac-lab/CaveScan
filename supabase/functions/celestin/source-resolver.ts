@@ -352,6 +352,14 @@ function memoryTokens(message: string): string[] {
   )]
 }
 
+function normalizedTokenSet(value: string): Set<string> {
+  return new Set(
+    normalizeExactQueryText(value)
+      .split(/\s+/)
+      .filter((token) => token.length >= 2),
+  )
+}
+
 function rowText(row: Record<string, unknown>): string {
   return [
     tastingIdentityText(row),
@@ -363,21 +371,21 @@ function rowText(row: Record<string, unknown>): string {
 function matchedMemoryTokens(row: Record<string, unknown>, tokens: string[]): string[] {
   if (tokens.length === 0) return []
 
-  const identity = normalizeExactQueryText(tastingIdentityText(row))
-  const fullText = normalizeExactQueryText(rowText(row))
-  return tokens.filter((token) => identity.includes(token) || fullText.includes(token))
+  const identityTokens = normalizedTokenSet(tastingIdentityText(row))
+  const fullTokens = normalizedTokenSet(rowText(row))
+  return tokens.filter((token) => identityTokens.has(token) || fullTokens.has(token))
 }
 
 function scoreMemoryRow(row: Record<string, unknown>, tokens: string[]): number {
   if (tokens.length === 0) return 0
 
-  const identity = normalizeExactQueryText(tastingIdentityText(row))
-  const fullText = normalizeExactQueryText(rowText(row))
+  const identityTokens = normalizedTokenSet(tastingIdentityText(row))
+  const fullTokens = normalizedTokenSet(rowText(row))
   let score = 0
 
   for (const token of tokens) {
-    if (identity.includes(token)) score += 3
-    else if (fullText.includes(token)) score += 2
+    if (identityTokens.has(token)) score += 3
+    else if (fullTokens.has(token)) score += 2
   }
 
   if (score === 0) return 0
@@ -937,9 +945,49 @@ function topTastingRows(
     }))
 }
 
-function matchesTastingQuery(row: Record<string, unknown>, query: string | undefined): boolean {
+const TASTING_QUERY_STOP_WORDS = new Set([
+  'avec',
+  'boire',
+  'bu',
+  'dans',
+  'deja',
+  'des',
+  'deguste',
+  'degustation',
+  'degustations',
+  'goute',
+  'les',
+  'ouvert',
+  'restaurant',
+  'resto',
+  'une',
+  'vin',
+  'vins',
+])
+
+function tastingQueryTokens(query: string): string[] {
+  return [...new Set(
+    normalizeExactQueryText(query)
+      .split(/\s+/)
+      .filter((token) => token.length >= 3 && !TASTING_QUERY_STOP_WORDS.has(token)),
+  )]
+}
+
+function matchesTastingQuery(
+  row: Record<string, unknown>,
+  query: string | undefined,
+  options: { includeNotes?: boolean } = {},
+): boolean {
   if (!query) return true
-  return normalizeExactQueryText(tastingIdentityText(row)).includes(normalizeExactQueryText(query))
+  const haystack = options.includeNotes ? rowText(row) : tastingIdentityText(row)
+  const normalizedHaystack = normalizeExactQueryText(haystack)
+  const normalizedQuery = normalizeExactQueryText(query)
+  if (normalizedHaystack.includes(normalizedQuery)) return true
+
+  const haystackTokens = normalizedTokenSet(haystack)
+  const queryTokens = tastingQueryTokens(query)
+  if (queryTokens.length === 0) return false
+  return queryTokens.every((token) => haystackTokens.has(token))
 }
 
 function extractPastTastingSubject(message: string): string | null {
@@ -1209,7 +1257,8 @@ async function resolveTastingsFromBackend(
   }
 
   const query = countQuery?.query ?? ratingQuery?.query ?? extremeQuery?.query ?? focusedQuery?.query
-  const rows = (data ?? []).filter((row: Record<string, unknown>) => matchesTastingQuery(row, query))
+  const includeTastingNotes = focusedQuery?.kind === 'existence'
+  const rows = (data ?? []).filter((row: Record<string, unknown>) => matchesTastingQuery(row, query, { includeNotes: includeTastingNotes }))
   const datedRows = rows.filter((row: Record<string, unknown>) => typeof row.drunk_at === 'string' && row.drunk_at)
   const ratedRows = rows.filter((row: Record<string, unknown>) => typeof row.rating === 'number')
   if (ratingQuery) {

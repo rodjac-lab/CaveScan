@@ -90,6 +90,7 @@ describe('buildCelestinRequestBody', () => {
       compiledProfileMarkdown: '## Profil compile',
       requestSource: 'dogfood_v2',
       orchestrationVersion: 'v2',
+      provider: 'gemini-flash-lite-stable-t08',
       sessionId: 'session-1',
       backendManagedContext: true,
     })
@@ -105,6 +106,7 @@ describe('buildCelestinRequestBody', () => {
     expect(body.context).toBeUndefined()
     expect(body.requestSource).toBe('dogfood_v2')
     expect(body.orchestrationVersion).toBe('v2')
+    expect(body.provider).toBe('gemini-flash-lite-stable-t08')
     expect(body.sessionId).toBe('session-1')
   })
 

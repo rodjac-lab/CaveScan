@@ -321,6 +321,38 @@ describe('runCelestinTurn deterministic exact answers', () => {
     expect(result.debugTrace.capability).toBe('FACTS')
   })
 
+  it('answers focused tasting follow-ups even when routing confidence is low', async () => {
+    const { runCelestinTurn } = await import('./runtime')
+    const mock = supabaseTastingRatingMock()
+    const body: RequestBody = {
+      message: "C'était quoi comme millésime déjà ?",
+      history: [
+        { role: 'user', text: "Tu te souviens du Rayas qu'on a bu ?" },
+        { role: 'assistant', text: 'Oui, tu avais garde un souvenir precis du Rayas.' },
+      ],
+      cave: [],
+      contextStrategy: 'backend_managed',
+      conversationState: {
+        phase: 'active_task',
+        taskType: 'personal_fact',
+        memoryFocus: 'Rayas',
+      },
+      orchestrationVersion: 'v2',
+    }
+
+    const result = await runCelestinTurn(body, {
+      userId: 'user-1',
+      supabase: mock.client as never,
+    } as AuthContext)
+
+    expect(result.provider).toBe('deterministic')
+    expect(result.response.message).toBe('Je retrouve 1998 comme millesime pour Rayas.')
+    expect(result.debugTrace.confidence).toBeLessThan(0.7)
+    expect(result.debugTrace.responseMode).toBe('deterministic')
+    expect(result.debugTrace.factReadiness?.directAnswerAllowed).toBe(true)
+    expect(result.debugTrace.providerTrace.attempts).toEqual([])
+  })
+
   it('answers focused tasting impression follow-ups without calling an LLM provider', async () => {
     const { runCelestinTurn } = await import('./runtime')
     const mock = supabaseTastingRatingMock()

@@ -146,7 +146,7 @@ function recoCardCount(uiAction) {
 
 function isClarificationText(message) {
   if (!message) return false
-  return /\b(precise|précise|avant de|il me manque|besoin de contexte|tu manges quoi|dis[- ]moi ce que tu manges|dis[- ]moi qu[' ]?est[- ]ce que tu manges|c'est pour manger quoi|quel plat|quelle occasion|c'est pour quoi|avant de te proposer|avant de choisir)\b/i.test(message)
+  return /\b(pr[eé]cise[- ]moi|peux[- ]tu pr[eé]ciser|tu peux pr[eé]ciser|besoin de pr[eé]cisions?|avant de|il me manque|besoin de contexte|tu manges quoi|dis[- ]moi ce que tu manges|dis[- ]moi qu[' ]?est[- ]ce que tu manges|c'est pour manger quoi|quel plat|quelle occasion|c'est pour quoi|avant de te proposer|avant de choisir)\b/i.test(message)
 }
 
 function isProviderErrorMessage(message) {
@@ -495,7 +495,7 @@ function fmtPct(rate) {
   return `${(rate * 100).toFixed(1)}%`
 }
 
-function buildMarkdown(summary, results, meta) {
+function buildMarkdown(summary, results, meta, skipped = []) {
   const lines = []
   lines.push(`# Celestin Scorecard — ${meta.timestamp}`)
   lines.push('')
@@ -504,12 +504,19 @@ function buildMarkdown(summary, results, meta) {
   lines.push(`Dogfood set: ${meta.dogfood ? 'included' : 'excluded'}`)
   lines.push(`Context: ${meta.authenticated ? `authenticated test account (${meta.userId})` : `local fixture (${meta.fixture})`}`)
   lines.push('')
+  if (summary.completion) {
+    const c = summary.completion
+    lines.push('## Completion')
+    lines.push('')
+    lines.push(`expected=${c.expectedResponses} | scored=${c.scoredResponses} | unscored=${c.unscoredResponses} | completion=${fmtPct(c.completionRate)} | provider_errors=${c.providerErrors}`)
+    lines.push('')
+  }
   lines.push('## Summary by criterion')
   lines.push('')
   lines.push('| Criterion | Pass | Fail | N/A | Pass rate |')
   lines.push('|-----------|------|------|-----|-----------|')
   for (const [key, s] of Object.entries(summary)) {
-    if (key === 'overall' || key === 'latencyMs' || key === 'byCapability') continue
+    if (key === 'overall' || key === 'latencyMs' || key === 'byCapability' || key === 'completion') continue
     lines.push(`| ${key} | ${s.pass} | ${s.fail} | ${s.na} | **${fmtPct(s.passRate)}** |`)
   }
   lines.push(`| **OVERALL** | ${summary.overall.pass} | ${summary.overall.fail} | — | **${fmtPct(summary.overall.passRate)}** |`)
@@ -560,10 +567,27 @@ function buildMarkdown(summary, results, meta) {
     }
   }
 
+  if (skipped.length > 0) {
+    lines.push('## Unscored Turns')
+    lines.push('')
+    for (const skippedTurn of skipped) {
+      const turnLabel = skippedTurn.turnIndex !== null ? ` turn ${skippedTurn.turnIndex + 1}` : ''
+      lines.push(`### ${skippedTurn.scenarioId}${turnLabel}`)
+      lines.push(`- reason: ${skippedTurn.reason}`)
+      lines.push(`- user: ${skippedTurn.userMessage}`)
+      if (skippedTurn.errorMessage) lines.push(`- error: ${skippedTurn.errorMessage}`)
+      lines.push('')
+    }
+  }
+
   return lines.join('\n')
 }
 
-async function runSingleTurn(ctx, scenarios) {
+function expectedResponseCount(scenarios, conversations) {
+  return scenarios.length + conversations.reduce((sum, conversation) => sum + conversation.turns.length, 0)
+}
+
+async function runSingleTurn(ctx, scenarios, skipped) {
   const results = []
   for (let i = 0; i < scenarios.length; i++) {
     const scenario = scenarios[i]
@@ -580,6 +604,15 @@ async function runSingleTurn(ctx, scenarios) {
       const uiAction = data.ui_action ?? null
       if (isProviderErrorMessage(message)) {
         process.stdout.write(`PROVIDER ERROR (${latencyMs}ms): ${message.slice(0, 120)}\n`)
+        skipped.push({
+          kind: 'single',
+          scenarioId: scenario.id,
+          turnIndex: null,
+          userMessage: scenario.message,
+          reason: 'provider_error',
+          errorMessage: message,
+          latencyMs,
+        })
         continue
       }
       const capability = data._debug?.capability ?? null
@@ -615,13 +648,21 @@ async function runSingleTurn(ctx, scenarios) {
       process.stdout.write('ok\n')
     } catch (err) {
       process.stdout.write(`ERROR: ${err.message}\n`)
+      skipped.push({
+        kind: 'single',
+        scenarioId: scenario.id,
+        turnIndex: null,
+        userMessage: scenario.message,
+        reason: 'runner_error',
+        errorMessage: err.message,
+      })
     }
     await throttle()
   }
   return results
 }
 
-async function runMultiTurn(ctx, conversations) {
+async function runMultiTurn(ctx, conversations, skipped) {
   const results = []
   for (let i = 0; i < conversations.length; i++) {
     const conv = conversations[i]
@@ -643,6 +684,25 @@ async function runMultiTurn(ctx, conversations) {
         const uiAction = data.ui_action ?? null
         if (isProviderErrorMessage(message)) {
           process.stdout.write(`    turn ${t + 1} PROVIDER ERROR (${latencyMs}ms): ${message.slice(0, 100)}\n`)
+          skipped.push({
+            kind: 'multi',
+            scenarioId: conv.id,
+            turnIndex: t,
+            userMessage: turn.message,
+            reason: 'provider_error',
+            errorMessage: message,
+            latencyMs,
+          })
+          for (let remaining = t + 1; remaining < conv.turns.length; remaining++) {
+            skipped.push({
+              kind: 'multi',
+              scenarioId: conv.id,
+              turnIndex: remaining,
+              userMessage: conv.turns[remaining].message,
+              reason: 'conversation_aborted',
+              errorMessage: `Previous turn ${t + 1} failed with provider_error`,
+            })
+          }
           break
         }
         const capability = data._debug?.capability ?? null
@@ -685,6 +745,24 @@ async function runMultiTurn(ctx, conversations) {
         conversationState = data._nextState ?? null
       } catch (err) {
         process.stdout.write(`    turn ${t + 1} ERROR: ${err.message}\n`)
+        skipped.push({
+          kind: 'multi',
+          scenarioId: conv.id,
+          turnIndex: t,
+          userMessage: turn.message,
+          reason: 'runner_error',
+          errorMessage: err.message,
+        })
+        for (let remaining = t + 1; remaining < conv.turns.length; remaining++) {
+          skipped.push({
+            kind: 'multi',
+            scenarioId: conv.id,
+            turnIndex: remaining,
+            userMessage: conv.turns[remaining].message,
+            reason: 'conversation_aborted',
+            errorMessage: `Previous turn ${t + 1} failed with runner_error`,
+          })
+        }
         break
       }
       await throttle()
@@ -739,20 +817,29 @@ async function main() {
   console.log('')
 
   const startedAt = Date.now()
+  const skipped = []
 
   console.log('Single-turn scenarios:')
-  const singleResults = await runSingleTurn(ctx, scenarios)
+  const singleResults = await runSingleTurn(ctx, scenarios, skipped)
   console.log('')
 
   let multiResults = []
   if (conversations.length > 0) {
     console.log('Multi-turn conversations:')
-    multiResults = await runMultiTurn(ctx, conversations)
+    multiResults = await runMultiTurn(ctx, conversations, skipped)
     console.log('')
   }
 
   const allResults = [...singleResults, ...multiResults]
   const summary = aggregate(allResults)
+  const expectedResponses = expectedResponseCount(scenarios, conversations)
+  summary.completion = {
+    expectedResponses,
+    scoredResponses: allResults.length,
+    unscoredResponses: Math.max(0, expectedResponses - allResults.length),
+    completionRate: expectedResponses === 0 ? null : allResults.length / expectedResponses,
+    providerErrors: skipped.filter((entry) => entry.reason === 'provider_error').length,
+  }
   const elapsedSec = ((Date.now() - startedAt) / 1000).toFixed(0)
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
   const meta = {
@@ -763,6 +850,9 @@ async function main() {
     dogfood: DOGFOOD,
     authenticated: !!authSession,
     userId: authSession?.userId ?? null,
+    expectedResponses,
+    unscoredResponses: summary.completion.unscoredResponses,
+    providerErrors: summary.completion.providerErrors,
     totalResponses: allResults.length,
     elapsedSec,
     fixture: path.basename(fixturePath),
@@ -775,16 +865,17 @@ async function main() {
   const jsonPath = path.join(DEFAULT_OUT_DIR, `${baseName}.json`)
   const mdPath = path.join(DEFAULT_OUT_DIR, `${baseName}.md`)
 
-  fs.writeFileSync(jsonPath, JSON.stringify({ meta, summary, results: allResults }, null, 2))
-  fs.writeFileSync(mdPath, buildMarkdown(summary, allResults, meta))
+  fs.writeFileSync(jsonPath, JSON.stringify({ meta, summary, skipped, results: allResults }, null, 2))
+  fs.writeFileSync(mdPath, buildMarkdown(summary, allResults, meta, skipped))
 
   console.log('=== SUMMARY ===')
   for (const [key, s] of Object.entries(summary)) {
-    if (key === 'overall' || key === 'latencyMs' || key === 'byCapability') continue
+    if (key === 'overall' || key === 'latencyMs' || key === 'byCapability' || key === 'completion') continue
     console.log(`  ${key.padEnd(36)} ${fmtPct(s.passRate).padStart(7)}  (${s.pass}/${s.pass + s.fail}, ${s.na} N/A)`)
   }
   console.log('  ---')
   console.log(`  ${'OVERALL'.padEnd(36)} ${fmtPct(summary.overall.passRate).padStart(7)}  (${summary.overall.pass}/${summary.overall.total})`)
+  console.log(`  ${'COMPLETION'.padEnd(36)} ${fmtPct(summary.completion.completionRate).padStart(7)}  (${summary.completion.scoredResponses}/${summary.completion.expectedResponses}, ${summary.completion.providerErrors} provider errors)`)
   if (summary.latencyMs) {
     const l = summary.latencyMs
     console.log(`  ${'LATENCY ms (mean/p50/p95)'.padEnd(36)} ${l.mean}/${l.p50}/${l.p95}  (n=${l.count})`)

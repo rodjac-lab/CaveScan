@@ -342,6 +342,157 @@ describe('resolveContextSourcesForRequest', () => {
     })
   })
 
+  it('matches explicit tasting subjects with hyphenated appellation tokens', async () => {
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: "Est-ce que tu sais si j'ai deja bu un chateauneuf du pape ?",
+        cave: [],
+      }),
+      plan({
+        profile: 'none',
+        cave: 'none',
+        memories: 'none',
+        tools: 'force_personal',
+        truthPolicy: 'memory_only',
+      }),
+      {
+        userId: 'user-1',
+        supabase: tastingSupabase([
+          {
+            domaine: 'Chateau Rayas',
+            cuvee: null,
+            appellation: 'Chateauneuf-du-Pape',
+            millesime: 1998,
+            couleur: 'rouge',
+            country: 'France',
+            region: 'Rhone',
+            rating: 4,
+            drunk_at: '2026-02-26T20:00:00Z',
+            tasting_note: 'Encore tres jeune.',
+          },
+        ]) as never,
+      },
+    )
+
+    expect(sources.tastings).toMatchObject({
+      kind: 'existence',
+      query: 'chateauneuf pape',
+      totalRows: 1,
+    })
+    expect(sources.tastings?.rows?.[0]).toMatchObject({
+      domaine: 'Chateau Rayas',
+      appellation: 'Chateauneuf-du-Pape',
+    })
+  })
+
+  it('matches explicit tasting subjects against distinctive restaurant tokens in notes', async () => {
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: "J'ai deja bu du vin dans un restaurant Premnord ?",
+        cave: [],
+      }),
+      plan({
+        profile: 'none',
+        cave: 'none',
+        memories: 'none',
+        tools: 'force_personal',
+        truthPolicy: 'memory_only',
+      }),
+      {
+        userId: 'user-1',
+        supabase: tastingSupabase([
+          {
+            domaine: 'Domaine Rouge',
+            cuvee: null,
+            appellation: 'Morgon',
+            millesime: 2022,
+            couleur: 'rouge',
+            country: 'France',
+            region: 'Beaujolais',
+            rating: 4,
+            drunk_at: '2026-03-10T20:00:00Z',
+            tasting_note: 'Decouverte au resto Premnord, tres juteux.',
+          },
+        ]) as never,
+      },
+    )
+
+    expect(sources.tastings).toMatchObject({
+      kind: 'existence',
+      query: 'vin dans restaurant premnord',
+      totalRows: 1,
+    })
+  })
+
+  it('does not match location memory tokens inside unrelated words', async () => {
+    const supabase = {
+      from(table: string) {
+        expect(table).toBe('bottles')
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                order: () => ({
+                  limit: async () => ({
+                    data: [
+                      {
+                        domaine: 'Domaine Arome',
+                        cuvee: null,
+                        appellation: 'Aloxe-Corton',
+                        millesime: 2022,
+                        couleur: 'rouge',
+                        country: 'France',
+                        region: 'Bourgogne',
+                        rating: 3,
+                        drunk_at: '2026-03-29T20:00:00Z',
+                        tasting_note: 'Beaux aromes de cerise.',
+                      },
+                      {
+                        domaine: 'Marchesi Antinori',
+                        cuvee: 'Peppoli',
+                        appellation: 'Chianti Classico',
+                        millesime: 2024,
+                        couleur: 'rouge',
+                        country: 'Italie',
+                        region: 'Toscane',
+                        rating: null,
+                        drunk_at: '2026-02-22T20:00:00Z',
+                        tasting_note: 'Au verre, resto La Barchetta, Rome.',
+                      },
+                    ],
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }
+      },
+    }
+
+    const sources = await resolveContextSourcesForRequest(
+      body({
+        message: "Qu'est ce que j'ai bu a Rome ?",
+        cave: [],
+        memories: undefined,
+      }),
+      plan({
+        profile: 'none',
+        cave: 'none',
+        memories: 'exact',
+        tools: 'force_personal',
+        truthPolicy: 'memory_only',
+      }),
+      { userId: 'user-1', supabase: supabase as never },
+    )
+
+    expect(sources.memories?.selectedTastingMemories).toHaveLength(1)
+    expect(sources.memories?.selectedTastingMemories?.[0]).toMatchObject({
+      label: 'Marchesi Antinori Peppoli Chianti Classico 2024',
+      matchedTokens: ['rome'],
+    })
+  })
+
   it('resolves cellar shortlist from backend when recommendation body is minimal', async () => {
     const supabase = {
       from(table: string) {

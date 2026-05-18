@@ -52,6 +52,7 @@ export interface CelestinResponse {
 export interface CelestinRequestBody {
   message: string
   history: Array<{ role: 'user' | 'assistant'; text: string; image?: string }>
+  provider?: string
   cave?: Array<{
     id: string
     domaine: string | null
@@ -204,6 +205,7 @@ export function buildCelestinRequestBody(input: {
   requestSource?: string
   sessionId?: string | null
   orchestrationVersion?: 'v1' | 'v2'
+  provider?: string
   backendManagedContext?: boolean
 }): CelestinRequestBody {
   const baseBody = {
@@ -213,6 +215,7 @@ export function buildCelestinRequestBody(input: {
     ...(input.image ? { image: input.image } : {}),
     ...(input.conversationalIntent ? { conversationalIntent: input.conversationalIntent } : {}),
     ...(input.debugTrace ? { debugTrace: true } : {}),
+    ...(input.provider ? { provider: input.provider } : {}),
     ...(input.requestSource ? { requestSource: input.requestSource } : {}),
     ...(input.sessionId ? { sessionId: input.sessionId } : {}),
     ...(input.orchestrationVersion ? { orchestrationVersion: input.orchestrationVersion } : {}),

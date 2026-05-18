@@ -10,15 +10,25 @@ import {
 import { GEMINI_RESPONSE_SCHEMA, OPENAI_RESPONSE_SCHEMA } from "./provider-schemas.ts"
 import { extractErrorMessage, fetchWithTimeout } from "./provider-utils.ts"
 import { recordProviderResponse, type CelestinProviderResponseTrace } from "./provider-adapter.ts"
+import {
+  buildGeminiCelestinTools,
+  buildGeminiFunctionResponseContent,
+  extractGeminiProviderToolCalls,
+  type GeminiContentWithFunctionCalls,
+} from "./provider-tool-adapters.ts"
 import { containsStructuredResponseAttempt, parseAndValidate, stripStructuredResponseArtifacts } from "./response-validation.ts"
 import type { AuthContext } from "./auth.ts"
-import { CELESTIN_TOOLS, executeCelestinTool, type CelestinToolName } from "./tools.ts"
+import { executeCelestinProviderToolCalls, type CelestinToolCallTrace } from "./tool-runtime.ts"
+import { CELESTIN_TOOLS, type CelestinToolName } from "./tools.ts"
 import { logAnthropicUsage } from "../_shared/anthropic-usage.ts"
 import type { CelestinProviderResponse, CelestinResponse, ConversationTurn } from "./types.ts"
+
+export type { CelestinToolCallTrace } from "./tool-runtime.ts"
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
+const PROVIDER_AGNOSTIC_TOOLS_ENABLED = Deno.env.get('CELESTIN_PROVIDER_AGNOSTIC_TOOLS') === '1'
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001'
 const OPENAI_MODEL = 'gpt-4.1-mini'
 type ClaudeToolChoice = 'auto' | 'any' | 'none'
@@ -35,13 +45,26 @@ export interface CelestinProviderOptions {
   toolsEnabled?: boolean
   forcedToolName?: CelestinToolName
   requireToolUse?: boolean
+  providerToolAdaptersEnabled?: boolean
   validateResponse?: (response: CelestinProviderResponse, trace: CelestinProviderTrace) => string | null
 }
 
 export function providerCanAnswerWithCurrentTools(providerName: string, options?: CelestinProviderOptions): boolean {
   const requiresToolBackedAnswer = !!options?.forcedToolName || !!options?.requireToolUse
   if (!requiresToolBackedAnswer) return true
-  return providerName.toLowerCase().includes('claude')
+  const normalizedProviderName = providerName.toLowerCase()
+  if (normalizedProviderName.includes('claude')) return true
+
+  const adaptersEnabled = options?.providerToolAdaptersEnabled ?? PROVIDER_AGNOSTIC_TOOLS_ENABLED
+  if (!adaptersEnabled) return false
+
+  // Gemini adapters are available behind an explicit flag while the final
+  // provider round-trip is validated against dogfood/source-required traces.
+  return normalizedProviderName.includes('gemini')
+}
+
+export function providerToolAdapterGateMessage(providerName: string): string {
+  return `${providerName} cannot answer source-required turns without tool adapters. Server config required: CELESTIN_PROVIDER_AGNOSTIC_TOOLS=1.`
 }
 
 export interface CelestinUsageContext {
@@ -55,18 +78,6 @@ export interface CelestinProviderAttemptTrace {
   provider: string
   status: 'success' | 'error'
   durationMs: number
-  error?: string
-}
-
-export interface CelestinToolCallTrace {
-  name: string
-  input: Record<string, unknown>
-  durationMs: number
-  source?: string
-  totalRows?: number
-  listedRows?: number
-  totalQuantity?: number
-  rows?: Array<Record<string, unknown>>
   error?: string
 }
 
@@ -114,6 +125,13 @@ function createProviderTrace(): CelestinProviderTrace {
   }
 }
 
+function extractGeminiText(result: { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }, label: string): string {
+  const parts = result.candidates?.[0]?.content?.parts ?? []
+  const text = parts.map((part) => typeof part.text === 'string' ? part.text : '').filter(Boolean).join('\n').trim()
+  if (!text) throw new Error(`No text response from ${label}`)
+  return text
+}
+
 async function callGeminiModel(
   modelId: string,
   label: string,
@@ -127,6 +145,7 @@ async function callGeminiModel(
     maxOutputTokens: number
   }>,
   trace?: CelestinProviderTrace,
+  options?: CelestinProviderOptions,
 ): Promise<CelestinResponse> {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured')
 
@@ -136,6 +155,29 @@ async function callGeminiModel(
     : image
       ? [{ role: 'user', parts: [{ inline_data: { mime_type: detectMediaType(image), data: image } }, { text: userPrompt }] }]
       : [{ role: 'user', parts: [{ text: userPrompt }] }]
+  const requiresProviderToolAdapter = !!options?.forcedToolName || !!options?.requireToolUse
+  const toolsEnabled = !!options?.toolsEnabled && requiresProviderToolAdapter && !!options.auth?.userId && !!options.auth.supabase
+  const forcedToolName = toolsEnabled ? options?.forcedToolName : undefined
+  const toolConfig = toolsEnabled
+    ? {
+        functionCallingConfig: {
+          mode: options?.requireToolUse || forcedToolName ? 'ANY' : 'AUTO',
+          ...(forcedToolName ? { allowedFunctionNames: [forcedToolName] } : {}),
+        },
+      }
+    : undefined
+  const responseGenerationConfig = {
+    temperature: generationOverrides?.temperature ?? 0.5,
+    maxOutputTokens: generationOverrides?.maxOutputTokens ?? 4096,
+    responseMimeType: 'application/json',
+    responseSchema: GEMINI_RESPONSE_SCHEMA,
+    thinkingConfig,
+  }
+  const toolCallGenerationConfig = {
+    temperature: generationOverrides?.temperature ?? 0.5,
+    maxOutputTokens: generationOverrides?.maxOutputTokens ?? 4096,
+    thinkingConfig,
+  }
 
   const response = await fetchWithTimeout(url, {
     method: 'POST',
@@ -143,13 +185,8 @@ async function callGeminiModel(
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: systemPrompt }] },
       contents,
-      generationConfig: {
-        temperature: generationOverrides?.temperature ?? 0.5,
-        maxOutputTokens: generationOverrides?.maxOutputTokens ?? 4096,
-        responseMimeType: 'application/json',
-        responseSchema: GEMINI_RESPONSE_SCHEMA,
-        thinkingConfig,
-      },
+      generationConfig: toolsEnabled ? toolCallGenerationConfig : responseGenerationConfig,
+      ...(toolsEnabled ? { tools: buildGeminiCelestinTools(), toolConfig } : {}),
     }),
   })
 
@@ -158,8 +195,55 @@ async function callGeminiModel(
   }
 
   const result = await response.json()
-  const text = result.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!text) throw new Error(`No text response from ${label}`)
+  const firstContent = result.candidates?.[0]?.content as GeminiContentWithFunctionCalls | undefined
+  const toolCalls = toolsEnabled ? extractGeminiProviderToolCalls(firstContent) : []
+  if (toolCalls.length > 0) {
+    if (!firstContent) throw new Error(`${label} returned tool calls without model content`)
+    if (trace) trace.providerPath = 'tool_response'
+    const executedToolCalls = await executeCelestinProviderToolCalls(toolCalls, {
+      userId: options.auth!.userId!,
+      supabase: options.auth!.supabase!,
+    })
+    if (trace) trace.toolCalls.push(...executedToolCalls.map((tool) => tool.trace))
+
+    const finalContents = [
+      ...contents,
+      firstContent,
+      buildGeminiFunctionResponseContent(executedToolCalls),
+    ]
+    const finalResponse = await fetchWithTimeout(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: finalContents,
+        generationConfig: responseGenerationConfig,
+        tools: buildGeminiCelestinTools(),
+        toolConfig: { functionCallingConfig: { mode: 'NONE' } },
+      }),
+    })
+
+    if (!finalResponse.ok) {
+      throw new Error(`${label} tool followup (${finalResponse.status}): ${extractErrorMessage(await finalResponse.text())}`)
+    }
+
+    const finalResult = await finalResponse.json()
+    const finalText = extractGeminiText(finalResult, label)
+    try {
+      const parsed = parseAndValidate(finalText)
+      recordProviderResponse({ trace, provider: label, rawText: finalText, parseStatus: 'success', response: parsed })
+      return parsed
+    } catch (err) {
+      recordProviderResponse({ trace, provider: label, rawText: finalText, parseStatus: 'error', error: err })
+      throw err
+    }
+  }
+
+  if (toolsEnabled && (options?.requireToolUse || forcedToolName)) {
+    throw new Error(`${label} did not request a required tool`)
+  }
+
+  const text = extractGeminiText(result, label)
 
   try {
     const parsed = parseAndValidate(text)
@@ -171,7 +255,7 @@ async function callGeminiModel(
   }
 }
 
-async function callGemini(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
+async function callGemini(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace, options?: CelestinProviderOptions): Promise<CelestinProviderResponse> {
   return callGeminiModel(
     'gemini-2.5-flash',
     'Gemini 2.5 Flash',
@@ -182,10 +266,11 @@ async function callGemini(systemPrompt: string, userPrompt: string, history: Con
     { thinkingBudget: image ? 1024 : 0 },
     undefined,
     trace,
+    options,
   )
 }
 
-async function callGeminiFlashLite(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
+async function callGeminiFlashLite(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace, options?: CelestinProviderOptions): Promise<CelestinProviderResponse> {
   return callGeminiModel(
     'gemini-3.1-flash-lite-preview',
     'Gemini 3.1 Flash-Lite',
@@ -196,10 +281,11 @@ async function callGeminiFlashLite(systemPrompt: string, userPrompt: string, his
     { thinkingLevel: 'minimal' },
     undefined,
     trace,
+    options,
   )
 }
 
-async function callGeminiFlashLiteStable(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
+async function callGeminiFlashLiteStable(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace, options?: CelestinProviderOptions): Promise<CelestinProviderResponse> {
   return callGeminiModel(
     'gemini-3.1-flash-lite',
     'Gemini 3.1 Flash-Lite stable',
@@ -210,10 +296,11 @@ async function callGeminiFlashLiteStable(systemPrompt: string, userPrompt: strin
     { thinkingLevel: 'minimal' },
     undefined,
     trace,
+    options,
   )
 }
 
-async function callGeminiFlashLiteStableT08(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
+async function callGeminiFlashLiteStableT08(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace, options?: CelestinProviderOptions): Promise<CelestinProviderResponse> {
   return callGeminiModel(
     'gemini-3.1-flash-lite',
     'Gemini 3.1 Flash-Lite stable t0.8',
@@ -224,10 +311,11 @@ async function callGeminiFlashLiteStableT08(systemPrompt: string, userPrompt: st
     { thinkingLevel: 'minimal' },
     { temperature: 0.8 },
     trace,
+    options,
   )
 }
 
-async function callGeminiFlashLiteStableT08Low(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
+async function callGeminiFlashLiteStableT08Low(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace, options?: CelestinProviderOptions): Promise<CelestinProviderResponse> {
   return callGeminiModel(
     'gemini-3.1-flash-lite',
     'Gemini 3.1 Flash-Lite stable t0.8 low',
@@ -238,10 +326,11 @@ async function callGeminiFlashLiteStableT08Low(systemPrompt: string, userPrompt:
     { thinkingLevel: 'low' },
     { temperature: 0.8 },
     trace,
+    options,
   )
 }
 
-async function callGeminiFlashLiteStableT10(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
+async function callGeminiFlashLiteStableT10(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace, options?: CelestinProviderOptions): Promise<CelestinProviderResponse> {
   return callGeminiModel(
     'gemini-3.1-flash-lite',
     'Gemini 3.1 Flash-Lite stable t1.0',
@@ -252,10 +341,11 @@ async function callGeminiFlashLiteStableT10(systemPrompt: string, userPrompt: st
     { thinkingLevel: 'minimal' },
     { temperature: 1.0 },
     trace,
+    options,
   )
 }
 
-async function callGemini3Flash(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
+async function callGemini3Flash(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace, options?: CelestinProviderOptions): Promise<CelestinProviderResponse> {
   return callGeminiModel(
     'gemini-3-flash-preview',
     'Gemini 3 Flash',
@@ -266,10 +356,11 @@ async function callGemini3Flash(systemPrompt: string, userPrompt: string, histor
     { thinkingLevel: 'minimal' },
     undefined,
     trace,
+    options,
   )
 }
 
-async function callGemini3FlashLow(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
+async function callGemini3FlashLow(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace, options?: CelestinProviderOptions): Promise<CelestinProviderResponse> {
   return callGeminiModel(
     'gemini-3-flash-preview',
     'Gemini 3 Flash (thinking low)',
@@ -280,6 +371,7 @@ async function callGemini3FlashLow(systemPrompt: string, userPrompt: string, his
     { thinkingLevel: 'low' },
     undefined,
     trace,
+    options,
   )
 }
 
@@ -563,45 +655,16 @@ async function callClaude(
 
   if (trace) trace.providerPath = 'tool_response'
   console.log(`[celestin:tools] Claude requested ${toolUses.map((tool) => tool.name).join(', ')}`)
-  const toolResults: ClaudeToolResultContent[] = await Promise.all(toolUses.slice(0, 3).map(async (tool) => {
-    const startedAt = performance.now()
-    try {
-      const content = await executeCelestinTool(tool.name, tool.input, {
-        userId: auth!.userId!,
-        supabase: auth!.supabase!,
-      })
-      if (trace) {
-        let parsed: Record<string, unknown> = {}
-        try {
-          parsed = JSON.parse(content) as Record<string, unknown>
-        } catch {
-          parsed = {}
-        }
-        trace.toolCalls.push({
-          name: tool.name,
-          input: tool.input,
-          durationMs: Math.round(performance.now() - startedAt),
-          source: typeof parsed.source === 'string' ? parsed.source : undefined,
-          totalRows: typeof parsed.totalRows === 'number' ? parsed.totalRows : undefined,
-          listedRows: typeof parsed.listedRows === 'number' ? parsed.listedRows : undefined,
-          totalQuantity: typeof parsed.totalQuantity === 'number' ? parsed.totalQuantity : undefined,
-          rows: tool.name === 'search_cellar_candidates' && Array.isArray(parsed.rows)
-            ? parsed.rows.filter((row): row is Record<string, unknown> => !!row && typeof row === 'object')
-            : undefined,
-          error: typeof parsed.error === 'string' ? parsed.error : undefined,
-        })
-      }
-      return { type: 'tool_result', tool_use_id: tool.id, content }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      trace?.toolCalls.push({
-        name: tool.name,
-        input: tool.input,
-        durationMs: Math.round(performance.now() - startedAt),
-        error: message,
-      })
-      return { type: 'tool_result', tool_use_id: tool.id, content: message, is_error: true }
-    }
+  const executedToolCalls = await executeCelestinProviderToolCalls(toolUses, {
+    userId: auth!.userId!,
+    supabase: auth!.supabase!,
+  })
+  if (trace) trace.toolCalls.push(...executedToolCalls.map((tool) => tool.trace))
+  const toolResults: ClaudeToolResultContent[] = executedToolCalls.map((tool) => ({
+    type: 'tool_result',
+    tool_use_id: tool.id,
+    content: tool.content,
+    is_error: tool.isError || undefined,
   }))
 
   const followupMessages: ClaudeMessage[] = [
@@ -686,20 +749,20 @@ export async function celestinWithFallback(
   if (forcedProvider) {
     const providerMap: Record<string, { name: string; call: () => Promise<CelestinProviderResponse> }> = {
       claude: { name: 'Claude', call: () => callClaude(systemPrompt, userPrompt, history, image, options, trace) },
-      gemini: { name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history, image, trace) },
-      'gemini-flash-lite': { name: 'Gemini 3.1 Flash-Lite', call: () => callGeminiFlashLite(systemPrompt, userPrompt, history, image, trace) },
-      'gemini-flash-lite-stable': { name: 'Gemini 3.1 Flash-Lite stable', call: () => callGeminiFlashLiteStable(systemPrompt, userPrompt, history, image, trace) },
-      'gemini-flash-lite-stable-t08': { name: 'Gemini 3.1 Flash-Lite stable t0.8', call: () => callGeminiFlashLiteStableT08(systemPrompt, userPrompt, history, image, trace) },
-      'gemini-flash-lite-stable-t08-low': { name: 'Gemini 3.1 Flash-Lite stable t0.8 low', call: () => callGeminiFlashLiteStableT08Low(systemPrompt, userPrompt, history, image, trace) },
-      'gemini-flash-lite-stable-t10': { name: 'Gemini 3.1 Flash-Lite stable t1.0', call: () => callGeminiFlashLiteStableT10(systemPrompt, userPrompt, history, image, trace) },
-      'gemini-3-flash': { name: 'Gemini 3 Flash', call: () => callGemini3Flash(systemPrompt, userPrompt, history, image, trace) },
-      'gemini-3-flash-low': { name: 'Gemini 3 Flash (low)', call: () => callGemini3FlashLow(systemPrompt, userPrompt, history, image, trace) },
+      gemini: { name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history, image, trace, options) },
+      'gemini-flash-lite': { name: 'Gemini 3.1 Flash-Lite', call: () => callGeminiFlashLite(systemPrompt, userPrompt, history, image, trace, options) },
+      'gemini-flash-lite-stable': { name: 'Gemini 3.1 Flash-Lite stable', call: () => callGeminiFlashLiteStable(systemPrompt, userPrompt, history, image, trace, options) },
+      'gemini-flash-lite-stable-t08': { name: 'Gemini 3.1 Flash-Lite stable t0.8', call: () => callGeminiFlashLiteStableT08(systemPrompt, userPrompt, history, image, trace, options) },
+      'gemini-flash-lite-stable-t08-low': { name: 'Gemini 3.1 Flash-Lite stable t0.8 low', call: () => callGeminiFlashLiteStableT08Low(systemPrompt, userPrompt, history, image, trace, options) },
+      'gemini-flash-lite-stable-t10': { name: 'Gemini 3.1 Flash-Lite stable t1.0', call: () => callGeminiFlashLiteStableT10(systemPrompt, userPrompt, history, image, trace, options) },
+      'gemini-3-flash': { name: 'Gemini 3 Flash', call: () => callGemini3Flash(systemPrompt, userPrompt, history, image, trace, options) },
+      'gemini-3-flash-low': { name: 'Gemini 3 Flash (low)', call: () => callGemini3FlashLow(systemPrompt, userPrompt, history, image, trace, options) },
       openai: { name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history, image, trace) },
     }
     const selected = providerMap[forcedProvider.toLowerCase()]
     if (!selected) throw new Error(`Unknown provider: ${forcedProvider}`)
     if (!providerCanAnswerWithCurrentTools(selected.name, options)) {
-      throw new Error(`${selected.name} cannot answer source-required turns without tool adapters.`)
+      throw new Error(providerToolAdapterGateMessage(selected.name))
     }
     console.log(`[celestin] Forced provider: ${selected.name}`)
     const startedAt = performance.now()
@@ -711,13 +774,13 @@ export async function celestinWithFallback(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       trace.attempts.push({ provider: selected.name, status: 'error', durationMs: Math.round(performance.now() - startedAt), error: message })
-      throw err
+      throw new CelestinProviderFallbackError([message], trace)
     }
   }
 
   const providers: Array<{ name: string; call: () => Promise<CelestinProviderResponse> }> = []
   if (ANTHROPIC_API_KEY) providers.push({ name: 'Claude Haiku 4.5', call: () => callClaude(systemPrompt, userPrompt, history, image, options, trace) })
-  if (GEMINI_API_KEY && providerCanAnswerWithCurrentTools('Gemini', options)) providers.push({ name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history, image, trace) })
+  if (GEMINI_API_KEY && providerCanAnswerWithCurrentTools('Gemini', options)) providers.push({ name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history, image, trace, options) })
   if (OPENAI_API_KEY && providerCanAnswerWithCurrentTools('GPT-4.1 mini', options)) providers.push({ name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history, image, trace) })
 
   if (providers.length === 0) {

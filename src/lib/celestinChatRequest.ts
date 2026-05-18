@@ -22,6 +22,7 @@ interface PrepareCelestinRequestInput {
   sessionId?: string | null
   requestSource?: string
   orchestrationVersion?: 'v1' | 'v2'
+  provider?: string
 }
 
 function toMemoryMessages(messages: CelestinChatMessage[]) {
@@ -200,6 +201,7 @@ export async function prepareCelestinRequest(input: PrepareCelestinRequestInput)
     requestSource: input.requestSource ?? 'chat',
     sessionId: input.sessionId,
     orchestrationVersion: input.orchestrationVersion,
+    provider: input.provider,
     backendManagedContext,
   })
 

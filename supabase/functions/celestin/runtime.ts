@@ -82,10 +82,6 @@ export function operationalActionContractViolation(plan: CelestinV2Plan, respons
   return null
 }
 
-function isRecommendationContractError(message: string): boolean {
-  return message.includes('Recommendation response contract violation: no resolvable ui_action or recommendation_selection')
-}
-
 function firstProviderMessage(trace: CelestinProviderTrace): string | null {
   for (const response of trace.responses) {
     const message = response.normalized?.messagePreview?.trim()
@@ -94,10 +90,16 @@ function firstProviderMessage(trace: CelestinProviderTrace): string | null {
   return null
 }
 
+function hasClosedChoiceRecommendationSources(resolvedSources: ResolvedContextSources): boolean {
+  return (resolvedSources.cave.level === 'shortlist' || resolvedSources.cave.level === 'full_debug')
+    && resolvedSources.cave.bottles.length >= 2
+}
+
 export function canDegradeClosedChoiceRecommendation(input: {
   error: unknown
   v2Plan: CelestinV2Plan
   routingIntent: string
+  resolvedSources: ResolvedContextSources
 }): boolean {
   if (!(input.error instanceof CelestinProviderFallbackError)) return false
   if (!input.v2Plan.enabled || input.v2Plan.capability !== 'RECOMMEND' || input.v2Plan.responseMode !== 'closed_choice') return false
@@ -106,7 +108,8 @@ export function canDegradeClosedChoiceRecommendation(input: {
     && input.routingIntent !== 'recommendation_refinement'
     && input.routingIntent !== 'memory_guided_recommendation'
   ) return false
-  return input.error.providerErrors.some(isRecommendationContractError) && firstProviderMessage(input.error.trace) !== null
+  if (!hasClosedChoiceRecommendationSources(input.resolvedSources)) return false
+  return input.error.providerErrors.length > 0
 }
 
 export function buildClosedChoiceDegradedRecommendation(input: {
@@ -604,7 +607,7 @@ export async function runCelestinTurn(body: RequestBody, auth?: AuthContext): Pr
     } catch (error) {
       if (
         error instanceof CelestinProviderFallbackError
-        && canDegradeClosedChoiceRecommendation({ error, v2Plan, routingIntent: routing.winner })
+        && canDegradeClosedChoiceRecommendation({ error, v2Plan, routingIntent: routing.winner, resolvedSources })
       ) {
         failedProviderTrace = error.trace
         failedProviderErrors = error.providerErrors

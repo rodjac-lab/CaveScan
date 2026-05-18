@@ -31,6 +31,21 @@ describe('buildCelestinV2Plan', () => {
     expect(shouldClarifyLowConfidenceV2(plan)).toBe(false)
   })
 
+  it('lets exact memory facts bypass low-confidence clarification', () => {
+    const plan = planFor(
+      "C'était quoi comme millésime déjà ?",
+      { orchestrationVersion: 'v2' },
+      { phase: 'active_task', taskType: 'personal_fact', memoryFocus: 'Gangloff' },
+    )
+
+    expect(plan.capability).toBe('FACTS')
+    expect(plan.confidence).toBeLessThan(0.7)
+    expect(plan.requiredSources).toContain('memories:exact')
+    expect(plan.requiredSources).toContain('tool:required')
+    expect(plan.responseMode).toBe('deterministic')
+    expect(shouldClarifyLowConfidenceV2(plan)).toBe(false)
+  })
+
   it('classifies recommendations as closed choices that need backend materialization', () => {
     const plan = planFor('Qu est-ce que j ouvre avec un poulet roti ?', { orchestrationVersion: 'v2' })
 

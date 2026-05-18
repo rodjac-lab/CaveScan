@@ -19,8 +19,12 @@ import {
   type AdminCelestinObservabilitySnapshot,
 } from '@/lib/adminCelestinObservability'
 import {
+  CELESTIN_GEMINI_DOGFOOD_PROVIDER,
+  CELESTIN_GEMINI_DOGFOOD_SOURCE,
   CELESTIN_V2_DOGFOOD_SOURCE,
+  getCelestinDogfoodProvider,
   isCelestinV2DogfoodEnabled,
+  setCelestinDogfoodProvider,
   setCelestinV2DogfoodEnabled,
 } from '@/lib/celestinDogfood'
 
@@ -275,10 +279,19 @@ export function AdminCelestinObservabilityPanel() {
 
 export function CelestinDogfoodPanel() {
   const [enabled, setEnabled] = useState(() => isCelestinV2DogfoodEnabled())
+  const [provider, setProvider] = useState(() => getCelestinDogfoodProvider())
 
   function toggle(nextEnabled: boolean) {
     setCelestinV2DogfoodEnabled(nextEnabled)
     setEnabled(nextEnabled)
+    if (!nextEnabled) setProvider(undefined)
+  }
+
+  function toggleGeminiProvider(nextEnabled: boolean) {
+    const nextProvider = nextEnabled ? CELESTIN_GEMINI_DOGFOOD_PROVIDER : undefined
+    setCelestinDogfoodProvider(nextProvider)
+    setProvider(nextProvider)
+    if (nextEnabled) setEnabled(true)
   }
 
   return (
@@ -287,7 +300,7 @@ export function CelestinDogfoodPanel() {
         <div>
           <p className="text-[11px] font-medium text-[var(--text-primary)]">Dogfood Celestin V2</p>
           <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-            Ce réglage ne concerne que ce navigateur. Les tours seront tracés avec request_source={CELESTIN_V2_DOGFOOD_SOURCE}.
+            Ce réglage ne concerne que ce navigateur. Les tours seront tracés avec request_source={provider ? CELESTIN_GEMINI_DOGFOOD_SOURCE : CELESTIN_V2_DOGFOOD_SOURCE}.
           </p>
         </div>
         <label className="flex shrink-0 items-center gap-2 text-[12px] text-[var(--text-secondary)]">
@@ -297,6 +310,22 @@ export function CelestinDogfoodPanel() {
             onChange={(event) => toggle(event.target.checked)}
           />
           {enabled ? 'V2 active' : 'V1'}
+        </label>
+      </div>
+      <div className="mt-3 border-t border-[var(--border-color)] pt-3">
+        <label className="flex items-start justify-between gap-4 text-[12px] text-[var(--text-secondary)]">
+          <span>
+            <span className="block text-[11px] font-medium text-[var(--text-primary)]">Forcer Gemini Flash-Lite</span>
+            <span className="mt-1 block text-[11px] text-[var(--text-muted)]">
+              Active V2 pour ce navigateur et envoie provider={CELESTIN_GEMINI_DOGFOOD_PROVIDER}.
+            </span>
+          </span>
+          <input
+            className="mt-0.5 shrink-0"
+            type="checkbox"
+            checked={provider === CELESTIN_GEMINI_DOGFOOD_PROVIDER}
+            onChange={(event) => toggleGeminiProvider(event.target.checked)}
+          />
         </label>
       </div>
     </div>

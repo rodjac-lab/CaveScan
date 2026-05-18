@@ -165,31 +165,35 @@ describe('recommendation response contract', () => {
     })).toBe(false)
   })
 
-  it('degrades only closed-choice recommendation contract failures', () => {
+  it('degrades closed-choice recommendation provider failures when backend candidates are available', () => {
     const recommendationContract = 'Recommendation response contract violation: no resolvable ui_action or recommendation_selection'
 
     expect(canDegradeClosedChoiceRecommendation({
       error: contractError([recommendationContract, recommendationContract]),
       v2Plan: closedChoicePlan,
       routingIntent: 'recommendation_request',
+      resolvedSources: recommendationSources(),
     })).toBe(true)
 
     expect(canDegradeClosedChoiceRecommendation({
-      error: contractError([recommendationContract, 'Claude Haiku 4.5 (429): rate limit']),
+      error: contractError(['Unterminated string in JSON at position 14705']),
       v2Plan: closedChoicePlan,
       routingIntent: 'recommendation_request',
+      resolvedSources: recommendationSources(),
     })).toBe(true)
 
     expect(canDegradeClosedChoiceRecommendation({
       error: new CelestinProviderFallbackError([recommendationContract], emptyTrace()),
       v2Plan: closedChoicePlan,
       routingIntent: 'recommendation_request',
-    })).toBe(false)
+      resolvedSources: recommendationSources(),
+    })).toBe(true)
 
     expect(canDegradeClosedChoiceRecommendation({
       error: contractError([recommendationContract]),
       v2Plan: { ...closedChoicePlan, responseMode: 'clarification' },
       routingIntent: 'recommendation_request',
+      resolvedSources: recommendationSources(),
     })).toBe(false)
   })
 

@@ -117,8 +117,8 @@ function responseModeForCapability(input: {
   recommendationReady: boolean
   actionReady: boolean
 }): CelestinResponseMode {
-  if (input.capability !== 'CHAT' && input.confidence < 0.7) return 'clarification'
   if (input.contextPlan.truthPolicy === 'exact_only' || input.contextPlan.truthPolicy === 'memory_only') return 'deterministic'
+  if (input.capability !== 'CHAT' && input.confidence < 0.7) return 'clarification'
   if (input.capability === 'RECOMMEND') return input.recommendationReady ? 'closed_choice' : 'clarification'
   if (input.capability === 'ACTIONS') return input.actionReady ? 'workflow' : 'clarification'
   return 'free_chat'

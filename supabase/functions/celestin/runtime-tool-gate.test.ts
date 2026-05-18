@@ -81,12 +81,27 @@ describe('tool use gate', () => {
   })
 
   it('does not allow non-Claude providers to answer source-required turns without tool adapters', async () => {
-    const { providerCanAnswerWithCurrentTools } = await import('./llm-providers')
+    const { providerCanAnswerWithCurrentTools, providerToolAdapterGateMessage } = await import('./llm-providers')
 
     expect(providerCanAnswerWithCurrentTools('Claude Haiku 4.5', { requireToolUse: true })).toBe(true)
     expect(providerCanAnswerWithCurrentTools('Gemini', { requireToolUse: true })).toBe(false)
     expect(providerCanAnswerWithCurrentTools('GPT-4.1 mini', { forcedToolName: 'query_tastings' })).toBe(false)
     expect(providerCanAnswerWithCurrentTools('Gemini')).toBe(true)
+    expect(providerToolAdapterGateMessage('Gemini 3.1 Flash-Lite stable t0.8')).toContain('CELESTIN_PROVIDER_AGNOSTIC_TOOLS=1')
+  })
+
+  it('allows Gemini source-required turns only when provider tool adapters are explicitly enabled', async () => {
+    const { providerCanAnswerWithCurrentTools } = await import('./llm-providers')
+
+    expect(providerCanAnswerWithCurrentTools('Gemini 3.1 Flash-Lite', {
+      requireToolUse: true,
+      providerToolAdaptersEnabled: true,
+    })).toBe(true)
+
+    expect(providerCanAnswerWithCurrentTools('GPT-4.1 mini', {
+      requireToolUse: true,
+      providerToolAdaptersEnabled: true,
+    })).toBe(false)
   })
 
   it('disables tools for normal source mode when the context plan has no tools', async () => {

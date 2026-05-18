@@ -17,7 +17,9 @@ import {
 import { recordCelestinTiming } from '@/lib/debug/celestinTimings'
 import { recordCelestinClientTiming } from '@/lib/debug/celestinClientTiming'
 import {
+  CELESTIN_GEMINI_DOGFOOD_SOURCE,
   CELESTIN_V2_DOGFOOD_SOURCE,
+  getCelestinDogfoodProvider,
   isCelestinV2DogfoodEnabled,
 } from '@/lib/celestinDogfood'
 import {
@@ -75,6 +77,8 @@ export function useCelestinTurn({
 
       const t0 = performance.now()
       const v2DogfoodEnabled = isCelestinV2DogfoodEnabled()
+      const dogfoodProvider = getCelestinDogfoodProvider()
+      const useDogfoodRuntime = v2DogfoodEnabled || !!dogfoodProvider
       const { body, prepTimings } = await prepareCelestinRequest({
         message,
         image,
@@ -86,8 +90,9 @@ export function useCelestinTurn({
         conversationState: conversationStateRef.current,
         debugTrace: traceEnabled,
         sessionId: sessionIdRef.current,
-        requestSource: v2DogfoodEnabled ? CELESTIN_V2_DOGFOOD_SOURCE : 'chat',
-        orchestrationVersion: v2DogfoodEnabled ? 'v2' : 'v1',
+        requestSource: dogfoodProvider ? CELESTIN_GEMINI_DOGFOOD_SOURCE : v2DogfoodEnabled ? CELESTIN_V2_DOGFOOD_SOURCE : 'chat',
+        orchestrationVersion: useDogfoodRuntime ? 'v2' : 'v1',
+        provider: dogfoodProvider,
       })
       traceBody = body
       const t1 = performance.now()
