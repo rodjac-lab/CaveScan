@@ -122,6 +122,10 @@ async function callGeminiModel(
   history: ConversationTurn[],
   image: string | undefined,
   thinkingConfig: Record<string, unknown>,
+  generationOverrides?: Partial<{
+    temperature: number
+    maxOutputTokens: number
+  }>,
   trace?: CelestinProviderTrace,
 ): Promise<CelestinResponse> {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured')
@@ -140,8 +144,8 @@ async function callGeminiModel(
       systemInstruction: { parts: [{ text: systemPrompt }] },
       contents,
       generationConfig: {
-        temperature: 0.5,
-        maxOutputTokens: 4096,
+        temperature: generationOverrides?.temperature ?? 0.5,
+        maxOutputTokens: generationOverrides?.maxOutputTokens ?? 4096,
         responseMimeType: 'application/json',
         responseSchema: GEMINI_RESPONSE_SCHEMA,
         thinkingConfig,
@@ -176,6 +180,7 @@ async function callGemini(systemPrompt: string, userPrompt: string, history: Con
     history,
     image,
     { thinkingBudget: image ? 1024 : 0 },
+    undefined,
     trace,
   )
 }
@@ -189,6 +194,63 @@ async function callGeminiFlashLite(systemPrompt: string, userPrompt: string, his
     history,
     image,
     { thinkingLevel: 'minimal' },
+    undefined,
+    trace,
+  )
+}
+
+async function callGeminiFlashLiteStable(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
+  return callGeminiModel(
+    'gemini-3.1-flash-lite',
+    'Gemini 3.1 Flash-Lite stable',
+    systemPrompt,
+    userPrompt,
+    history,
+    image,
+    { thinkingLevel: 'minimal' },
+    undefined,
+    trace,
+  )
+}
+
+async function callGeminiFlashLiteStableT08(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
+  return callGeminiModel(
+    'gemini-3.1-flash-lite',
+    'Gemini 3.1 Flash-Lite stable t0.8',
+    systemPrompt,
+    userPrompt,
+    history,
+    image,
+    { thinkingLevel: 'minimal' },
+    { temperature: 0.8 },
+    trace,
+  )
+}
+
+async function callGeminiFlashLiteStableT08Low(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
+  return callGeminiModel(
+    'gemini-3.1-flash-lite',
+    'Gemini 3.1 Flash-Lite stable t0.8 low',
+    systemPrompt,
+    userPrompt,
+    history,
+    image,
+    { thinkingLevel: 'low' },
+    { temperature: 0.8 },
+    trace,
+  )
+}
+
+async function callGeminiFlashLiteStableT10(systemPrompt: string, userPrompt: string, history: ConversationTurn[], image?: string, trace?: CelestinProviderTrace): Promise<CelestinProviderResponse> {
+  return callGeminiModel(
+    'gemini-3.1-flash-lite',
+    'Gemini 3.1 Flash-Lite stable t1.0',
+    systemPrompt,
+    userPrompt,
+    history,
+    image,
+    { thinkingLevel: 'minimal' },
+    { temperature: 1.0 },
     trace,
   )
 }
@@ -202,6 +264,7 @@ async function callGemini3Flash(systemPrompt: string, userPrompt: string, histor
     history,
     image,
     { thinkingLevel: 'minimal' },
+    undefined,
     trace,
   )
 }
@@ -215,6 +278,7 @@ async function callGemini3FlashLow(systemPrompt: string, userPrompt: string, his
     history,
     image,
     { thinkingLevel: 'low' },
+    undefined,
     trace,
   )
 }
@@ -624,6 +688,10 @@ export async function celestinWithFallback(
       claude: { name: 'Claude', call: () => callClaude(systemPrompt, userPrompt, history, image, options, trace) },
       gemini: { name: 'Gemini', call: () => callGemini(systemPrompt, userPrompt, history, image, trace) },
       'gemini-flash-lite': { name: 'Gemini 3.1 Flash-Lite', call: () => callGeminiFlashLite(systemPrompt, userPrompt, history, image, trace) },
+      'gemini-flash-lite-stable': { name: 'Gemini 3.1 Flash-Lite stable', call: () => callGeminiFlashLiteStable(systemPrompt, userPrompt, history, image, trace) },
+      'gemini-flash-lite-stable-t08': { name: 'Gemini 3.1 Flash-Lite stable t0.8', call: () => callGeminiFlashLiteStableT08(systemPrompt, userPrompt, history, image, trace) },
+      'gemini-flash-lite-stable-t08-low': { name: 'Gemini 3.1 Flash-Lite stable t0.8 low', call: () => callGeminiFlashLiteStableT08Low(systemPrompt, userPrompt, history, image, trace) },
+      'gemini-flash-lite-stable-t10': { name: 'Gemini 3.1 Flash-Lite stable t1.0', call: () => callGeminiFlashLiteStableT10(systemPrompt, userPrompt, history, image, trace) },
       'gemini-3-flash': { name: 'Gemini 3 Flash', call: () => callGemini3Flash(systemPrompt, userPrompt, history, image, trace) },
       'gemini-3-flash-low': { name: 'Gemini 3 Flash (low)', call: () => callGemini3FlashLow(systemPrompt, userPrompt, history, image, trace) },
       openai: { name: 'GPT-4.1 mini', call: () => callOpenAI(systemPrompt, userPrompt, history, image, trace) },

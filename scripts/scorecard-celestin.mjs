@@ -31,7 +31,7 @@
  *   node scripts/scorecard-celestin.mjs --quick               # 10 single-turn deterministic (~30s)
  *   node scripts/scorecard-celestin.mjs --auth                # authenticated test account; DB cave/profile/memory
  *   node scripts/scorecard-celestin.mjs --with-judge          # Phase 2: + LLM judge (~5min, ~$0.20)
- *   node scripts/scorecard-celestin.mjs --provider claude     # force a specific provider (gemini|gemini-flash-lite|claude|openai)
+ *   node scripts/scorecard-celestin.mjs --provider claude     # force a specific provider (gemini|gemini-flash-lite|gemini-flash-lite-stable-t08-low|claude|openai)
  *
  * The LLM judge (J1-J5 semantic criteria) is OFF by default — it surfaces drifts
  * that are largely well-known Gemini quirks (lyrism, light parroting on
@@ -77,7 +77,18 @@ function parseFlagValue(name) {
 }
 
 const PROVIDER = parseFlagValue('provider')
-const VALID_PROVIDERS = ['gemini', 'gemini-flash-lite', 'gemini-3-flash', 'gemini-3-flash-low', 'claude', 'openai']
+const VALID_PROVIDERS = [
+  'gemini',
+  'gemini-flash-lite',
+  'gemini-flash-lite-stable',
+  'gemini-flash-lite-stable-t08',
+  'gemini-flash-lite-stable-t08-low',
+  'gemini-flash-lite-stable-t10',
+  'gemini-3-flash',
+  'gemini-3-flash-low',
+  'claude',
+  'openai',
+]
 if (PROVIDER && !VALID_PROVIDERS.includes(PROVIDER)) {
   console.error(`Invalid --provider: ${PROVIDER}. Must be one of: ${VALID_PROVIDERS.join(', ')}`)
   process.exit(1)

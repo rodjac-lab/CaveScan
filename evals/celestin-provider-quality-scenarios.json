@@ -1,0 +1,182 @@
+[
+  {
+    "id": "vague_tonight",
+    "track": "style",
+    "category": "clarification",
+    "message": "Qu'est-ce que j'ouvre ce soir ?",
+    "notes": "Doit demander un peu de contexte sans froideur ni cartes forcees."
+  },
+  {
+    "id": "cheese_board",
+    "track": "style",
+    "category": "pairing",
+    "message": "Je fais un plateau de fromages",
+    "notes": "Verifier le naturel du conseil et la priorite au blanc sans brutalite repetitive."
+  },
+  {
+    "id": "raclette",
+    "track": "shortlist",
+    "category": "pairing",
+    "message": "Ce soir c'est raclette",
+    "notes": "Accord classique : utile pour detecter les tics de ton et les imperatifs."
+  },
+  {
+    "id": "paella",
+    "track": "shortlist",
+    "category": "pairing",
+    "message": "Ce soir paella",
+    "notes": "Cas mixte terre-mer, doit rester nuance."
+  },
+  {
+    "id": "poulet_roti",
+    "track": "shortlist",
+    "category": "recommendation",
+    "message": "Je cherche un vin pour accompagner un poulet rôti.",
+    "notes": "Reco claire avec cartes possibles ; verifier chaleur et concision."
+  },
+  {
+    "id": "pizza_friend",
+    "track": "shortlist",
+    "category": "social_pairing",
+    "message": "Ce soir dîner rapide avec Marc, pizza maison.",
+    "notes": "Contexte social simple, doit rester naturel sans surinterpreter Marc."
+  },
+  {
+    "id": "champagne_to_dish",
+    "track": "style",
+    "category": "reverse_pairing",
+    "message": "J'ai envie d'ouvrir un Champagne, tu ferais quoi à manger avec ?",
+    "notes": "Accord inverse vin -> plat, ne doit pas forcer des cartes cave."
+  },
+  {
+    "id": "fresh_not_thin",
+    "track": "style",
+    "category": "style",
+    "message": "Je veux un truc frais mais pas maigre",
+    "notes": "Demande de style : verifier finesse de comprehension et relance utile."
+  },
+  {
+    "id": "friends_low_wine",
+    "track": "shortlist",
+    "category": "social_pairing",
+    "message": "J'ai des amis qui ne boivent pas beaucoup de vin, tu ouvrirais quoi ?",
+    "notes": "Doit conseiller sans snobisme."
+  },
+  {
+    "id": "sushi_no_red",
+    "track": "shortlist",
+    "category": "pairing",
+    "message": "Un vin pour sushi, mais pas de rouge",
+    "notes": "Cas stress du contrat : doit respecter pas de rouge et gerer l'absence de bonne option."
+  },
+  {
+    "id": "why_white_over_rose",
+    "track": "style",
+    "category": "followup",
+    "message": "Pourquoi blanc plutôt que rosé sur paella ?",
+    "history": [
+      {
+        "role": "user",
+        "content": "Je cherche un vin pour accompagner une paella."
+      },
+      {
+        "role": "assistant",
+        "content": "Pour une paella, je partirais sur un blanc tendu, un rosé structuré ou un rouge très léger. Voici trois pistes pour toi."
+      }
+    ],
+    "notes": "Explication courte, non professorale."
+  },
+  {
+    "id": "thanks",
+    "track": "style",
+    "category": "social_ack",
+    "message": "Merci, parfait",
+    "history": [
+      {
+        "role": "user",
+        "content": "Je cherche un vin pour accompagner une paella."
+      },
+      {
+        "role": "assistant",
+        "content": "Pour une paella, je partirais sur un blanc tendu. Voici deux pistes pour toi."
+      }
+    ],
+    "notes": "Doit rester simple, pas relancer inutilement."
+  },
+  {
+    "id": "user_disagrees",
+    "track": "style",
+    "category": "disagreement",
+    "message": "Je n'aime pas trop ta reco",
+    "history": [
+      {
+        "role": "user",
+        "content": "Ce soir c'est poulet rôti."
+      },
+      {
+        "role": "assistant",
+        "content": "Je partirais sur un Gamay juteux et digeste. Voici deux options dans ta cave."
+      }
+    ],
+    "notes": "Doit accepter le feedback sans defensiveness."
+  },
+  {
+    "id": "what_is_oxidative",
+    "track": "style",
+    "category": "wine_culture",
+    "message": "C'est quoi un vin oxydatif ?",
+    "notes": "Pedagogie courte, chaleureuse, pas trop scolaire."
+  },
+  {
+    "id": "what_is_chenin",
+    "track": "style",
+    "category": "wine_culture",
+    "message": "Au fait, c'est quoi le chenin ?",
+    "notes": "Culture vin basique : bon test de naturel."
+  },
+  {
+    "id": "champagne_vineux",
+    "track": "style",
+    "category": "wine_culture",
+    "message": "Quand je dis Champagne vineux, tu comprends quoi ?",
+    "notes": "Verifier vocabulaire amateur et chaleur."
+  },
+  {
+    "id": "not_tannic",
+    "track": "shortlist",
+    "category": "style",
+    "message": "J'ai envie d'un rouge pas trop tannique",
+    "notes": "Demande exploitable mais ouverte : doit proposer une direction ou cartes selon contexte."
+  },
+  {
+    "id": "casual_apero",
+    "track": "style",
+    "category": "occasion",
+    "message": "On fait un apéro simple à la maison",
+    "notes": "Doit rester convivial, sans sur-prescrire."
+  },
+  {
+    "id": "bottle_to_dish",
+    "track": "style",
+    "category": "reverse_pairing",
+    "message": "Si j'ouvre un Chablis, tu me fais quoi à manger ?",
+    "notes": "Accord inverse simple, sans besoin de tools."
+  },
+  {
+    "id": "short_refinement",
+    "track": "style",
+    "category": "followup",
+    "message": "Plus frais ?",
+    "history": [
+      {
+        "role": "user",
+        "content": "Ce soir c'est pizza."
+      },
+      {
+        "role": "assistant",
+        "content": "Je partirais sur un rouge souple et fruité. Voici deux options dans ta cave."
+      }
+    ],
+    "notes": "Relance courte : doit comprendre le contexte sans repartir a zero."
+  }
+]
